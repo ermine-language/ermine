@@ -34,6 +34,8 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
+import Data.IntMap hiding (map)
+import Data.Map hiding (map)
 import Data.Set hiding (map)
 import Data.Void
 import Ermine.Global
@@ -51,7 +53,6 @@ data HardT
 
 newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-
 
 liftTK :: Type k a -> TK k a
 liftTK = TK . first (F . return)
@@ -96,6 +97,7 @@ hoistScope t (Scope b) = Scope $ t (fmap t <$> b)
 bitraverseScope :: (Bitraversable t, Applicative f) => (k -> f k') -> (a -> f a') -> Scope b (t k) a -> f (Scope b (t k') a')
 bitraverseScope f g = fmap Scope . bitraverse f (traverse (bitraverse f g)) . unscope
 
+
 data Type k a
   = VarT a
   | AppT !(Type k a) !(Type k a)
@@ -103,6 +105,7 @@ data Type k a
   | ForallT !Int [Scope Int Kind k] (Scope Int (TK k) a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
 
 instance Bifunctor Type where
   bimap = bimapDefault
@@ -146,3 +149,20 @@ instance Monad (Type k) where
   return = VarT
   m >>= g = bindT VarK g m
 
+class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
+  typeVars :: Traversal s t a b
+
+instance HasTypeVars (Type k a) (Type k b) a b where
+  typeVars = traverse
+
+instance HasTypeVars s t a b => HasTypeVars [s] [t] a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars (TK k a) (TK k b) a b where
+  typeVars = traverse
