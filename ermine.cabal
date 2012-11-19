@@ -1,0 +1,49 @@
+name:          ermine
+category:      Compiler
+version:       0.6
+license:       BSD3
+cabal-version: >= 1.6
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/ermine
+bug-reports:   http://github.com/ekmett/ermine/issues
+copyright:     Copyright (C) 2010-2012 S&P Capital IQ
+synopsis:      Ermine
+description:   Ermine
+build-type:    Simple
+extra-source-files: .travis.yml
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/ermine.git
+
+library
+  other-extensions: CPP
+
+  build-depends:
+    base           >= 4       && < 5,
+    binary         == 0.5.*,
+    bound          == 0.5.*,
+    bytestring     == 0.10.*,
+    containers     >= 0.3     && < 0.6,
+    data-default   == 0.4.*,
+    hashable       == 1.1.*,
+    lens           >= 3.3     && < 3.5,
+    prelude-extras == 0.2.*,
+    semigroups     >= 0.8.3   && < 0.9,
+    time           == 1.4.*,
+    transformers   >= 0.2     && < 0.4
+
+  exposed-modules:
+    Ermine.Core
+    Ermine.Digest
+    Ermine.Global
+    Ermine.Kind
+
+  ghc-options: -Wall
+
+  includes:        openssl/md5.h
+  extra-libraries: crypto
+  ghc-options:     -Wall
