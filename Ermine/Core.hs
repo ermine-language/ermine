@@ -26,19 +26,18 @@ module Ermine.Core
 import Bound
 import Control.Applicative
 import Control.Monad
+import Data.ByteString.Char8 hiding (elemIndex, map, cons, foldr)
 import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
 import Data.Traversable
 import Data.Data hiding (Fixity, Infix)
+import Ermine.Global
 import Prelude.Extras
 import Prelude hiding (foldr)
 
-data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)
-data Fixity = Infix Assoc !Int | Prefix !Int | Postfix !Int | Idfix deriving (Eq,Ord,Show,Read,Data,Typeable)
-
 data Con
-  = Con Fixity String String
+  = Con !Global
   | Product !Int
   | Int     !Int
   | Int64   !Int64
@@ -48,19 +47,22 @@ data Con
   | Char    !Char
   | Float   !Float
   | Double  !Double
-  deriving (Eq,Ord,Show,Read,Data,Typeable)
+  deriving (Eq,Ord,Show,Data,Typeable)
+
+con :: Fixity -> String -> String -> Con
+con f m n = Con (global f (pack "ermine") (pack m) (pack n))
 
 cons :: Core a -> Core a -> Core a
-cons a as = Prim (Con (Infix R 5) "Builtin" ":") [a,as]
+cons a as = Prim (con (Infix R 5) "Builtin" ":") [a,as]
 
 nil :: Core a
-nil = Prim (Con Idfix "Builtin" "Nil") []
+nil = Prim (con Idfix "Builtin" "Nil") []
 
 just :: Core a -> Core a
-just a = Prim (Con Idfix "Builtin" "Just") [a]
+just a = Prim (con Idfix "Builtin" "Just") [a]
 
 nothing :: Core a
-nothing = Prim (Con Idfix "Builtin" "Nothing") []
+nothing = Prim (con Idfix "Builtin" "Nothing") []
 
 class Lit a where
   lit  :: a   -> Core b
@@ -88,7 +90,7 @@ data Core a
   | Lam Pat (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
   | Case (Core a) [Alt Core a]
-  deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 instance Applicative Core where
   pure = Var
@@ -106,23 +108,22 @@ instance Monad Core where
 instance Eq1   Core where (==#) = (==)
 instance Ord1  Core where compare1 = compare
 instance Show1 Core where showsPrec1 = showsPrec
-instance Read1 Core where readsPrec1 = readsPrec
 
 data Pat
   = VarP
   | WildP
   | AsP Pat
   | ConP Con [Pat]
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show)
 
 data Alt f a = Alt Pat (Scope Int f a)
-  deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 instance Bound Alt where
   Alt p b >>>= f = Alt p (b >>>= f)
 
 -- ** smart patterns
-data P a = P { pattern :: Pat, bindings :: [a] } deriving (Show,Read)
+data P a = P { pattern :: Pat, bindings :: [a] } deriving Show
 
 varp :: a -> P a
 varp a = P VarP [a]

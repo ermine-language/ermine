@@ -12,8 +12,11 @@
 module Ermine.Global
   ( Global(Global)
   , global
+  , Assoc(..)
+  , Fixity(..)
   -- * Lenses
-  , globalDigest
+  , globalDigest -- only a getter
+  , globalFixity
   , globalPackage
   , globalModule
   , globalName
@@ -27,8 +30,21 @@ import Data.ByteString
 import Data.ByteString.Char8 as Char8
 import Ermine.Digest
 
+data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)
+
+data Fixity
+  = Infix !Assoc !Int
+  | Prefix !Int
+  | Postfix !Int
+  | Idfix
+  deriving (Eq,Ord,Show,Read,Data,Typeable)
+
+instance MD5 Assoc
+instance MD5 Fixity
+
 data Global = Global
   { _globalDigest   :: {-# UNPACK #-} !Digest
+  , _globalFixity   :: !Fixity
   , _globalPackage  :: !ByteString
   , _globalModule   :: !ByteString
   , _globalName     :: !ByteString
@@ -36,22 +52,26 @@ data Global = Global
 
 globalDigest :: Getter Global Digest
 globalDigest = to _globalDigest
+
+globalFixity :: Simple Lens Global Fixity
+globalFixity f (Global _ a p m n) = (\a' -> global a' p m n) <$> f a
+
 globalPackage, globalModule, globalName :: Simple Lens Global ByteString
-globalPackage f (Global _ p m n) = (\p' -> global p' m n) <$> f p
-globalModule f (Global _ p m n) = (\m' -> global p m' n) <$> f m
-globalName f (Global _ p m n) = global p m <$> f n
+globalPackage f (Global _ a p m n) = (\p' -> global a p' m n) <$> f p
+globalModule f (Global _ a p m n) = (\m' -> global a p m' n) <$> f m
+globalName f (Global _ a p m n) = global a p m <$> f n
 
 instance Eq Global where
-  a == b = _globalDigest a == _globalDigest b
+  a == b = digest a == digest b
 
 instance Ord Global where
-  compare a b = _globalDigest a `compare` _globalDigest b
+  compare a b = digest a `compare` digest b
 
 instance MD5 Global where
   digest = _globalDigest
 
 instance Hashable Global where
-  hashWithSalt s c = hashWithSalt s (_globalDigest c)
+  hashWithSalt s c = hashWithSalt s (digest c)
 
-global :: ByteString -> ByteString -> ByteString -> Global
-global p m n = Global (digest (Char8.unwords [p, m, n])) p m n
+global :: Fixity -> ByteString -> ByteString -> ByteString -> Global
+global f p m n = Global (digest (Char8.unwords [Char8.pack (show f), p, m, n])) f p m n

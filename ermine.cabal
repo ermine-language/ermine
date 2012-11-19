@@ -24,6 +24,7 @@ library
 
   build-depends:
     base           >= 4       && < 5,
+    bifunctors     == 3.0.*,
     binary         == 0.5.*,
     bound          == 0.5.*,
     bytestring     == 0.10.*,
@@ -35,7 +36,8 @@ library
     prelude-extras == 0.2.*,
     semigroups     >= 0.8.3   && < 0.9,
     time           == 1.4.*,
-    transformers   >= 0.2     && < 0.4
+    transformers   >= 0.2     && < 0.4,
+    void           == 0.5.*
 
   exposed-modules:
     Ermine.Core
@@ -43,9 +45,10 @@ library
     Ermine.Global
     Ermine.Kind
     Ermine.Meta
+    Ermine.Type
 
   ghc-options: -Wall
 
   includes:        openssl/md5.h
   extra-libraries: crypto
-  ghc-options:     -Wall
+  ghc-options:     -Wall -funbox-strict-fields

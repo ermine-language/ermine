@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 --------------------------------------------------------------------
@@ -85,6 +86,8 @@ instance MD5List Char where
 
 class MD5 t where
   digest :: t -> Digest
+  default digest :: Show t => t -> Digest
+  digest = digest . show
 
 instance MD5List t => MD5 [t] where
   digest = digestList
