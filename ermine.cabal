@@ -45,6 +45,7 @@ library
     Ermine.Global
     Ermine.Kind
     Ermine.Meta
+    Ermine.Scope
     Ermine.Type
 
   ghc-options: -Wall

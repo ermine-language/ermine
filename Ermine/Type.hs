@@ -17,7 +17,7 @@
 -- Portability: non-portable (DeriveDataTypeable)
 --------------------------------------------------------------------
 module Ermine.Type
-  ( FieldName, HardT(..)
+  ( FieldName, HardType(..)
   , TK(..)
   , abstractKinds
   , instantiateKinds
@@ -40,16 +40,86 @@ import Data.Set hiding (map)
 import Data.Void
 import Ermine.Global
 import Ermine.Kind
+import Ermine.Scope
 import Prelude.Extras
 
 type FieldName = String
 
-data HardT
+data HardType
   = TupleT {-# UNPACK #-} !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
   | ArrowT -- (->) :: * -> * -> *
   | ConT !Global (KindSchema Void)
   | ConcreteRho (Set FieldName)
   deriving (Eq, Ord, Show)
+
+
+data Type k a
+  = Var a
+  | App !(Type k a) !(Type k a)
+  | HardType HardType
+  | Forall !Int [Scope Int Kind k] (Scope Int (TK k) a)
+  | Exists [Kind k] [Scope Int (Type k) a]
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Bifunctor Type where
+  bimap = bimapDefault
+
+instance Bifoldable Type where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Type where
+  bitraverse _ g (Var a) = Var <$> g a
+  bitraverse f g (App l r) = App <$> bitraverse f g l <*> bitraverse f g r
+  bitraverse _ _ (HardType t) = pure $ HardType t
+  bitraverse f g (Forall n ks b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope f g b
+  bitraverse f g (Exists ks cs) = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+
+instance HasKindVars (Type k a) (Type k' a) k k' where
+  kindVars f = bitraverse f pure
+
+instance Eq k => Eq1 (Type k) where (==#) = (==)
+instance Ord k => Ord1 (Type k) where compare1 = compare
+instance Show k => Show1 (Type k) where showsPrec1 = showsPrec
+
+instance Eq2 Type where (==##) = (==)
+instance Ord2 Type where compare2 = compare
+instance Show2 Type where showsPrec2 = showsPrec
+
+bindK :: (k -> Kind k') -> Type k a -> Type k' a
+bindK f = bindT f Var
+
+bindT :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
+bindT _ g (Var a)          = g a
+bindT f g (App l r)        = App (bindT f g l) (bindT f g r)
+bindT _ _ (HardType t)         = HardType t
+bindT f g (Forall n tks b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) b >>>= liftTK . g)
+bindT f g (Exists ks cs)    = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindK f) c >>>= g) cs)
+
+instance Applicative (Type k) where
+  pure = Var
+  (<*>) = ap
+
+instance Monad (Type k) where
+  return = Var
+  m >>= g = bindT VarK g m
+
+class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
+  typeVars :: Traversal s t a b
+
+instance HasTypeVars (Type k a) (Type k b) a b where
+  typeVars = traverse
+
+instance HasTypeVars s t a b => HasTypeVars [s] [t] a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
+  typeVars = traverse.typeVars
+
+instance HasTypeVars (TK k a) (TK k b) a b where
+  typeVars = traverse
 
 newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
@@ -61,7 +131,7 @@ bindTK :: (k -> Kind k') -> TK k a -> TK k' a
 bindTK f = TK . bindK (return . fmap (>>= f)) . runTK
 
 instance Monad (TK k) where
-  return = TK . VarT
+  return = TK . Var
   TK t >>= f = TK (t >>= runTK . f)
 
 instance Bifunctor TK where
@@ -90,79 +160,3 @@ instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
 instantiateKinds k (TK e) = bindK go e where
   go (B b) = k b
   go (F a) = a
-
-hoistScope :: Functor f => (forall x. f x -> g x) -> Scope b f a -> Scope b g a
-hoistScope t (Scope b) = Scope $ t (fmap t <$> b)
-
-bitraverseScope :: (Bitraversable t, Applicative f) => (k -> f k') -> (a -> f a') -> Scope b (t k) a -> f (Scope b (t k') a')
-bitraverseScope f g = fmap Scope . bitraverse f (traverse (bitraverse f g)) . unscope
-
-
-data Type k a
-  = VarT a
-  | AppT !(Type k a) !(Type k a)
-  | HardT HardT
-  | ForallT !Int [Scope Int Kind k] (Scope Int (TK k) a)
-  | Exists [Kind k] [Scope Int (Type k) a]
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-
-
-instance Bifunctor Type where
-  bimap = bimapDefault
-
-instance Bifoldable Type where
-  bifoldMap = bifoldMapDefault
-
-instance Bitraversable Type where
-  bitraverse _ g (VarT a) = VarT <$> g a
-  bitraverse f g (AppT l r) = AppT <$> bitraverse f g l <*> bitraverse f g r
-  bitraverse _ _ (HardT t) = pure $ HardT t
-  bitraverse f g (ForallT n ks b) = ForallT n <$> traverse (traverse f) ks <*> bitraverseScope f g b
-  bitraverse f g (Exists ks cs) = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
-
-instance HasKindVars (Type k a) (Type k' a) k k' where
-  kindVars f = bitraverse f pure
-
-instance Eq k => Eq1 (Type k) where (==#) = (==)
-instance Ord k => Ord1 (Type k) where compare1 = compare
-instance Show k => Show1 (Type k) where showsPrec1 = showsPrec
-
-instance Eq2 Type where (==##) = (==)
-instance Ord2 Type where compare2 = compare
-instance Show2 Type where showsPrec2 = showsPrec
-
-bindK :: (k -> Kind k') -> Type k a -> Type k' a
-bindK f = bindT f VarT
-
-bindT :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
-bindT _ g (VarT a)          = g a
-bindT f g (AppT l r)        = AppT (bindT f g l) (bindT f g r)
-bindT _ _ (HardT t)         = HardT t
-bindT f g (ForallT n tks b) = ForallT n (map (>>>= f) tks) (hoistScope (bindTK f) b >>>= liftTK . g)
-bindT f g (Exists ks cs)    = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindK f) c >>>= g) cs)
-
-instance Applicative (Type k) where
-  pure = VarT
-  (<*>) = ap
-
-instance Monad (Type k) where
-  return = VarT
-  m >>= g = bindT VarK g m
-
-class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
-  typeVars :: Traversal s t a b
-
-instance HasTypeVars (Type k a) (Type k b) a b where
-  typeVars = traverse
-
-instance HasTypeVars s t a b => HasTypeVars [s] [t] a b where
-  typeVars = traverse.typeVars
-
-instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
-  typeVars = traverse.typeVars
-
-instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
-  typeVars = traverse.typeVars
-
-instance HasTypeVars (TK k a) (TK k b) a b where
-  typeVars = traverse
