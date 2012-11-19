@@ -88,7 +88,7 @@ instance HasKindVars s t a b => HasKindVars [s] [t] a b where
 instance HasKindVars s t a b => HasKindVars (IntMap s) (IntMap t) a b where
   kindVars = traverse.kindVars
 
-instance (Ord k, HasKindVars s t a b) => HasKindVars (Map k s) (Map k t) a b where
+instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
   kindVars = traverse.kindVars
 
 data KindSchema a = ForallK !Int !(Scope Int Kind a)
