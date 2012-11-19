@@ -65,10 +65,15 @@ instance Ord k => Ord1 (TK k) where compare1 = compare
 instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
 
 abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
-abstractKinds = error "TODO"
+abstractKinds f t = TK (first k t) where
+  k y = case f y of
+    Just z -> B z
+    Nothing -> F (return y)
 
-instantiateKinds :: (Int -> Kind a) -> TK k a -> Type k a
-instantiateKinds = error "TODO"
+instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
+instantiateKinds k (TK e) = bindK go e where
+  go (B b) = k b
+  go (F a) = a
 
 hoistScope :: Functor f => (forall x. f x -> g x) -> Scope b f a -> Scope b g a
 hoistScope t (Scope b) = Scope $ t (fmap t <$> b)
