@@ -31,6 +31,7 @@ library
     data-default   == 0.4.*,
     hashable       == 1.1.*,
     lens           >= 3.3     && < 3.5,
+    mtl            >= 2.1.2   && < 2.2,
     prelude-extras == 0.2.*,
     semigroups     >= 0.8.3   && < 0.9,
     time           == 1.4.*,
@@ -41,6 +42,7 @@ library
     Ermine.Digest
     Ermine.Global
     Ermine.Kind
+    Ermine.Meta
 
   ghc-options: -Wall
 
