@@ -31,6 +31,8 @@ import Control.Lens
 import Control.Applicative
 import Control.Monad (ap)
 import Data.Bifunctor
+import Data.Bifoldable
+import Data.Bitraversable
 import Data.Foldable
 import Data.Set hiding (map)
 import Data.Void
@@ -50,6 +52,7 @@ data HardT
 newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+
 liftTK :: Type k a -> TK k a
 liftTK = TK . first (F . return)
 
@@ -59,6 +62,18 @@ bindTK f = TK . bindK (return . fmap (>>= f)) . runTK
 instance Monad (TK k) where
   return = TK . VarT
   TK t >>= f = TK (t >>= runTK . f)
+
+instance Bifunctor TK where
+  bimap f g = TK . bimap (fmap (fmap f)) g . runTK
+
+instance Bifoldable TK where
+  bifoldMap f g = bifoldMap (foldMap (foldMap f)) g . runTK
+
+instance Bitraversable TK where
+  bitraverse f g = fmap TK . bitraverse (traverse (traverse f)) g . runTK
+
+instance HasKindVars (TK k a) (TK k' a) k k' where
+  kindVars f = bitraverse f pure
 
 instance Eq k => Eq1 (TK k) where (==#) = (==)
 instance Ord k => Ord1 (TK k) where compare1 = compare
@@ -78,6 +93,9 @@ instantiateKinds k (TK e) = bindK go e where
 hoistScope :: Functor f => (forall x. f x -> g x) -> Scope b f a -> Scope b g a
 hoistScope t (Scope b) = Scope $ t (fmap t <$> b)
 
+bitraverseScope :: (Bitraversable t, Applicative f) => (k -> f k') -> (a -> f a') -> Scope b (t k) a -> f (Scope b (t k') a')
+bitraverseScope f g = fmap Scope . bitraverse f (traverse (bitraverse f g)) . unscope
+
 data Type k a
   = VarT a
   | AppT !(Type k a) !(Type k a)
@@ -87,7 +105,20 @@ data Type k a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Type where
-  bimap f g = bindT (VarK . f) (VarT . g)
+  bimap = bimapDefault
+
+instance Bifoldable Type where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Type where
+  bitraverse _ g (VarT a) = VarT <$> g a
+  bitraverse f g (AppT l r) = AppT <$> bitraverse f g l <*> bitraverse f g r
+  bitraverse _ _ (HardT t) = pure $ HardT t
+  bitraverse f g (ForallT n ks b) = ForallT n <$> traverse (traverse f) ks <*> bitraverseScope f g b
+  bitraverse f g (Exists ks cs) = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+
+instance HasKindVars (Type k a) (Type k' a) k k' where
+  kindVars f = bitraverse f pure
 
 instance Eq k => Eq1 (Type k) where (==#) = (==)
 instance Ord k => Ord1 (Type k) where compare1 = compare
