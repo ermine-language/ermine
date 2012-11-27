@@ -46,12 +46,11 @@ import Prelude.Extras
 type FieldName = String
 
 data HardType
-  = TupleT {-# UNPACK #-} !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
-  | ArrowT -- (->) :: * -> * -> *
+  = TupleT !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
+  | ArrowT      -- (->) :: * -> * -> *
   | ConT !Global (KindSchema Void)
   | ConcreteRho (Set FieldName)
   deriving (Eq, Ord, Show)
-
 
 data Type k a
   = Var a

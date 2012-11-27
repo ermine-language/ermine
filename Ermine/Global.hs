@@ -43,7 +43,7 @@ instance MD5 Assoc
 instance MD5 Fixity
 
 data Global = Global
-  { _globalDigest   :: {-# UNPACK #-} !Digest
+  { _globalDigest   :: !Digest
   , _globalFixity   :: !Fixity
   , _globalPackage  :: !ByteString
   , _globalModule   :: !ByteString

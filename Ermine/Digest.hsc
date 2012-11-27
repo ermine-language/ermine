@@ -32,7 +32,7 @@ import qualified Data.ByteString.Unsafe as Strict
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
 
-data Digest = Digest {-# UNPACK #-} !Word64 {-# UNPACK #-} !Word64
+data Digest = Digest !Word64 !Word64
   deriving (Show, Eq, Ord, Data, Typeable)
 
 instance Default Digest where
