@@ -4,7 +4,6 @@ module Ermine.Core
   ( Core(..)
   , Assoc(..)
   , Fixity(..)
-  , Con(..)
   , Lit(..)
   , Pat(..)
   , Alt(..)
@@ -13,7 +12,7 @@ module Ermine.Core
   , varp
   , wildp
   , asp
-  , conp
+  , primp
   -- * Smart constructors
   , lam
   , let_
@@ -32,37 +31,22 @@ import Data.List hiding (foldr)
 import Data.Foldable
 import Data.Traversable
 import Data.Data hiding (Fixity, Infix)
+import Ermine.Prim
 import Ermine.Global
 import Prelude.Extras
 import Prelude hiding (foldr)
 
-data Con
-  = Con !Global
-  | Product !Int
-  | Int     !Int
-  | Int64   !Int64
-  | Byte    !Int8
-  | Short   !Int16
-  | String  String
-  | Char    !Char
-  | Float   !Float
-  | Double  !Double
-  deriving (Eq,Ord,Show,Data,Typeable)
-
-con :: Fixity -> String -> String -> Con
-con f m n = Con (global f (pack "ermine") (pack m) (pack n))
-
 cons :: Core a -> Core a -> Core a
-cons a as = Prim (con (Infix R 5) "Builtin" ":") [a,as]
+cons a as = Prim (prim (Infix R 5) "Builtin" ":") [a,as]
 
 nil :: Core a
-nil = Prim (con Idfix "Builtin" "Nil") []
+nil = Prim (prim Idfix "Builtin" "Nil") []
 
 just :: Core a -> Core a
-just a = Prim (con Idfix "Builtin" "Just") [a]
+just a = Prim (prim Idfix "Builtin" "Just") [a]
 
 nothing :: Core a
-nothing = Prim (con Idfix "Builtin" "Nothing") []
+nothing = Prim (prim Idfix "Builtin" "Nothing") []
 
 class Lit a where
   lit  :: a   -> Core b
@@ -85,12 +69,12 @@ instance Lit a => Lit (Maybe a) where
 
 data Core a
   = Var a
-  | Prim Con [Core a]
+  | Prim Prim [Core a]
   | Core a :@ Core a
   | Lam Pat (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
   | Case (Core a) [Alt Core a]
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Applicative Core where
   pure = Var
@@ -106,14 +90,13 @@ instance Monad Core where
   Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
 
 instance Eq1   Core where (==#) = (==)
-instance Ord1  Core where compare1 = compare
 instance Show1 Core where showsPrec1 = showsPrec
 
 data Pat
   = VarP
   | WildP
   | AsP Pat
-  | ConP Con [Pat]
+  | PrimP Prim [Pat]
   deriving (Eq,Ord,Show)
 
 data Alt f a = Alt Pat (Scope Int f a)
@@ -134,8 +117,8 @@ wildp = P WildP []
 asp :: a -> P a -> P a
 asp a (P p as) = P (AsP p) (a:as)
 
-conp :: Con -> [P a] -> P a
-conp g ps = P (ConP g (map pattern ps)) (ps >>= bindings)
+primp :: Prim -> [P a] -> P a
+primp g ps = P (PrimP g (map pattern ps)) (ps >>= bindings)
 
 -- | smart lam constructor
 lam :: Eq a => P a -> Core a -> Core a

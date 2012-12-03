@@ -37,6 +37,7 @@ library
     semigroups     >= 0.8.3   && < 0.9,
     time           == 1.4.*,
     transformers   >= 0.2     && < 0.4,
+    trifecta       == 0.53.*,
     void           == 0.5.*
 
   exposed-modules:
@@ -44,8 +45,12 @@ library
     Ermine.Digest
     Ermine.Global
     Ermine.Kind
+    Ermine.Mangled
     Ermine.Meta
+    Ermine.Prim
     Ermine.Scope
+    Ermine.Term
+    Ermine.Trifunctor
     Ermine.Type
 
   ghc-options: -Wall

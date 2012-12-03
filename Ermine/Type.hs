@@ -9,21 +9,22 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Kind
+-- Module    :  Ermine.Type
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
--- Portability: non-portable (DeriveDataTypeable)
+-- Portability: non-portable
 --------------------------------------------------------------------
 module Ermine.Type
-  ( FieldName, HardType(..)
+  ( FieldName
+  , HardType(..)
+  , Type(..)
   , TK(..)
   , abstractKinds
   , instantiateKinds
-  , hoistScope
-  , bindK
-  , bindT
+  , bindType
+  , HasTypeVars(..)
   ) where
 
 import Bound
@@ -39,26 +40,60 @@ import Data.Map hiding (map)
 import Data.Set hiding (map)
 import Data.Void
 import Ermine.Global
-import Ermine.Kind
+import Ermine.Kind hiding (Var)
+import qualified Ermine.Kind as Kind
 import Ermine.Scope
 import Prelude.Extras
+import Text.Trifecta.Diagnostic.Rendering.Prim
 
 type FieldName = String
 
 data HardType
-  = TupleT !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
-  | ArrowT      -- (->) :: * -> * -> *
-  | ConT !Global (KindSchema Void)
+  = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
+  | Arrow      -- (->) :: * -> * -> *
+  | Con !Global (Schema Void)
   | ConcreteRho (Set FieldName)
   deriving (Eq, Ord, Show)
+
+class Typical t where
+  hardType :: HardType -> t
+
+  tuple :: Int -> t
+  tuple = hardType . Tuple
+
+  arrow :: t
+  arrow = hardType Arrow
+
+  con :: Global -> Schema Void -> t
+  con g k = hardType (Con g k)
+
+  concreteRho :: Set FieldName -> t
+  concreteRho s = hardType (ConcreteRho s)
+
+instance Typical HardType where
+  hardType = id
 
 data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
   | HardType HardType
   | Forall !Int [Scope Int Kind k] (Scope Int (TK k) a)
+  | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  deriving (Show, Functor, Foldable, Traversable)
+
+instance Typical (Type k a) where
+  hardType = HardType
+
+instance (Eq k, Eq a) => Eq (Type k a) where
+  Loc _ l       == r                = l == r
+  l             == Loc _ r          = l == r
+  Var a         == Var b            = a == b
+  App l r       == App l' r'        = l == l' && r == r'
+  HardType x    == HardType y       = x == y
+  Forall n ks b == Forall n' ks' b' = n == n' && ks == ks' && b == b'
+  Exists ks cs  == Exists ks' cs'   = ks == ks' && cs == cs'
+  _             == _                = False
 
 instance Bifunctor Type where
   bimap = bimapDefault
@@ -67,32 +102,29 @@ instance Bifoldable Type where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Type where
-  bitraverse _ g (Var a) = Var <$> g a
-  bitraverse f g (App l r) = App <$> bitraverse f g l <*> bitraverse f g r
-  bitraverse _ _ (HardType t) = pure $ HardType t
+  bitraverse _ g (Var a)         = Var <$> g a
+  bitraverse f g (App l r)       = App <$> bitraverse f g l <*> bitraverse f g r
+  bitraverse _ _ (HardType t)    = pure $ HardType t
   bitraverse f g (Forall n ks b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope f g b
-  bitraverse f g (Exists ks cs) = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+  bitraverse f g (Loc r as)      = Loc r <$> bitraverse f g as
+  bitraverse f g (Exists ks cs)  = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
 
 instance Eq k => Eq1 (Type k) where (==#) = (==)
-instance Ord k => Ord1 (Type k) where compare1 = compare
 instance Show k => Show1 (Type k) where showsPrec1 = showsPrec
 
 instance Eq2 Type where (==##) = (==)
-instance Ord2 Type where compare2 = compare
 instance Show2 Type where showsPrec2 = showsPrec
 
-bindK :: (k -> Kind k') -> Type k a -> Type k' a
-bindK f = bindT f Var
-
-bindT :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
-bindT _ g (Var a)          = g a
-bindT f g (App l r)        = App (bindT f g l) (bindT f g r)
-bindT _ _ (HardType t)         = HardType t
-bindT f g (Forall n tks b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) b >>>= liftTK . g)
-bindT f g (Exists ks cs)    = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindK f) c >>>= g) cs)
+bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
+bindType _ g (Var a)          = g a
+bindType f g (App l r)        = App (bindType f g l) (bindType f g r)
+bindType _ _ (HardType t)     = HardType t
+bindType f g (Forall n tks b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) b >>>= liftTK . g)
+bindType f g (Loc r as)       = Loc r (bindType f g as)
+bindType f g (Exists ks cs)   = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindType f Var) c >>>= g) cs)
 
 instance Applicative (Type k) where
   pure = Var
@@ -100,7 +132,7 @@ instance Applicative (Type k) where
 
 instance Monad (Type k) where
   return = Var
-  m >>= g = bindT VarK g m
+  m >>= g = bindType Kind.Var g m
 
 class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
   typeVars :: Traversal s t a b
@@ -121,13 +153,13 @@ instance HasTypeVars (TK k a) (TK k b) a b where
   typeVars = traverse
 
 newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 liftTK :: Type k a -> TK k a
 liftTK = TK . first (F . return)
 
 bindTK :: (k -> Kind k') -> TK k a -> TK k' a
-bindTK f = TK . bindK (return . fmap (>>= f)) . runTK
+bindTK f = TK . bindType (return . fmap (>>= f)) Var . runTK
 
 instance Monad (TK k) where
   return = TK . Var
@@ -146,7 +178,6 @@ instance HasKindVars (TK k a) (TK k' a) k k' where
   kindVars f = bitraverse f pure
 
 instance Eq k => Eq1 (TK k) where (==#) = (==)
-instance Ord k => Ord1 (TK k) where compare1 = compare
 instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
 
 abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
@@ -156,6 +187,6 @@ abstractKinds f t = TK (first k t) where
     Nothing -> F (return y)
 
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
-instantiateKinds k (TK e) = bindK go e where
+instantiateKinds k (TK e) = bindType go Var e where
   go (B b) = k b
   go (F a) = a
