@@ -31,17 +31,13 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
-import Data.Set hiding (map)
-import Data.Void
-import Ermine.Global
 import Ermine.Kind hiding (Var)
-import qualified Ermine.Kind as Kind
 import Ermine.Prim
 import Ermine.Scope
-import Ermine.Trifunctor
-import Ermine.Type hiding (Var)
+import Ermine.Type hiding (Var, Loc)
 import qualified Ermine.Type as Type
 import Prelude.Extras
+import Text.Trifecta.Diagnostic.Rendering.Prim
 
 data Pat t
   = VarP
@@ -50,6 +46,7 @@ data Pat t
   | StrictP (Pat t)
   | LazyP (Pat t)
   | PrimP Prim [Pat t]
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data HardTerm
   = Prim Prim
@@ -69,7 +66,7 @@ data Term t a
   deriving (Show, Functor, Foldable, Traversable)
 
 data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Alt where
   bimap = bimapDefault
@@ -92,10 +89,17 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   Lam p b      == Lam p' b'    = p == p' && b == b'
   HardTerm t   == HardTerm t'  = t == t'
   Case b as    == Case b' as'  = b == b' && as == as'
+  _            == _            = False
+
+instance Bifunctor Term where
+  bimap = bimapDefault
+
+instance Bifoldable Term where
+  bifoldMap = bifoldMapDefault
 
 instance Bitraversable Term where
   bitraverse f g  t0 = tm t0 where
-    pt = bitraverse f
+    pt = traverse f
     stm = bitraverseScope f g
     tm (Var a)        = Var <$> g a
     tm (Sig e t)      = Sig <$> tm e <*> f t
