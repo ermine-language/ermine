@@ -47,6 +47,7 @@ library
     Ermine.Kind
     Ermine.Mangled
     Ermine.Meta
+    Ermine.Pat
     Ermine.Prim
     Ermine.Scope
     Ermine.Term

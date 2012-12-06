@@ -10,7 +10,9 @@ module Ermine.Core
   -- * Smart patterns
   , P
   , varp
-  , wildp
+  , _p
+  , strictp
+  , lazyp
   , asp
   , primp
   -- * Smart constructors
@@ -29,6 +31,7 @@ import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
 import Data.Traversable
+import Ermine.Pat
 import Ermine.Prim
 import Ermine.Global
 import Prelude.Extras
@@ -69,7 +72,7 @@ data Core a
   = Var a
   | Prim Prim [Core a]
   | Core a :@ Core a
-  | Lam Pat (Scope Int Core a)
+  | Lam (Pat ()) (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
   | Case (Core a) [Alt Core a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
@@ -90,27 +93,26 @@ instance Monad Core where
 instance Eq1   Core where (==#) = (==)
 instance Show1 Core where showsPrec1 = showsPrec
 
-data Pat
-  = VarP
-  | WildP
-  | AsP Pat
-  | PrimP Prim [Pat]
-  deriving (Eq,Ord,Show)
-
-data Alt f a = Alt Pat (Scope Int f a)
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+data Alt f a = Alt (Pat ()) (Scope Int f a)
+  deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Bound Alt where
   Alt p b >>>= f = Alt p (b >>>= f)
 
 -- ** smart patterns
-data P a = P { pattern :: Pat, bindings :: [a] } deriving Show
+data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
 
 varp :: a -> P a
 varp a = P VarP [a]
 
-wildp :: P a
-wildp = P WildP []
+_p :: P a
+_p = P WildcardP []
+
+strictp :: P a -> P a
+strictp (P p bs) = P (StrictP p) bs
+
+lazyp :: P a -> P a
+lazyp (P p bs) = P (LazyP p) bs
 
 asp :: a -> P a -> P a
 asp a (P p as) = P (AsP p) (a:as)

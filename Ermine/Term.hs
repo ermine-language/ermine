@@ -32,20 +32,12 @@ import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Ermine.Kind hiding (Var)
+import Ermine.Pat
 import Ermine.Prim
 import Ermine.Scope
 import Ermine.Type hiding (Var,Loc)
 import Prelude.Extras
 import Text.Trifecta.Diagnostic.Rendering.Prim
-
-data Pat t
-  = VarP
-  | SigP t
-  | WildcardP
-  | StrictP (Pat t)
-  | LazyP (Pat t)
-  | PrimP Prim [Pat t]
-  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data HardTerm
   = Prim Prim
