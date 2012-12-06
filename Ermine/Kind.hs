@@ -38,6 +38,7 @@ import Data.Map
 
 infixr 0 :->
 
+-- | Kinds that can be compared by simple structural equality
 data HardKind
   = Star
   | Constraint
@@ -45,6 +46,7 @@ data HardKind
   | Phi
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable)
 
+-- | Smart constructor for hard kinds
 class Kindly k where
   hardKind :: HardKind -> k
   star, constraint, rho, phi :: k
@@ -56,6 +58,7 @@ class Kindly k where
 instance Kindly HardKind where
   hardKind = id
 
+-- | Kinds with kind variables of type @a@
 data Kind a
   = Var a
   | Kind a :-> Kind a
@@ -96,6 +99,7 @@ instance Ord1 Kind where compare1 = compare
 instance Show1 Kind where showsPrec1 = showsPrec
 instance Read1 Kind where readsPrec1 = readsPrec
 
+-- | Provides a traversal of free kind variables that can be used to perform substitution or extract a free variable set.
 class HasKindVars s t a b | s -> a, s b -> t, t -> b, t a -> s where
   kindVars :: Traversal s t a b
 
@@ -115,6 +119,7 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
 
+-- | Lift a kind into a kind schema
 kindSchema :: Kind a -> Schema a
 kindSchema k = Schema 0 (lift k)
 
