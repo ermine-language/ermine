@@ -18,6 +18,7 @@ import Data.Data hiding (Fixity(..))
 import Data.Int
 import Ermine.Global
 
+-- | Primitive irreducible values used by patterns, terms and core.
 data Prim
   = DataCon !Global -- Foo
   | Tuple   !Int    -- (,,)
@@ -31,5 +32,6 @@ data Prim
   | Double  !Double
   deriving (Eq,Ord,Show,Data,Typeable)
 
+-- | Construct a builtin prim 'DataCon' for a given 'global' in the @\"ermine\"@ package
 prim :: Fixity -> String -> String -> Prim
 prim f m n = DataCon (global f (pack "ermine") (pack m) (pack n))

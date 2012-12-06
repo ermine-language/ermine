@@ -30,8 +30,10 @@ import Data.ByteString
 import Data.ByteString.Char8 as Char8
 import Ermine.Digest
 
+-- | The associativity of an infix identifier
 data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)
 
+-- | The fixity of an identifier
 data Fixity
   = Infix !Assoc !Int
   | Prefix !Int
@@ -42,6 +44,9 @@ data Fixity
 instance MD5 Assoc
 instance MD5 Fixity
 
+-- | A 'Global' is a full qualified top level name.
+--
+-- /NB:/ You should construct these with 'global' and only use the constructor for pattern matching.
 data Global = Global
   { _globalDigest   :: !Digest
   , _globalFixity   :: !Fixity
@@ -50,12 +55,15 @@ data Global = Global
   , _globalName     :: !ByteString
   } deriving (Show, Data, Typeable)
 
+-- | Extract the digest from a getter.
 globalDigest :: Getter Global Digest
 globalDigest = to _globalDigest
 
+-- | A lens that will read or update the fixity (and compute a new digest)
 globalFixity :: Simple Lens Global Fixity
 globalFixity f (Global _ a p m n) = (\a' -> global a' p m n) <$> f a
 
+-- | A lenses that will read or update part of the Global and compute a new digest as necessary.
 globalPackage, globalModule, globalName :: Simple Lens Global ByteString
 globalPackage f (Global _ a p m n) = (\p' -> global a p' m n) <$> f p
 globalModule f (Global _ a p m n) = (\m' -> global a p m' n) <$> f m
@@ -73,5 +81,6 @@ instance MD5 Global where
 instance Hashable Global where
   hashWithSalt s c = hashWithSalt s (digest c)
 
+-- | Construct a 'Global' with a correct digest.
 global :: Fixity -> ByteString -> ByteString -> ByteString -> Global
 global f p m n = Global (digest (Char8.unwords [Char8.pack (show f), p, m, n])) f p m n

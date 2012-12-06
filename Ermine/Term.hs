@@ -39,16 +39,20 @@ import Ermine.Type hiding (Var,Loc)
 import Prelude.Extras
 import Text.Trifecta.Diagnostic.Rendering.Prim
 
+-- | Simple terms that can be compared with structural equality.
 data HardTerm
   = Prim Prim
-  | Hole
+  | Hole      -- A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
 
+-- | Indicate if a definition is explicitly bound with a type annotation or implicitly bound without.
 data BindingType t
   = Explicit t
   | Implicit
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
+-- matches on multiple patterns with backtracking.
 data Body t a = Body [Pat t] !(Scope (Either Int Int) (Term t) a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -61,6 +65,8 @@ instance Bifoldable Body where
 instance Bitraversable Body where
   bitraverse f g (Body ps ss) = Body <$> traverse (traverse f) ps <*> bitraverseScope f g ss
 
+-- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
+-- and a list of right hand side bindings.
 data Binding t a = Binding !Rendering !(BindingType t) [Body t a]
   deriving (Show, Functor, Foldable, Traversable)
 
@@ -76,6 +82,7 @@ instance Bifoldable Binding where
 instance Bitraversable Binding where
   bitraverse f g (Binding l bt bs) = Binding l <$> traverse f bt <*> traverse (bitraverse f g) bs
 
+-- | Terms in the Ermine language.
 data Term t a
   = Var a
   | !(Term t a) :$ !(Term t a)
@@ -84,8 +91,8 @@ data Term t a
   | Lam (Pat t) !(Scope Int (Term t) a)
   | Case (Term t a) [Alt t a]
   | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
-  | Loc Rendering (Term t a)
-  | Remember !Int (Term t a)
+  | Loc Rendering (Term t a) -- ^ informational link to where the term came from
+  | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
 
 data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
@@ -139,6 +146,7 @@ instance Show t => Show1 (Term t) where showsPrec1 = showsPrec
 instance Eq2 Term where (==##) = (==)
 instance Show2 Term where showsPrec2 = showsPrec
 
+-- | Perform simultaneous substitution on terms and type annotations.
 bindTerm :: (t -> t') -> (a -> Term t' b) -> Term t a -> Term t' b
 bindTerm _ g (Var a) = g a
 bindTerm f g (l :$ r) = bindTerm f g l :$ bindTerm f g r
@@ -150,6 +158,7 @@ bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
 -- bindTerm f g (Let bs ss) = Let bs
 
+-- | Perform simultaneous substitution on terms and type annotations.
 bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t a -> Alt t' b
 bindAlt _ _ _ = error "meh"
 
@@ -171,6 +180,7 @@ instance HasKindVars t t' k k' => HasKindVars (Term t a) (Term t' a) k k' where
 instance HasTypeVars t t' tv tv' => HasTypeVars (Term t a) (Term t' a) tv tv' where
   typeVars f = bitraverse (typeVars f) pure
 
+-- | Provides a traversal of term variables for variable->variable substitution or extracting free variables.
 class HasTermVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
   termVars :: Traversal s t a b
 
