@@ -42,6 +42,7 @@ import Data.Void
 import Ermine.Global
 import Ermine.Kind hiding (Var)
 import qualified Ermine.Kind as Kind
+import Ermine.Mangled
 import Ermine.Scope
 import Prelude.Extras
 import Text.Trifecta.Diagnostic.Rendering.Prim
@@ -119,6 +120,8 @@ instance Show k => Show1 (Type k) where showsPrec1 = showsPrec
 
 instance Eq2 Type where (==##) = (==)
 instance Show2 Type where showsPrec2 = showsPrec
+
+instance Mangled (Type t)
 
 -- | Perform simultaneous substitution on kinds and types in a 'Type'.
 bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b

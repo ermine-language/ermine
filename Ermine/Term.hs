@@ -41,6 +41,7 @@ import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Ermine.Kind hiding (Var)
+import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
 import Ermine.Scope
@@ -91,19 +92,6 @@ instance Bifoldable Binding where
 instance Bitraversable Binding where
   bitraverse f g (Binding l bt bs) = Binding l <$> traverse f bt <*> traverse (bitraverse f g) bs
 
--- | Terms in the Ermine language.
-data Term t a
-  = Var a
-  | !(Term t a) :$ !(Term t a)
-  | HardTerm HardTerm
-  | Sig (Term t a) t
-  | Lam (Pat t) !(Scope Int (Term t) a)
-  | Case (Term t a) [Alt t a]
-  | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
-  | Loc Rendering (Term t a) -- ^ informational link to where the term came from
-  | Remember !Int (Term t a) -- ^ Used to provide hole support.
-  deriving (Show, Functor, Foldable, Traversable)
-
 -- | One alternative in a 'Case'.
 data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
@@ -116,6 +104,19 @@ instance Bifoldable Alt where
 
 instance Bitraversable Alt where
   bitraverse f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
+
+-- | Terms in the Ermine language.
+data Term t a
+  = Var a
+  | !(Term t a) :$ !(Term t a)
+  | HardTerm HardTerm
+  | Sig (Term t a) t
+  | Lam (Pat t) !(Scope Int (Term t) a)
+  | Case (Term t a) [Alt t a]
+  | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
+  | Loc Rendering (Term t a) -- ^ informational link to where the term came from
+  | Remember !Int (Term t a) -- ^ Used to provide hole support.
+  deriving (Show, Functor, Foldable, Traversable)
 
 instance (Eq t, Eq a) => Eq (Term t a) where
   Loc _ l      == r            = l == r
@@ -130,6 +131,7 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   HardTerm t   == HardTerm t'  = t == t'
   Case b as    == Case b' as'  = b == b' && as == as'
   _            == _            = False
+
 
 instance Bifunctor Term where
   bimap = bimapDefault
@@ -179,6 +181,8 @@ instance Applicative (Term t) where
 instance Monad (Term t) where
   return = Var
   m >>= g = bindTerm id g m
+
+instance Mangled (Term t)
 
 ------------------------------------------------------------------------------
 -- Variables

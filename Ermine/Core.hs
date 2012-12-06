@@ -109,6 +109,8 @@ instance Monad Core where
   Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
   Case e as  >>= f = Case (e >>= f) (map (boundBy f) as)
 
+instance Mangled Core
+
 instance Eq1   Core where (==#) = (==)
 instance Show1 Core where showsPrec1 = showsPrec
 
