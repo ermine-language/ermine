@@ -14,10 +14,14 @@
 --------------------------------------------------------------------
 
 module Ermine.Mangled
-  ( Mangled(..)
+  (
+  -- * Bound by another type
+    BoundBy(..)
+  -- * Mangling
+  , Mangled(..)
   , traverseDefault
   , bindDefault
-  , BoundBy(..)
+  -- * Mangling by another type
   , MangledBy(..)
   ) where
 
@@ -27,6 +31,7 @@ import Control.Monad
 import Data.Functor.Identity
 import Data.Traversable
 
+-- | Perform simultaneous traversal and binding.
 class (Traversable t, Applicative t, Monad t) => Mangled t where
   mangled :: Applicative f => (a -> f (t b)) -> t a -> f (t b)
   mangled f m = join <$> traverse f m
@@ -45,14 +50,17 @@ instance Mangled (Either a) where
   mangled f (Right b) = f b
 -}
 
+-- | A default definition of 'traverse' defined in terms of 'mangled'
 traverseDefault :: (Mangled t, Applicative f) => (a -> f b) -> t a -> f (t b)
 traverseDefault f = mangled (fmap pure . f)
 {-# INLINE traverseDefault #-}
 
+-- | A default definition of ('>>=') defined in terms of 'mangled'.
 bindDefault :: Mangled t => t a -> (a -> t b) -> t b
 bindDefault m f = runIdentity (mangled (Identity . f) m)
 {-# INLINE bindDefault #-}
 
+-- | Generalizes 'Bound' to permit binding by another type without taking it as a parameter.
 class Monad m => BoundBy tm m | tm -> m where
   boundBy :: (a -> m b) -> tm a -> tm b
 
@@ -60,6 +68,7 @@ instance Monad m => BoundBy (Scope b m) m where
   boundBy = flip (>>>=)
   {-# INLINE boundBy #-}
 
+-- | Generalizes 'Mangled' to permit binding by another type without taking it as a parameter.
 class (Traversable tm, Mangled m, BoundBy tm m) => MangledBy tm m | tm -> m where
   mangledBy :: Applicative f => (a -> f (m b)) -> tm a -> f (tm b)
   mangledBy f m = boundBy id <$> traverse f m
@@ -67,4 +76,3 @@ class (Traversable tm, Mangled m, BoundBy tm m) => MangledBy tm m | tm -> m wher
 instance Mangled m => MangledBy (Scope b m) m where
   mangledBy f = fmap Scope . traverse (traverse (mangled f)) . unscope
   {-# INLINE mangledBy #-}
-
