@@ -1,5 +1,15 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine.Core
+-- Copyright :  (c) Edward Kmett 2012
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--------------------------------------------------------------------
+
 module Ermine.Core
   ( Core(..)
   , Assoc(..)

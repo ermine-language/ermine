@@ -1,6 +1,18 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine.Mangled
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- Classes and tools for traversing and binding.
+--------------------------------------------------------------------
+
 module Ermine.Mangled
   ( Mangled(..)
   , traverseDefault

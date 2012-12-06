@@ -13,7 +13,7 @@
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
--- Portability: non-portable (DeriveDataTypeable)
+-- Portability: non-portable
 --------------------------------------------------------------------
 module Ermine.Kind
   ( HardKind(..)
