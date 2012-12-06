@@ -24,6 +24,7 @@ module Ermine.Kind
   , Kindly(..)
   -- * Kind Schemas
   , Schema(..)
+  , kindSchema
   -- * Kind Variables
   , HasKindVars(..)
   ) where
