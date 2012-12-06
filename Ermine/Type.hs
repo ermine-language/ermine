@@ -47,6 +47,7 @@ import Ermine.Scope
 import Prelude.Extras
 import Text.Trifecta.Diagnostic.Rendering.Prim
 
+-- | A placeholder for a more complicated database fieldname.
 type FieldName = String
 
 -- | A 'Type' that can be compared with mere structural equality.
@@ -76,6 +77,7 @@ class Typical t where
 instance Typical HardType where
   hardType = id
 
+-- | Ermine types, parameterized by their free kind variables and free type variables
 data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
