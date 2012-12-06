@@ -32,6 +32,7 @@ import qualified Data.ByteString.Unsafe as Strict
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
 
+-- | A 128-bit 'MD5' digest
 data Digest = Digest !Word64 !Word64
   deriving (Show, Eq, Ord, Data, Typeable)
 
@@ -84,7 +85,9 @@ instance MD5List Char where
         w32 :: Word32
         w32 = fromIntegral (fromEnum c)
 
+-- | A class for things that can be converted directly to an 'MD5' digest.
 class MD5 t where
+  -- | compute the digest. This will default to computing the digest using 'show' if not specified
   digest :: t -> Digest
   default digest :: Show t => t -> Digest
   digest = digest . show
