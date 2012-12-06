@@ -12,7 +12,7 @@ bug-reports:   http://github.com/ekmett/ermine/issues
 copyright:     Copyright (C) 2010-2012 S&P Capital IQ
 synopsis:      Ermine
 description:
-    Ermine is a functional programming language. Well, it will be.
+    This is a port of the compiler for the Ermine functional programming language from Scala.
     .
     >                                     _,-/"---,
     >             ;"""""""""";          _`;; ""  «@`---v
