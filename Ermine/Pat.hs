@@ -18,9 +18,10 @@ import Data.Foldable
 import Data.Traversable
 import Ermine.Prim
 
+-- | Patterns used by 'Term' and 'Core'.
 data Pat t
   = VarP
-  | SigP t
+  | SigP t             -- ^ not used by 'Core'
   | WildcardP
   | AsP (Pat t)
   | StrictP (Pat t)
