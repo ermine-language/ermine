@@ -17,8 +17,17 @@
 -- Portability: non-portable (DeriveDataTypeable)
 --------------------------------------------------------------------
 module Ermine.Term
-  ( HardTerm(..)
-  , Term
+  (
+  -- * Terms
+    Term(..)
+  , bindTerm
+  , HardTerm(..)
+  , Alt(..)
+  , bindAlt
+  -- * Bindings
+  , Binding(..)
+  , BindingType(..)
+  , Body(..)
   ) where
 
 import Bound
@@ -42,7 +51,7 @@ import Text.Trifecta.Diagnostic.Rendering.Prim
 -- | Simple terms that can be compared with structural equality.
 data HardTerm
   = Prim Prim
-  | Hole      -- A placeholder that can take any type. Easy to 'Remember'.
+  | Hole      -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
 
 -- | Indicate if a definition is explicitly bound with a type annotation or implicitly bound without.
