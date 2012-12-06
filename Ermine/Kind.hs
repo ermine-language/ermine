@@ -16,10 +16,15 @@
 -- Portability: non-portable
 --------------------------------------------------------------------
 module Ermine.Kind
-  ( HardKind(..)
-  , Kind(..)
-  , Schema(..)
+  (
+  -- * Kinds
+    Kind(..)
+  -- * Hard Kinds
+  , HardKind(..)
   , Kindly(..)
+  -- * Kind Schemas
+  , Schema(..)
+  -- * Kind Variables
   , HasKindVars(..)
   ) where
 

@@ -21,7 +21,9 @@ module Ermine.Term
   -- * Terms
     Term(..)
   , bindTerm
+  -- * Hard Terms
   , HardTerm(..)
+  -- * Alternatives
   , Alt(..)
   , bindAlt
   -- * Bindings

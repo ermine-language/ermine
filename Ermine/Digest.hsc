@@ -69,6 +69,7 @@ withCtx f = unsafeDupablePerformIO $ allocaBytes (#const sizeof(MD5_CTX)) $ \ctx
     md5Final pdigest ctx
     peekDigest (castPtr pdigest)
 
+-- | A helper class provided to aid in MD5 calculation
 class MD5List t where
   digestList :: [t] -> Digest
 

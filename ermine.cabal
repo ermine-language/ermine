@@ -11,7 +11,21 @@ homepage:      http://github.com/ekmett/ermine
 bug-reports:   http://github.com/ekmett/ermine/issues
 copyright:     Copyright (C) 2010-2012 S&P Capital IQ
 synopsis:      Ermine
-description:   Ermine
+description:
+    Ermine is a functional programming language. Well, it will be.
+    .
+    >                                     _,-/"---,
+    >              ;"""""""""";         _`;; ""  «@`---v
+    >            ; :::::  ::  "'      _` ;;  "    _.../
+    >           ;"     ;;  ;;;  '",-`::    ;;,'""""
+    >          ;"          ;;;;.  ;;  ;;;  ::`    ____
+    >         ,/ / ;;  ;;;______;;;  ;;; ::,`    / __/_____ _  ( )__  __
+    >         /;; _;;   ;;;       ;       ;     / _//`__/  ' \/ /`_ \/ -)
+    >         | :/ / ,;'           ;_ "")/     /___/_/ /_/_/_/_/_//_/\__/ 0.6
+    >         ; ; / /"""=            \;;\\""=  Copyright © 2011-12 S&P Capital IQ
+    >      ;"""';\::""""""=            \\"""=
+    >      \/"""
+
 build-type:    Simple
 extra-source-files: .travis.yml
 

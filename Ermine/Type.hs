@@ -17,13 +17,19 @@
 -- Portability: non-portable
 --------------------------------------------------------------------
 module Ermine.Type
-  ( FieldName
+  (
+  -- * Types
+    Type(..)
+  , FieldName
+  -- * Hard Types
   , HardType(..)
-  , Type(..)
+  , Typical(..)
+  -- * Binding
   , TK(..)
   , abstractKinds
   , instantiateKinds
   , bindType
+  -- * Type Variables
   , HasTypeVars(..)
   ) where
 
