@@ -25,12 +25,10 @@ module Ermine.Core
 import Bound
 import Control.Applicative
 import Control.Monad
-import Data.ByteString.Char8 hiding (elemIndex, map, cons, foldr)
 import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
 import Data.Traversable
-import Data.Data hiding (Fixity, Infix)
 import Ermine.Prim
 import Ermine.Global
 import Prelude.Extras
@@ -61,7 +59,7 @@ instance Lit Char where
 instance Lit Int8 where lit b = Prim (Byte b) []
 instance Lit Int16 where lit s = Prim (Short s) []
 instance (Lit a, Lit b) => Lit (a, b) where
-  lit (a,b) = Prim (Product 2) [lit a, lit b]
+  lit (a,b) = Prim (Tuple 2) [lit a, lit b]
 instance Lit a => Lit [a] where
   lit = lits
 instance Lit a => Lit (Maybe a) where

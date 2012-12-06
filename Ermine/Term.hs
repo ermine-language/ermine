@@ -31,17 +31,12 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
-import Data.Set hiding (map)
-import Data.Void
-import Ermine.Global
 import Ermine.Kind hiding (Var)
-import qualified Ermine.Kind as Kind
 import Ermine.Prim
 import Ermine.Scope
-import Ermine.Trifunctor
-import Ermine.Type hiding (Var)
-import qualified Ermine.Type as Type
+import Ermine.Type hiding (Var,Loc)
 import Prelude.Extras
+import Text.Trifecta.Diagnostic.Rendering.Prim
 
 data Pat t
   = VarP
@@ -50,11 +45,44 @@ data Pat t
   | StrictP (Pat t)
   | LazyP (Pat t)
   | PrimP Prim [Pat t]
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data HardTerm
   = Prim Prim
   | Hole
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
+
+data BindingType t
+  = Explicit t
+  | Implicit
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+data Body t a = Body [Pat t] !(Scope (Either Int Int) (Term t) a)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance Bifunctor Body where
+  bimap = bimapDefault
+
+instance Bifoldable Body where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Body where
+  bitraverse f g (Body ps ss) = Body <$> traverse (traverse f) ps <*> bitraverseScope f g ss
+
+data Binding t a = Binding !Rendering !(BindingType t) [Body t a]
+  deriving (Show, Functor, Foldable, Traversable)
+
+instance (Eq t, Eq a) => Eq (Binding t a) where
+  Binding _ t bs == Binding _ t' bs' = t == t' && bs == bs'
+
+instance Bifunctor Binding where
+  bimap = bimapDefault
+
+instance Bifoldable Binding where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Binding where
+  bitraverse f g (Binding l bt bs) = Binding l <$> traverse f bt <*> traverse (bitraverse f g) bs
 
 data Term t a
   = Var a
@@ -63,13 +91,13 @@ data Term t a
   | Sig (Term t a) t
   | Lam (Pat t) !(Scope Int (Term t) a)
   | Case (Term t a) [Alt t a]
-  -- | Let [Scope Int (Term t) a] (Scope Int (Term t) a)
+  | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
   | Loc Rendering (Term t a)
   | Remember !Int (Term t a)
   deriving (Show, Functor, Foldable, Traversable)
 
 data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Alt where
   bimap = bimapDefault
@@ -92,19 +120,25 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   Lam p b      == Lam p' b'    = p == p' && b == b'
   HardTerm t   == HardTerm t'  = t == t'
   Case b as    == Case b' as'  = b == b' && as == as'
+  _            == _            = False
+
+instance Bifunctor Term where
+  bimap = bimapDefault
+
+instance Bifoldable Term where
+  bifoldMap = bifoldMapDefault
 
 instance Bitraversable Term where
   bitraverse f g  t0 = tm t0 where
-    pt = bitraverse f
-    stm = bitraverseScope f g
     tm (Var a)        = Var <$> g a
     tm (Sig e t)      = Sig <$> tm e <*> f t
-    tm (Lam p b)      = Lam <$> pt p <*> stm b
+    tm (Lam p b)      = Lam <$> traverse f p <*> bitraverseScope f g b
     tm (HardTerm t)   = pure (HardTerm t)
     tm (l :$ r)       = (:$) <$> tm l <*> tm r
     tm (Loc r b)      = Loc r <$> tm b
     tm (Remember i b) = Remember i <$> tm b
     tm (Case b as)    = Case <$> tm b <*> traverse (bitraverse f g) as
+    tm (Let bs ss)    = Let <$> traverse (bitraverse f g) bs <*> bitraverseScope f g ss
   {-# INLINE bitraverse #-}
 
 instance Eq t => Eq1 (Term t) where (==#) = (==)
@@ -122,6 +156,7 @@ bindTerm f g (Lam p (Scope b)) = Lam (f <$> p) (Scope (bimap f (fmap (bindTerm f
 bindTerm f g (Loc r b) = Loc r (bindTerm f g b)
 bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
+-- bindTerm f g (Let bs ss) = Let bs
 
 bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t a -> Alt t' b
 bindAlt _ _ _ = error "meh"
