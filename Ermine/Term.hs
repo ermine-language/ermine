@@ -104,6 +104,7 @@ data Term t a
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
 
+-- | One alternative in a 'Case'.
 data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 --------------------------------------------------------------------
 -- |
@@ -11,11 +11,10 @@
 --------------------------------------------------------------------
 
 module Ermine.Core
-  ( Core(..)
-  , Assoc(..)
-  , Fixity(..)
+  (
+  -- * Core Terms
+    Core(..)
   , Lit(..)
-  , Pat(..)
   , Alt(..)
   -- * Smart patterns
   , P
@@ -41,24 +40,30 @@ import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
 import Data.Traversable
+import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
 import Ermine.Global
 import Prelude.Extras
 import Prelude hiding (foldr)
 
+-- | The built-in '::' constructor for a list.
 cons :: Core a -> Core a -> Core a
-cons a as = Prim (prim (Infix R 5) "Builtin" ":") [a,as]
+cons a as = Prim (prim (Infix R 5) "Builtin" "::") [a,as]
 
+-- | The built-in '[]' constructor for a list.
 nil :: Core a
 nil = Prim (prim Idfix "Builtin" "Nil") []
 
+-- | The built-in 'Just' constructor for 'Maybe'.
 just :: Core a -> Core a
 just a = Prim (prim Idfix "Builtin" "Just") [a]
 
+-- | The built-in 'Nothing' constructor for 'Maybe'.
 nothing :: Core a
 nothing = Prim (prim Idfix "Builtin" "Nothing") []
 
+-- | Lifting of literal values to core.
 class Lit a where
   lit  :: a   -> Core b
   lits :: [a] -> Core b
@@ -78,13 +83,17 @@ instance Lit a => Lit [a] where
 instance Lit a => Lit (Maybe a) where
   lit = maybe nothing (just . lit)
 
+-- | Core values are the output of the compilation process.
+--
+-- They are terms where the dictionary passing has been made explicit
+-- and all of the types have been checked and removed.
 data Core a
   = Var a
   | Prim Prim [Core a]
   | Core a :@ Core a
   | Lam (Pat ()) (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
-  | Case (Core a) [Alt Core a]
+  | Case (Core a) [Alt a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Applicative Core where
@@ -96,20 +105,21 @@ instance Monad Core where
   Var a      >>= f = f a
   Prim k xs  >>= f = Prim k (map (>>= f) xs)
   (x :@ y)   >>= f = (x >>= f) :@ (y >>= f)
-  Lam p e    >>= f = Lam p (e >>>= f)
-  Let bs e   >>= f = Let (map (>>>= f) bs) (e >>>= f)
-  Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
+  Lam p e    >>= f = Lam p (boundBy f e)
+  Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
+  Case e as  >>= f = Case (e >>= f) (map (boundBy f) as)
 
 instance Eq1   Core where (==#) = (==)
 instance Show1 Core where showsPrec1 = showsPrec
 
-data Alt f a = Alt (Pat ()) (Scope Int f a)
+-- | One alternative of a core expression
+data Alt a = Alt (Pat ()) (Scope Int Core a)
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
-instance Bound Alt where
-  Alt p b >>>= f = Alt p (b >>>= f)
+instance BoundBy Alt Core where
+  boundBy f (Alt p b) = Alt p (boundBy f b)
 
--- ** smart patterns
+-- | Smart Pattern
 data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
 
 varp :: a -> P a
@@ -141,5 +151,5 @@ let_ bs b = Let (map (abstr . snd) bs) (abstr b)
         abstr = abstract (`elemIndex` vs)
 
 -- | smart alt constructor
-alt :: Eq a => P a -> Core a -> Alt Core a
+alt :: Eq a => P a -> Core a -> Alt a
 alt (P p as) t = Alt p (abstract (`elemIndex` as) t)
