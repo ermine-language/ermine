@@ -16,7 +16,6 @@ module Ermine.Pat
   ( Pat(..)
   , Alt(..)
   , bitraverseAlt
-  , bindAlt
   ) where
 
 import Bound
@@ -51,7 +50,3 @@ instance Monad f => BoundBy (Alt t f) f where
 
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
-
--- | Perform simultaneous substitution on terms and type annotations.
-bindAlt :: (t -> t') -> (a -> k t' b) -> Alt t (k t) a -> Alt t' (k t') b
-bindAlt f _ (Alt p _) = Alt (fmap f p) (error "TODO")

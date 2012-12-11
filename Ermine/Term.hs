@@ -155,6 +155,10 @@ bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
 -- bindTerm f g (Let bs ss) = Let bs
 
+-- | Perform simultaneous substitution on terms and type annotations.
+bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t (Term t) a -> Alt t' (Term t') b
+bindAlt f g (Alt p (Scope b)) = Alt (fmap f p) (Scope (bindTerm f (Var . fmap (bindTerm f g)) b))
+
 instance Applicative (Term t) where
   pure = Var
   (<*>) = ap
