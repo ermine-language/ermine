@@ -15,7 +15,6 @@ module Ermine.Core
   -- * Core Terms
     Core(..)
   , Lit(..)
-  , Alt(..)
   -- * Smart patterns
   , P
   , varp
@@ -93,7 +92,7 @@ data Core a
   | Core a :@ Core a
   | Lam (Pat ()) (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
-  | Case (Core a) [Alt a]
+  | Case (Core a) [Alt () Core a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Applicative Core where
@@ -107,19 +106,11 @@ instance Monad Core where
   (x :@ y)   >>= f = (x >>= f) :@ (y >>= f)
   Lam p e    >>= f = Lam p (boundBy f e)
   Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
-  Case e as  >>= f = Case (e >>= f) (map (boundBy f) as)
+  Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
 
 instance Mangled Core
-
 instance Eq1   Core where (==#) = (==)
 instance Show1 Core where showsPrec1 = showsPrec
-
--- | One alternative of a core expression
-data Alt a = Alt (Pat ()) (Scope Int Core a)
-  deriving (Eq,Show,Functor,Foldable,Traversable)
-
-instance BoundBy Alt Core where
-  boundBy f (Alt p b) = Alt p (boundBy f b)
 
 -- | Smart Pattern
 data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
@@ -159,5 +150,5 @@ let_ bs b = Let (map (abstr . snd) bs) (abstr b)
         abstr = abstract (`elemIndex` vs)
 
 -- | smart alt constructor
-alt :: Eq a => P a -> Core a -> Alt a
+alt :: Eq a => P a -> Core a -> Alt () Core a
 alt (P p as) t = Alt p (abstract (`elemIndex` as) t)

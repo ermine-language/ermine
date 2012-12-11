@@ -23,9 +23,6 @@ module Ermine.Term
   , bindTerm
   -- * Hard Terms
   , HardTerm(..)
-  -- * Alternatives
-  , Alt(..)
-  , bindAlt
   -- * Bindings
   , Binding(..)
   , BindingType(..)
@@ -94,19 +91,6 @@ instance Bifoldable Binding where
 instance Bitraversable Binding where
   bitraverse f g (Binding l bt bs) = Binding l <$> traverse f bt <*> traverse (bitraverse f g) bs
 
--- | One alternative in a 'Case'.
-data Alt t a = Alt !(Pat t) !(Scope Int (Term t) a)
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-instance Bifunctor Alt where
-  bimap = bimapDefault
-
-instance Bifoldable Alt where
-  bifoldMap = bifoldMapDefault
-
-instance Bitraversable Alt where
-  bitraverse f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
-
 -- | Terms in the Ermine language.
 data Term t a
   = Var a
@@ -114,7 +98,7 @@ data Term t a
   | HardTerm HardTerm
   | Sig (Term t a) t
   | Lam (Pat t) !(Scope Int (Term t) a)
-  | Case (Term t a) [Alt t a]
+  | Case (Term t a) [Alt t (Term t) a]
   | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
   | Loc Rendering (Term t a) -- ^ informational link to where the term came from
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
@@ -134,7 +118,6 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   Case b as    == Case b' as'  = b == b' && as == as'
   _            == _            = False
 
-
 instance Bifunctor Term where
   bimap = bimapDefault
 
@@ -150,7 +133,7 @@ instance Bitraversable Term where
     tm (l :$ r)       = (:$) <$> tm l <*> tm r
     tm (Loc r b)      = Loc r <$> tm b
     tm (Remember i b) = Remember i <$> tm b
-    tm (Case b as)    = Case <$> tm b <*> traverse (bitraverse f g) as
+    tm (Case b as)    = Case <$> tm b <*> traverse (bitraverseAlt f g) as
     tm (Let bs ss)    = Let <$> traverse (bitraverse f g) bs <*> bitraverseScope f g ss
   {-# INLINE bitraverse #-}
 
@@ -171,10 +154,6 @@ bindTerm f g (Loc r b) = Loc r (bindTerm f g b)
 bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
 -- bindTerm f g (Let bs ss) = Let bs
-
--- | Perform simultaneous substitution on terms and type annotations.
-bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t a -> Alt t' b
-bindAlt _ _ _ = error "meh"
 
 instance Applicative (Term t) where
   pure = Var
