@@ -23,6 +23,7 @@ module Ermine.Term
   , bindTerm
   -- * Hard Terms
   , HardTerm(..)
+  , Terminal(..)
   -- * Bindings
   , Binding(..)
   , BindingType(..)
@@ -54,6 +55,18 @@ data HardTerm
   = Prim Prim
   | Hole      -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
+
+class Terminal t where
+  hardTerm :: Prism' t HardTerm
+
+  primTerm :: Prim -> t
+  primTerm = review hardTerm . Prim
+
+  hole :: t
+  hole = review hardTerm Hole
+
+instance Terminal HardTerm where
+  hardTerm = id
 
 -- | Indicate if a definition is explicitly bound with a type annotation or implicitly bound without.
 data BindingType t
@@ -104,6 +117,11 @@ data Term t a
   | Loc Rendering (Term t a) -- ^ informational link to where the term came from
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
+
+instance Terminal (Term t a) where
+  hardTerm = prism HardTerm $ \t -> case t of
+    HardTerm a -> Right a
+    _          -> Left t
 
 instance (Eq t, Eq a) => Eq (Term t a) where
   Loc _ l      == r            = l == r
