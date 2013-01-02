@@ -24,7 +24,7 @@ module Ermine.Kind
   , Kindly(..)
   -- * Kind Schemas
   , Schema(..)
-  , kindSchema
+  , schema
   -- * Kind Variables
   , HasKindVars(..)
   ) where
@@ -54,12 +54,12 @@ data HardKind
 
 -- | Smart constructor for hard kinds
 class Kindly k where
-  hardKind :: HardKind -> k
+  hardKind :: Prism' k HardKind
   star, constraint, rho, phi :: k
-  star = hardKind Star
-  constraint = hardKind Constraint
-  rho = hardKind Rho
-  phi = hardKind Phi
+  star = review hardKind Star
+  constraint = review hardKind Constraint
+  rho = review hardKind Rho
+  phi = review hardKind Phi
 
 instance Kindly HardKind where
   hardKind = id
@@ -98,7 +98,9 @@ instance Monad Kind where
   (>>=) = bindDefault
 
 instance Kindly (Kind a) where
-  hardKind = HardKind
+  hardKind = prism HardKind $ \t -> case t of
+    HardKind k -> Right k
+    _          -> Left t
 
 instance Eq1 Kind where (==#) = (==)
 instance Ord1 Kind where compare1 = compare
@@ -126,11 +128,14 @@ data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
 
 -- | Lift a kind into a kind schema
-kindSchema :: Kind a -> Schema a
-kindSchema k = Schema 0 (lift k)
+schema :: Kind a -> Schema a
+schema k = Schema 0 (lift k)
 
 instance Kindly (Schema a) where
-  hardKind = kindSchema . hardKind
+  hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
+    HardKind k -> Right k
+    Var (F (HardKind k)) -> Right k
+    _ -> Left t
 
 instance HasKindVars (Schema a) (Schema b) a b where
   kindVars = traverse

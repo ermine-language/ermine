@@ -50,8 +50,9 @@ import Ermine.Kind hiding (Var)
 import qualified Ermine.Kind as Kind
 import Ermine.Mangled
 import Ermine.Scope
+import Ermine.Rendering
 import Prelude.Extras
-import Text.Trifecta.Diagnostic.Rendering.Prim
+-- mport Text.Trifecta.Diagnostic.Rendering.Prim
 
 -- | A placeholder for a more complicated database fieldname.
 type FieldName = String

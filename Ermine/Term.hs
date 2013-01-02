@@ -45,8 +45,9 @@ import Ermine.Pat
 import Ermine.Prim
 import Ermine.Scope
 import Ermine.Type hiding (Var,Loc)
+import Ermine.Rendering
 import Prelude.Extras
-import Text.Trifecta.Diagnostic.Rendering.Prim
+-- import Text.Trifecta.Diagnostic.Rendering.Prim
 
 -- | Simple terms that can be compared with structural equality.
 data HardTerm
