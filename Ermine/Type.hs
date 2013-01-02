@@ -67,19 +67,19 @@ data HardType
 
 -- | Smart constructors that allows us to pun various 'HardType' constructor names for 'Type'.
 class Typical t where
-  hardType :: HardType -> t
+  hardType :: Prism' t HardType
 
   tuple :: Int -> t
-  tuple = hardType . Tuple
+  tuple = review hardType . Tuple
 
   arrow :: t
-  arrow = hardType Arrow
+  arrow = review hardType Arrow
 
   con :: Global -> Schema Void -> t
-  con g k = hardType (Con g k)
+  con g k = review hardType (Con g k)
 
   concreteRho :: Set FieldName -> t
-  concreteRho s = hardType (ConcreteRho s)
+  concreteRho s = review hardType (ConcreteRho s)
 
 instance Typical HardType where
   hardType = id
@@ -95,7 +95,9 @@ data Type k a
   deriving (Show, Functor, Foldable, Traversable)
 
 instance Typical (Type k a) where
-  hardType = HardType
+  hardType = prism HardType $ \ s -> case s of
+    HardType a -> Right a
+    _          -> Left s
 
 instance (Eq k, Eq a) => Eq (Type k a) where
   Loc _ l       == r                = l == r
