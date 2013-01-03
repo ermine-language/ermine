@@ -41,6 +41,7 @@ data Result a
 
 instance Functor Result where
   fmap f (OK n a) = OK n (f a)
+  fmap _ (Err r s) = Err r s
 
 newtype U s a = U { unU :: Rendering -> Int -> ST s (Result a) }
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -27,6 +28,7 @@ module Ermine.Kind
   , schema
   -- * Kind Variables
   , HasKindVars(..)
+  , HasKind(..)
   ) where
 
 import Bound
@@ -44,6 +46,10 @@ import Data.Map
 
 infixr 0 :->
 
+------------------------------------------------------------------------------
+-- HardKind
+------------------------------------------------------------------------------
+
 -- | Kinds that can be compared by simple structural equality
 data HardKind
   = Star
@@ -52,17 +58,25 @@ data HardKind
   | Phi
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable)
 
+------------------------------------------------------------------------------
+-- Kindly
+------------------------------------------------------------------------------
+
 -- | Smart constructor for hard kinds
 class Kindly k where
   hardKind :: Prism' k HardKind
   star, constraint, rho, phi :: k
-  star = review hardKind Star
+  star       = review hardKind Star
   constraint = review hardKind Constraint
-  rho = review hardKind Rho
-  phi = review hardKind Phi
+  rho        = review hardKind Rho
+  phi        = review hardKind Phi
 
 instance Kindly HardKind where
   hardKind = id
+
+------------------------------------------------------------------------------
+-- Kind
+------------------------------------------------------------------------------
 
 -- | Kinds with kind variables of type @a@
 data Kind a
@@ -107,6 +121,10 @@ instance Ord1 Kind where compare1 = compare
 instance Show1 Kind where showsPrec1 = showsPrec
 instance Read1 Kind where readsPrec1 = readsPrec
 
+------------------------------------------------------------------------------
+-- HasKindVars
+------------------------------------------------------------------------------
+
 -- | Provides a traversal of free kind variables that can be used to perform substitution or extract a free variable set.
 class HasKindVars s t a b | s -> a, s b -> t, t -> b, t a -> s where
   kindVars :: Traversal s t a b
@@ -123,6 +141,10 @@ instance HasKindVars s t a b => HasKindVars (IntMap s) (IntMap t) a b where
 instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
   kindVars = traverse.kindVars
 
+------------------------------------------------------------------------------
+-- Schema
+------------------------------------------------------------------------------
+
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
@@ -133,9 +155,9 @@ schema k = Schema 0 (lift k)
 
 instance Kindly (Schema a) where
   hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
-    HardKind k -> Right k
+    HardKind k           -> Right k
     Var (F (HardKind k)) -> Right k
-    _ -> Left t
+    _                    -> Left t
 
 instance HasKindVars (Schema a) (Schema b) a b where
   kindVars = traverse
@@ -145,3 +167,14 @@ instance BoundBy Schema Kind where
 
 instance MangledBy Schema Kind where
   mangledBy f (Schema i b) = Schema i <$> mangledBy f b
+
+------------------------------------------------------------------------------
+-- HasKind
+------------------------------------------------------------------------------
+
+class HasKind p q f s t a b | s -> a, t -> b, s b -> t, t a -> s where
+  kind :: Overloading p q f s t (Kind a) (Kind b)
+
+-- | Equality (Kind a) (Kind b) (Kind a) (Kind b)
+instance p ~ q => HasKind p q f (Kind a) (Kind b) a b where
+  kind = id
