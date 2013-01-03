@@ -44,9 +44,10 @@ import Ermine.Kind hiding (Var)
 import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
+import Ermine.Rendering
 import Ermine.Scope
 import Ermine.Type hiding (Var,Loc)
-import Ermine.Rendering
+import Ermine.Variable
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -117,6 +118,11 @@ data Term t a
   | Loc Rendering (Term t a) -- ^ informational link to where the term came from
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
+
+instance Variable (Term t) where
+  var = prism Var $ \t -> case t of
+    Var a -> Right a
+    _     -> Left  t
 
 instance Terminal (Term t a) where
   hardTerm = prism HardTerm $ \t -> case t of

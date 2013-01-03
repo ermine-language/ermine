@@ -51,6 +51,7 @@ import qualified Ermine.Kind as Kind
 import Ermine.Mangled
 import Ermine.Scope
 import Ermine.Rendering
+import Ermine.Variable
 import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -93,6 +94,11 @@ data Type k a
   | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Show, Functor, Foldable, Traversable)
+
+instance Variable (Type k) where
+  var = prism Var $ \t -> case t of
+    Var a -> Right a
+    _     -> Left  t
 
 instance Typical (Type k a) where
   hardType = prism HardType $ \ s -> case s of

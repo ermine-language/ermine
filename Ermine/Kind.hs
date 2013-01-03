@@ -37,6 +37,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Ermine.Mangled
+import Ermine.Variable
 import Prelude.Extras
 import Data.IntMap
 import Data.Foldable
@@ -84,6 +85,11 @@ data Kind a
   | Kind a :-> Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+instance Variable Kind where
+  var = prism Var $ \t -> case t of
+    Var a -> Right a
+    _     -> Left  t
 
 instance Plated (Kind a) where
   plate f (l :-> r) = (:->) <$> f l <*> f r
@@ -148,6 +154,11 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
+
+instance Variable Schema where
+  var = prism (schema . return) $ \ t@(Schema _ (Scope b)) -> case b of
+    Var (F (Var k)) -> Right k
+    _               -> Left  t
 
 -- | Lift a kind into a kind schema
 schema :: Kind a -> Schema a
