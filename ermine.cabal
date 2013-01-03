@@ -65,8 +65,8 @@ library
     Ermine.Prim
     Ermine.Scope
     Ermine.Term
-    Ermine.Trifunctor
     Ermine.Type
+    Ermine.Variable
 
   ghc-options: -Wall
 
