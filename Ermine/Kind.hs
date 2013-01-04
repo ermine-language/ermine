@@ -32,11 +32,14 @@ module Ermine.Kind
   ) where
 
 import Bound
+import Bound.Scope
 import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
+import Ermine.Fun
 import Ermine.Mangled
+import Ermine.Scope
 import Ermine.Variable
 import Prelude.Extras
 import Data.IntMap
@@ -85,6 +88,11 @@ data Kind a
   | Kind a :-> Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+instance Fun (Kind a) where
+  fun = prism (uncurry (:->)) $ \t -> case t of
+    l :-> r -> Right (l, r)
+    _       -> Left t
 
 instance Variable Kind where
   var = prism Var $ \t -> case t of
@@ -154,6 +162,21 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
+
+instance Fun (Schema a) where
+  fun = prism hither yon
+    where
+    hither (Schema n (Scope s), Schema m t) = Schema (n + m) $
+      let Scope t' = mapBound (+n) t
+      in Scope (s :-> t')
+    yon t@(Schema n s) = case fromScope s of
+      l :-> r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+        (Nothing, Nothing)              -> Right (Schema 0 (toScope l), Schema 0 (toScope r))
+        (Nothing, Just 0)               -> Right (Schema 0 (toScope l), Schema n (toScope r))
+        (Just m, Nothing)  | n == m + 1 -> Right (Schema n (toScope l), Schema 0 (toScope r))
+        (Just m, Just o)   | m == o - 1 -> Right (Schema (m + 1) (toScope l), Schema (n - o) (toScope (r & mapped.bound -~ o)))
+        _                               -> Left t
+      _                                 -> Left t
 
 instance Variable Schema where
   var = prism (schema . return) $ \ t@(Schema _ (Scope b)) -> case b of

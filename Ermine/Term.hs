@@ -40,13 +40,14 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
+import Ermine.App
 import Ermine.Kind hiding (Var)
 import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
 import Ermine.Rendering
 import Ermine.Scope
-import Ermine.Type hiding (Var,Loc)
+import Ermine.Type hiding (App, Loc, Var)
 import Ermine.Variable
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
@@ -109,7 +110,7 @@ instance Bitraversable Binding where
 -- | Terms in the Ermine language.
 data Term t a
   = Var a
-  | !(Term t a) :$ !(Term t a)
+  | App !(Term t a) !(Term t a)
   | HardTerm HardTerm
   | Sig (Term t a) t
   | Lam (Pat t) !(Scope Int (Term t) a)
@@ -123,6 +124,11 @@ instance Variable (Term t) where
   var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
+
+instance App (Term t a) where
+  app = prism (uncurry App) $ \t -> case t of
+    App l r -> Right (l,r)
+    _       -> Left t
 
 instance Terminal (Term t a) where
   hardTerm = prism HardTerm $ \t -> case t of
@@ -141,6 +147,7 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   Lam p b      == Lam p' b'    = p == p' && b == b'
   HardTerm t   == HardTerm t'  = t == t'
   Case b as    == Case b' as'  = b == b' && as == as'
+  App a b      == App c d      = a == c  && b == d
   _            == _            = False
 
 instance Bifunctor Term where
@@ -155,7 +162,7 @@ instance Bitraversable Term where
     tm (Sig e t)      = Sig <$> tm e <*> f t
     tm (Lam p b)      = Lam <$> traverse f p <*> bitraverseScope f g b
     tm (HardTerm t)   = pure (HardTerm t)
-    tm (l :$ r)       = (:$) <$> tm l <*> tm r
+    tm (App l r)      = App <$> tm l <*> tm r
     tm (Loc r b)      = Loc r <$> tm b
     tm (Remember i b) = Remember i <$> tm b
     tm (Case b as)    = Case <$> tm b <*> traverse (bitraverseAlt f g) as
@@ -170,8 +177,8 @@ instance Show2 Term where showsPrec2 = showsPrec
 
 -- | Perform simultaneous substitution on terms and type annotations.
 bindTerm :: (t -> t') -> (a -> Term t' b) -> Term t a -> Term t' b
-bindTerm _ g (Var a) = g a
-bindTerm f g (l :$ r) = bindTerm f g l :$ bindTerm f g r
+bindTerm _ g (Var a)   = g a
+bindTerm f g (App l r) = App (bindTerm f g l) (bindTerm f g r)
 bindTerm f g (Sig e t) = Sig (bindTerm f g e) (f t)
 bindTerm _ _ (HardTerm t) = HardTerm t
 bindTerm f g (Lam p (Scope b)) = Lam (f <$> p) (Scope (bimap f (fmap (bindTerm f g)) b))

@@ -35,14 +35,16 @@ module Ermine.Core
 import Bound
 import Control.Applicative
 import Control.Monad
+import Control.Lens
 import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
-import Data.Traversable
+import Ermine.App
+import Ermine.Global
 import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
-import Ermine.Global
+import Ermine.Variable
 import Prelude.Extras
 import Prelude hiding (foldr)
 
@@ -89,11 +91,21 @@ instance Lit a => Lit (Maybe a) where
 data Core a
   = Var a
   | Prim Prim [Core a]
-  | Core a :@ Core a
+  | App (Core a) (Core a)
   | Lam (Pat ()) (Scope Int Core a)
   | Let [Scope Int Core a] (Scope Int Core a)
   | Case (Core a) [Alt () Core a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
+
+instance App (Core a) where
+  app = prism (uncurry App) $ \t -> case t of
+    App l r -> Right (l,r)
+    _       -> Left t
+
+instance Variable Core where
+  var = prism Var $ \t -> case t of
+    Var a -> Right a
+    _     -> Left t
 
 instance Applicative Core where
   pure = Var
@@ -103,7 +115,7 @@ instance Monad Core where
   return = Var
   Var a      >>= f = f a
   Prim k xs  >>= f = Prim k (map (>>= f) xs)
-  (x :@ y)   >>= f = (x >>= f) :@ (y >>= f)
+  App x y    >>= f = App (x >>= f) (y >>= f)
   Lam p e    >>= f = Lam p (boundBy f e)
   Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
   Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)

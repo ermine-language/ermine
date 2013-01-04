@@ -55,17 +55,21 @@ library
 
     -- trifecta       == 0.53.*,
   exposed-modules:
+    Ermine.App
     Ermine.Core
     Ermine.Digest
+    Ermine.Fun
     Ermine.Global
     Ermine.Kind
     Ermine.Kind.Inference
     Ermine.Mangled
     Ermine.Pat
     Ermine.Prim
+    Ermine.Rendering
     Ermine.Scope
     Ermine.Term
     Ermine.Type
+    Ermine.Type.Builtin
     Ermine.Unification
     Ermine.Variable
 

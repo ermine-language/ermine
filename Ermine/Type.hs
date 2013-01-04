@@ -45,6 +45,8 @@ import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.Set hiding (map)
 import Data.Void
+import Ermine.App
+import Ermine.Fun
 import Ermine.Global
 import Ermine.Kind hiding (Var)
 import qualified Ermine.Kind as Kind
@@ -84,6 +86,19 @@ class Typical t where
 
 instance Typical HardType where
   hardType = id
+
+instance Fun (Type k a) where
+  -- TODO: make this preserve invariants about 'Forall'.
+  fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
+    HardType Arrow `App` l `App` r -> Right (l, r)
+    _                              -> Left t
+
+instance App (Type k a) where
+  app = prism (uncurry App) $ \t -> case t of
+    App l r -> Right (l,r)
+    _       -> Left t
+
+infixl 9 `App`
 
 -- | Ermine types, parameterized by their free kind variables and free type variables
 data Type k a

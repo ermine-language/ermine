@@ -66,8 +66,8 @@ instance MonadReader Rendering (U s) where
   {-# INLINE local #-}
 
 -- | Evaluate an expression in the @U@ monad with a fresh variable supply.
-evalU :: (forall s. U s a) -> Rendering -> Either (Rendering, String) a
-evalU m r = case runST (unU m r 0) of
+evalU :: Rendering -> (forall s. U s a) -> Either (Rendering, String) a
+evalU r m = case runST (unU m r 0) of
   Err t e -> Left (t, e)
   OK _ a  -> Right a
 {-# INLINE evalU #-}
