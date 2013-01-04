@@ -183,9 +183,8 @@ instance MangledBy Schema Kind where
 -- HasKind
 ------------------------------------------------------------------------------
 
-class HasKind p q f s t a b | s -> a, t -> b, s b -> t, t a -> s where
-  kind :: Overloading p q f s t (Kind a) (Kind b)
+class HasKind s a | s -> a where
+  kind :: Lens' s (Kind a)
 
--- | Equality (Kind a) (Kind b) (Kind a) (Kind b)
-instance p ~ q => HasKind p q f (Kind a) (Kind b) a b where
+instance HasKind (Kind a) a where
   kind = id
