@@ -114,7 +114,7 @@ data Term t a
   | Sig (Term t a) t
   | Lam (Pat t) !(Scope Int (Term t) a)
   | Case (Term t a) [Alt t (Term t) a]
-  | Let [Binding t a] (Scope (Either Int Int) (Term t) a)
+  | Let [Binding t a] (Scope Int (Term t) a)
   | Loc Rendering (Term t a) -- ^ informational link to where the term came from
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
@@ -178,9 +178,14 @@ bindTerm f g (Lam p (Scope b)) = Lam (f <$> p) (Scope (bimap f (fmap (bindTerm f
 bindTerm f g (Loc r b) = Loc r (bindTerm f g b)
 bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
--- bindTerm f g (Let bs ss) = Let bs
+bindTerm f g (Let bs (Scope b)) = Let (bindBinding f g <$> bs) (Scope (bimap f (fmap (bindTerm f g)) b))
 
--- | Perform simultaneous substitution on terms and type annotations.
+bindBody :: (t -> t') -> (a -> Term t' b) -> Body t a -> Body t' b
+bindBody f g (Body ps (Scope b)) = Body (fmap f <$> ps) (Scope (bimap f (fmap (bindTerm f g)) b))
+
+bindBinding :: (t -> t') -> (a -> Term t' b) -> Binding t a -> Binding t' b
+bindBinding f g (Binding r bt bs) = Binding r (fmap f bt) (bindBody f g <$> bs)
+
 bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t (Term t) a -> Alt t' (Term t') b
 bindAlt f g (Alt p (Scope b)) = Alt (fmap f p) (Scope (bindTerm f (Var . fmap (bindTerm f g)) b))
 
