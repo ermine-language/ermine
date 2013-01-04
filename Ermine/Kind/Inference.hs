@@ -59,10 +59,11 @@ data Meta s
   = Meta !Int (STRef s (Maybe (Kind (Meta s))))
   | Skolem !Int
 
-skolem :: Prism (Meta s) (Meta s) Int Int
+skolem :: Prism' (Meta s) Int
 skolem = prism Skolem $ \s -> case s of
   Skolem i -> Right i
   _        -> Left s
+{-# INLINE skolem #-}
 
 meta :: Prism (Meta s)
               (Meta t)
@@ -71,6 +72,7 @@ meta :: Prism (Meta s)
 meta = prism (uncurry Meta) $ \s -> case s of
   Meta i r -> Right (i, r)
   Skolem i -> Left (Skolem i)
+{-# INLINE meta #-}
 
 instance Show (Meta s) where
   showsPrec d (Meta n _) = showParen (d > 10) $
@@ -80,13 +82,16 @@ instance Show (Meta s) where
 
 instance Eq (Meta s) where
   (==) = (==) `on` view metaId
+  {-# INLINE (==) #-}
 
 instance Ord (Meta s) where
   compare = compare `on` view metaId
+  {-# INLINE compare #-}
 
 metaId :: Lens' (Meta s) Int
 metaId f (Meta i s) = f i <&> \j -> Meta j s
 metaId f (Skolem i) = Skolem <$> f i
+{-# INLINE metaId #-}
 
 -- | Construct a new meta variable
 newMeta :: U s (Meta s)
