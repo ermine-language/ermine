@@ -19,13 +19,20 @@ module Ermine.Kind.Inference
   , checkKind
   -- * Meta variables
   , Meta(..)
+  -- * Meta Prisms
+  , skolem
+  , meta
+  -- * Meta Lenses
   , metaId
+  -- * Working with Meta
   , newMeta
   , newSkolem
   , readMeta
   , writeMeta
+  -- * Pruning
   , semiprune
   , zonk
+  , generalize
   ) where
 
 import Bound
@@ -33,6 +40,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
+import Control.Monad.State.Strict
 import Data.STRef
 import Data.Foldable
 import Data.Function (on)
@@ -40,6 +48,7 @@ import Data.Monoid
 import Data.Traversable
 import Data.Void
 import Data.IntSet
+import Data.IntMap as IntMap
 import Ermine.Kind as Kind
 import Ermine.Variable
 import Ermine.Unification
@@ -49,6 +58,19 @@ import Ermine.Type as Type
 data Meta s
   = Meta !Int (STRef s (Maybe (Kind (Meta s))))
   | Skolem !Int
+
+skolem :: Prism (Meta s) (Meta s) Int Int
+skolem = prism Skolem $ \s -> case s of
+  Skolem i -> Right i
+  _        -> Left s
+
+meta :: Prism (Meta s)
+              (Meta t)
+              (Int, STRef s (Maybe (Kind (Meta s))))
+              (Int, STRef t (Maybe (Kind (Meta t))))
+meta = prism (uncurry Meta) $ \s -> case s of
+  Meta i r -> Right (i, r)
+  Skolem i -> Left (Skolem i)
 
 instance Show (Meta s) where
   showsPrec d (Meta n _) = showParen (d > 10) $
@@ -180,3 +202,14 @@ inferKind (Forall n tks b) = do
   let btys = instantiateList sks <$> tks
   checkKind (instantiateKinds (pure . (sks!!)) (instantiateList btys b)) star
   return star
+
+generalize :: Kind (Meta s) -> U s (Schema a)
+generalize k0 = do
+  k <- zonk mempty k0
+  (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
+  return $ Schema n (Scope r)
+  where
+   go Skolem{}   = StateT $ \ _ -> fail "escaped skolem"
+   go (Meta i _) = StateT $ \imn@(im, n) -> case im^.at i of
+     Just b  -> return (B b, imn)
+     Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
