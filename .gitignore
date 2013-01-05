@@ -1,3 +1,7 @@
+*#
+*.hi
+*.o
+*~
 .*.swo
 .*.swp
 .DS_Store
