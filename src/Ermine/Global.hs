@@ -52,7 +52,14 @@ data Global = Global
   , _globalPackage  :: !ByteString
   , _globalModule   :: !ByteString
   , _globalName     :: !ByteString
-  } deriving (Show, Data, Typeable)
+  } deriving (Data, Typeable)
+
+instance Show Global where
+  showsPrec d (Global _ f p m n) = showParen (d > 10) $
+    showString "global " . showsPrec 11 f .
+            showChar ' ' . showsPrec 11 p .
+            showChar ' ' . showsPrec 11 m .
+            showChar ' ' . showsPrec 11 n
 
 -- | A lens that will read or update the fixity (and compute a new digest)
 globalFixity :: Simple Lens Global Fixity

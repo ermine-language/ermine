@@ -123,6 +123,7 @@ test-suite doctests
       doctest >= 0.9.1,
       ermine,
       filepath,
+      groom >= 0.1.1 && < 0.2,
       mtl
   ghc-options: -Wall -threaded
   if impl(ghc<7.6.1)

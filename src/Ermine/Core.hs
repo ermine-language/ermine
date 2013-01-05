@@ -48,7 +48,17 @@ import Ermine.Syntax
 import Prelude.Extras
 import Prelude hiding (foldr)
 
+-- $setup
+-- >>> import Text.Groom
+
+infixr 5 `cons`
+
 -- | The built-in '::' constructor for a list.
+--
+-- >>> putStrLn $ groom $ lit (1 :: Int) `cons` nil
+-- Prim (DataCon (global (Infix R 5) "ermine" "Builtin" "::"))
+--   [Prim (Int 1) [],
+--    Prim (DataCon (global Idfix "ermine" "Builtin" "Nil")) []]
 cons :: Core a -> Core a -> Core a
 cons a as = Prim (prim (Infix R 5) "Builtin" "::") [a,as]
 
@@ -83,6 +93,15 @@ instance Lit a => Lit [a] where
   lit = lits
 instance Lit a => Lit (Maybe a) where
   lit = maybe nothing (just . lit)
+
+instance Num (Core a) where
+  a + b = Prim (prim (Infix L 6) "Builtin" "+") [a,b]
+  a - b = Prim (prim (Infix L 6) "Builtin" "-") [a,b]
+  a * b = Prim (prim (Infix L 7) "Builtin" "*") [a,b]
+  negate a     = Prim (prim Idfix "Builtin" "negate") [a]
+  abs a        = Prim (prim Idfix "Builtin" "abs")    [a]
+  signum a     = Prim (prim Idfix "Builtin" "signum") [a]
+  fromInteger i = Prim (Int (fromInteger i)) []
 
 -- | Core values are the output of the compilation process.
 --
