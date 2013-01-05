@@ -47,6 +47,9 @@ import Data.Traversable
 import Data.Data
 import Data.Map as Map
 
+-- $setup
+-- >>> :set -XOverloadedStrings
+
 infixr 0 :->
 
 ------------------------------------------------------------------------------
@@ -186,6 +189,9 @@ instance Variable Schema where
     _               -> Left  t
 
 -- | Lift a kind into a kind schema
+--
+-- >>> schema (star ~> star)
+-- Schema 0 (Scope (Var (F (HardKind Star :-> HardKind Star))))
 schema :: Kind a -> Schema a
 schema k = Schema 0 (lift k)
 
@@ -193,6 +199,21 @@ schema k = Schema 0 (lift k)
 --
 -- When working with 'Ermine.Kind.Inference.Meta' variables, you want to use
 -- generalize to 'zonk' the kind and check skolems.
+--
+-- >>> general "a"
+-- Schema 1 (Scope (Var (B 0)))
+--
+-- >>> general ("a" ~> "a")
+-- Schema 1 (Scope (Var (B 0) :-> Var (B 0)))
+--
+-- >>> general ("a" ~> "b")
+-- Schema 2 (Scope (Var (B 0) :-> Var (B 1)))
+--
+-- >>> general ("b" ~> "a")
+-- Schema 2 (Scope (Var (B 0) :-> Var (B 1)))
+--
+-- >>> general (star ~> star)
+-- Schema 0 (Scope (HardKind Star :-> HardKind Star))
 general :: Ord k => Kind k -> Schema a
 general k0 = Schema (snd mnl) (Scope r) where
  (mnl, r) = mapAccumL go (Map.empty, 0) k0
