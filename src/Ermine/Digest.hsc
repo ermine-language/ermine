@@ -40,6 +40,9 @@ import qualified Data.ByteString.Lazy as Lazy
 --------------------------------------------------------------------
 
 -- | A 128-bit 'MD5' digest
+--
+-- >>> digest "hello"
+-- Digest 10268287928962245903 5020952346831662890
 data Digest = Digest !Word64 !Word64
   deriving (Show, Eq, Ord, Data, Typeable)
 
