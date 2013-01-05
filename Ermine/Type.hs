@@ -233,3 +233,4 @@ instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
 instantiateKinds k (TK e) = bindType go Var e where
   go (B b) = k b
   go (F a) = a
+

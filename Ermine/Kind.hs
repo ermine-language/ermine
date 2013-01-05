@@ -29,7 +29,6 @@ module Ermine.Kind
   , general
   -- * Kind Variables
   , HasKindVars(..)
-  , HasKind(..)
   ) where
 
 import Bound
@@ -212,13 +211,3 @@ instance HasKindVars (Schema a) (Schema b) a b where
 
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
-
-------------------------------------------------------------------------------
--- HasKind
-------------------------------------------------------------------------------
-
-class HasKind s a | s -> a where
-  kind :: Lens' s (Kind a)
-
-instance HasKind (Kind a) a where
-  kind = id
