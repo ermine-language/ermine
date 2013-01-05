@@ -3,6 +3,8 @@ Ermine
 
 This is an experimental compiler for the Ermine programming language developed at S&P Capital IQ.
 
+* [Haddocks](http://ekmett.github.com/ermine)
+
 Contact Information
 -------------------
 
