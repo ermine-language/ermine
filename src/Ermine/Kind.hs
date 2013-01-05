@@ -146,6 +146,8 @@ instance Read1 Kind where readsPrec1 = readsPrec
 
 -- | Provides a traversal of free kind variables that can be used to perform substitution or extract a free variable set.
 class HasKindVars s t a b | s -> a, s b -> t, t -> b, t a -> s where
+  -- >>> ("b" :-> "a") ^.. kindVars
+  -- ["b","a"]
   kindVars :: Traversal s t a b
 
 instance HasKindVars (Kind a) (Kind b) a b where
