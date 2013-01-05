@@ -30,6 +30,12 @@ import Ermine.Kind
 import Ermine.Type
 import Ermine.Syntax
 
+-- $setup
+-- >>> :set -XRank2Types
+-- >>> import Control.Lens
+-- >>> import Ermine
+-- >>> let inferredKind :: (forall k t. Type k t) -> Either String (Schema a); inferredKind t = over _left snd $ evalU Rendering $ generalize =<< inferKind t
+
 ------------------------------------------------------------------------------
 -- Builtin
 ------------------------------------------------------------------------------
@@ -68,29 +74,71 @@ builtin_  = builtin star
 -- Numeric Types
 ------------------------------------------------------------------------------
 
-int, long, byte, short, float, double :: Builtin t => t
-int    = builtin_ "Int"
-long   = builtin_ "Long"
-byte   = builtin_ "Byte"
-short  = builtin_ "Short"
-float  = builtin_ "Float"
+-- |
+-- >>> inferredKind int
+-- Right (Schema 0 (Scope (HardKind Star)))
+int :: Builtin t => t
+int = builtin_ "Int"
+
+-- |
+-- >>> inferredKind long
+-- Right (Schema 0 (Scope (HardKind Star)))
+long :: Builtin t => t
+long = builtin_ "Long"
+
+-- |
+-- >>> inferredKind byte
+-- Right (Schema 0 (Scope (HardKind Star)))
+byte :: Builtin t => t
+byte = builtin_ "Byte"
+
+-- |
+-- >>> inferredKind short
+-- Right (Schema 0 (Scope (HardKind Star)))
+short :: Builtin t => t
+short = builtin_ "Short"
+
+-- |
+-- >>> inferredKind float
+-- Right (Schema 0 (Scope (HardKind Star)))
+float :: Builtin t => t
+float = builtin_ "Float"
+
+-- |
+-- >>> inferredKind double
+-- Right (Schema 0 (Scope (HardKind Star)))
+double :: Builtin t => t
 double = builtin_ "Double"
 
 ------------------------------------------------------------------------------
 -- Text
 ------------------------------------------------------------------------------
 
-char, string :: Builtin t => t
-char   = builtin_ "Char"
+-- |
+-- >>> inferredKind char
+-- Right (Schema 0 (Scope (HardKind Star)))
+char :: Builtin t => t
+char = builtin_ "Char"
+
+-- |
+-- >>> inferredKind string
+-- Right (Schema 0 (Scope (HardKind Star)))
+string :: Builtin t => t
 string = builtin_ "String"
 
 ------------------------------------------------------------------------------
 -- Containers
 ------------------------------------------------------------------------------
 
+-- |
+-- >>> inferredKind list
+-- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
 list :: Builtin t => t
 list = builtin (star ~> star) "List"
 
+-- |
+-- >>> inferredKind maybe_
+-- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
 
