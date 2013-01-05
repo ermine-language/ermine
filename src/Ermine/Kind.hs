@@ -77,7 +77,6 @@ class Kindly k where
   rho        = review hardKind Rho
   phi        = review hardKind Phi
 
-
 instance Kindly HardKind where
   hardKind = id
 
