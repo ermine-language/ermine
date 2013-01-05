@@ -27,7 +27,13 @@ description:
     >      \/"""
 
 build-type:    Custom
-extra-source-files: .travis.yml
+extra-source-files:
+  .travis.yml
+  .vim.custom
+  .gitignore
+  README.markdown
+  CHANGELOG.markdown
+data-files: data/logo.txt
 
 source-repository head
   type: git
@@ -114,7 +120,9 @@ executable ermine
   else
     build-depends:
       base      >= 4 && < 5,
-      haskeline >= 0.7.0.3 && < 0.8
+      filepath,
+      haskeline >= 0.7.0.3 && < 0.8,
+      mtl       >= 2.1.1   && < 2.2
   main-is: Main.hs
   ghc-options: -Wall
   if flag(optimized)
