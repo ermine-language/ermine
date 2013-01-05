@@ -1,0 +1,43 @@
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine
+-- Copyright :  (c) Edward Kmett 2011-12
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- This module provides a single export with most of the types
+-- and terms involved (modulo conflicts) for easy testing
+--------------------------------------------------------------------
+module Ermine
+  ( module Ermine.Core
+  , module Ermine.Digest
+  , module Ermine.Global
+  , module Ermine.Kind
+  , module Ermine.Kind.Inference
+  , module Ermine.Pat
+  , module Ermine.Prim
+  , module Ermine.Rendering
+  , module Ermine.Scope
+  , module Ermine.Syntax
+  , module Ermine.Term
+  , module Ermine.Type
+  , module Ermine.Type.Builtin
+  , module Ermine.Unification
+  ) where
+
+import Ermine.Core hiding (Var, App, Let, Case, Lam, Prim)
+import Ermine.Digest
+import Ermine.Global
+import Ermine.Kind hiding (Var)
+import Ermine.Kind.Inference
+import Ermine.Pat
+import Ermine.Prim
+import Ermine.Rendering
+import Ermine.Scope
+import Ermine.Syntax
+import Ermine.Term hiding (Var, App, Loc)
+import Ermine.Type hiding (Var, App, Loc, Tuple)
+import Ermine.Type.Builtin
+import Ermine.Unification

@@ -53,9 +53,9 @@ library
     transformers   >= 0.2     && < 0.4,
     void           == 0.5.*
 
-
     -- trifecta       == 0.53.*,
   exposed-modules:
+    Ermine
     Ermine.Core
     Ermine.Digest
     Ermine.Global
