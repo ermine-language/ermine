@@ -110,13 +110,13 @@ instance Bitraversable Binding where
 data Term t a
   = Var a
   | App !(Term t a) !(Term t a)
-  | HardTerm HardTerm
-  | Sig (Term t a) t
-  | Lam (Pat t) !(Scope Int (Term t) a)
-  | Case (Term t a) [Alt t (Term t) a]
-  | Let [Binding t a] (Scope Int (Term t) a)
-  | Loc Rendering (Term t a) -- ^ informational link to where the term came from
-  | Remember !Int (Term t a) -- ^ Used to provide hole support.
+  | HardTerm !HardTerm
+  | Sig !(Term t a) t
+  | Lam !(Pat t) !(Scope Int (Term t) a)
+  | Case !(Term t a) [Alt t (Term t) a]
+  | Let [Binding t a] !(Scope Int (Term t) a)
+  | Loc !Rendering !(Term t a) -- ^ informational link to where the term came from
+  | Remember !Int !(Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
 
 instance IsString a => IsString (Term t a) where

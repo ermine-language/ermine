@@ -47,5 +47,6 @@ instance Bound (Alt t) where
 instance Monad f => BoundBy (Alt t f) f where
   boundBy f (Alt p b) = Alt p (boundBy f b)
 
+-- | Helper function for traversing both sides of an 'Alt'.
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b

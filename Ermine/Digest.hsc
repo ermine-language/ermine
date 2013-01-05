@@ -14,7 +14,10 @@
 --
 --------------------------------------------------------------------
 module Ermine.Digest
-  ( Digest(..)
+  (
+  -- * MD5 Digests
+    Digest(..)
+  -- * Constructing Digests
   , MD5(..)
   , MD5List(..)
   ) where
@@ -31,6 +34,10 @@ import Data.Hashable
 import qualified Data.ByteString.Unsafe as Strict
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
+
+--------------------------------------------------------------------
+-- Digest
+--------------------------------------------------------------------
 
 -- | A 128-bit 'MD5' digest
 data Digest = Digest !Word64 !Word64
@@ -69,6 +76,10 @@ withCtx f = unsafeDupablePerformIO $ allocaBytes (#const sizeof(MD5_CTX)) $ \ctx
     md5Final pdigest ctx
     peekDigest (castPtr pdigest)
 
+--------------------------------------------------------------------
+-- MD5List
+--------------------------------------------------------------------
+
 -- | A helper class provided to aid in MD5 calculation
 class MD5List t where
   digestList :: [t] -> Digest
@@ -85,6 +96,10 @@ instance MD5List Char where
       f c = [0, fromIntegral $ shiftR w32 16, fromIntegral $ shiftR w32 8, fromIntegral w32] where
         w32 :: Word32
         w32 = fromIntegral (fromEnum c)
+
+--------------------------------------------------------------------
+-- MD5
+--------------------------------------------------------------------
 
 -- | A class for things that can be converted directly to an 'MD5' digest.
 class MD5 t where

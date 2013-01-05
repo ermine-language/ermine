@@ -62,8 +62,8 @@ type FieldName = String
 data HardType
   = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
   | Arrow      -- (->) :: * -> * -> *
-  | Con !Global (Schema Void)
-  | ConcreteRho (Set FieldName)
+  | Con !Global !(Schema Void)
+  | ConcreteRho !(Set FieldName)
   deriving (Eq, Ord, Show)
 
 -- | Smart constructors that allows us to pun various 'HardType' constructor names for 'Type'.
@@ -102,8 +102,8 @@ infixl 9 `App`
 data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
-  | HardType HardType
-  | Forall !Int [Scope Int Kind k] (Scope Int (TK k) a)
+  | HardType !HardType
+  | Forall !Int [Scope Int Kind k] !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Show, Functor, Foldable, Traversable)

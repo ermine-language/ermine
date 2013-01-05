@@ -190,6 +190,10 @@ instance Variable Schema where
 schema :: Kind a -> Schema a
 schema k = Schema 0 (lift k)
 
+-- | Construct a schema from a kind, generalizing all free variables.
+--
+-- When working with 'Ermine.Kind.Inference.Meta' variables, you want to use
+-- generalize to 'zonk' the kind and check skolems.
 general :: Ord k => Kind k -> Schema a
 general k0 = Schema (snd mnl) (Scope r) where
  (mnl, r) = mapAccumL go (Map.empty, 0) k0

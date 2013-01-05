@@ -90,11 +90,11 @@ instance Lit a => Lit (Maybe a) where
 -- and all of the types have been checked and removed.
 data Core a
   = Var a
-  | Prim Prim [Core a]
-  | App (Core a) (Core a)
-  | Lam (Pat ()) (Scope Int Core a)
-  | Let [Scope Int Core a] (Scope Int Core a)
-  | Case (Core a) [Alt () Core a]
+  | Prim !Prim [Core a]
+  | App !(Core a) !(Core a)
+  | Lam !(Pat ()) !(Scope Int Core a)
+  | Let [Scope Int Core a] !(Scope Int Core a)
+  | Case !(Core a) [Alt () Core a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance IsString a => IsString (Core a) where

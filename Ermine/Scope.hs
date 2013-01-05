@@ -42,12 +42,14 @@ bitraverseScope :: (Bitraversable t, Applicative f) => (k -> f k') -> (a -> f a'
 bitraverseScope f g = fmap Scope . bitraverse f (traverse (bitraverse f g)) . unscope
 {-# INLINE bitraverseScope #-}
 
+-- | This prism acts like a reversible smart constructor for 'B'.
 bound :: Prism (Var a c) (Var b c) a b
 bound = prism B $ \ t -> case t of
   B b -> Right b
   F c -> Left (F c)
 {-# INLINE bound #-}
 
+-- This prism acts like a reversible smart constructor for 'F'.
 free :: Prism (Var c a) (Var c b) a b
 free = prism F $ \ t -> case t of
   B c -> Left (B c)

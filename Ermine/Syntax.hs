@@ -52,14 +52,20 @@ instance Variable (Either b) where
 -- App
 --------------------------------------------------------------------
 
+-- | Discriminable 'App'
+--
+-- This prism provides ad hoc overloading of construction and pattern
+-- matching on 'App'.
 class App t where
   app :: Prism' (t a) (t a, t a)
 
 infixl 9 #
 
+-- | Convenient infix application operator.
 (#) :: App t => t a -> t a -> t a
 (#) = curry (review app)
 
+-- | Fold a series of applications.
 apps :: App t => t a -> [t a] -> t a
 apps = foldl (#)
 
@@ -67,10 +73,12 @@ apps = foldl (#)
 -- Fun
 --------------------------------------------------------------------
 
+-- | Discriminable syntactic arrows.
 class Fun t where
   fun :: Prism' (t a) (t a,t a)
 
 infixr 0 ~>
 
+-- | Provide ad hoc overloading of function arrows.
 (~>) :: Fun t => t a -> t a -> t a
 (~>) = curry (review fun)

@@ -51,13 +51,13 @@ instance Applicative (U s) where
   {-# INLINE (<*>) #-}
 
 instance Monad (U s) where
-  return a = U $ \_ n -> return (OK n a)
+  return a = U $ \_ n -> return $! OK n a
   {-# INLINE return #-}
   U m >>= k = U $ \ r n -> m r n >>= \s -> case s of
     OK n' a -> unU (k a) r n'
-    Err t e -> return $ Err t e
+    Err t e -> return $! Err t e
   {-# INLINE (>>=) #-}
-  fail s = U $ \r _ -> return (Err r s)
+  fail s = U $ \r _ -> return $! Err r s
 
 instance MonadReader Rendering (U s) where
   ask = U $ \r n -> return (OK n r)
@@ -74,7 +74,7 @@ evalU r m = case runST (unU m r 0) of
 
 -- | Generate a fresh variable
 fresh :: U s Int
-fresh = U $ \ _ n -> return $ OK (n + 1) n
+fresh = U $ \ _ n -> return $! OK (n + 1) n
 {-# INLINE fresh #-}
 
 -- | Lift an @ST@ action into the @U@ monad.
