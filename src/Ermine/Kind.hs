@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -29,6 +30,9 @@ module Ermine.Kind
   , general
   -- * Kind Variables
   , HasKindVars(..)
+  -- * Pretty Printing
+  , prettyKind
+  , prettySchema
   ) where
 
 import Bound
@@ -37,6 +41,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
+import Ermine.Pretty
 import Ermine.Scope
 import Ermine.Syntax
 import Prelude.Extras
@@ -64,6 +69,12 @@ data HardKind
   | Phi
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable)
 
+instance Pretty HardKind where
+  pretty Star = text "*"
+  pretty Constraint = text "Γ"
+  pretty Rho = text "ρ"
+  pretty Phi = text "φ"
+
 ------------------------------------------------------------------------------
 -- Kindly
 ------------------------------------------------------------------------------
@@ -90,6 +101,15 @@ data Kind a
   | Kind a :-> Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+prettyKind :: Kind a -> Bool -> (a -> Doc b) -> Doc b
+prettyKind (l :-> r)    b k = parensIf b (prettyKind l True k <+> "->" <+> prettyKind r False k)
+prettyKind (Var a)      _ k = k a
+prettyKind (HardKind h) _ _ = pretty h
+
+-- instance Pretty a => Pretty (Kind a) where
+instance a ~ String => Pretty (Kind a) where
+  pretty k = prettyKind k False pretty
 
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
@@ -168,6 +188,11 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
+
+prettySchema :: Schema a -> [String] -> (a -> Doc b) -> Doc b
+prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v -> case v of
+  B i  -> text (xs !! i)
+  F a -> k a
 
 instance Fun Schema where
   fun = prism hither yon

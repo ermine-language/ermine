@@ -6,7 +6,7 @@ import System.Console.Haskeline
 import System.FilePath
 
 main :: IO ()
-main = runInputT defaultSettings { historyFile = Just ".ermine.history" } $ do
+main = runInputT defaultSettings { historyFile = Just ".ermine_history" } $ do
   logo
   loop
 
