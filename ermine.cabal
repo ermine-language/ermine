@@ -33,6 +33,16 @@ source-repository head
   type: git
   location: git://github.com/ekmett/ermine.git
 
+-- cabal install --enable-tests -f-doctests to disable doctest suite
+flag doctests
+  manual: True
+  default: True
+
+-- cabal install --enable-tests -f-properties to disable properties suite
+flag properties
+  manual: True
+  default: True
+
 library
   other-extensions: CPP
 
@@ -78,26 +88,49 @@ library
   extra-libraries: crypto
   ghc-options:     -Wall -funbox-strict-fields -O2
 
+-- Verify the properties of lenses with QuickCheck
+test-suite properties
+  type: exitcode-stdio-1.0
+  main-is: properties.hs
+  ghc-options: -w -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: tests
+  if !flag(properties)
+    buildable: False
+  else
+    build-depends:
+      base,
+      ermine,
+      lens,
+      QuickCheck                 >= 2.4,
+      tagged                     >= 0.4.4 && < 0.5,
+      test-framework             >= 0.6,
+      test-framework-quickcheck2 >= 0.2,
+      test-framework-th          >= 0.2,
+      transformers
+
 -- Verify the results of the examples
 test-suite doctests
   type:    exitcode-stdio-1.0
   main-is: doctests.hs
-  build-depends:
-    base,
-    bytestring,
-    containers,
-    directory >= 1.0,
-    deepseq,
-    doctest >= 0.9.1,
-    ermine,
-    filepath,
-    mtl,
-    parallel,
-    simple-reflect >= 0.3.1,
-    split,
-    text,
-    unordered-containers,
-    vector
+  if !flag(doctests)
+    buildable: False
+  else
+    build-depends:
+      base,
+      bytestring,
+      containers,
+      directory >= 1.0,
+      deepseq,
+      doctest >= 0.9.1,
+      ermine,
+      filepath,
+      mtl,
+      parallel,
+      simple-reflect >= 0.3.1,
+      split,
+      text,
+      unordered-containers,
+      vector
   ghc-options: -Wall -threaded
   if impl(ghc<7.6.1)
     ghc-options: -Werror
