@@ -120,17 +120,9 @@ test-suite doctests
       bytestring,
       containers,
       directory >= 1.0,
-      deepseq,
       doctest >= 0.9.1,
       ermine,
-      filepath,
-      mtl,
-      parallel,
-      simple-reflect >= 0.3.1,
-      split,
-      text,
-      unordered-containers,
-      vector
+      mtl
   ghc-options: -Wall -threaded
   if impl(ghc<7.6.1)
     ghc-options: -Werror
