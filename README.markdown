@@ -1,6 +1,19 @@
 Ermine
 ======
 
+                                         _,-/"---,
+                 ;"""""""""";          _`;; ""  «@`---v
+                ; :::::  ::  "'      _` ;;  "    _.../
+               ;"     ;;  ;;;  '",-`::    ;;,'""""
+              ;"          ;;;;.  ;;  ;;;  ::`    ____
+             ,/ / ;;  ;;;______;;;  ;;; ::,`    / __/_____ _  ( )__  __
+             /;; _;;   ;;;       ;       ;     / _//`__/  ' \/ /`_ \/ -)
+             | :/ / ,;'           ;_ "")/     /___/_/ /_/_/_/_/_//_/\__/ 0.6
+             ; ; / /"""=            \;;\\""=  Copyright © 2011-12 S&P Capital IQ
+          ;"""';\::""""""=            \\"""=
+          \/"""
+
+
 This is an experimental compiler for the Ermine programming language developed at S&P Capital IQ.
 
 * [Haddocks](http://ekmett.github.com/ermine)
