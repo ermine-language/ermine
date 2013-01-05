@@ -25,7 +25,6 @@ import Data.Foldable
 import Data.Traversable
 import Ermine.Prim
 import Ermine.Scope
-import Ermine.Mangled
 
 -- | Patterns used by 'Term' and 'Core'.
 data Pat t

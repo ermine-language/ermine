@@ -13,7 +13,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- Meta variables for unification
+-- Unification support.
 --------------------------------------------------------------------
 module Ermine.Unification
   (

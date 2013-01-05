@@ -38,7 +38,6 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Ermine.Mangled
 import Ermine.Scope
 import Ermine.Syntax
 import Prelude.Extras
@@ -108,11 +107,6 @@ instance Plated (Kind a) where
   plate f (l :-> r) = (:->) <$> f l <*> f r
   plate _ v = pure v
 
-instance Mangled Kind where
-  mangled f (Var a)      = f a
-  mangled f (x :-> y)    = (:->) <$> mangled f x <*> mangled f y
-  mangled _ (HardKind k) = pure $ HardKind k
-
 instance Functor Kind where
   fmap = fmapDefault
 
@@ -120,7 +114,9 @@ instance Foldable Kind where
   foldMap = foldMapDefault
 
 instance Traversable Kind where
-  traverse = traverseDefault
+  traverse f (Var a)      = Var <$> f a
+  traverse f (x :-> y)    = (:->) <$> traverse f x <*> traverse f y
+  traverse _ (HardKind k) = pure $ HardKind k
 
 instance Applicative Kind where
   pure = Var
@@ -128,7 +124,9 @@ instance Applicative Kind where
 
 instance Monad Kind where
   return = Var
-  (>>=) = bindDefault
+  Var a >>= f      = f a
+  (x :-> y) >>= f  = (x >>= f) :-> (y >>= f)
+  HardKind k >>= _ = HardKind k
 
 instance Kindly (Kind a) where
   hardKind = prism HardKind $ \t -> case t of
@@ -210,9 +208,6 @@ instance HasKindVars (Schema a) (Schema b) a b where
 
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
-
-instance MangledBy Schema Kind where
-  mangledBy f (Schema i b) = Schema i <$> mangledBy f b
 
 ------------------------------------------------------------------------------
 -- HasKind

@@ -42,7 +42,6 @@ import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.String
 import Ermine.Kind hiding (Var)
-import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
 import Ermine.Rendering
@@ -206,8 +205,6 @@ instance Applicative (Term t) where
 instance Monad (Term t) where
   return = Var
   m >>= g = bindTerm id g m
-
-instance Mangled (Term t)
 
 ------------------------------------------------------------------------------
 -- Variables

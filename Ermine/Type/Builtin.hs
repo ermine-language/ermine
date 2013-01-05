@@ -97,7 +97,7 @@ maybe_ = builtin (star ~> star) "Maybe"
 tup :: [Type k t] -> Type k t
 tup xs = apps (tuple (length xs)) xs
 
-equality :: Builtin x => x
+equality :: Builtin t => t
 equality = builtin ("a" ~> "a" ~> star) "Equality"
 
 ------------------------------------------------------------------------------

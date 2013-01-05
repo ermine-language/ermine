@@ -41,9 +41,9 @@ import Data.List hiding (foldr)
 import Data.Foldable
 import Data.String
 import Ermine.Global
-import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
+import Ermine.Scope
 import Ermine.Syntax
 import Prelude.Extras
 import Prelude hiding (foldr)
@@ -123,7 +123,6 @@ instance Monad Core where
   Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
   Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
 
-instance Mangled Core
 instance Eq1   Core where (==#) = (==)
 instance Show1 Core where showsPrec1 = showsPrec
 
