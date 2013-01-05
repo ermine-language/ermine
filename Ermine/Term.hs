@@ -40,15 +40,15 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
-import Ermine.App
+import Data.String
 import Ermine.Kind hiding (Var)
 import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
 import Ermine.Rendering
 import Ermine.Scope
+import Ermine.Syntax
 import Ermine.Type hiding (App, Loc, Var)
-import Ermine.Variable
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -120,12 +120,15 @@ data Term t a
   | Remember !Int (Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
 
+instance IsString a => IsString (Term t a) where
+  fromString = Var . fromString
+
 instance Variable (Term t) where
   var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
 
-instance App (Term t a) where
+instance App (Term t) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t

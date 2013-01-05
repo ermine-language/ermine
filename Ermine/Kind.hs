@@ -26,6 +26,7 @@ module Ermine.Kind
   -- * Kind Schemas
   , Schema(..)
   , schema
+  , general
   -- * Kind Variables
   , HasKindVars(..)
   , HasKind(..)
@@ -37,16 +38,16 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Ermine.Fun
 import Ermine.Mangled
 import Ermine.Scope
-import Ermine.Variable
+import Ermine.Syntax
 import Prelude.Extras
 import Data.IntMap
 import Data.Foldable
+import Data.String
 import Data.Traversable
 import Data.Data
-import Data.Map
+import Data.Map as Map
 
 infixr 0 :->
 
@@ -75,6 +76,7 @@ class Kindly k where
   rho        = review hardKind Rho
   phi        = review hardKind Phi
 
+
 instance Kindly HardKind where
   hardKind = id
 
@@ -89,7 +91,10 @@ data Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-instance Fun (Kind a) where
+instance IsString a => IsString (Kind a) where
+  fromString = Var . fromString
+
+instance Fun Kind where
   fun = prism (uncurry (:->)) $ \t -> case t of
     l :-> r -> Right (l, r)
     _       -> Left t
@@ -163,7 +168,7 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
 
-instance Fun (Schema a) where
+instance Fun Schema where
   fun = prism hither yon
     where
     hither (Schema n (Scope s), Schema m t) = Schema (n + m) $
@@ -186,6 +191,13 @@ instance Variable Schema where
 -- | Lift a kind into a kind schema
 schema :: Kind a -> Schema a
 schema k = Schema 0 (lift k)
+
+general :: Ord k => Kind k -> Schema a
+general k0 = Schema (snd mnl) (Scope r) where
+ (mnl, r) = mapAccumL go (Map.empty, 0) k0
+ go mn@(m, n) k = case m^.at k of
+   Just b  -> (mn, B b)
+   Nothing -> let n' = n + 1 in n' `seq` ((m & at k ?~ n, n'), B n)
 
 instance Kindly (Schema a) where
   hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of

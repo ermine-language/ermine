@@ -55,10 +55,8 @@ library
 
     -- trifecta       == 0.53.*,
   exposed-modules:
-    Ermine.App
     Ermine.Core
     Ermine.Digest
-    Ermine.Fun
     Ermine.Global
     Ermine.Kind
     Ermine.Kind.Inference
@@ -67,11 +65,11 @@ library
     Ermine.Prim
     Ermine.Rendering
     Ermine.Scope
+    Ermine.Syntax
     Ermine.Term
     Ermine.Type
     Ermine.Type.Builtin
     Ermine.Unification
-    Ermine.Variable
 
   ghc-options: -Wall
 

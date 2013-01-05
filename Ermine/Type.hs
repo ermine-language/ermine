@@ -44,16 +44,15 @@ import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.Set hiding (map)
+import Data.String
 import Data.Void
-import Ermine.App
-import Ermine.Fun
 import Ermine.Global
 import Ermine.Kind hiding (Var)
 import qualified Ermine.Kind as Kind
 import Ermine.Mangled
 import Ermine.Scope
+import Ermine.Syntax
 import Ermine.Rendering
-import Ermine.Variable
 import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -87,13 +86,13 @@ class Typical t where
 instance Typical HardType where
   hardType = id
 
-instance Fun (Type k a) where
+instance Fun (Type k) where
   -- TODO: make this preserve invariants about 'Forall'.
   fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
     HardType Arrow `App` l `App` r -> Right (l, r)
     _                              -> Left t
 
-instance App (Type k a) where
+instance App (Type k) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
@@ -109,6 +108,9 @@ data Type k a
   | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Show, Functor, Foldable, Traversable)
+
+instance IsString a => IsString (Type k a) where
+  fromString = Var . fromString
 
 instance Variable (Type k) where
   var = prism Var $ \t -> case t of

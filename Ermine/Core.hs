@@ -39,12 +39,12 @@ import Control.Lens
 import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
-import Ermine.App
+import Data.String
 import Ermine.Global
 import Ermine.Mangled
 import Ermine.Pat
 import Ermine.Prim
-import Ermine.Variable
+import Ermine.Syntax
 import Prelude.Extras
 import Prelude hiding (foldr)
 
@@ -97,7 +97,10 @@ data Core a
   | Case (Core a) [Alt () Core a]
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
-instance App (Core a) where
+instance IsString a => IsString (Core a) where
+  fromString = Var . fromString
+
+instance App Core where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t

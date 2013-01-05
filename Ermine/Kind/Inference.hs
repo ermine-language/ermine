@@ -50,7 +50,7 @@ import Data.Void
 import Data.IntSet
 import Data.IntMap as IntMap
 import Ermine.Kind as Kind
-import Ermine.Variable
+import Ermine.Syntax
 import Ermine.Unification
 import Ermine.Type as Type
 
