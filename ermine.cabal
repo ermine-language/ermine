@@ -2,7 +2,7 @@ name:          ermine
 category:      Compiler
 version:       0.6
 license:       BSD3
-cabal-version: >= 1.6
+cabal-version: >= 1.8
 license-file:  LICENSE
 author:        Edward A. Kmett
 maintainer:    Edward A. Kmett <ekmett@gmail.com>
@@ -26,7 +26,7 @@ description:
     >      ;"""';\::""""""=            \\"""=
     >      \/"""
 
-build-type:    Simple
+build-type:    Custom
 extra-source-files: .travis.yml
 
 source-repository head
@@ -53,6 +53,7 @@ library
     transformers   >= 0.2     && < 0.4,
     void           == 0.5.*
 
+
     -- trifecta       == 0.53.*,
   exposed-modules:
     Ermine.Core
@@ -70,8 +71,34 @@ library
     Ermine.Type.Builtin
     Ermine.Unification
 
+  hs-source-dirs: src
   ghc-options: -Wall
 
   includes:        openssl/md5.h
   extra-libraries: crypto
   ghc-options:     -Wall -funbox-strict-fields -O2
+
+-- Verify the results of the examples
+test-suite doctests
+  type:    exitcode-stdio-1.0
+  main-is: doctests.hs
+  build-depends:
+    base,
+    bytestring,
+    containers,
+    directory >= 1.0,
+    deepseq,
+    doctest >= 0.9.1,
+    ermine,
+    filepath,
+    mtl,
+    parallel,
+    simple-reflect >= 0.3.1,
+    split,
+    text,
+    unordered-containers,
+    vector
+  ghc-options: -Wall -threaded
+  if impl(ghc<7.6.1)
+    ghc-options: -Werror
+  hs-source-dirs: tests
