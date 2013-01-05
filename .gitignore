@@ -1,5 +1,10 @@
+.*.swo
+.*.swp
+.DS_Store
+TAGS
 _darcs
 dist
 docs
-.*.swo
-.*.swp
+tags
+wiki
+wip
