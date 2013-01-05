@@ -15,7 +15,6 @@ module Ermine.Global
   , Assoc(..)
   , Fixity(..)
   -- * Lenses
-  , globalDigest -- only a getter
   , globalFixity
   , globalPackage
   , globalModule
@@ -54,10 +53,6 @@ data Global = Global
   , _globalModule   :: !ByteString
   , _globalName     :: !ByteString
   } deriving (Show, Data, Typeable)
-
--- | Extract the digest from a getter.
-globalDigest :: Getter Global Digest
-globalDigest = to _globalDigest
 
 -- | A lens that will read or update the fixity (and compute a new digest)
 globalFixity :: Simple Lens Global Fixity
