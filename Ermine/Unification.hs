@@ -28,7 +28,6 @@ import Control.Monad.Reader.Class
 import Control.Monad.ST
 import Ermine.Rendering
 
--- | @U@ provides a fresh variable supply for meta variables.
 data Result a
   = Err Rendering String
   | OK !Int a
@@ -38,6 +37,9 @@ instance Functor Result where
   fmap _ (Err r s) = Err r s
   {-# INLINE fmap #-}
 
+-- | The unification monad provides a 'fresh' variable supply and tracks a current
+-- 'Rendering' to blame for any unification errors.
+--
 newtype U s a = U { unU :: Rendering -> Int -> ST s (Result a) }
 
 instance Functor (U s) where
@@ -65,19 +67,19 @@ instance MonadReader Rendering (U s) where
   local f (U m) = U (m . f)
   {-# INLINE local #-}
 
--- | Evaluate an expression in the @U@ monad with a fresh variable supply.
+-- | Evaluate an expression in the 'U' 'Monad' with a fresh variable supply.
 evalU :: Rendering -> (forall s. U s a) -> Either (Rendering, String) a
 evalU r m = case runST (unU m r 0) of
   Err t e -> Left (t, e)
   OK _ a  -> Right a
 {-# INLINE evalU #-}
 
--- | Generate a fresh variable
+-- | Generate a 'fresh' variable
 fresh :: U s Int
 fresh = U $ \ _ n -> return $! OK (n + 1) n
 {-# INLINE fresh #-}
 
--- | Lift an @ST@ action into the @U@ monad.
+-- | Lift an 'ST' action into the 'U' monad.
 st :: ST s a -> U s a
 st s = U $ \_ n -> OK n <$> s
 {-# INLINE st #-}

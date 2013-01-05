@@ -74,4 +74,4 @@ library
 
   includes:        openssl/md5.h
   extra-libraries: crypto
-  ghc-options:     -Wall -funbox-strict-fields
+  ghc-options:     -Wall -funbox-strict-fields -O2
