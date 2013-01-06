@@ -133,18 +133,33 @@ string = builtin_ "String"
 -- |
 -- >>> inferredKind list
 -- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
+--
+-- >>> inferredKind (list int)
+-- Right (Schema 0 (Scope (HardKind Star)))
 list :: Builtin t => t
 list = builtin (star ~> star) "List"
 
 -- |
 -- >>> inferredKind maybe_
 -- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
+--
+-- >>> inferredKind (maybe_ int)
+-- Right (Schema 0 (Scope (HardKind Star)))
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
 
+-- |
+-- >>> inferredKind (tup [int, list int])
+-- Right (Schema 0 (Scope (HardKind Star)))
 tup :: [Type k t] -> Type k t
 tup xs = apps (tuple (length xs)) xs
 
+-- |
+-- >>> inferredKind equality
+-- Right (Schema 1 (Scope (Var (B 0) :-> (Var (B 0) :-> HardKind Star))))
+--
+-- >>> inferredKind (equality equality)
+-- Right (Schema 1 (Scope ((Var (B 0) :-> (Var (B 0) :-> HardKind Star)) :-> HardKind Star)))
 equality :: Builtin t => t
 equality = builtin ("a" ~> "a" ~> star) "Equality"
 
@@ -152,5 +167,8 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 -- Classes
 ------------------------------------------------------------------------------
 
+-- |
+-- >>> inferredKind functor
+-- Right (Schema 0 (Scope ((HardKind Star :-> HardKind Star) :-> HardKind Constraint)))
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"
