@@ -202,9 +202,11 @@ inferKind (Exists ks cs) = do
   for_ cs $ \c ->
     checkKind (instantiateList ks c) constraint
   return constraint
-inferKind (Forall n tks b) = do
+inferKind (Forall n tks cs b) = do
   sks <- replicateM n newSkolem
   let btys = instantiateList sks <$> tks
+  for_ cs $ \c ->
+    checkKind (instantiateKinds (pure . (sks!!)) (instantiateList btys c)) constraint
   checkKind (instantiateKinds (pure . (sks!!)) (instantiateList btys b)) star
   return star
 

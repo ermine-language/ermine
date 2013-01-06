@@ -103,7 +103,7 @@ data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
   | HardType !HardType
-  | Forall !Int [Scope Int Kind k] !(Scope Int (TK k) a)
+  | Forall !Int [Scope Int Kind k] [Scope Int (TK k) a] !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Show, Functor, Foldable, Traversable)
@@ -122,14 +122,14 @@ instance Typical (Type k a) where
     _          -> Left s
 
 instance (Eq k, Eq a) => Eq (Type k a) where
-  Loc _ l       == r                = l == r
-  l             == Loc _ r          = l == r
-  Var a         == Var b            = a == b
-  App l r       == App l' r'        = l == l' && r == r'
-  HardType x    == HardType y       = x == y
-  Forall n ks b == Forall n' ks' b' = n == n' && ks == ks' && b == b'
-  Exists ks cs  == Exists ks' cs'   = ks == ks' && cs == cs'
-  _             == _                = False
+  Loc _ l          == r                    = l == r
+  l                == Loc _ r              = l == r
+  Var a            == Var b                = a == b
+  App l r          == App l' r'            = l == l' && r == r'
+  HardType x       == HardType y           = x == y
+  Forall n ks cs b == Forall n' ks' cs' b' = n == n' && ks == ks' && cs == cs' && b == b'
+  Exists ks cs     == Exists ks' cs'       = ks == ks' && cs == cs'
+  _                == _                    = False
 
 instance Bifunctor Type where
   bimap = bimapDefault
@@ -138,12 +138,12 @@ instance Bifoldable Type where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Type where
-  bitraverse _ g (Var a)         = Var <$> g a
-  bitraverse f g (App l r)       = App <$> bitraverse f g l <*> bitraverse f g r
-  bitraverse _ _ (HardType t)    = pure $ HardType t
-  bitraverse f g (Forall n ks b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope f g b
-  bitraverse f g (Loc r as)      = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists ks cs)  = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+  bitraverse _ g (Var a)            = Var <$> g a
+  bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
+  bitraverse _ _ (HardType t)       = pure $ HardType t
+  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs <*> bitraverseScope f g b
+  bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
+  bitraverse f g (Exists ks cs)     = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
@@ -156,12 +156,12 @@ instance Show2 Type where showsPrec2 = showsPrec
 
 -- | Perform simultaneous substitution on kinds and types in a 'Type'.
 bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
-bindType _ g (Var a)          = g a
-bindType f g (App l r)        = App (bindType f g l) (bindType f g r)
-bindType _ _ (HardType t)     = HardType t
-bindType f g (Forall n tks b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) b >>>= liftTK . g)
-bindType f g (Loc r as)       = Loc r (bindType f g as)
-bindType f g (Exists ks cs)   = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindType f Var) c >>>= g) cs)
+bindType _ g (Var a)             = g a
+bindType f g (App l r)           = App (bindType f g l) (bindType f g r)
+bindType _ _ (HardType t)        = HardType t
+bindType f g (Forall n tks cs b) = Forall n (map (>>>= f) tks) (map (\c -> hoistScope (bindTK f) c >>>= liftTK . g) cs) (hoistScope (bindTK f) b >>>= liftTK . g)
+bindType f g (Loc r as)          = Loc r (bindType f g as)
+bindType f g (Exists ks cs)      = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindType f Var) c >>>= g) cs)
 
 instance Applicative (Type k) where
   pure = Var
