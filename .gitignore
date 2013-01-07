@@ -5,7 +5,7 @@
 .*.swo
 .*.swp
 .DS_Store
-.ermine.history
+.ermine_history
 TAGS
 _darcs
 dist
