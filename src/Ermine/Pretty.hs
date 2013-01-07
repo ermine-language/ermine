@@ -1,23 +1,17 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 module Ermine.Pretty
-  ( module System.Console.Terminfo.PrettyPrint
-  , module Text.PrettyPrint.Free
+  ( module Text.PrettyPrint.Free
   , names
   , parensIf
   , hyph
---  , displayed
   ) where
 
 import Control.Applicative
 import Control.Arrow
 import Control.Lens
--- import Control.Monad.IO.Class
 import Numeric.Lens
-import System.Console.Terminfo.PrettyPrint
--- import System.Console.Haskeline
 import Text.Hyphenation
 import Text.PrettyPrint.Free
--- import Text.PrettyPrint.Free.Internal
 
 names :: [String]
 names = map pure az
