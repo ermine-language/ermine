@@ -33,7 +33,9 @@ extra-source-files:
   .gitignore
   README.markdown
   CHANGELOG.markdown
-data-files: data/logo.txt
+data-files:
+  data/logo.txt
+  data/logos.txt
 
 source-repository head
   type: git
@@ -66,25 +68,30 @@ flag repl
 
 library
   build-depends:
-    base               >= 4       && < 5,
-    bifunctors         >= 3,
-    binary             == 0.5.*,
-    bound              >= 0.6,
-    bytestring         >= 0.9     && < 0.11,
-    containers         >= 0.3     && < 0.6,
-    data-default       == 0.4.*,
-    hashable           >= 1.1     && < 1.3,
-    haskeline          >= 0.7.0.3 && < 0.8,
-    hyphenation        >= 0.2.1.7 && < 0.3,
-    lens               >= 3.8,
-    mtl                >= 2.1.1   && < 2.2,
-    prelude-extras     >= 0.3,
-    semigroups         >= 0.8.3,
-    time               == 1.4.*,
-    transformers       >= 0.2     && < 0.4,
-    void               >= 0.5.10,
-    wl-pprint-extras   >= 3.3,
-    wl-pprint-terminfo >= 3.3
+    base                 >= 4 && < 5,
+    bifunctors           >= 3,
+    binary               == 0.5.*,
+    bound                >= 0.6,
+    bytestring           >= 0.9 && < 0.11,
+    containers           >= 0.3 && < 0.6,
+    data-default         == 0.4.*,
+    filepath             >= 1.3 && < 1.4,
+    hashable             >= 1.1 && < 1.3,
+    haskeline            >= 0.7.0.3 && < 0.8,
+    hyphenation          >= 0.2.1.7 && < 0.3,
+    lens                 >= 3.8,
+    mtl                  >= 2.1.1 && < 2.2,
+    parsers              >= 0.4,
+    prelude-extras       >= 0.3,
+    random               >= 1.0.0.3 && < 1.1,
+    semigroups           >= 0.8.3,
+    split                >= 0.2.1.1 && < 0.3,
+    time                 == 1.4.*,
+    transformers         >= 0.2 && < 0.4,
+    unordered-containers >= 0.2.3 && < 0.3,
+    void                 >= 0.5.10,
+    wl-pprint-extras     >= 3.3,
+    wl-pprint-terminfo   >= 3.3
 
   exposed-modules:
     Ermine
@@ -93,6 +100,7 @@ library
     Ermine.Global
     Ermine.Kind
     Ermine.Kind.Inference
+    Ermine.Kind.Parser
     Ermine.Pat
     Ermine.Pretty
     Ermine.Prim
@@ -103,6 +111,10 @@ library
     Ermine.Type
     Ermine.Type.Builtin
     Ermine.Unification
+    Ermine.Version
+
+  other-modules:
+    Paths_ermine
 
   hs-source-dirs:  src
   includes:        openssl/md5.h
@@ -125,9 +137,10 @@ executable ermine
   else
     build-depends:
       base      >= 4 && < 5,
+      ermine,
       filepath,
       haskeline >= 0.7.0.3 && < 0.8,
-      mtl       >= 2.1.1   && < 2.2
+      mtl
   main-is: Main.hs
   ghc-options: -Wall
   if flag(optimized)

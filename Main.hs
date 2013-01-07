@@ -1,19 +1,14 @@
 module Main where
 
-import Paths_ermine
 import Control.Monad.Trans
+import Ermine.Version
 import System.Console.Haskeline
-import System.FilePath
 
 main :: IO ()
-main = runInputT defaultSettings { historyFile = Just ".ermine_history" } $ do
-  logo
-  loop
-
-logo :: InputT IO ()
-logo = do
-  txt <- liftIO $ do Paths_ermine.getDataFileName ("data" </> "logo.txt") >>= readFile
-  outputStrLn txt
+main = do
+  runInputT defaultSettings { historyFile = Just ".ermine_history" } $ do
+    outputStrLn =<< liftIO logo
+    loop
 
 loop :: InputT IO ()
 loop = do
