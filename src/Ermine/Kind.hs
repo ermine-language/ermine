@@ -154,10 +154,10 @@ instance Kindly (Kind a) where
     HardKind k -> Right k
     _          -> Left t
 
-instance Eq1 Kind where (==#) = (==)
-instance Ord1 Kind where compare1 = compare
-instance Show1 Kind where showsPrec1 = showsPrec
-instance Read1 Kind where readsPrec1 = readsPrec
+instance Eq1 Kind
+instance Ord1 Kind
+instance Show1 Kind
+instance Read1 Kind
 
 ------------------------------------------------------------------------------
 -- HasKindVars

@@ -171,11 +171,11 @@ instance Bitraversable Term where
     tm (Let bs ss)    = Let <$> traverse (bitraverse f g) bs <*> bitraverseScope f g ss
   {-# INLINE bitraverse #-}
 
-instance Eq t => Eq1 (Term t) where (==#) = (==)
-instance Show t => Show1 (Term t) where showsPrec1 = showsPrec
+instance Eq t => Eq1 (Term t)
+instance Show t => Show1 (Term t)
 
-instance Eq2 Term where (==##) = (==)
-instance Show2 Term where showsPrec2 = showsPrec
+instance Eq2 Term
+instance Show2 Term
 
 -- | Perform simultaneous substitution on terms and type annotations.
 bindTerm :: (t -> t') -> (a -> Term t' b) -> Term t a -> Term t' b

@@ -148,11 +148,11 @@ instance Bitraversable Type where
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
 
-instance Eq k => Eq1 (Type k) where (==#) = (==)
-instance Show k => Show1 (Type k) where showsPrec1 = showsPrec
+instance Eq k => Eq1 (Type k)
+instance Show k => Show1 (Type k)
 
-instance Eq2 Type where (==##) = (==)
-instance Show2 Type where showsPrec2 = showsPrec
+instance Eq2 Type
+instance Show2 Type
 
 -- | Perform simultaneous substitution on kinds and types in a 'Type'.
 bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b

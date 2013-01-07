@@ -142,8 +142,8 @@ instance Monad Core where
   Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
   Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
 
-instance Eq1   Core where (==#) = (==)
-instance Show1 Core where showsPrec1 = showsPrec
+instance Eq1 Core
+instance Show1 Core
 
 -- | Smart Pattern
 data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
