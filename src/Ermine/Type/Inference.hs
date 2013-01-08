@@ -51,9 +51,9 @@ unifyType is t1 t2 = do
       let nxs = instantiate (pure . (ks!!)) <$> xs
           nys = instantiate (pure . (ks!!)) <$> ys
       _sks <- for_ (zip nxs nys) $ \(x,y) -> do
-        k <- unifyKind mempty x y
+        k <- sharing x $ unifyKind mempty x y
         newSkolem k
-      error "TODO"
+      return (error "TODO")
     go (HardType x) (HardType y) | x == y = return Nothing
     -- go _ _ = fail "type mismatch"
 

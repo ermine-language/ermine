@@ -19,6 +19,7 @@
 module Ermine.Kind.Inference
   ( MetaK, KindM
   , MetaT, TypeM
+  , sharing
   , inferKind
   , checkKind
   , unifyKind
@@ -33,8 +34,8 @@ import Control.Monad.Reader.Class
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
+import Control.Monad.Writer.Strict
 import Data.Foldable
-import Data.Monoid
 import Data.Void
 import Data.IntSet as IntSet
 import Data.IntMap as IntMap
@@ -49,48 +50,52 @@ type KindM s = Kind (MetaK s)
 type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 type TypeM s = Type (MetaK s) (MetaT s)
 
+sharing :: a -> WriterT Any (M s) a -> M s a
+sharing a m = do
+  (b, Any modified) <- runWriterT m
+  return $ if modified then b else a
+
 -- | Returns the a unified form if different from the left argument.
 --
--- This enables us to increase sharing and avoid redundant write-back
-unifyKind :: IntSet -> KindM s -> KindM s -> M s (Maybe (KindM s))
+-- The writer is used to track if any interesting edits have been made
+unifyKind :: IntSet -> KindM s -> KindM s -> WriterT Any (M s) (KindM s)
 unifyKind is k1 k2 = do
-   k1' <- semiprune k1
-   k2' <- semiprune k2
-   go k1' k2'
-   where
-     go (Var kv1) (Var kv2) | kv1 == kv2 = return Nothing
-     go (Var (Meta _ i r _ u)) (Var (Meta _ i' r' _ v)) = do
-       -- union-by-rank
-       m <- liftST $ readSTRef u
-       n <- liftST $ readSTRef v
-       Just <$> if m <= n
-         then unifyKV is i  r  k2 (let m' = m + 1 in m' `seq` writeSTRef u m')
-         else unifyKV is i' r' k1 (let n' = n + 1 in n' `seq` writeSTRef u n')
-     go (Var (Meta _ i r _ u)) k  = Just <$> unifyKV is i r k (bumpRank u)
-     go k (Var (Meta _ i r _ u))  = Just <$> unifyKV is i r k (bumpRank u)
-     go (a :-> b) (c :-> d) = merge <$> unifyKind is a c <*> unifyKind is b d where
-       merge Nothing   Nothing   = Nothing
-       merge (Just ac) Nothing   = Just (ac :-> b)
-       merge Nothing   (Just bd) = Just (a  :-> bd)
-       merge (Just ac) (Just bd) = Just (ac :-> bd)
-     go (HardKind x) (HardKind y) | x == y = return Nothing
-     go _ _ = fail "kind mismatch"
-
+  k1' <- lift (semiprune k1)
+  k2' <- lift (semiprune k2)
+  go k1' k2'
+  where
+    go k@(Var kv1) (Var kv2) | kv1 == kv2 = return k -- boring
+    go (Var (Meta _ i r _ u)) (Var (Meta _ i' r' _ v)) = do
+      -- union-by-rank
+      m <- liftST $ readSTRef u
+      n <- liftST $ readSTRef v
+      if m <= n
+        then unifyKV is i  r  k2 $ let m' = m + 1 in m' `seq` writeSTRef u m'
+        else unifyKV is i' r' k1 $ let n' = n + 1 in n' `seq` writeSTRef u n'
+    go (Var (Meta _ i r _ u)) k    = unifyKV is i r k $ bumpRank u
+    go k (Var (Meta _ i r _ u))    = unifyKV is i r k $ bumpRank u
+    go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
+    go k@(HardKind x) (HardKind y) | x == y = return k -- boring
+    go _ _ = fail "kind mismatch"
+  
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-rankInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
-unifyKV :: IntSet -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> M s (KindM s)
+unifyKV :: IntSet -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> WriterT Any (M s) (KindM s)
 unifyKV is i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
   Just j | is^.ix i  -> fail "kind occurs"
-         | otherwise -> unifyKind (IntSet.insert i is) j k >>= \o -> liftST $ case o of
-    Nothing -> return k -- nothing changed
-    Just k' -> k' <$ writeSTRef r o
-  Nothing -> liftST $ do
-    bump
-    k <$ writeSTRef r (Just k)
+         | otherwise -> do
+    (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
+    if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
+         else j <$ tell (Any True)                  -- short-circuit
+  Nothing -> do
+    tell (Any True)
+    liftST $ do
+      bump
+      k <$ writeSTRef r (Just k)
 
 -- | Unify a known 'Meta' variable
-unifyKindVar :: IntSet -> MetaK s -> KindM s -> M s (KindM s)
+unifyKindVar :: IntSet -> MetaK s -> KindM s -> WriterT Any (M s) (KindM s)
 unifyKindVar is (Meta _ i r _ u) kv = unifyKV is i r kv (bumpRank u)
 unifyKindVar _  (Skolem _ _)     _  = error "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
@@ -105,7 +110,7 @@ matchFunKind (HardKind _) = fail "not a fun kind"
 matchFunKind (Var kv) = do
   a <- Var <$> newMeta ()
   b <- Var <$> newMeta ()
-  (a, b) <$ unifyKindVar mempty kv (a :-> b)
+  (a, b) <$ runWriterT (unifyKindVar mempty kv (a :-> b))
 
 instantiateSchema :: Schema (MetaK s) -> M s (KindM s)
 instantiateSchema (Schema n s) = do
@@ -116,7 +121,7 @@ instantiateSchema (Schema n s) = do
 checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
 checkKind t k = do
   k' <- inferKind t
-  () <$ unifyKind mempty k k'
+  () <$ runWriterT (unifyKind mempty k k')
 
 instantiateList :: Monad t => [a] -> Scope Int t a -> t a
 instantiateList as = instantiate (return . (as !!))
@@ -132,8 +137,7 @@ inferKind (HardType ConcreteRho{}) = return rho
 inferKind (App f x) = do
   kf <- inferKind f
   (a, b) <- matchFunKind kf
-  checkKind x a
-  return b
+  b <$ checkKind x a
 inferKind (Exists ks cs) = do
   for_ cs $ \c ->
     checkKind (instantiateList ks c) constraint
