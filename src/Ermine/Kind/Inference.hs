@@ -54,6 +54,7 @@ sharing :: Monad m => a -> WriterT Any m a -> m a
 sharing a m = do
   (b, Any modified) <- runWriterT m
   return $ if modified then b else a
+{-# INLINE sharing #-}
 
 -- | Returns the a unified form if different from the left argument.
 --
@@ -77,7 +78,7 @@ unifyKind is k1 k2 = do
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
     go _ _ = fail "kind mismatch"
-  
+
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-rankInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
