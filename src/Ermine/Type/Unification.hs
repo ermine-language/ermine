@@ -14,6 +14,7 @@ import Data.STRef
 import Data.Traversable
 import Ermine.Kind.Unification
 import Ermine.Meta
+import Ermine.Scope
 import Ermine.Type as Type
 
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
@@ -43,12 +44,11 @@ unifyType is t1 t2 = do
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = (t <$) . censor (const mempty) $ do
       ks <- lift $ replicateM m $ newSkolem ()
-      let nxs = instantiate (pure . (ks!!)) <$> xs
-          nys = instantiate (pure . (ks!!)) <$> ys
+      let nxs = instantiateList ks <$> xs
+          nys = instantiateList ks <$> ys
       _sks <- for (zip nxs nys) $ \(x,y) -> do
         k <- unifyKind mempty x y
         lift $ newSkolem k
-      
       return ()
     go t@(HardType x) (HardType y) | x == y = return t
     -- go _ _ = fail "type mismatch"

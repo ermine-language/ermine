@@ -28,6 +28,7 @@ module Ermine.Type
   , TK(..)
   , abstractKinds
   , instantiateKinds
+  , instantiateKindList
   , bindType
   -- * Type Variables
   , HasTypeVars(..)
@@ -72,29 +73,36 @@ class Typical t where
 
   tuple :: Int -> t
   tuple = review hardType . Tuple
+  {-# INLINE tuple #-}
 
   arrow :: t
   arrow = review hardType Arrow
+  {-# INLINE arrow #-}
 
   con :: Global -> Schema Void -> t
   con g k = review hardType (Con g k)
+  {-# INLINE con #-}
 
   concreteRho :: Set FieldName -> t
   concreteRho s = review hardType (ConcreteRho s)
+  {-# INLINE concreteRho #-}
 
 instance Typical HardType where
   hardType = id
+  {-# INLINE hardType #-}
 
 instance Fun (Type k) where
   -- TODO: make this preserve invariants about 'Forall'.
   fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
     HardType Arrow `App` l `App` r -> Right (l, r)
     _                              -> Left t
+  {-# INLINE fun #-}
 
 instance App (Type k) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
+  {-# INLINE app #-}
 
 infixl 9 `App`
 
@@ -110,16 +118,19 @@ data Type k a
 
 instance IsString a => IsString (Type k a) where
   fromString = Var . fromString
+  {-# INLINE fromString #-}
 
 instance Variable (Type k) where
   var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
+  {-# INLINE var #-}
 
 instance Typical (Type k a) where
   hardType = prism HardType $ \ s -> case s of
     HardType a -> Right a
     _          -> Left s
+  {-# INLINE hardType #-}
 
 instance (Eq k, Eq a) => Eq (Type k a) where
   Loc _ l          == r                    = l == r
@@ -133,9 +144,11 @@ instance (Eq k, Eq a) => Eq (Type k a) where
 
 instance Bifunctor Type where
   bimap = bimapDefault
+  {-# INLINE bimap #-}
 
 instance Bifoldable Type where
   bifoldMap = bifoldMapDefault
+  {-# INLINE bifoldMap #-}
 
 instance Bitraversable Type where
   bitraverse _ g (Var a)            = Var <$> g a
@@ -147,6 +160,7 @@ instance Bitraversable Type where
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
+  {-# INLINE kindVars #-}
 
 instance Eq k => Eq1 (Type k)
 instance Show k => Show1 (Type k)
@@ -165,11 +179,15 @@ bindType f g (Exists ks cs)      = Exists (map (>>= f) ks) (map (\c -> hoistScop
 
 instance Applicative (Type k) where
   pure = Var
+  {-# INLINE pure #-}
   (<*>) = ap
+  {-# INLINE (<*>) #-}
 
 instance Monad (Type k) where
   return = Var
+  {-# INLINE return #-}
   m >>= g = bindType Kind.Var g m
+  {-# INLINE (>>=) #-}
 
 -- | Provide a 'Traversal' of type variables that can be used to extract them or substitute them for other type variables.
 class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
@@ -177,18 +195,23 @@ class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
 
 instance HasTypeVars (Type k a) (Type k b) a b where
   typeVars = traverse
+  {-# INLINE typeVars #-}
 
 instance HasTypeVars s t a b => HasTypeVars [s] [t] a b where
   typeVars = traverse.typeVars
+  {-# INLINE typeVars #-}
 
 instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
   typeVars = traverse.typeVars
+  {-# INLINE typeVars #-}
 
 instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
+  {-# INLINE typeVars #-}
 
 instance HasTypeVars (TK k a) (TK k b) a b where
   typeVars = traverse
+  {-# INLINE typeVars #-}
 
 -- | 'TK' is a special version of 'Scope' for types that binds kinds. It is used by 'Forall'.
 newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
@@ -197,26 +220,34 @@ newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
 liftTK = TK . first (F . return)
+{-# INLINE liftTK #-}
 
 -- | Substitute kind variables in a 'TK', leaving the bound kinds untouched.
 bindTK :: (k -> Kind k') -> TK k a -> TK k' a
 bindTK f = TK . bindType (return . fmap (>>= f)) Var . runTK
+{-# INLINE bindTK #-}
 
 instance Monad (TK k) where
   return = TK . Var
+  {-# INLINE return #-}
   TK t >>= f = TK (t >>= runTK . f)
+  {-# INLINE (>>=) #-}
 
 instance Bifunctor TK where
   bimap f g = TK . bimap (fmap (fmap f)) g . runTK
+  {-# INLINE bimap #-}
 
 instance Bifoldable TK where
   bifoldMap f g = bifoldMap (foldMap (foldMap f)) g . runTK
+  {-# INLINE bifoldMap #-}
 
 instance Bitraversable TK where
   bitraverse f g = fmap TK . bitraverse (traverse (traverse f)) g . runTK
+  {-# INLINE bitraverse #-}
 
 instance HasKindVars (TK k a) (TK k' a) k k' where
   kindVars f = bitraverse f pure
+  {-# INLINE kindVars #-}
 
 instance Eq k => Eq1 (TK k) where (==#) = (==)
 instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
@@ -227,10 +258,15 @@ abstractKinds f t = TK (first k t) where
   k y = case f y of
     Just z -> B z
     Nothing -> F (return y)
+{-# INLINE abstractKinds #-}
 
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
 instantiateKinds k (TK e) = bindType go Var e where
   go (B b) = k b
   go (F a) = a
+{-# INLINE instantiateKinds #-}
 
+instantiateKindList :: [k] -> TK k a -> Type k a
+instantiateKindList ks = instantiateKinds (pure . (ks!!))
+{-# INLINE instantiateKindList #-}
