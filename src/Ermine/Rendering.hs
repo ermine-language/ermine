@@ -1,18 +1,19 @@
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Type
+-- Module    :  Ermine.Rendering
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This module is a placeholder for Rendering from @trifecta@.
+-- This module re-exports 'Rendering' from @trifecta@.
 --
--- Eventually it'll be replaced with a more general location type.
+-- This allows the non-parsing modules to not have to concern
+-- themselves with how we choose to represent source locations.
 --------------------------------------------------------------------
-module Ermine.Rendering where
+module Ermine.Rendering
+  ( Rendering 
+  ) where
 
--- | This is a location in a source file, including whatever we want to be able to show.
-data Rendering = Rendering -- !String !Int !Int
-  deriving (Eq,Ord,Show,Read)
+import Text.Trifecta.Rendering

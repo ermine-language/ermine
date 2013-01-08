@@ -112,6 +112,7 @@ library
     split                >= 0.2.1.1 && < 0.3,
     time                 == 1.4.*,
     transformers         >= 0.2 && < 0.4,
+    trifecta             >= 0.91,
     unordered-containers >= 0.2.3 && < 0.3,
     void                 >= 0.5.10,
     wl-pprint-extras     >= 3.3
