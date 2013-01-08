@@ -80,9 +80,10 @@ unifyKind is k1 k2 = do
       -- union-by-rank
       m <- liftST $ readSTRef u
       n <- liftST $ readSTRef v
-      if m <= n
-        then unifyKV is i r b $ writeSTRef v $! n + 1
-        else unifyKV is j s a $ writeSTRef u $! m + 1
+      case compare m n of
+        LT -> unifyKV is i r b $ return ()
+        EQ -> unifyKV is i r b $ writeSTRef v $! n + 1
+        GT -> unifyKV is j s a $ return ()
     go (Var (Meta _ i r _ _)) k    = unifyKV is i r k $ return ()
     go k (Var (Meta _ i r _ _))    = unifyKV is i r k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
