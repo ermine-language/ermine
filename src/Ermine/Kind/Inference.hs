@@ -35,8 +35,9 @@ import Data.IntMap as IntMap
 import Ermine.Kind as Kind
 import Ermine.Kind.Unification
 import Ermine.Meta
+import Ermine.Scope
 import qualified Ermine.Type as Type
-import           Ermine.Type hiding (Var)
+import Ermine.Type hiding (Var)
 
 productKind :: Int -> Kind k
 productKind 0 = star
@@ -60,10 +61,6 @@ checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
 checkKind t k = do
   k' <- inferKind t
   () <$ runWriterT (unifyKind mempty k k')
-
-instantiateList :: Monad t => [a] -> Scope Int t a -> t a
-instantiateList as = instantiate (return . (as !!))
-{-# INLINE instantiateList #-}
 
 inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
 inferKind (Loc l t)                = local (const l) $ inferKind t

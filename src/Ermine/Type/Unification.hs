@@ -48,6 +48,7 @@ unifyType is t1 t2 = do
       _sks <- for (zip nxs nys) $ \(x,y) -> do
         k <- unifyKind mempty x y
         lift $ newSkolem k
+      
       return ()
     go t@(HardType x) (HardType y) | x == y = return t
     -- go _ _ = fail "type mismatch"
