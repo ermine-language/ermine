@@ -50,7 +50,7 @@ type KindM s = Kind (MetaK s)
 type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 type TypeM s = Type (MetaK s) (MetaT s)
 
-sharing :: a -> WriterT Any (M s) a -> M s a
+sharing :: Monad m => a -> WriterT Any m a -> m a
 sharing a m = do
   (b, Any modified) <- runWriterT m
   return $ if modified then b else a
