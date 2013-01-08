@@ -34,7 +34,7 @@ import Ermine.Syntax
 -- >>> :set -XRank2Types
 -- >>> import Control.Lens
 -- >>> import Ermine
--- >>> let inferredKind :: (forall k t. Type k t) -> Either String (Schema a); inferredKind t = over _left snd $ evalU Rendering $ generalize =<< inferKind t
+-- >>> let inferredKind :: (forall k t. Type k t) -> Either String (Schema a); inferredKind t = over _left snd $ runM Rendering $ generalize =<< inferKind t
 
 ------------------------------------------------------------------------------
 -- Builtin

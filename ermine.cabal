@@ -81,6 +81,7 @@ library
     hyphenation          >= 0.2.1.7 && < 0.3,
     lens                 >= 3.8,
     mtl                  >= 2.1.1 && < 2.2,
+    monad-st             >= 0.2.2,
     parsers              >= 0.4,
     prelude-extras       >= 0.3,
     random               >= 1.0.0.3 && < 1.1,
@@ -101,6 +102,7 @@ library
     Ermine.Kind
     Ermine.Kind.Inference
     Ermine.Kind.Parser
+    Ermine.Meta
     Ermine.Pat
     Ermine.Pretty
     Ermine.Prim
@@ -110,7 +112,6 @@ library
     Ermine.Term
     Ermine.Type
     Ermine.Type.Builtin
-    Ermine.Unification
     Ermine.Version
 
   other-modules:
