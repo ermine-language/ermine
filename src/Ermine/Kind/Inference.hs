@@ -21,6 +21,7 @@ module Ermine.Kind.Inference
   , MetaT, TypeM
   , inferKind
   , checkKind
+  , unifyKind
   , generalize
   ) where
 
@@ -92,6 +93,7 @@ unifyKV is i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
 unifyKindVar :: IntSet -> MetaK s -> KindM s -> M s (KindM s)
 unifyKindVar is (Meta _ i r _ u) kv = unifyKV is i r kv (bumpRank u)
 unifyKindVar _  (Skolem _ _)     _  = error "unifyKindVar: Skolem"
+{-# INLINE unifyKindVar #-}
 
 productKind :: Int -> Kind k
 productKind 0 = star
@@ -109,6 +111,7 @@ instantiateSchema :: Schema (MetaK s) -> M s (KindM s)
 instantiateSchema (Schema n s) = do
   vs <- replicateM n (Var <$> newMeta ())
   return $ instantiate (vs!!) s
+{-# INLINE instantiateSchema #-}
 
 checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
 checkKind t k = do
@@ -117,6 +120,7 @@ checkKind t k = do
 
 instantiateList :: Monad t => [a] -> Scope Int t a -> t a
 instantiateList as = instantiate (return . (as !!))
+{-# INLINE instantiateList #-}
 
 inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
 inferKind (Loc l t)                = local (const l) $ inferKind t

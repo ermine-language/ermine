@@ -112,6 +112,7 @@ library
     Ermine.Term
     Ermine.Type
     Ermine.Type.Builtin
+    Ermine.Type.Inference
     Ermine.Version
 
   other-modules:
