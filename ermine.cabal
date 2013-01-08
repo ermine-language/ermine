@@ -75,6 +75,7 @@ library
     Ermine.Kind
     Ermine.Kind.Inference
     Ermine.Kind.Parser
+    Ermine.Kind.Unification
     Ermine.Meta
     Ermine.Pat
     Ermine.Pretty
@@ -86,7 +87,7 @@ library
     Ermine.Term
     Ermine.Type
     Ermine.Type.Builtin
-    Ermine.Type.Inference
+    Ermine.Type.Unification
     Ermine.Version
 
   build-depends:

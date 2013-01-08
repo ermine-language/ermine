@@ -1,4 +1,6 @@
-module Ermine.Type.Inference where
+module Ermine.Type.Unification
+  ( unifyType
+  ) where
 
 import Bound
 import Control.Applicative
@@ -10,12 +12,9 @@ import Control.Monad.Writer.Strict
 import Data.IntSet as IntSet
 import Data.STRef
 import Data.Traversable
--- import qualified Ermine.Kind as Kind
-import           Ermine.Kind.Inference
-import           Ermine.Meta
--- import qualified Ermine.Term as Term
-import           Ermine.Type as Type
--- import qualified Ermine.Core as Core
+import Ermine.Kind.Unification
+import Ermine.Meta
+import Ermine.Type as Type
 
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
 unifyType is t1 t2 = do
@@ -73,17 +72,17 @@ unifyTV is i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
     _ -> do
       depth1 <- liftST $ readSTRef d
       if depth1 < maxBound
-        then adjustRank (IntSet.insert i is) depth1 t
+        then adjustDepth (IntSet.insert i is) depth1 t
         else return t -- we're done, zonk remaining cycles later
 
-adjustRank :: IntSet -> Depth -> TypeM s -> WriterT Any (M s) (TypeM s)
-adjustRank is depth1 = fmap join . traverse go where
+adjustDepth :: IntSet -> Depth -> TypeM s -> WriterT Any (M s) (TypeM s)
+adjustDepth is depth1 = fmap join . traverse go where
   go v@(Meta _ j s d _)
     | is^.ix j  = fail "type occurs"
     | otherwise = liftST (readSTRef s) >>= \ mt -> case mt of
     Just t -> do -- we found a target
       tell (Any True) -- we're zonking
-      t' <- adjustRank (IntSet.insert j is) depth1 t -- chase children
+      t' <- adjustDepth (IntSet.insert j is) depth1 t -- chase children
       liftST $ t' <$ writeSTRef s (Just t')
     Nothing -> liftST $ do -- we didn't find a target, adjust the depth of this variable
       depth2 <- readSTRef d
