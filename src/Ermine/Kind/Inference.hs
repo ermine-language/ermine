@@ -45,11 +45,21 @@ import Ermine.Meta
 import qualified Ermine.Type as Type
 import           Ermine.Type hiding (Var)
 
+-- | A kind meta-variable
 type MetaK s = Meta s Kind ()
+
+-- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)
+
+-- | A type meta-variable
 type MetaT s = Meta s (Type (MetaK s)) (KindM s)
+
+-- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
 
+-- | Run an action, if it returns @Any True@ then use its new value, otherwise use the passed in value.
+--
+-- This can be used to recover sharing during unification when no interesting unification takes place.
 sharing :: Monad m => a -> WriterT Any m a -> m a
 sharing a m = do
   (b, Any modified) <- runWriterT m
@@ -66,15 +76,15 @@ unifyKind is k1 k2 = do
   go k1' k2'
   where
     go k@(Var kv1) (Var kv2) | kv1 == kv2 = return k -- boring
-    go (Var (Meta _ i r _ u)) (Var (Meta _ i' r' _ v)) = do
+    go a@(Var (Meta _ i r _ u)) b@(Var (Meta _ j s _ v)) = do
       -- union-by-rank
       m <- liftST $ readSTRef u
       n <- liftST $ readSTRef v
       if m <= n
-        then unifyKV is i  r  k2 $ let m' = m + 1 in m' `seq` writeSTRef u m'
-        else unifyKV is i' r' k1 $ let n' = n + 1 in n' `seq` writeSTRef u n'
-    go (Var (Meta _ i r _ u)) k    = unifyKV is i r k $ bumpRank u
-    go k (Var (Meta _ i r _ u))    = unifyKV is i r k $ bumpRank u
+        then unifyKV is i r b $ writeSTRef v $! n + 1
+        else unifyKV is j s a $ writeSTRef u $! m + 1
+    go (Var (Meta _ i r _ _)) k    = unifyKV is i r k $ return ()
+    go k (Var (Meta _ i r _ _))    = unifyKV is i r k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
     go _ _ = fail "kind mismatch"
@@ -95,9 +105,9 @@ unifyKV is i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
       bump
       k <$ writeSTRef r (Just k)
 
--- | Unify a known 'Meta' variable
+-- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
 unifyKindVar :: IntSet -> MetaK s -> KindM s -> WriterT Any (M s) (KindM s)
-unifyKindVar is (Meta _ i r _ u) kv = unifyKV is i r kv (bumpRank u)
+unifyKindVar is (Meta _ i r _ _) kv = unifyKV is i r kv $ return ()
 unifyKindVar _  (Skolem _ _)     _  = error "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
 
