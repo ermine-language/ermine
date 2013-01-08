@@ -4,6 +4,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine.Type.Builtin
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- This module supplies a number of builtin types intrinsic to the
+-- Ermine language.
+--------------------------------------------------------------------
 module Ermine.Type.Builtin
   (
   -- * Builtin Types
@@ -40,11 +52,16 @@ import Ermine.Syntax
 -- Builtin
 ------------------------------------------------------------------------------
 
+-- | This class allows for overloading of builtin types, so they can be used directly a nice DSL for specifying types
+-- borrowing application from Haskell for the application of types.
 class Builtin t where
   builtin :: Ord k => Kind k -> String -> t
 
 instance Builtin HardType where
-  builtin s n = con (global Idfix (pack "ermine") (pack "Prelude") (pack n)) (general s)
+  builtin s n = con (builtin s n) (general s)
+
+instance Builtin Global where
+  builtin _ n = global Idfix (pack "ermine") (pack "Prelude") (pack n)
 
 instance Builtin (Type k t) where
   builtin s n = HardType (builtin s n)
@@ -67,6 +84,7 @@ instance Builtin' (Type k a) where
 instance (Builtin' y, x ~ Type (K y) (T y)) => Builtin (x -> y) where
   builtin s n y = builtin' s n [y]
 
+-- | Create a 'Builtin' 'Type' of 'Kind' 'star'.
 builtin_ :: Builtin t => String -> t
 builtin_  = builtin star
 
