@@ -1,13 +1,12 @@
 module Main where
 
-import Control.Monad.Trans
 import Ermine.Version
 import System.Console.Haskeline
 
 main :: IO ()
 main = do
   runInputT defaultSettings { historyFile = Just ".ermine_history" } $ do
-    outputStrLn =<< liftIO logo
+    outputStrLn logo
     loop
 
 loop :: InputT IO ()

@@ -1,3 +1,14 @@
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine.Version
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- This module provides access to the Ermine logo and the version number.
+--------------------------------------------------------------------
 module Ermine.Version
   ( logo
   , version
@@ -10,10 +21,11 @@ import Data.Version
 import Paths_ermine
 import System.FilePath
 import System.Random
+import System.IO.Unsafe
 
 -- | Obtain a copy of the Ermine logo.
-logo :: IO String
-logo = randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos else rat
+logo :: String
+logo = unsafePerformIO $ randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos else rat
 
 ver :: String
 ver = showVersion version { versionTags = ["α"] }
