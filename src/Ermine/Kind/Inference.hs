@@ -19,7 +19,6 @@
 module Ermine.Kind.Inference
   ( MetaK, KindM
   , MetaT, TypeM
-  , sharing
   , inferKind
   , checkKind
   , unifyKind
@@ -56,15 +55,6 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 
 -- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
-
--- | Run an action, if it returns @Any True@ then use its new value, otherwise use the passed in value.
---
--- This can be used to recover sharing during unification when no interesting unification takes place.
-sharing :: Monad m => a -> WriterT Any m a -> m a
-sharing a m = do
-  (b, Any modified) <- runWriterT m
-  return $ if modified then b else a
-{-# INLINE sharing #-}
 
 -- | Returns the a unified form if different from the left argument.
 --

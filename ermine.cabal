@@ -67,6 +67,28 @@ flag repl
   default: True
 
 library
+  exposed-modules:
+    Ermine
+    Ermine.Core
+    Ermine.Digest
+    Ermine.Global
+    Ermine.Kind
+    Ermine.Kind.Inference
+    Ermine.Kind.Parser
+    Ermine.Meta
+    Ermine.Pat
+    Ermine.Pretty
+    Ermine.Prim
+    Ermine.Rendering
+    Ermine.Scope
+    Ermine.Sharing
+    Ermine.Syntax
+    Ermine.Term
+    Ermine.Type
+    Ermine.Type.Builtin
+    Ermine.Type.Inference
+    Ermine.Version
+
   build-depends:
     base                 >= 4 && < 5,
     bifunctors           >= 3,
@@ -94,27 +116,6 @@ library
     wl-pprint-extras     >= 3.3
 
   --  wl-pprint-terminfo   >= 3.3
-  exposed-modules:
-    Ermine
-    Ermine.Core
-    Ermine.Digest
-    Ermine.Global
-    Ermine.Kind
-    Ermine.Kind.Inference
-    Ermine.Kind.Parser
-    Ermine.Meta
-    Ermine.Pat
-    Ermine.Pretty
-    Ermine.Prim
-    Ermine.Rendering
-    Ermine.Scope
-    Ermine.Syntax
-    Ermine.Term
-    Ermine.Type
-    Ermine.Type.Builtin
-    Ermine.Type.Inference
-    Ermine.Version
-
   other-modules:
     Paths_ermine
 
