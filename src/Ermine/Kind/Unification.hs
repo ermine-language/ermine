@@ -62,11 +62,11 @@ unifyKind is k1 k2 = do
       m <- liftST $ readSTRef u
       n <- liftST $ readSTRef v
       case compare m n of
-        LT -> unifyKV is i r b $ return ()
-        EQ -> unifyKV is i r b $ writeSTRef v $! n + 1
-        GT -> unifyKV is j s a $ return ()
-    go (Var (Meta _ i r _ _)) k    = unifyKV is i r k $ return ()
-    go k (Var (Meta _ i r _ _))    = unifyKV is i r k $ return ()
+        LT -> unifyKV is True i r b $ return ()
+        EQ -> unifyKV is True i r b $ writeSTRef v $! n + 1
+        GT -> unifyKV is False j s a $ return ()
+    go (Var (Meta _ i r _ _)) k    = unifyKV is True i r k $ return ()
+    go k (Var (Meta _ i r _ _))    = unifyKV is False i r k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
     go _ _ = fail "kind mismatch"
@@ -74,21 +74,21 @@ unifyKind is k1 k2 = do
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-rankInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
-unifyKV :: IntSet -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> WriterT Any (M s) (KindM s)
-unifyKV is i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
+unifyKV :: IntSet -> Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> WriterT Any (M s) (KindM s)
+unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
   Just j | is^.ix i  -> fail "kind occurs"
          | otherwise -> do
     (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
          else j <$ tell (Any True)                  -- short-circuit
   Nothing -> do
-    tell (Any True)
+    tell (Any interesting)
     liftST $ do
       bump
       k <$ writeSTRef r (Just k)
 
 -- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
 unifyKindVar :: IntSet -> MetaK s -> KindM s -> WriterT Any (M s) (KindM s)
-unifyKindVar is (Meta _ i r _ _) kv = unifyKV is i r kv $ return ()
+unifyKindVar is (Meta _ i r _ _) kv = unifyKV is True i r kv $ return ()
 unifyKindVar _  (Skolem _ _)     _  = error "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
