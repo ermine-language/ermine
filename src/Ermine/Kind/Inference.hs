@@ -81,8 +81,8 @@ inferKind (Forall n tks cs b) = do
   sks <- replicateM n $ newSkolem ()
   let btys = instantiateList sks <$> tks
   for_ cs $ \c ->
-    checkKind (instantiateKinds (pure . (sks!!)) (instantiateList btys c)) constraint
-  checkKind (instantiateKinds (pure . (sks!!)) (instantiateList btys b)) star
+    checkKind (instantiateKindList sks (instantiateList btys c)) constraint
+  checkKind (instantiateKindList sks (instantiateList btys b)) star
   return star
 
 -- | Generalize a kind, checking for escaped Skolems.

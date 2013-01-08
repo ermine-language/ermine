@@ -2,7 +2,6 @@ module Ermine.Type.Unification
   ( unifyType
   ) where
 
-import Bound
 import Control.Applicative
 import Control.Lens
 import Control.Monad
@@ -17,6 +16,7 @@ import Ermine.Meta
 import Ermine.Scope
 import Ermine.Type as Type
 
+-- | Unify two 
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
 unifyType is t1 t2 = do
   t1' <- lift $ semiprune t1
@@ -29,32 +29,36 @@ unifyType is t1 t2 = do
        m <- liftST $ readSTRef u
        n <- liftST $ readSTRef v
        case compare m n of
-         LT -> unifyTV is i r d y $ return ()
-         EQ -> unifyTV is i r d y $ writeSTRef v $! n + 1
-         GT -> unifyTV is j s e x $ return ()
-    go (Var (Meta _ i r d _)) t                       = unifyTV is i r d t $ return ()
-    go t                      (Var (Meta _ i r d _))  = unifyTV is i r d t $ return ()
+         LT -> unifyTV is True i r d y $ return ()
+         EQ -> unifyTV is True i r d y $ writeSTRef v $! n + 1
+         GT -> unifyTV is False j s e x $ return ()
+    go (Var (Meta _ i r d _)) t                       = unifyTV is True i r d t $ return ()
+    go t                      (Var (Meta _ i r d _))  = unifyTV is False i r d t $ return () -- not as boring as it could be
     go (App f x)              (App g y)               = App <$> unifyType is f g <*> unifyType is x y
     go (Loc l s)              t                       = Loc l <$> unifyType is s t
     go s                      (Loc _ t)               = unifyType is s t
     go Exists{}               _                       = fail "unifyType: existential"
     go _                      Exists{}                = fail "unifyType: existential"
-    go t@(Forall m xs [] _a)  (Forall n ys [] _b)
+    go t@(Forall m xs [] a)  (Forall n ys [] b)
       | m /= n                 = fail "unifyType: forall: mismatched kind arity"
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
-      | otherwise = (t <$) . censor (const mempty) $ do
-      ks <- lift $ replicateM m $ newSkolem ()
-      let nxs = instantiateList ks <$> xs
-          nys = instantiateList ks <$> ys
-      _sks <- for (zip nxs nys) $ \(x,y) -> do
-        k <- unifyKind mempty x y
-        lift $ newSkolem k
-      return ()
+      | otherwise = do
+        (_, Any modified) <- listen $ do
+          sks <- lift $ replicateM m $ newSkolem ()
+          let nxs = instantiateList sks <$> xs
+              nys = instantiateList sks <$> ys
+          sts <- for (zip nxs nys) $ \(x,y) -> do
+            k <- unifyKind mempty x y
+            lift $ newSkolem k
+          unifyType is (instantiateKindList sks (instantiateList sts a))
+                       (instantiateKindList sks (instantiateList sts b))
+        if modified then lift (zonk is t)
+                    else return t
     go t@(HardType x) (HardType y) | x == y = return t
-    -- go _ _ = fail "type mismatch"
+    go _ _ = fail "type mismatch"
 
-unifyTV :: IntSet -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> WriterT Any (M s) (TypeM s)
-unifyTV is i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
+unifyTV :: IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> WriterT Any (M s) (TypeM s)
+unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
   Just j | is^.ix i -> fail "type occurs"
          | otherwise -> do
     (t', Any m) <- listen $ unifyType (IntSet.insert i is) j t
@@ -62,7 +66,7 @@ unifyTV is i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
          else j <$ tell (Any True)
   Nothing -> case t of
     Var (Meta _ _ _ e _) -> do -- this has been semipruned so its not part of a chain
-      tell (Any True)
+      tell (Any interesting)
       liftST $ do
         bump
         writeSTRef r (Just t)
@@ -71,6 +75,7 @@ unifyTV is i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
         when (depth2 > depth1) $ writeSTRef e depth1
         return t
     _ -> do
+      tell (Any interesting)
       depth1 <- liftST $ readSTRef d
       if depth1 < maxBound
         then adjustDepth (IntSet.insert i is) depth1 t
