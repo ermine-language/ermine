@@ -102,6 +102,7 @@ data Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+-- | Pretty print a 'Kind', using a helper to print free variables
 prettyKind :: Kind a -> Bool -> (a -> Doc b) -> Doc b
 prettyKind (l :-> r)    b k = parensIf b (prettyKind l True k <+> "->" <+> prettyKind r False k)
 prettyKind (Var a)      _ k = k a
@@ -189,6 +190,9 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
 
+-- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
+--
+-- You should have already removed any free variables from the variable set.
 prettySchema :: Schema a -> [String] -> (a -> Doc b) -> Doc b
 prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v -> case v of
   B i  -> text (xs !! i)

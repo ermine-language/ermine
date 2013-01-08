@@ -10,6 +10,8 @@
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: portable
+--
+-- This module provides extensions to the @bound@ package.
 --------------------------------------------------------------------
 module Ermine.Scope
   ( hoistScope
@@ -49,7 +51,7 @@ bound = prism B $ \ t -> case t of
   F c -> Left (F c)
 {-# INLINE bound #-}
 
--- This prism acts like a reversible smart constructor for 'F'.
+-- | This prism acts like a reversible smart constructor for 'F'.
 free :: Prism (Var c a) (Var c b) a b
 free = prism F $ \ t -> case t of
   B c -> Left (B c)
