@@ -15,8 +15,13 @@
 -- themselves with how we choose to represent source locations.
 --------------------------------------------------------------------
 module Ermine.Diagnostic
-  ( Rendering
+  (
+  -- * Rendering
+    Rendering
+  , HasRendering(..)
+  -- * Diagnostics
   , Diagnostic(..)
+  , AsDiagnostic(..)
   , die
   ) where
 
@@ -36,9 +41,11 @@ data Diagnostic = Diagnostic !Rendering (Maybe TermDoc) [TermDoc] (Set String)
   deriving Typeable
 
 -- | Construct a diagnostic
-die :: Rendering -> String -> Diagnostic
-die r s = Diagnostic r (Just (pretty s)) [] mempty
+die :: HasRendering r => r -> String -> Diagnostic
+die r s = Diagnostic (r^.rendering) (Just (pretty s)) [] mempty
 
+-- | This provides the 'diagnostic' prism that can be used when matching against 'SomeException'
+-- or in a custom 'Error' type.
 class AsDiagnostic t where
   diagnostic :: Prism' t Diagnostic
 

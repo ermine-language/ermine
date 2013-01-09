@@ -32,6 +32,7 @@ import Control.Monad.Writer.Strict
 import Data.Foldable
 import Data.Void
 import Data.IntMap as IntMap
+import Ermine.Diagnostic
 import Ermine.Kind as Kind
 import Ermine.Kind.Unification
 import Ermine.Meta
@@ -65,7 +66,7 @@ checkKind t k = do
 
 -- | Infer a kind for a given type.
 inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
-inferKind (Loc l t)                = local (const l) $ inferKind t
+inferKind (Loc l t)                = local (set rendering l) $ inferKind t
 inferKind (Type.Var tk)            = return tk
 inferKind (HardType Arrow)         = return $ star :-> star :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)

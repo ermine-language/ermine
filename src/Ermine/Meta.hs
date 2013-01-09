@@ -41,6 +41,9 @@ module Ermine.Meta
   -- ** Pruning
   , semiprune
   , zonk
+  -- * MetaEnv
+  , MetaEnv
+  , HasMetaEnv(..)
   -- * The unification monad
   , M, runM, runM_
   , fresh
@@ -50,15 +53,28 @@ import Control.Exception
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
-import Control.Monad.ST
+import Control.Monad.ST (ST, runST)
 import Control.Monad.ST.Class
+import Control.Monad.ST.Unsafe
 import Data.STRef
 import Data.Function (on)
 import Data.IntSet
+import Data.Monoid
 import Data.Traversable
 import Data.Word
 import Ermine.Syntax
 import Ermine.Diagnostic
+
+------------------------------------------------------------------------------
+-- MetaEnv
+------------------------------------------------------------------------------
+
+data MetaEnv s = MetaEnv { _metaRendering :: Rendering, _metaFresh :: {-# UNPACK #-} !(STRef s Int) }
+
+makeClassy ''MetaEnv
+
+instance HasRendering (MetaEnv s) where
+  rendering = metaRendering
 
 ------------------------------------------------------------------------------
 -- Meta
@@ -189,11 +205,10 @@ instance Functor Result where
 
 -- | The unification monad provides a 'fresh' variable supply and tracks a current
 -- 'Rendering' to blame for any unification errors.
---
-newtype M s a = M { unM :: Rendering -> Int -> ST s (Result a) }
+newtype M s a = M { unM :: MetaEnv s -> ST s a }
 
 instance Functor (M s) where
-  fmap f (M m) = M $ \r s -> fmap f <$> m r s
+  fmap f (M m) = M (fmap f . m)
   {-# INLINE fmap #-}
 
 instance Applicative (M s) where
@@ -203,39 +218,49 @@ instance Applicative (M s) where
   {-# INLINE (<*>) #-}
 
 instance Monad (M s) where
-  return a = M $ \_ n -> return $! OK n a
+  return = M . const . return
   {-# INLINE return #-}
-  M m >>= k = M $ \ r n -> m r n >>= \s -> case s of
-    OK n' a -> unM (k a) r n'
-    Error d -> return $! Error d
+  M m >>= k = M $ \ e -> do
+    a <- m e
+    unM (k a) e
   {-# INLINE (>>=) #-}
-  fail s = M $ \r _ -> return $! Error (die r s)
+  fail s = M $ \e -> unsafeIOToST $ throwIO $! die e s
 
 instance MonadST (M s) where
   type World (M s) = s
-  liftST s = M $ \_ n -> OK n <$> s
+  liftST m = M $ \_ -> m
   {-# INLINE liftST #-}
 
-instance MonadReader Rendering (M s) where
-  ask = M $ \r n -> return (OK n r)
+instance MonadReader (MetaEnv s) (M s) where
+  ask = M $ \e -> return e
   {-# INLINE ask #-}
   local f (M m) = M (m . f)
   {-# INLINE local #-}
 
+catchingST :: Getting (Endo (Maybe a)) SomeException t a b -> ST s r -> (a -> ST s r) -> ST s r
+catchingST l m h = unsafeIOToST $ catchJust (preview l) (unsafeSTToIO m) (unsafeSTToIO . h)
+{-# INLINE catchingST #-}
+
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply.
 runM :: Rendering -> (forall s. M s a) -> Either Diagnostic a
-runM r m = case runST (unM m r 0) of
-  Error d -> Left d
-  OK _ a  -> Right a
+runM r m = runST $ do
+  i <- newSTRef 0
+  catchingST diagnostic (Right <$> unM m (MetaEnv r i)) (return . Left)
 {-# INLINE runM #-}
 
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.
 runM_ :: Rendering -> (forall s. M s a) -> a
-runM_ r m = case runM r m of
-  Left d -> throw d
-  Right a -> a
+runM_ r m = runST $ do
+  i <- newSTRef 0
+  unM m (MetaEnv r i)
 
 -- | Generate a 'fresh' variable
 fresh :: M s Int
-fresh = M $ \ _ n -> return $! OK (n + 1) n
+fresh = do
+  s <- view metaFresh
+  liftST $ do
+    i <- readSTRef s
+    writeSTRef s $! i + 1
+    return i
 {-# INLINE fresh #-}
+
