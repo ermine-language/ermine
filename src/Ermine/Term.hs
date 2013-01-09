@@ -41,10 +41,10 @@ import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.String
+import Ermine.Diagnostic
 import Ermine.Kind hiding (Var)
 import Ermine.Pat
 import Ermine.Prim
-import Ermine.Rendering
 import Ermine.Scope
 import Ermine.Syntax
 import Ermine.Type hiding (App, Loc, Var)

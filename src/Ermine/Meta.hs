@@ -42,10 +42,11 @@ module Ermine.Meta
   , semiprune
   , zonk
   -- * The unification monad
-  , M, runM
+  , M, runM, runM_
   , fresh
   ) where
 import Control.Applicative
+import Control.Exception
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
@@ -53,11 +54,13 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Data.STRef
 import Data.Function (on)
-import Data.Traversable
 import Data.IntSet
+import Data.Monoid
+import Data.Traversable
 import Data.Word
 import Ermine.Syntax
-import Ermine.Rendering
+import Ermine.Diagnostic
+import Text.PrettyPrint.Free
 
 ------------------------------------------------------------------------------
 -- Meta
@@ -173,12 +176,12 @@ zonk is fs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
 ------------------------------------------------------------------------------
 
 data Result a
-  = Err Rendering String
+  = Error !Diagnostic
   | OK !Int a
 
 instance Functor Result where
   fmap f (OK n a) = OK n (f a)
-  fmap _ (Err r s) = Err r s
+  fmap _ (Error d) = Error d
   {-# INLINE fmap #-}
 
 ------------------------------------------------------------------------------
@@ -205,9 +208,9 @@ instance Monad (M s) where
   {-# INLINE return #-}
   M m >>= k = M $ \ r n -> m r n >>= \s -> case s of
     OK n' a -> unM (k a) r n'
-    Err t e -> return $! Err t e
+    Error d -> return $! Error d
   {-# INLINE (>>=) #-}
-  fail s = M $ \r _ -> return $! Err r s
+  fail s = M $ \r _ -> return $! Error (Diagnostic r (Just (pretty s)) [] mempty)
 
 instance MonadST (M s) where
   type World (M s) = s
@@ -221,11 +224,17 @@ instance MonadReader Rendering (M s) where
   {-# INLINE local #-}
 
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply.
-runM :: Rendering -> (forall s. M s a) -> Either (Rendering, String) a
+runM :: Rendering -> (forall s. M s a) -> Either Diagnostic a
 runM r m = case runST (unM m r 0) of
-  Err t e -> Left (t, e)
+  Error d -> Left d
   OK _ a  -> Right a
 {-# INLINE runM #-}
+
+-- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.
+runM_ :: Rendering -> (forall s. M s a) -> a
+runM_ r m = case runM r m of
+  Left d -> throw d
+  Right a -> a
 
 -- | Generate a 'fresh' variable
 fresh :: M s Int

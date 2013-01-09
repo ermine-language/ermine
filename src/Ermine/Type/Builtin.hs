@@ -15,6 +15,12 @@
 --
 -- This module supplies a number of builtin types intrinsic to the
 -- Ermine language.
+--
+-- >>> inferredKind int
+-- *
+--
+-- >>> inferredKind (list list)
+-- *** Exception: (interactive):1:1: error: kind mismatch
 --------------------------------------------------------------------
 module Ermine.Type.Builtin
   (
@@ -43,10 +49,11 @@ import Ermine.Type
 import Ermine.Syntax
 
 -- $setup
--- >>> :set -XRank2Types
--- >>> import Control.Lens
--- >>> import Ermine
--- >>> let inferredKind :: (forall k t. Type k t) -> Either String (Schema a); inferredKind t = over _left snd $ runM Rendering $ generalize =<< inferKind t
+-- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules
+-- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint
+-- >>> import Ermine.Pretty (names)
+-- >>> let showSchema :: Schema String -> TermDoc; showSchema s = prettySchema s names prettyTerm
+-- >>> let inferredKind :: (forall k t. Type k t) -> TermDoc; inferredKind t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
 
 ------------------------------------------------------------------------------
 -- Builtin
@@ -94,37 +101,37 @@ builtin_  = builtin star
 
 -- |
 -- >>> inferredKind int
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 int :: Builtin t => t
 int = builtin_ "Int"
 
 -- |
 -- >>> inferredKind long
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 long :: Builtin t => t
 long = builtin_ "Long"
 
 -- |
 -- >>> inferredKind byte
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 byte :: Builtin t => t
 byte = builtin_ "Byte"
 
 -- |
 -- >>> inferredKind short
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 short :: Builtin t => t
 short = builtin_ "Short"
 
 -- |
 -- >>> inferredKind float
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 float :: Builtin t => t
 float = builtin_ "Float"
 
 -- |
 -- >>> inferredKind double
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 double :: Builtin t => t
 double = builtin_ "Double"
 
@@ -134,13 +141,13 @@ double = builtin_ "Double"
 
 -- |
 -- >>> inferredKind char
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 char :: Builtin t => t
 char = builtin_ "Char"
 
 -- |
 -- >>> inferredKind string
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 string :: Builtin t => t
 string = builtin_ "String"
 
@@ -150,34 +157,34 @@ string = builtin_ "String"
 
 -- |
 -- >>> inferredKind list
--- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
+-- * -> *
 --
 -- >>> inferredKind (list int)
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 list :: Builtin t => t
 list = builtin (star ~> star) "List"
 
 -- |
 -- >>> inferredKind maybe_
--- Right (Schema 0 (Scope (HardKind Star :-> HardKind Star)))
+-- * -> *
 --
 -- >>> inferredKind (maybe_ int)
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
 
 -- |
 -- >>> inferredKind (tup [int, list int])
--- Right (Schema 0 (Scope (HardKind Star)))
+-- *
 tup :: [Type k t] -> Type k t
 tup xs = apps (tuple (length xs)) xs
 
 -- |
 -- >>> inferredKind equality
--- Right (Schema 1 (Scope (Var (B 0) :-> (Var (B 0) :-> HardKind Star))))
+-- a -> a -> *
 --
 -- >>> inferredKind (equality equality)
--- Right (Schema 1 (Scope ((Var (B 0) :-> (Var (B 0) :-> HardKind Star)) :-> HardKind Star)))
+-- (a -> a -> *) -> *
 equality :: Builtin t => t
 equality = builtin ("a" ~> "a" ~> star) "Equality"
 
@@ -187,6 +194,6 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 
 -- |
 -- >>> inferredKind functor
--- Right (Schema 0 (Scope ((HardKind Star :-> HardKind Star) :-> HardKind Constraint)))
+-- (* -> *) -> Γ
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"

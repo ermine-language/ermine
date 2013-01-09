@@ -16,6 +16,7 @@
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
+--
 --------------------------------------------------------------------
 module Ermine.Kind
   (

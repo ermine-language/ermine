@@ -47,12 +47,12 @@ import Data.Map hiding (map)
 import Data.Set hiding (map)
 import Data.String
 import Data.Void
+import Ermine.Diagnostic
 import Ermine.Global
 import Ermine.Kind hiding (Var)
 import qualified Ermine.Kind as Kind
 import Ermine.Scope
 import Ermine.Syntax
-import Ermine.Rendering
 import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 

@@ -70,6 +70,7 @@ library
   exposed-modules:
     Ermine
     Ermine.Core
+    Ermine.Diagnostic
     Ermine.Digest
     Ermine.Global
     Ermine.Kind
@@ -80,7 +81,6 @@ library
     Ermine.Pat
     Ermine.Pretty
     Ermine.Prim
-    Ermine.Rendering
     Ermine.Scope
     Ermine.Sharing
     Ermine.Syntax
@@ -115,7 +115,8 @@ library
     trifecta             >= 0.91,
     unordered-containers >= 0.2.3 && < 0.3,
     void                 >= 0.5.10,
-    wl-pprint-extras     >= 3.3
+    wl-pprint-extras     >= 3.3,
+    wl-pprint-terminfo   >= 3.3
 
   --  wl-pprint-terminfo   >= 3.3
   other-modules:
