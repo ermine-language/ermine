@@ -28,7 +28,7 @@ module Ermine.Type
   , TK(..)
   , abstractKinds
   , instantiateKinds
-  , instantiateKindList
+  , instantiateKindVars
   , bindType
   -- * Type Variables
   , HasTypeVars(..)
@@ -267,6 +267,7 @@ instantiateKinds k (TK e) = bindType go Var e where
   go (F a) = a
 {-# INLINE instantiateKinds #-}
 
-instantiateKindList :: [k] -> TK k a -> Type k a
-instantiateKindList ks = instantiateKinds (pure . (ks!!))
-{-# INLINE instantiateKindList #-}
+instantiateKindVars :: [k] -> TK k a -> Type k a
+instantiateKindVars as = instantiateKinds (vs!!) where
+  vs = map pure as
+{-# INLINE instantiateKindVars #-}

@@ -52,13 +52,13 @@ unifyType is t1 t2 = do
       | otherwise = do
         (_, Any modified) <- listen $ do
           sks <- lift $ replicateM m $ newSkolem ()
-          let nxs = instantiateList sks <$> xs
-              nys = instantiateList sks <$> ys
+          let nxs = instantiateVars sks <$> xs
+              nys = instantiateVars sks <$> ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind mempty x y
             lift $ newSkolem k
-          unifyType is (instantiateKindList sks (instantiateList sts a))
-                       (instantiateKindList sks (instantiateList sts b))
+          unifyType is (instantiateKindVars sks (instantiateVars sts a))
+                       (instantiateKindVars sks (instantiateVars sts b))
         if modified then lift (zonk is t)
                     else return t
     go t@(HardType x) (HardType y) | x == y = return t

@@ -19,7 +19,7 @@ module Ermine.Scope
   , bound
   , free
   , BoundBy(..)
-  , instantiateList
+  , instantiateVars
   ) where
 
 import Bound
@@ -59,7 +59,9 @@ free = prism F $ \ t -> case t of
   F b -> Right b
 {-# INLINE free #-}
 
-instantiateList :: Monad t => [a] -> Scope Int t a -> t a
-instantiateList as = instantiate (return . (as !!))
-{-# INLINE instantiateList #-}
+-- | instantiate bound variables using a list of new variables
+instantiateVars :: Monad t => [a] -> Scope Int t a -> t a
+instantiateVars as = instantiate (vs !!) where
+  vs = map return as
+{-# INLINE instantiateVars #-}
 
