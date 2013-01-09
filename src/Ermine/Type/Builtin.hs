@@ -16,10 +16,10 @@
 -- This module supplies a number of builtin types intrinsic to the
 -- Ermine language.
 --
--- >>> inferredKind int
+-- >>> infer int
 -- *
 --
--- >>> inferredKind (list list)
+-- >>> infer (list list)
 -- *** Exception: (interactive):1:1: error: kind mismatch
 --------------------------------------------------------------------
 module Ermine.Type.Builtin
@@ -53,7 +53,7 @@ import Ermine.Syntax
 -- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint
 -- >>> import Ermine.Pretty (names)
 -- >>> let showSchema :: Schema String -> TermDoc; showSchema s = prettySchema s names prettyTerm
--- >>> let inferredKind :: (forall k t. Type k t) -> TermDoc; inferredKind t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
+-- >>> let infer :: (forall k t. Type k t) -> TermDoc; infer t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
 
 ------------------------------------------------------------------------------
 -- Builtin
@@ -100,37 +100,37 @@ builtin_  = builtin star
 ------------------------------------------------------------------------------
 
 -- |
--- >>> inferredKind int
+-- >>> infer int
 -- *
 int :: Builtin t => t
 int = builtin_ "Int"
 
 -- |
--- >>> inferredKind long
+-- >>> infer long
 -- *
 long :: Builtin t => t
 long = builtin_ "Long"
 
 -- |
--- >>> inferredKind byte
+-- >>> infer byte
 -- *
 byte :: Builtin t => t
 byte = builtin_ "Byte"
 
 -- |
--- >>> inferredKind short
+-- >>> infer short
 -- *
 short :: Builtin t => t
 short = builtin_ "Short"
 
 -- |
--- >>> inferredKind float
+-- >>> infer float
 -- *
 float :: Builtin t => t
 float = builtin_ "Float"
 
 -- |
--- >>> inferredKind double
+-- >>> infer double
 -- *
 double :: Builtin t => t
 double = builtin_ "Double"
@@ -140,13 +140,13 @@ double = builtin_ "Double"
 ------------------------------------------------------------------------------
 
 -- |
--- >>> inferredKind char
+-- >>> infer char
 -- *
 char :: Builtin t => t
 char = builtin_ "Char"
 
 -- |
--- >>> inferredKind string
+-- >>> infer string
 -- *
 string :: Builtin t => t
 string = builtin_ "String"
@@ -156,34 +156,34 @@ string = builtin_ "String"
 ------------------------------------------------------------------------------
 
 -- |
--- >>> inferredKind list
+-- >>> infer list
 -- * -> *
 --
--- >>> inferredKind (list int)
+-- >>> infer (list int)
 -- *
 list :: Builtin t => t
 list = builtin (star ~> star) "List"
 
 -- |
--- >>> inferredKind maybe_
+-- >>> infer maybe_
 -- * -> *
 --
--- >>> inferredKind (maybe_ int)
+-- >>> infer (maybe_ int)
 -- *
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
 
 -- |
--- >>> inferredKind (tup [int, list int])
+-- >>> infer (tup [int, list int])
 -- *
 tup :: [Type k t] -> Type k t
 tup xs = apps (tuple (length xs)) xs
 
 -- |
--- >>> inferredKind equality
+-- >>> infer equality
 -- a -> a -> *
 --
--- >>> inferredKind (equality equality)
+-- >>> infer (equality equality)
 -- (a -> a -> *) -> *
 equality :: Builtin t => t
 equality = builtin ("a" ~> "a" ~> star) "Equality"
@@ -193,10 +193,10 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 ------------------------------------------------------------------------------
 
 -- |
--- >>> inferredKind functor
+-- >>> infer functor
 -- (* -> *) -> Γ
 --
--- >>> inferredKind (equality functor)
+-- >>> infer (equality functor)
 -- ((* -> *) -> Γ) -> *
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"
