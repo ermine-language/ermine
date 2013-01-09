@@ -55,12 +55,10 @@ import Control.Monad.ST.Class
 import Data.STRef
 import Data.Function (on)
 import Data.IntSet
-import Data.Monoid
 import Data.Traversable
 import Data.Word
 import Ermine.Syntax
 import Ermine.Diagnostic
-import Text.PrettyPrint.Free
 
 ------------------------------------------------------------------------------
 -- Meta
@@ -210,7 +208,7 @@ instance Monad (M s) where
     OK n' a -> unM (k a) r n'
     Error d -> return $! Error d
   {-# INLINE (>>=) #-}
-  fail s = M $ \r _ -> return $! Error (Diagnostic r (Just (pretty s)) [] mempty)
+  fail s = M $ \r _ -> return $! Error (die r s)
 
 instance MonadST (M s) where
   type World (M s) = s

@@ -8,7 +8,8 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This module re-exports 'Rendering' from @trifecta@.
+-- This module re-exports 'Rendering' from @trifecta@ along with
+-- our in-house diagnostic type.
 --
 -- This allows the non-parsing modules to not have to concern
 -- themselves with how we choose to represent source locations.
@@ -16,19 +17,27 @@
 module Ermine.Diagnostic
   ( Rendering
   , Diagnostic(..)
+  , die
   ) where
 
 import Control.Exception
 import Control.Exception.Lens
 import Control.Lens
-import Data.Typeable
+import Data.Monoid
 import Data.Set
+import Data.Typeable
+import Text.PrettyPrint.Free
 import Text.Trifecta.Rendering
 import Text.Trifecta.Parser
 import System.Console.Terminfo.PrettyPrint
 
+-- | Ermine diagnostic type
 data Diagnostic = Diagnostic !Rendering (Maybe TermDoc) [TermDoc] (Set String)
   deriving Typeable
+
+-- | Construct a diagnostic
+die :: Rendering -> String -> Diagnostic
+die r s = Diagnostic r (Just (pretty s)) [] mempty
 
 class AsDiagnostic t where
   diagnostic :: Prism' t Diagnostic
