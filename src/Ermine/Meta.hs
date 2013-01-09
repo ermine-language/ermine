@@ -39,6 +39,7 @@ module Ermine.Meta
   , readMeta
   , writeMeta
   -- ** Pruning
+  , cycles
   , semiprune
   , zonk
   -- * MetaEnv
@@ -56,10 +57,11 @@ import Control.Monad.Reader.Class
 import Control.Monad.ST (ST, runST)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
-import Data.STRef
+import Data.Foldable
 import Data.Function (on)
 import Data.IntSet
 import Data.Monoid
+import Data.STRef
 import Data.Traversable
 import Data.Word
 import Ermine.Syntax
@@ -159,6 +161,15 @@ writeMeta (Meta _ _ r _ _) a = liftST $ writeSTRef r (Just a)
 writeMeta (Skolem _ _) _   = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 
+-- | Retrieve the set of all cyclic meta-variables
+cycles :: Foldable f => IntSet -> Meta s f a -> M s IntSet
+cycles is (Meta _ i r _ _)
+  | is^.ix i = return $ singleton i
+  | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
+    Just b  -> foldMap (cycles $ insert i is) b
+    Nothing -> mempty
+cycles _ _ = mempty
+
 -- | Path-compression
 semiprune :: (Variable f, Monad f) => f (Meta s f a) -> M s (f (Meta s f a))
 semiprune t0 = case preview var t0 of
@@ -236,6 +247,10 @@ instance MonadReader (MetaEnv s) (M s) where
   {-# INLINE ask #-}
   local f (M m) = M (m . f)
   {-# INLINE local #-}
+
+instance Monoid m => Monoid (M s m) where
+  mempty  = pure mempty
+  mappend = liftA2 mappend
 
 catchingST :: Getting (Endo (Maybe a)) SomeException t a b -> ST s r -> (a -> ST s r) -> ST s r
 catchingST l m h = unsafeIOToST $ catchJust (preview l) (unsafeSTToIO m) (unsafeSTToIO . h)

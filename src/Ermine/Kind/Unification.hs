@@ -39,6 +39,7 @@ type MetaK s = Meta s Kind ()
 -- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)
 
+
 -- | Returns the a unified form if different from the left argument.
 --
 -- The writer is used to track if any interesting edits have been made
