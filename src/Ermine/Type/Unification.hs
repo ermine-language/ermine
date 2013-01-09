@@ -1,5 +1,6 @@
 module Ermine.Type.Unification
-  ( unifyType
+  ( MetaT, TypeM
+  , unifyType
   ) where
 
 import Control.Applicative
@@ -16,7 +17,13 @@ import Ermine.Meta
 import Ermine.Scope
 import Ermine.Type as Type
 
--- | Unify two 
+-- | A type meta-variable
+type MetaT s = Meta s (Type (MetaK s)) (KindM s)
+
+-- | A type filled with meta-variables
+type TypeM s = Type (MetaK s) (MetaT s)
+
+-- | Unify two
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
 unifyType is t1 t2 = do
   t1' <- lift $ semiprune t1

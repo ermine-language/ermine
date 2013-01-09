@@ -18,7 +18,6 @@
 --------------------------------------------------------------------
 module Ermine.Kind.Unification
   ( MetaK, KindM
-  , MetaT, TypeM
   , unifyKind
   , unifyKindVar
   ) where
@@ -33,19 +32,12 @@ import Data.IntSet as IntSet
 import Data.STRef
 import Ermine.Kind as Kind
 import Ermine.Meta
-import Ermine.Type (Type)
 
 -- | A kind meta-variable
 type MetaK s = Meta s Kind ()
 
 -- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)
-
--- | A type meta-variable
-type MetaT s = Meta s (Type (MetaK s)) (KindM s)
-
--- | A type filled with meta-variables
-type TypeM s = Type (MetaK s) (MetaT s)
 
 -- | Returns the a unified form if different from the left argument.
 --
