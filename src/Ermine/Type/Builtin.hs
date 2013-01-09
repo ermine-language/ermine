@@ -195,5 +195,8 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 -- |
 -- >>> inferredKind functor
 -- (* -> *) -> Γ
+--
+-- >>> inferredKind (equality functor)
+-- ((* -> *) -> Γ) -> *
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"
