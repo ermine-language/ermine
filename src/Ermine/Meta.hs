@@ -2,6 +2,8 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -39,14 +41,16 @@ module Ermine.Meta
   , readMeta
   , writeMeta
   -- ** Pruning
-  , cycles
+  , cycles, cc
   , semiprune
   , zonk
   -- * MetaEnv
   , MetaEnv
   , HasMetaEnv(..)
+  , MonadMeta
   -- * The unification monad
   , M, runM, runM_
+  , throwM
   , fresh
   ) where
 import Control.Applicative
@@ -59,6 +63,7 @@ import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
 import Data.Foldable
 import Data.Function (on)
+import Data.Functor.Compose
 import Data.IntSet as IntSet
 import Data.Monoid
 import Data.Set as Set
@@ -141,41 +146,44 @@ instance Ord (Meta s f a) where
   {-# INLINE compare #-}
 
 -- | Construct a new meta variable
-newMeta :: a -> M s (Meta s f a)
+newMeta :: MonadMeta s m => a -> m (Meta s f a)
 newMeta a = Meta a <$> fresh <*> liftST (newSTRef Nothing) <*> liftST (newSTRef depthInf) <*> liftST (newSTRef 0)
 {-# INLINE newMeta #-}
 
 -- | Construct a new Skolem variable that unifies only with itself.
-newSkolem :: a -> M s (Meta s f a)
+newSkolem :: MonadMeta s m => a -> m (Meta s f a)
 newSkolem a = Skolem a <$> fresh
 {-# INLINE newSkolem #-}
 
 -- | Read a meta variable
-readMeta :: Meta s f a -> M s (Maybe (f (Meta s f a)))
+readMeta :: MonadMeta s m => Meta s f a -> m (Maybe (f (Meta s f a)))
 readMeta (Meta _ _ r _ _) = liftST $ readSTRef r
-readMeta (Skolem _ _)   = return Nothing
+readMeta (Skolem _ _)     = return Nothing
 {-# INLINE readMeta #-}
 
 -- | Write to a meta variable
-writeMeta :: Meta s f a -> f (Meta s f a) -> M s ()
+writeMeta :: MonadMeta s m => Meta s f a -> f (Meta s f a) -> m ()
 writeMeta (Meta _ _ r _ _) a = liftST $ writeSTRef r (Just a)
-writeMeta (Skolem _ _) _   = fail "writeMeta: skolem"
+writeMeta (Skolem _ _) _     = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
+
+cc :: (Functor m, Functor n) => Iso (m a) (n b) (Compose m (Const a) x) (Compose n (Const b) y)
+cc = iso (Compose . fmap Const) (fmap getConst . getCompose)
 
 -- | Retrieve the set of all cyclic meta-variables
 --
 -- This matters because when reporting a cycle we may encounter other
 -- already formed cycles.
-cycles :: Foldable f => IntSet -> Meta s f a -> M s (Set (Meta s f a))
+cycles :: (Foldable f, MonadMeta s m) => IntSet -> Meta s f a -> m (Set (Meta s f a))
 cycles is m@(Meta _ i r _ _)
   | is^.ix i = return $ Set.singleton m
   | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
-    Just b  -> foldMap (cycles $ IntSet.insert i is) b
-    Nothing -> mempty
-cycles _ _ = mempty
+    Just b  -> auf cc traverse_ (cycles (IntSet.insert i is)) b
+    Nothing -> return mempty
+cycles _ _ = return mempty
 
 -- | Path-compression
-semiprune :: (Variable f, Monad f) => f (Meta s f a) -> M s (f (Meta s f a))
+semiprune :: (Variable f, Monad f, MonadMeta s m) => f (Meta s f a) -> m (f (Meta s f a))
 semiprune t0 = case preview var t0 of
   Just v0 -> loop t0 v0
   Nothing -> return t0
@@ -191,7 +199,7 @@ semiprune t0 = case preview var t0 of
 {-# INLINE semiprune #-}
 
 -- | Expand meta variables recursively
-zonk :: (Monad f, Traversable f) => IntSet -> f (Meta s f a) -> (Set (Meta s f a) -> M s (f (Meta s f a))) -> M s (f (Meta s f a))
+zonk :: (MonadMeta s m, Traversable f, Monad f) => IntSet -> f (Meta s f a) -> (Set (Meta s f a) -> m (f (Meta s f a))) -> m (f (Meta s f a))
 zonk is fs occurs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
   Nothing  -> return (return m)
   Just fmf
@@ -217,6 +225,8 @@ instance Functor Result where
 ------------------------------------------------------------------------------
 -- M
 ------------------------------------------------------------------------------
+
+type MonadMeta s m = (Applicative m, MonadST m, MonadReader (MetaEnv (World m)) m, World m ~ s)
 
 -- | The unification monad provides a 'fresh' variable supply and tracks a current
 -- 'Rendering' to blame for any unification errors.
@@ -260,6 +270,11 @@ catchingST :: Getting (Endo (Maybe a)) SomeException t a b -> ST s r -> (a -> ST
 catchingST l m h = unsafeIOToST $ catchJust (preview l) (unsafeSTToIO m) (unsafeSTToIO . h)
 {-# INLINE catchingST #-}
 
+-- | Throw a 'Diagnostic' error.
+throwM :: MonadMeta s m => Diagnostic -> m a
+throwM d = liftST $ unsafeIOToST (throwIO d)
+{-# INLINE throwM #-}
+
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply.
 runM :: Rendering -> (forall s. M s a) -> Either Diagnostic a
 runM r m = runST $ do
@@ -274,7 +289,7 @@ runM_ r m = runST $ do
   unM m (MetaEnv r i)
 
 -- | Generate a 'fresh' variable
-fresh :: M s Int
+fresh :: MonadMeta s m => m Int
 fresh = do
   s <- view metaFresh
   liftST $ do
@@ -282,4 +297,3 @@ fresh = do
     writeSTRef s $! i + 1
     return i
 {-# INLINE fresh #-}
-

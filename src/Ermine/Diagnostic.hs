@@ -20,8 +20,10 @@ module Ermine.Diagnostic
     Rendering
   , HasRendering(..)
   -- * Diagnostics
-  , Diagnostic(..)
+  , Diagnostic(Diagnostic)
   , AsDiagnostic(..)
+  , Err(Err)
+  , HasErr(..)
   , die
   ) where
 

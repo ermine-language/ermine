@@ -105,15 +105,15 @@ data Kind a
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- | Pretty print a 'Kind', using a helper to print free variables
-prettyKind :: Applicative f => Kind a -> Bool -> (a -> f (Doc b)) -> f (Doc b)
-prettyKind (Var a)      _ k = k a
+prettyKind :: Applicative f => Kind a -> Bool -> (a -> Bool -> f (Doc b)) -> f (Doc b)
+prettyKind (Var a)      b k = k a b
 prettyKind (HardKind h) _ _ = pure $ pretty h
 prettyKind (l :-> r)    b k = go <$> prettyKind l True k <*> prettyKind r False k where
   go x y = parensIf b (x <+> "->" <+> y)
 
 -- instance Pretty a => Pretty (Kind a) where
 instance a ~ String => Pretty (Kind a) where
-  pretty k = runIdentity $ prettyKind k False $ Identity . pretty
+  pretty k = runIdentity $ prettyKind k False $ const . Identity . pretty
 
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
@@ -196,10 +196,10 @@ data Schema a = Schema !Int !(Scope Int Kind a)
 -- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
 --
 -- You should have already removed any free variables from the variable set.
-prettySchema :: Applicative f => Schema a -> [String] -> (a -> f (Doc b)) -> f (Doc b)
-prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v -> case v of
+prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f (Doc b)) -> f (Doc b)
+prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
   B i -> pure $! text (xs !! i)
-  F a -> k a
+  F a -> k a p
 
 instance Fun Schema where
   fun = prism hither yon
