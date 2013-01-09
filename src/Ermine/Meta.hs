@@ -59,8 +59,9 @@ import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
 import Data.Foldable
 import Data.Function (on)
-import Data.IntSet
+import Data.IntSet as IntSet
 import Data.Monoid
+import Data.Set as Set
 import Data.STRef
 import Data.Traversable
 import Data.Word
@@ -162,11 +163,14 @@ writeMeta (Skolem _ _) _   = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 
 -- | Retrieve the set of all cyclic meta-variables
-cycles :: Foldable f => IntSet -> Meta s f a -> M s IntSet
-cycles is (Meta _ i r _ _)
-  | is^.ix i = return $ singleton i
+--
+-- This matters because when reporting a cycle we may encounter other
+-- already formed cycles.
+cycles :: Foldable f => IntSet -> Meta s f a -> M s (Set (Meta s f a))
+cycles is m@(Meta _ i r _ _)
+  | is^.ix i = return $ Set.singleton m
   | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
-    Just b  -> foldMap (cycles $ insert i is) b
+    Just b  -> foldMap (cycles $ IntSet.insert i is) b
     Nothing -> mempty
 cycles _ _ = mempty
 
@@ -187,13 +191,13 @@ semiprune t0 = case preview var t0 of
 {-# INLINE semiprune #-}
 
 -- | Expand meta variables recursively
-zonk :: (Monad f, Traversable f) => IntSet -> f (Meta s f a) -> M s (f (Meta s f a))
-zonk is fs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
+zonk :: (Monad f, Traversable f) => IntSet -> f (Meta s f a) -> (Set (Meta s f a) -> M s (f (Meta s f a))) -> M s (f (Meta s f a))
+zonk is fs occurs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
   Nothing  -> return (return m)
   Just fmf
-    | is^.ix (m^.metaId) -> fail "zonk: occurs"
+    | is^.ix (m^.metaId) -> cycles is m >>= occurs
     | otherwise -> do
-    r <- zonk (is & ix (m^.metaId) .~ True) fmf
+    r <- zonk (is & ix (m^.metaId) .~ True) fmf occurs
     r <$ writeMeta m r
 
 ------------------------------------------------------------------------------

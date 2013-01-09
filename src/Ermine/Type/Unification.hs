@@ -22,7 +22,9 @@ import Control.Monad
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
+import Data.Foldable
 import Data.IntSet as IntSet
+import Data.Set as Set
 import Data.STRef
 import Data.Traversable
 import Ermine.Kind.Unification
@@ -35,6 +37,9 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 
 -- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
+
+typeOccurs :: Set (MetaT s) -> M s a
+typeOccurs zs = fail $ "type occurs " ++ show zs
 
 -- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
@@ -72,14 +77,14 @@ unifyType is t1 t2 = do
             lift $ newSkolem k
           unifyType is (instantiateKindVars sks (instantiateVars sts a))
                        (instantiateKindVars sks (instantiateVars sts b))
-        if modified then lift (zonk is t)
+        if modified then lift $ zonk is t typeOccurs
                     else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"
 
 unifyTV :: IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> WriterT Any (M s) (TypeM s)
 unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
-  Just j | is^.ix i -> fail "type occurs"
+  Just j | is^.ix i -> lift $ foldMap (cycles is) j >>= typeOccurs
          | otherwise -> do
     (t', Any m) <- listen $ unifyType (IntSet.insert i is) j t
     if m then liftST $ t' <$ writeSTRef r (Just t')

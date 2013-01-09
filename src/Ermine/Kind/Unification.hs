@@ -20,6 +20,7 @@ module Ermine.Kind.Unification
   ( MetaK, KindM
   , unifyKind
   , unifyKindVar
+  , kindOccurs
   ) where
 
 import Control.Applicative
@@ -28,7 +29,9 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
+import Data.Foldable
 import Data.IntSet as IntSet
+import Data.Set as Set
 import Data.STRef
 import Ermine.Kind as Kind
 import Ermine.Meta
@@ -39,6 +42,9 @@ type MetaK s = Meta s Kind ()
 -- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)
 
+-- | Die with an error message due to a cycle between the specified kinds.
+kindOccurs :: Set (MetaK s) -> M s a
+kindOccurs zs = fail $ "kind occurs " ++ show zs
 
 -- | Returns the a unified form if different from the left argument.
 --
@@ -69,7 +75,7 @@ unifyKind is k1 k2 = do
 -- not, at least at this time, bind kinds.
 unifyKV :: IntSet -> Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> WriterT Any (M s) (KindM s)
 unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
-  Just j | is^.ix i  -> fail "kind occurs"
+  Just j | is^.ix i  -> lift $ foldMap (cycles is) j >>= kindOccurs
          | otherwise -> do
     (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
@@ -83,5 +89,5 @@ unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
 -- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
 unifyKindVar :: IntSet -> MetaK s -> KindM s -> WriterT Any (M s) (KindM s)
 unifyKindVar is (Meta _ i r _ _) kv = unifyKV is True i r kv $ return ()
-unifyKindVar _  (Skolem _ _)     _  = error "unifyKindVar: Skolem"
+unifyKindVar _  (Skolem _ _)     _  = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}

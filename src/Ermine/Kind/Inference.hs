@@ -91,7 +91,7 @@ inferKind (Forall n tks cs b) = do
 -- | Generalize a 'Kind', checking for escaped Skolems.
 generalize :: KindM s -> M s (Schema a)
 generalize k0 = do
-  k <- zonk mempty k0
+  k <- zonk mempty k0 kindOccurs
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
   return $ Schema n (Scope r)
   where
