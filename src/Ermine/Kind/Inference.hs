@@ -57,11 +57,13 @@ instantiateSchema (Schema n s) = do
   return $ instantiate (vs!!) s
 {-# INLINE instantiateSchema #-}
 
+-- | Check that the 'Kind' of a given 'Type' can unify with the specified kind.
 checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
 checkKind t k = do
   k' <- inferKind t
   () <$ runWriterT (unifyKind mempty k k')
 
+-- | Infer a kind for a given type.
 inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
 inferKind (Loc l t)                = local (const l) $ inferKind t
 inferKind (Type.Var tk)            = return tk
@@ -85,7 +87,7 @@ inferKind (Forall n tks cs b) = do
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star
 
--- | Generalize a kind, checking for escaped Skolems.
+-- | Generalize a 'Kind', checking for escaped Skolems.
 generalize :: KindM s -> M s (Schema a)
 generalize k0 = do
   k <- zonk mempty k0

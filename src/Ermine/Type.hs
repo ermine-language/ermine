@@ -267,6 +267,7 @@ instantiateKinds k (TK e) = bindType go Var e where
   go (F a) = a
 {-# INLINE instantiateKinds #-}
 
+-- | Instantiate kinds using a list of variables.
 instantiateKindVars :: [k] -> TK k a -> Type k a
 instantiateKindVars as = instantiateKinds (vs!!) where
   vs = map pure as

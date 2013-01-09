@@ -1,3 +1,16 @@
+--------------------------------------------------------------------
+-- |
+-- Module    :  Ermine.Type.Unification
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- This module tells us how to unify types. We use a simplified form
+-- of HMF-style unification to deal with unification of foralls.
+--
+--------------------------------------------------------------------
 module Ermine.Type.Unification
   ( MetaT, TypeM
   , unifyType
@@ -23,7 +36,7 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 -- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
 
--- | Unify two
+-- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
 unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
 unifyType is t1 t2 = do
   t1' <- lift $ semiprune t1
