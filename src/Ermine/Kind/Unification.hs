@@ -21,8 +21,10 @@ module Ermine.Kind.Unification
   , unifyKind
   , unifyKindVar
   , kindOccurs
+  , generalize
   ) where
 
+import Bound
 import Control.Applicative
 import Control.Lens
 import Control.Monad.ST
@@ -30,11 +32,16 @@ import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Data.Foldable
+import Data.IntMap as IntMap
 import Data.IntSet as IntSet
 import Data.Set as Set
 import Data.STRef
 import Ermine.Kind as Kind
 import Ermine.Meta
+
+-- $setup
+-- >>> import Ermine.Syntax
+-- >>> import Text.Trifecta.Rendering
 
 -- | A kind meta-variable
 type MetaK s = Meta s Kind ()
@@ -43,8 +50,24 @@ type MetaK s = Meta s Kind ()
 type KindM s = Kind (MetaK s)
 
 -- | Die with an error message due to a cycle between the specified kinds.
+--
+-- >>> runM emptyRendering $ do k <- Var <$> newMeta (); runWriterT $ unifyKind mempty k (star ~> k); generalize k
+-- Left (interactive):1:1: error: kind occurs fromList [Meta () 0 ...]
 kindOccurs :: Set (MetaK s) -> M s a
 kindOccurs zs = fail $ "kind occurs " ++ show zs
+
+-- | Generalize a 'Kind', checking for escaped Skolems.
+generalize :: KindM s -> M s (Schema a)
+generalize k0 = do
+  k <- zonk mempty k0 kindOccurs
+  (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
+  return $ Schema n (Scope r)
+  where
+   go Skolem{}   = StateT $ \ _ -> fail "escaped skolem"
+   go (Meta _ i _ _ _) = StateT $ \imn@(im, n) -> case im^.at i of
+     Just b  -> return (B b, imn)
+     Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
+
 
 -- | Returns the a unified form if different from the left argument.
 --

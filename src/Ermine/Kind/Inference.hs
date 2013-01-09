@@ -19,7 +19,6 @@
 module Ermine.Kind.Inference
   ( inferKind
   , checkKind
-  , generalize
   ) where
 
 import Bound
@@ -27,11 +26,9 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
-import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Data.Foldable
 import Data.Void
-import Data.IntMap as IntMap
 import Ermine.Diagnostic
 import Ermine.Kind as Kind
 import Ermine.Kind.Unification
@@ -87,15 +84,3 @@ inferKind (Forall n tks cs b) = do
     checkKind (instantiateKindVars sks (instantiateVars btys c)) constraint
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star
-
--- | Generalize a 'Kind', checking for escaped Skolems.
-generalize :: KindM s -> M s (Schema a)
-generalize k0 = do
-  k <- zonk mempty k0 kindOccurs
-  (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
-  return $ Schema n (Scope r)
-  where
-   go Skolem{}   = StateT $ \ _ -> fail "escaped skolem"
-   go (Meta _ i _ _ _) = StateT $ \imn@(im, n) -> case im^.at i of
-     Just b  -> return (B b, imn)
-     Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
