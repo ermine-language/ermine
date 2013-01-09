@@ -15,6 +15,8 @@
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable (DeriveDataTypeable)
+--
+-- This module provides the AST for Terms
 --------------------------------------------------------------------
 module Ermine.Term
   (
@@ -57,6 +59,7 @@ data HardTerm
   | Hole      -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
 
+-- | This class provides a prism to match against or inject a 'HardTerm'.
 class Terminal t where
   hardTerm :: Prism' t HardTerm
 

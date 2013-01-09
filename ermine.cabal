@@ -66,6 +66,10 @@ flag repl
   manual: True
   default: True
 
+flag q
+  manual: True
+  default: False
+
 library
   exposed-modules:
     Ermine
@@ -134,6 +138,9 @@ library
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
 
+  if flag(q)
+    ghc-options: -v0
+
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
 
 
@@ -152,13 +159,13 @@ executable ermine
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
 
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -v0
 
 -- Verify the properties of lenses with QuickCheck
 test-suite properties
   type: exitcode-stdio-1.0
   main-is: properties.hs
-  ghc-options: -w -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs: tests
   if !flag(properties)
     buildable: False
@@ -191,7 +198,7 @@ test-suite doctests
       filepath,
       groom >= 0.1.1 && < 0.2,
       mtl
-  ghc-options: -Wall -threaded
+  ghc-options: -Wall -threaded -v0
   if impl(ghc<7.6.1)
     ghc-options: -Werror
   hs-source-dirs: tests

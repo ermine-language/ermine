@@ -90,8 +90,8 @@ data Meta s f a
   | Skolem { _metaValue :: a, _metaId :: !Int }
 
 makeLenses ''Meta
--- makePrisms ''Meta
 
+-- | This 'Prism' matches 'Skolem' variables.
 skolem :: Prism' (Meta s f a) (a, Int)
 skolem = prism (uncurry Skolem) $ \t -> case t of
   Skolem a i -> Right (a, i)
@@ -173,6 +173,7 @@ zonk is fs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
 -- Result
 ------------------------------------------------------------------------------
 
+-- | The internal result type used by 'M'.
 data Result a
   = Error !Diagnostic
   | OK !Int a
