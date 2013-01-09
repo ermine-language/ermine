@@ -50,9 +50,9 @@ import Ermine.Syntax
 
 -- $setup
 -- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules
--- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint
+-- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint Data.Functor.Identity
 -- >>> import Ermine.Pretty (names)
--- >>> let showSchema :: Schema String -> TermDoc; showSchema s = prettySchema s names prettyTerm
+-- >>> let showSchema :: Schema String -> TermDoc; showSchema s = runIdentity $ prettySchema s names (Identity . prettyTerm)
 -- >>> let infer :: (forall k t. Type k t) -> TermDoc; infer t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
 
 ------------------------------------------------------------------------------
