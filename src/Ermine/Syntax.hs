@@ -38,7 +38,7 @@ class Variable t where
   var :: Prism' (t a) a
 
 instance Variable Maybe where
-  var = _just
+  var = _Just
 
 instance Variable [] where
   var = prism return $ \xs -> case xs of
@@ -46,7 +46,7 @@ instance Variable [] where
     _   -> Left xs
 
 instance Variable (Either b) where
-  var = _right
+  var = _Right
 
 --------------------------------------------------------------------
 -- App
