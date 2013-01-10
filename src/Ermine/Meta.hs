@@ -41,7 +41,7 @@ module Ermine.Meta
   , readMeta
   , writeMeta
   -- ** Pruning
-  , cycles, cc
+  , cycles
   , semiprune
   , zonk
   -- * MetaEnv
@@ -88,7 +88,7 @@ instance HasRendering (MetaEnv s) where
 -- Meta
 ------------------------------------------------------------------------------
 
--- | Depth and MacQueen's notion of λ-ranking.
+-- | Kuan and MacQueen's notion of λ-ranking.
 type Depth = Int
 
 -- | This plays the role of infinity.
@@ -174,13 +174,15 @@ cc = iso (Compose . fmap Const) (fmap getConst . getCompose)
 --
 -- This matters because when reporting a cycle we may encounter other
 -- already formed cycles.
-cycles :: (Foldable f, MonadMeta s m) => IntSet -> Meta s f a -> m (Set (Meta s f a))
-cycles is m@(Meta _ i r _ _)
-  | is^.ix i = return $ Set.singleton m
-  | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
-    Just b  -> auf cc traverse_ (cycles (IntSet.insert i is)) b
-    Nothing -> return mempty
-cycles _ _ = return mempty
+cycles :: (Foldable f, MonadMeta s m) => IntSet -> f (Meta s f a) -> m (Set (Meta s f a))
+cycles = auf cc traverse_ . go where
+  go is m@(Meta _ i r _ _)
+    | is^.ix i = return $ Set.singleton m
+    | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
+      Just b  -> cycles (IntSet.insert i is) b
+      Nothing -> return mempty
+  go _ _ = return mempty
+{-# INLINE cycles #-}
 
 -- | Path-compression
 semiprune :: (Variable f, Monad f, MonadMeta s m) => f (Meta s f a) -> m (f (Meta s f a))
@@ -203,7 +205,7 @@ zonk :: (MonadMeta s m, Traversable f, Monad f) => IntSet -> f (Meta s f a) -> (
 zonk is fs occurs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
   Nothing  -> return (return m)
   Just fmf
-    | is^.ix (m^.metaId) -> cycles is m >>= occurs
+    | is^.ix (m^.metaId) -> cycles is fmf >>= occurs
     | otherwise -> do
     r <- zonk (is & ix (m^.metaId) .~ True) fmf occurs
     r <$ writeMeta m r
@@ -279,7 +281,7 @@ throwM d = liftST $ unsafeIOToST (throwIO d)
 runM :: Rendering -> (forall s. M s a) -> Either Diagnostic a
 runM r m = runST $ do
   i <- newSTRef 0
-  catchingST diagnostic (Right <$> unM m (MetaEnv r i)) (return . Left)
+  catchingST _Diagnostic (Right <$> unM m (MetaEnv r i)) (return . Left)
 {-# INLINE runM #-}
 
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.

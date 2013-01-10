@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Type.Unification
@@ -22,7 +25,6 @@ import Control.Monad
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
-import Data.Foldable
 import Data.IntSet as IntSet
 import Data.Set as Set
 import Data.STRef
@@ -38,14 +40,14 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 -- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
 
-typeOccurs :: Set (MetaT s) -> M s a
+typeOccurs :: MonadMeta s m => Set (MetaT s) -> m a
 typeOccurs zs = fail $ "type occurs " ++ show zs
 
 -- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
-unifyType :: IntSet -> TypeM s -> TypeM s -> WriterT Any (M s) (TypeM s)
+unifyType :: (MonadWriter Any m, MonadMeta s m) => IntSet -> TypeM s -> TypeM s -> m (TypeM s)
 unifyType is t1 t2 = do
-  t1' <- lift $ semiprune t1
-  t2' <- lift $ semiprune t2
+  t1' <- semiprune t1
+  t2' <- semiprune t2
   go t1' t2'
   where
     go x@(Var tv1)                (Var tv2)              | tv1 == tv2 = return x
@@ -69,22 +71,22 @@ unifyType is t1 t2 = do
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
         (_, Any modified) <- listen $ do
-          sks <- lift $ replicateM m $ newSkolem ()
+          sks <- replicateM m $ newSkolem ()
           let nxs = instantiateVars sks <$> xs
               nys = instantiateVars sks <$> ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind mempty x y
-            lift $ newSkolem k
+            newSkolem k
           unifyType is (instantiateKindVars sks (instantiateVars sts a))
                        (instantiateKindVars sks (instantiateVars sts b))
-        if modified then lift $ zonk is t typeOccurs
+        if modified then zonk is t typeOccurs
                     else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"
 
-unifyTV :: IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> WriterT Any (M s) (TypeM s)
+unifyTV :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> m (TypeM s)
 unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
-  Just j | is^.ix i -> lift $ foldMap (cycles is) j >>= typeOccurs
+  Just j | is^.ix i -> cycles is j >>= typeOccurs
          | otherwise -> do
     (t', Any m) <- listen $ unifyType (IntSet.insert i is) j t
     if m then liftST $ t' <$ writeSTRef r (Just t')
@@ -106,7 +108,7 @@ unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1
         then adjustDepth (IntSet.insert i is) depth1 t
         else return t -- we're done, zonk remaining cycles later
 
-adjustDepth :: IntSet -> Depth -> TypeM s -> WriterT Any (M s) (TypeM s)
+adjustDepth :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Depth -> TypeM s -> m (TypeM s)
 adjustDepth is depth1 = fmap join . traverse go where
   go v@(Meta _ j s d _)
     | is^.ix j  = fail "type occurs"

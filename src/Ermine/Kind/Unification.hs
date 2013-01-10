@@ -36,7 +36,6 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
-import Data.Foldable
 import Data.IntMap as IntMap
 import Data.IntSet as IntSet
 import Data.Set as Set
@@ -48,8 +47,10 @@ import Ermine.Meta
 import Ermine.Pretty
 
 -- $setup
+-- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies
 -- >>> import Ermine.Syntax
 -- >>> import Text.Trifecta.Rendering
+-- >>> let test :: (forall m s. (MonadWriter Any m, MonadMeta s m) => m (KindM s)) -> Schema b; test mk = fst $ runM_ emptyRendering (runWriterT (mk >>= generalize))
 
 -- | A kind meta-variable
 type MetaK s = Meta s Kind ()
@@ -62,9 +63,14 @@ makeLenses ''Occ
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> fst $ runM_ emptyRendering $ runWriterT $ do k <- Var <$> newMeta (); unifyKind mempty k (star ~> k); generalize k
+-- >>> test $ do k <- Var <$> newMeta (); unifyKind mempty k (star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
+--
+-- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind mempty k1 (k1 ~> k2); unifyKind mempty k2 (k1 ~> k2); return (k1 ~> k2)
+-- *** Exception: (interactive):1:1: error: infinite kinds detected in (a -> b)
+-- cyclic kind: a = a -> b
+-- cyclic kind: b = a -> b
 kindOccurs :: MonadMeta s m => Set (MetaK s) -> m a
 kindOccurs zs = evalStateT ?? Occ mempty names $ do
   ns  <- for (Set.toList zs) $ \z -> occVar.at (z^.metaId).non "" <<~ occFresh %%= (head &&& tail)
@@ -131,7 +137,7 @@ unifyKind is k1 k2 = do
 -- not, at least at this time, bind kinds.
 unifyKV :: (MonadMeta s m, MonadWriter Any m) => IntSet -> Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> m (KindM s)
 unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
-  Just j | is^.ix i  -> auf cc traverse_ (cycles is) j >>= kindOccurs
+  Just j | is^.ix i  -> cycles is j >>= kindOccurs
          | otherwise -> do
     (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes

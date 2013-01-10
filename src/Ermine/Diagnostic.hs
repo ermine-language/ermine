@@ -46,16 +46,16 @@ data Diagnostic = Diagnostic !Rendering (Maybe TermDoc) [TermDoc] (Set String)
 die :: HasRendering r => r -> String -> Diagnostic
 die r s = Diagnostic (r^.rendering) (Just (pretty s)) [] mempty
 
--- | This provides the 'diagnostic' prism that can be used when matching against 'SomeException'
+-- | This provides the '_Diagnostic' prism that can be used when matching against 'SomeException'
 -- or in a custom 'Error' type.
 class AsDiagnostic t where
-  diagnostic :: Prism' t Diagnostic
+  _Diagnostic :: Prism' t Diagnostic
 
 instance AsDiagnostic Diagnostic where
-  diagnostic = id
+  _Diagnostic = id
 
 instance AsDiagnostic SomeException where
-  diagnostic = exception
+  _Diagnostic = exception
 
 instance Exception Diagnostic
 
