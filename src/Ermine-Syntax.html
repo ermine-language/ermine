@@ -47,7 +47,7 @@
 <a name="line-38"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Prism'</span> <span class='hs-layout'>(</span><span class='hs-varid'>t</span> <span class='hs-varid'>a</span><span class='hs-layout'>)</span> <span class='hs-varid'>a</span>
 <a name="line-39"></a>
 <a name="line-40"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Variable</span> <span class='hs-conid'>Maybe</span> <span class='hs-keyword'>where</span>
-<a name="line-41"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_just</span>
+<a name="line-41"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_Just</span>
 <a name="line-42"></a>
 <a name="line-43"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Variable</span> <span class='hs-conid'>[]</span> <span class='hs-keyword'>where</span>
 <a name="line-44"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>prism</span> <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>xs</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>case</span> <span class='hs-varid'>xs</span> <span class='hs-keyword'>of</span>
@@ -55,7 +55,7 @@
 <a name="line-46"></a>    <span class='hs-keyword'>_</span>   <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Left</span> <span class='hs-varid'>xs</span>
 <a name="line-47"></a>
 <a name="line-48"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Variable</span> <span class='hs-layout'>(</span><span class='hs-conid'>Either</span> <span class='hs-varid'>b</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-49"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_right</span>
+<a name="line-49"></a>  <span class='hs-varid'>var</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_Right</span>
 <a name="line-50"></a>
 <a name="line-51"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
 <a name="line-52"></a><span class='hs-comment'>-- App</span>
