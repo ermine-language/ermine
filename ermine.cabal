@@ -76,6 +76,7 @@ library
     Ermine.Builtin.Type
     Ermine.Diagnostic
     Ermine.Inference.Kind
+    Ermine.Parser.Keywords
     Ermine.Parser.Kind
     Ermine.Pretty
     Ermine.Syntax
@@ -150,10 +151,13 @@ executable ermine
   else
     build-depends:
       base      >= 4 && < 5,
+      containers,
       ermine,
       filepath,
       haskeline >= 0.7.0.3 && < 0.8,
-      mtl
+      lens,
+      mtl,
+      unordered-containers
   main-is: Main.hs
   ghc-options: -Wall
   if flag(optimized)
