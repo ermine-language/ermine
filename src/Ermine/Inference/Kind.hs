@@ -8,7 +8,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Kind.Inference
+-- Module    :  Ermine.Inference.Kind
 -- Copyright :  (c) Edward Kmett 2011-2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -16,7 +16,7 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Kind.Inference
+module Ermine.Inference.Kind
   ( inferKind
   , checkKind
   ) where
@@ -30,12 +30,12 @@ import Control.Monad.Writer.Strict
 import Data.Foldable
 import Data.Void
 import Ermine.Diagnostic
-import Ermine.Kind as Kind
-import Ermine.Kind.Unification
-import Ermine.Meta
-import Ermine.Scope
-import qualified Ermine.Type as Type
-import Ermine.Type hiding (Var)
+import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Scope
+import qualified Ermine.Syntax.Type as Type
+import Ermine.Syntax.Type hiding (Var)
+import Ermine.Unification.Kind
+import Ermine.Unification.Meta
 
 productKind :: Int -> Kind k
 productKind 0 = star

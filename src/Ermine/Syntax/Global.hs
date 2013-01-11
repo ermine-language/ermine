@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Global
+-- Module    :  Ermine.Syntax.Global
 -- Copyright :  (c) Edward Kmett 2011
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -9,7 +9,7 @@
 -- Portability: non-portable (DeriveDataTypeable)
 --
 --------------------------------------------------------------------
-module Ermine.Global
+module Ermine.Syntax.Global
   ( Global(Global)
   , global
   , Assoc(..)
@@ -27,7 +27,7 @@ import Data.Data (Data, Typeable)
 import Data.Hashable
 import Data.ByteString
 import Data.ByteString.Char8 as Char8
-import Ermine.Digest
+import Ermine.Syntax.Digest
 
 -- | The associativity of an infix identifier
 data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)

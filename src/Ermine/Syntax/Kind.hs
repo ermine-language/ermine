@@ -10,7 +10,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Kind
+-- Module    :  Ermine.Syntax.Kind
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -18,7 +18,7 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Kind
+module Ermine.Syntax.Kind
   (
   -- * Kinds
     Kind(..)
@@ -43,8 +43,8 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
 import Ermine.Pretty
-import Ermine.Scope
 import Ermine.Syntax
+import Ermine.Syntax.Scope
 import Prelude.Extras
 import Data.IntMap
 import Data.Foldable

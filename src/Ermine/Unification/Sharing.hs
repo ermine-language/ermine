@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Sharing
+-- Module    :  Ermine.Unification.Sharing
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -10,7 +10,7 @@
 --
 -- These combinators can be used to retain sharing information.
 --------------------------------------------------------------------
-module Ermine.Sharing
+module Ermine.Unification.Sharing
   ( runSharing
   , sharing
   ) where

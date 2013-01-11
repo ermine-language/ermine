@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Type.Builtin
+-- Module    :  Ermine.Builtin.Type
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -22,7 +22,7 @@
 -- >>> infer (list list)
 -- *** Exception: (interactive):1:1: error: kind mismatch
 --------------------------------------------------------------------
-module Ermine.Type.Builtin
+module Ermine.Builtin.Type
   (
   -- * Builtin Types
     Builtin(..)
@@ -43,10 +43,10 @@ module Ermine.Type.Builtin
   ) where
 
 import Data.ByteString.Char8 hiding (foldl, length, reverse)
-import Ermine.Global
-import Ermine.Kind
-import Ermine.Type
 import Ermine.Syntax
+import Ermine.Syntax.Global
+import Ermine.Syntax.Type
+import Ermine.Syntax.Kind
 
 -- $setup
 -- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules

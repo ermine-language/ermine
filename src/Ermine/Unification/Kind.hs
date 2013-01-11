@@ -12,15 +12,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Kind.Unification
--- Copyright :  (c) Edward Kmett 2011-2012
+-- Module    :  Ermine.Unification.Kind
+-- Copyright :  (c) Edward Kmett 2011-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Kind.Unification
+module Ermine.Unification.Kind
   ( MetaK, KindM
   , unifyKind
   , unifyKindVar
@@ -42,8 +42,8 @@ import Data.Set as Set
 import Data.STRef
 import Data.Traversable
 import Ermine.Diagnostic
-import Ermine.Kind as Kind
-import Ermine.Meta
+import Ermine.Syntax.Kind as Kind
+import Ermine.Unification.Meta
 import Ermine.Pretty
 
 -- $setup
@@ -81,7 +81,7 @@ kindOccurs zs = evalStateT ?? Occ mempty names $ do
   r <- view rendering
   let msg | length ns == 1 = "infinite kind detected"
           | otherwise      = "infinite kinds detected"
-  throwM $ die r msg & aux .~ docs
+  throwM $ die r msg & footnotes .~ docs
   where
     -- walk :: MetaK s -> Bool -> StateT Occ (M s) TermDoc
     walk v _ | zs^.ix v = unbound v

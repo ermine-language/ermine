@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Type.Unification
+-- Module    :  Ermine.Unification.Type
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -14,7 +14,7 @@
 -- of HMF-style unification to deal with unification of foralls.
 --
 --------------------------------------------------------------------
-module Ermine.Type.Unification
+module Ermine.Unification.Type
   ( MetaT, TypeM
   , unifyType
   ) where
@@ -29,10 +29,10 @@ import Data.IntSet as IntSet
 import Data.Set as Set
 import Data.STRef
 import Data.Traversable
-import Ermine.Kind.Unification
-import Ermine.Meta
-import Ermine.Scope
-import Ermine.Type as Type
+import Ermine.Syntax.Scope
+import Ermine.Syntax.Type as Type
+import Ermine.Unification.Kind
+import Ermine.Unification.Meta
 
 -- | A type meta-variable
 type MetaT s = Meta s (Type (MetaK s)) (KindM s)

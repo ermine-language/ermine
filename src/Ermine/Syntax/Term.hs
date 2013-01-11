@@ -9,7 +9,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Term
+-- Module    :  Ermine.Syntax.Term
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -18,7 +18,7 @@
 --
 -- This module provides the AST for Terms
 --------------------------------------------------------------------
-module Ermine.Term
+module Ermine.Syntax.Term
   (
   -- * Terms
     Term(..)
@@ -44,12 +44,12 @@ import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.String
 import Ermine.Diagnostic
-import Ermine.Kind hiding (Var)
-import Ermine.Pat
-import Ermine.Prim
-import Ermine.Scope
 import Ermine.Syntax
-import Ermine.Type hiding (App, Loc, Var)
+import Ermine.Syntax.Kind hiding (Var)
+import Ermine.Syntax.Pat
+import Ermine.Syntax.Prim
+import Ermine.Syntax.Scope
+import Ermine.Syntax.Type hiding (App, Loc, Var)
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 

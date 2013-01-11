@@ -5,14 +5,15 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Pat
+-- Module    :  Ermine.Syntax.Pat
 -- Copyright :  (c) Edward Kmett
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
+--
 --------------------------------------------------------------------
-module Ermine.Pat
+module Ermine.Syntax.Pat
   ( Pat(..)
   , Alt(..)
   , bitraverseAlt
@@ -23,8 +24,8 @@ import Control.Applicative
 import Data.Bitraversable
 import Data.Foldable
 import Data.Traversable
-import Ermine.Prim
-import Ermine.Scope
+import Ermine.Syntax.Prim
+import Ermine.Syntax.Scope
 
 -- | Patterns used by 'Term' and 'Core'.
 data Pat t

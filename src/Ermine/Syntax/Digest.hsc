@@ -5,7 +5,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Digest
+-- Module    :  Ermine.Syntax.Digest
 -- Copyright :  (c) Edward Kmett 2011-12
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -13,7 +13,7 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Digest
+module Ermine.Syntax.Digest
   (
   -- * MD5 Digests
     Digest(..)

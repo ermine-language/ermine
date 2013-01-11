@@ -1,14 +1,15 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Prim
+-- Module    :  Ermine.Syntax.Prim
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
+--
 --------------------------------------------------------------------
-module Ermine.Prim
+module Ermine.Syntax.Prim
   ( Prim(..)
   , prim
   ) where
@@ -17,7 +18,7 @@ import Data.ByteString.Char8
 import Data.Data hiding (Fixity(..))
 import Data.Int
 import Data.String
-import Ermine.Global
+import Ermine.Syntax.Global
 
 -- | Primitive irreducible values used by patterns, terms and core.
 data Prim

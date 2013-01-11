@@ -9,14 +9,14 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Type
+-- Module    :  Ermine.Syntax.Type
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --------------------------------------------------------------------
-module Ermine.Type
+module Ermine.Syntax.Type
   (
   -- * Types
     Type(..)
@@ -48,11 +48,11 @@ import Data.Set hiding (map)
 import Data.String
 import Data.Void
 import Ermine.Diagnostic
-import Ermine.Global
-import Ermine.Kind hiding (Var)
-import qualified Ermine.Kind as Kind
-import Ermine.Scope
 import Ermine.Syntax
+import Ermine.Syntax.Global
+import Ermine.Syntax.Kind hiding (Var)
+import qualified Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Scope
 import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 

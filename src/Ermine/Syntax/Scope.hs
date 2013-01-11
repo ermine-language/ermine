@@ -4,7 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Scope
+-- Module    :  Ermine.Syntax.Scope
 -- Copyright :  (c) Edward Kmett
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -13,7 +13,7 @@
 --
 -- This module provides extensions to the @bound@ package.
 --------------------------------------------------------------------
-module Ermine.Scope
+module Ermine.Syntax.Scope
   ( hoistScope
   , bitraverseScope
   , bound

@@ -15,7 +15,7 @@
 #endif
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Meta
+-- Module    :  Ermine.Unification.Meta
 -- Copyright :  (c) Edward Kmett 2011-2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -24,7 +24,7 @@
 --
 -- Skolem and Meta variables
 --------------------------------------------------------------------
-module Ermine.Meta
+module Ermine.Unification.Meta
   (
   -- * Meta variables
     Meta(Meta,Skolem)
@@ -70,8 +70,8 @@ import Data.Set as Set
 import Data.STRef
 import Data.Traversable
 import Data.Word
-import Ermine.Syntax
 import Ermine.Diagnostic
+import Ermine.Syntax
 
 ------------------------------------------------------------------------------
 -- MetaEnv

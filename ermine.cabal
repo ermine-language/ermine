@@ -73,25 +73,25 @@ flag q
 library
   exposed-modules:
     Ermine
-    Ermine.Core
+    Ermine.Builtin.Type
     Ermine.Diagnostic
-    Ermine.Digest
-    Ermine.Global
-    Ermine.Kind
-    Ermine.Kind.Inference
-    Ermine.Kind.Parser
-    Ermine.Kind.Unification
-    Ermine.Meta
-    Ermine.Pat
+    Ermine.Inference.Kind
+    Ermine.Parser.Kind
     Ermine.Pretty
-    Ermine.Prim
-    Ermine.Scope
-    Ermine.Sharing
     Ermine.Syntax
-    Ermine.Term
-    Ermine.Type
-    Ermine.Type.Builtin
-    Ermine.Type.Unification
+    Ermine.Syntax.Core
+    Ermine.Syntax.Digest
+    Ermine.Syntax.Global
+    Ermine.Syntax.Kind
+    Ermine.Syntax.Pat
+    Ermine.Syntax.Prim
+    Ermine.Syntax.Scope
+    Ermine.Syntax.Term
+    Ermine.Syntax.Type
+    Ermine.Unification.Kind
+    Ermine.Unification.Meta
+    Ermine.Unification.Sharing
+    Ermine.Unification.Type
     Ermine.Version
 
   build-depends:

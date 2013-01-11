@@ -11,41 +11,41 @@
 -- and terms involved (modulo conflicts) for easy testing
 --------------------------------------------------------------------
 module Ermine
-  ( module Ermine.Core
+  ( module Ermine.Builtin.Type
   , module Ermine.Diagnostic
-  , module Ermine.Digest
-  , module Ermine.Global
-  , module Ermine.Kind
-  , module Ermine.Kind.Inference
-  , module Ermine.Kind.Parser
-  , module Ermine.Kind.Unification
-  , module Ermine.Meta
-  , module Ermine.Pat
-  , module Ermine.Prim
-  , module Ermine.Scope
+  , module Ermine.Inference.Kind
+  , module Ermine.Parser.Kind
   , module Ermine.Syntax
-  , module Ermine.Term
-  , module Ermine.Type
-  , module Ermine.Type.Builtin
-  , module Ermine.Type.Unification
+  , module Ermine.Syntax.Core
+  , module Ermine.Syntax.Digest
+  , module Ermine.Syntax.Global
+  , module Ermine.Syntax.Kind
+  , module Ermine.Syntax.Pat
+  , module Ermine.Syntax.Prim
+  , module Ermine.Syntax.Scope
+  , module Ermine.Syntax.Term
+  , module Ermine.Syntax.Type
+  , module Ermine.Unification.Kind
+  , module Ermine.Unification.Meta
+  , module Ermine.Unification.Type
   , module Ermine.Version
   ) where
 
-import Ermine.Core hiding (Var, App, Let, Case, Lam, Prim)
+import Ermine.Builtin.Type
 import Ermine.Diagnostic
-import Ermine.Digest
-import Ermine.Global
-import Ermine.Kind hiding (Var)
-import Ermine.Kind.Inference
-import Ermine.Kind.Unification
-import Ermine.Kind.Parser
-import Ermine.Meta
-import Ermine.Pat
-import Ermine.Prim
-import Ermine.Scope
+import Ermine.Inference.Kind
+import Ermine.Parser.Kind
 import Ermine.Syntax
-import Ermine.Term hiding (Var, App, Loc)
-import Ermine.Type hiding (Var, App, Loc, Tuple)
-import Ermine.Type.Builtin
-import Ermine.Type.Unification
+import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam, Prim)
+import Ermine.Syntax.Digest
+import Ermine.Syntax.Global
+import Ermine.Syntax.Kind hiding (Var)
+import Ermine.Syntax.Pat
+import Ermine.Syntax.Prim
+import Ermine.Syntax.Scope
+import Ermine.Syntax.Term hiding (Var, App, Loc)
+import Ermine.Syntax.Type hiding (Var, App, Loc, Tuple)
+import Ermine.Unification.Kind
+import Ermine.Unification.Meta
+import Ermine.Unification.Type
 import Ermine.Version

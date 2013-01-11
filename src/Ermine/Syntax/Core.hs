@@ -1,8 +1,8 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, MultiParamTypeClasses, FlexibleInstances #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Core
+-- Module    :  Ermine.Syntax.Core
 -- Copyright :  (c) Edward Kmett 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -10,7 +10,7 @@
 -- Portability: non-portable
 --------------------------------------------------------------------
 
-module Ermine.Core
+module Ermine.Syntax.Core
   (
   -- * Core Terms
     Core(..)
@@ -28,7 +28,8 @@ module Ermine.Core
   , let_
   , alt
   -- * Common built-in terms
-  , cons, nil
+  , cons
+  , nil
   , just, nothing
   ) where
 
@@ -40,18 +41,16 @@ import Data.Int
 import Data.List hiding (foldr)
 import Data.Foldable
 import Data.String
-import Ermine.Global
-import Ermine.Pat
-import Ermine.Prim
-import Ermine.Scope
 import Ermine.Syntax
+import Ermine.Syntax.Global
+import Ermine.Syntax.Pat
+import Ermine.Syntax.Prim
+import Ermine.Syntax.Scope
 import Prelude.Extras
 import Prelude hiding (foldr)
 
 -- $setup
 -- >>> import Text.Groom
-
-infixr 5 `cons`
 
 -- | The built-in '::' constructor for a list.
 --
@@ -59,8 +58,16 @@ infixr 5 `cons`
 -- Prim (DataCon (global (Infix R 5) "ermine" "Builtin" "::"))
 --   [Prim (Int 1) [],
 --    Prim (DataCon (global Idfix "ermine" "Builtin" "Nil")) []]
-cons :: Core a -> Core a -> Core a
-cons a as = Prim (prim (Infix R 5) "Builtin" "::") [a,as]
+instance (Prismatic p, Applicative f) => Cons p f (Core a) (Core a) (Core a) (Core a) where
+  _Cons = prism (\(a, as) -> Prim consPrim [a,as]) $ \ s -> case s of
+    Prim p [x,xs] | p == consPrim -> Right (x,xs)
+    _                             -> Left s
+    where consPrim = prim (Infix R 5) "Builtin" "::"
+
+{-
+instance Cons Reviewed Identity (Core a) (Core a) (Core a) (Core a) where
+  _Cons = unto (\(a, as) -> Prim (prim (Infix R 5) "Builtin" "::") [a,as]
+-}
 
 -- | The built-in '[]' constructor for a list.
 nil :: Core a

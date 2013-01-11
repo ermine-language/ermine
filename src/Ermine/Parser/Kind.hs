@@ -1,6 +1,6 @@
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Kind.Parser
+-- Module    :  Ermine.Parser.Kind
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -9,14 +9,15 @@
 --
 -- This module provides the parser for kinds.
 --------------------------------------------------------------------
-module Ermine.Kind.Parser
+module Ermine.Parser.Kind
   ( kind
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Data.HashSet
-import Ermine.Kind
+import Ermine.Parser.Keywords
+import Ermine.Syntax.Kind
 import Text.Parser.Combinators
 import Text.Parser.Token
 import Text.Parser.Token.Style
@@ -25,7 +26,7 @@ import Text.Parser.Token.Style
 kid :: TokenParsing m => IdentifierStyle m
 kid = haskellIdents
   & styleName  .~ "kind variable"
-  & styleReserved .~ fromList ["rho","ρ","phi","φ","constraint","Γ"]
+  & styleReserved .~ keywords
 
 -- | Parse an atomic kind (everything but arrows)
 kind0 :: (Monad m, TokenParsing m) => m (Kind String)
