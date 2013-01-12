@@ -15,7 +15,6 @@ module Ermine.Parser.Kind
 
 import Control.Applicative
 import Control.Lens
-import Data.HashSet
 import Ermine.Parser.Keywords
 import Ermine.Syntax.Kind
 import Text.Parser.Combinators

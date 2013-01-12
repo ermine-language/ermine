@@ -71,6 +71,7 @@ flag q
   default: False
 
 library
+
   exposed-modules:
     Ermine
     Ermine.Builtin.Type
@@ -94,6 +95,12 @@ library
     Ermine.Unification.Sharing
     Ermine.Unification.Type
     Ermine.Version
+
+  -- console haddocks
+  exposed-modules:
+    Ermine.Console.Command
+    Ermine.Console.Completion
+    Ermine.Console.State
 
   build-depends:
     base                 >= 4 && < 5,
@@ -152,6 +159,7 @@ executable ermine
     build-depends:
       base      >= 4 && < 5,
       containers,
+      data-default,
       ermine,
       filepath,
       haskeline >= 0.7.0.3 && < 0.8,
