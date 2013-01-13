@@ -58,7 +58,7 @@ import Prelude hiding (foldr)
 -- Prim (DataCon (global (Infix R 5) "ermine" "Builtin" "::"))
 --   [Prim (Int 1) [],
 --    Prim (DataCon (global Idfix "ermine" "Builtin" "Nil")) []]
-instance (Prismatic p, Applicative f) => Cons p f (Core a) (Core a) (Core a) (Core a) where
+instance (Choice p, Applicative f) => Cons p f (Core a) (Core a) (Core a) (Core a) where
   _Cons = prism (\(a, as) -> Prim consPrim [a,as]) $ \ s -> case s of
     Prim p [x,xs] | p == consPrim -> Right (x,xs)
     _                             -> Left s
