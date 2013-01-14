@@ -81,6 +81,7 @@ library
     Ermine.Parser.Kind
     Ermine.Parser.Type
     Ermine.Pretty
+    Ermine.Pretty.Type
     Ermine.Pretty.Kind
     Ermine.Syntax
     Ermine.Syntax.Core

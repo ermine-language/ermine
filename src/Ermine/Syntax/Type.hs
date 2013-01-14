@@ -235,7 +235,7 @@ instance HasTypeVars (TK k a) (TK k b) a b where
   {-# INLINE typeVars #-}
 
 -- | 'TK' is a special version of 'Scope' for types that binds kinds. It is used by 'Forall'.
-newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a }
+newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a } -- TODO: Type (Var Int k) a
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
