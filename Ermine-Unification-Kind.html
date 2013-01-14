@@ -11,7 +11,7 @@ window.onload = function () {pageLoad();setSynopsis("mini_Ermine-Unification-Kin
 </code></strong>*** Exception: (interactive):1:1: error: infinite kind detected
 cyclic kind: a = * -&gt; a
 </pre><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>test $ do k1 &lt;- Var &lt;$&gt; newMeta (); k2 &lt;- Var &lt;$&gt; newMeta (); unifyKind mempty k1 (k1 ~&gt; k2); unifyKind mempty k2 (k1 ~&gt; k2); return (k1 ~&gt; k2)
-</code></strong>*** Exception: (interactive):1:1: error: infinite kinds detected in (a -&gt; b)
+</code></strong>*** Exception: (interactive):1:1: error: infinite kinds detected
 cyclic kind: a = a -&gt; b
 cyclic kind: b = a -&gt; b
 </pre></div></div><div class="top"><p class="src"><a name="v:generalize" class="def">generalize</a> :: <a href="Ermine-Unification-Meta.html#t:MonadMeta">MonadMeta</a> s m =&gt; <a href="Ermine-Unification-Kind.html#t:KindM">KindM</a> s -&gt; m (<a href="Ermine-Syntax-Kind.html#t:Schema">Schema</a> a)<a href="src/Ermine-Unification-Kind.html#generalize" class="link">Source</a></p><div class="doc"><p>Generalize a <code><a href="Ermine-Syntax-Kind.html#t:Kind">Kind</a></code>, checking for escaped Skolems.

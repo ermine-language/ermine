@@ -59,7 +59,7 @@
 <a name="line-50"></a>
 <a name="line-51"></a><span class='hs-comment'>-- $setup</span>
 <a name="line-52"></a><span class='hs-comment'>-- &gt;&gt;&gt; :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules</span>
-<a name="line-53"></a><span class='hs-comment'>-- &gt;&gt;&gt; :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint Data.Functor.Identity</span>
+<a name="line-53"></a><span class='hs-comment'>-- &gt;&gt;&gt; :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint Data.Functor.Identity Ermine.Pretty.Kind</span>
 <a name="line-54"></a><span class='hs-comment'>-- &gt;&gt;&gt; import Ermine.Pretty (names)</span>
 <a name="line-55"></a><span class='hs-comment'>-- &gt;&gt;&gt; let showSchema :: Schema String -&gt; TermDoc; showSchema s = runIdentity $ prettySchema s names $ const . Identity . prettyTerm</span>
 <a name="line-56"></a><span class='hs-comment'>-- &gt;&gt;&gt; let infer :: (forall k t. Type k t) -&gt; TermDoc; infer t = showSchema $ runM_ emptyRendering $ generalize =&lt;&lt; inferKind t</span>
@@ -186,28 +186,29 @@
 <a name="line-177"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer (tup [int, list int])</span>
 <a name="line-178"></a><span class='hs-comment'>-- *</span>
 <a name="line-179"></a><span class='hs-definition'>tup</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Type</span> <span class='hs-varid'>k</span> <span class='hs-varid'>t</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Type</span> <span class='hs-varid'>k</span> <span class='hs-varid'>t</span>
-<a name="line-180"></a><span class='hs-definition'>tup</span> <span class='hs-varid'>xs</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>apps</span> <span class='hs-layout'>(</span><span class='hs-varid'>tuple</span> <span class='hs-layout'>(</span><span class='hs-varid'>length</span> <span class='hs-varid'>xs</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-varid'>xs</span>
-<a name="line-181"></a>
-<a name="line-182"></a><a name="equality"></a><span class='hs-comment'>-- |</span>
-<a name="line-183"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer equality</span>
-<a name="line-184"></a><span class='hs-comment'>-- a -&gt; a -&gt; *</span>
-<a name="line-185"></a><span class='hs-comment'>--</span>
-<a name="line-186"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer (equality equality)</span>
-<a name="line-187"></a><span class='hs-comment'>-- (a -&gt; a -&gt; *) -&gt; *</span>
-<a name="line-188"></a><span class='hs-definition'>equality</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Builtin</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>t</span>
-<a name="line-189"></a><span class='hs-definition'>equality</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>builtin</span> <span class='hs-layout'>(</span><span class='hs-str'>"a"</span> <span class='hs-varop'>~&gt;</span> <span class='hs-str'>"a"</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>star</span><span class='hs-layout'>)</span> <span class='hs-str'>"Equality"</span>
-<a name="line-190"></a>
-<a name="line-191"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-192"></a><span class='hs-comment'>-- Classes</span>
-<a name="line-193"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-194"></a>
-<a name="line-195"></a><a name="functor"></a><span class='hs-comment'>-- |</span>
-<a name="line-196"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer functor</span>
-<a name="line-197"></a><span class='hs-comment'>-- (* -&gt; *) -&gt; Γ</span>
-<a name="line-198"></a><span class='hs-comment'>--</span>
-<a name="line-199"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer (equality functor)</span>
-<a name="line-200"></a><span class='hs-comment'>-- ((* -&gt; *) -&gt; Γ) -&gt; *</span>
-<a name="line-201"></a><span class='hs-definition'>functor</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Builtin</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>t</span>
-<a name="line-202"></a><span class='hs-definition'>functor</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>builtin</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-varid'>star</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>star</span><span class='hs-layout'>)</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>constraint</span><span class='hs-layout'>)</span> <span class='hs-str'>"Functor"</span>
+<a name="line-180"></a><span class='hs-definition'>tup</span> <span class='hs-keyglyph'>[</span><span class='hs-varid'>x</span><span class='hs-keyglyph'>]</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>x</span>
+<a name="line-181"></a><span class='hs-definition'>tup</span> <span class='hs-varid'>xs</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>apps</span> <span class='hs-layout'>(</span><span class='hs-varid'>tuple</span> <span class='hs-layout'>(</span><span class='hs-varid'>length</span> <span class='hs-varid'>xs</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-varid'>xs</span>
+<a name="line-182"></a>
+<a name="line-183"></a><a name="equality"></a><span class='hs-comment'>-- |</span>
+<a name="line-184"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer equality</span>
+<a name="line-185"></a><span class='hs-comment'>-- a -&gt; a -&gt; *</span>
+<a name="line-186"></a><span class='hs-comment'>--</span>
+<a name="line-187"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer (equality equality)</span>
+<a name="line-188"></a><span class='hs-comment'>-- (a -&gt; a -&gt; *) -&gt; *</span>
+<a name="line-189"></a><span class='hs-definition'>equality</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Builtin</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>t</span>
+<a name="line-190"></a><span class='hs-definition'>equality</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>builtin</span> <span class='hs-layout'>(</span><span class='hs-str'>"a"</span> <span class='hs-varop'>~&gt;</span> <span class='hs-str'>"a"</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>star</span><span class='hs-layout'>)</span> <span class='hs-str'>"Equality"</span>
+<a name="line-191"></a>
+<a name="line-192"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-193"></a><span class='hs-comment'>-- Classes</span>
+<a name="line-194"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-195"></a>
+<a name="line-196"></a><a name="functor"></a><span class='hs-comment'>-- |</span>
+<a name="line-197"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer functor</span>
+<a name="line-198"></a><span class='hs-comment'>-- (* -&gt; *) -&gt; Γ</span>
+<a name="line-199"></a><span class='hs-comment'>--</span>
+<a name="line-200"></a><span class='hs-comment'>-- &gt;&gt;&gt; infer (equality functor)</span>
+<a name="line-201"></a><span class='hs-comment'>-- ((* -&gt; *) -&gt; Γ) -&gt; *</span>
+<a name="line-202"></a><span class='hs-definition'>functor</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Builtin</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>t</span>
+<a name="line-203"></a><span class='hs-definition'>functor</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>builtin</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-varid'>star</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>star</span><span class='hs-layout'>)</span> <span class='hs-varop'>~&gt;</span> <span class='hs-varid'>constraint</span><span class='hs-layout'>)</span> <span class='hs-str'>"Functor"</span>
 </pre></body>
 </html>
