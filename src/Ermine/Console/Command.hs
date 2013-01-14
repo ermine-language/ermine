@@ -1,9 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ermine.Console.Command
-  ( Command(Command)
-  , HasCommand(..)
-  , commands
+  ( commands
   , executeCommand
   ) where
 
@@ -12,22 +10,12 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Char
 import Data.List
+import Ermine.Console.Command.Common
+import Ermine.Console.Command.Kind (kindCommand)
 import Ermine.Console.State
-import System.Console.Haskeline hiding (display)
 import System.Console.Terminfo.PrettyPrint
 import System.Exit
 import Text.PrettyPrint.Free
-
-data Command = Command
-  { _name   :: String
-  , _alts   :: [String]
-  , _arg    :: Maybe (String)
-  , _tabbed :: Maybe (CompletionFunc Console)
-  , _desc   :: String
-  , _body   :: String -> Console ()
-  }
-
-makeClassy ''Command
 
 getCommand :: String -> Maybe (Command, String)
 getCommand zs = commands ^?
@@ -45,9 +33,6 @@ executeCommand txt = case getCommand txt of
     liftIO $ displayLn $ ring AudibleBellPreferred <> text "ermine: error: Unknown command:" <+> text (show txt)
     showHelp txt
 
-cmd :: String -> Command
-cmd nm = Command nm [] Nothing Nothing "" $ \_ -> return ()
-
 showHelp :: String -> Console ()
 showHelp _ = liftIO $ displayLn $ vsep (map format commands) where
   format c = fill 18 (withArg c) <+> hang 18 (fillSep (text <$> words (c^.desc)))
@@ -55,16 +40,23 @@ showHelp _ = liftIO $ displayLn $ vsep (map format commands) where
     Nothing -> bold (char ':' <> text (c^.name))
     Just a  -> bold (char ':' <> text (c^.name)) <+> angles (dim (text a))
 
+helpCommand :: Command
+helpCommand = cmd "help"
+  & desc .~ "show help"
+  & alts .~ ["?"]
+  & body .~ showHelp
+
+quitCommand :: Command
+quitCommand =  cmd "quit"
+  & desc .~ "quit"
+  & body.mapped .~ liftIO exitSuccess
+
 commands :: [Command]
 commands =
-  [ cmd "help" & desc .~ "show help"
-               & alts .~ ["?"]
-               & body .~ showHelp
-  , cmd "load" & arg  ?~ "filename"
-               & desc .~ "load a file"
-               & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
-  , cmd "quit" & desc .~ "quit"
-               & body.mapped .~ liftIO exitSuccess
-  , cmd "kind" & desc .~ "infer the kind of a type"
-               & body .~ \_ -> liftIO (putStrLn "bzzt")
+  [ helpCommand
+  , kindCommand
+  , quitCommand
+  -- , cmd "load" & arg  ?~ "filename"
+  --             & desc .~ "load a file"
+  --             & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   ]

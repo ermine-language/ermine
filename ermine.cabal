@@ -79,7 +79,9 @@ library
     Ermine.Inference.Kind
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
+    Ermine.Parser.Type
     Ermine.Pretty
+    Ermine.Pretty.Kind
     Ermine.Syntax
     Ermine.Syntax.Core
     Ermine.Syntax.Digest
@@ -98,6 +100,8 @@ library
 
   -- console haddocks
   exposed-modules:
+    Ermine.Console.Command.Common
+    Ermine.Console.Command.Kind
     Ermine.Console.Command
     Ermine.Console.Completion
     Ermine.Console.State

@@ -67,6 +67,27 @@ data HardType
   | ConcreteRho !(Set FieldName)
   deriving (Eq, Ord, Show)
 
+{-
+bananas :: Doc a -> Doc a
+bananas xs = text "(|" <> xs <> text "|)"
+
+instance Pretty HardType where
+  pretty (Tuple i) = parens (replicate (i-1) ',')
+  pretty Arrow     = parens ("->")
+  pretty (Con (Global _ Idfix p m n) _) = text n
+  pretty (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (map text xs)))
+
+-- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
+--
+-- You should have already removed any free variables from the variable set.
+prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f (Doc b)) -> f (Doc b)
+prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
+  B i -> pure $! text (xs !! i)
+  F a -> k a p
+-}
+
+
+
 -- | Smart constructors that allows us to pun various 'HardType' constructor names for 'Type'.
 class Typical t where
   hardType :: Prism' t HardType

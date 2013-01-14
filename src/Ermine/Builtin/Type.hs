@@ -50,7 +50,7 @@ import Ermine.Syntax.Kind
 
 -- $setup
 -- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules
--- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint Data.Functor.Identity
+-- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering System.Console.Terminfo.PrettyPrint Data.Functor.Identity Ermine.Pretty.Kind
 -- >>> import Ermine.Pretty (names)
 -- >>> let showSchema :: Schema String -> TermDoc; showSchema s = runIdentity $ prettySchema s names $ const . Identity . prettyTerm
 -- >>> let infer :: (forall k t. Type k t) -> TermDoc; infer t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
@@ -177,6 +177,7 @@ maybe_ = builtin (star ~> star) "Maybe"
 -- >>> infer (tup [int, list int])
 -- *
 tup :: [Type k t] -> Type k t
+tup [x] = x
 tup xs = apps (tuple (length xs)) xs
 
 -- |

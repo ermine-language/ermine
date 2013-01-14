@@ -45,6 +45,7 @@ import Ermine.Diagnostic
 import Ermine.Syntax.Kind as Kind
 import Ermine.Unification.Meta
 import Ermine.Pretty
+import Ermine.Pretty.Kind
 
 -- $setup
 -- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies
@@ -68,7 +69,7 @@ makeLenses ''Occ
 -- cyclic kind: a = * -> a
 --
 -- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind mempty k1 (k1 ~> k2); unifyKind mempty k2 (k1 ~> k2); return (k1 ~> k2)
--- *** Exception: (interactive):1:1: error: infinite kinds detected in (a -> b)
+-- *** Exception: (interactive):1:1: error: infinite kinds detected
 -- cyclic kind: a = a -> b
 -- cyclic kind: b = a -> b
 kindOccurs :: MonadMeta s m => Set (MetaK s) -> m a

@@ -31,9 +31,6 @@ module Ermine.Syntax.Kind
   , general
   -- * Kind Variables
   , HasKindVars(..)
-  -- * Pretty Printing
-  , prettyKind
-  , prettySchema
   ) where
 
 import Bound
@@ -42,13 +39,11 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Ermine.Pretty
 import Ermine.Syntax
 import Ermine.Syntax.Scope
 import Prelude.Extras
 import Data.IntMap
 import Data.Foldable
-import Data.Functor.Identity
 import Data.String
 import Data.Traversable
 import Data.Data
@@ -70,12 +65,6 @@ data HardKind
   | Rho
   | Phi
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable)
-
-instance Pretty HardKind where
-  pretty Star = text "*"
-  pretty Constraint = text "Γ"
-  pretty Rho = text "ρ"
-  pretty Phi = text "φ"
 
 ------------------------------------------------------------------------------
 -- Kindly
@@ -103,17 +92,6 @@ data Kind a
   | Kind a :-> Kind a
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable)
-
--- | Pretty print a 'Kind', using a helper to print free variables
-prettyKind :: Applicative f => Kind a -> Bool -> (a -> Bool -> f (Doc b)) -> f (Doc b)
-prettyKind (Var a)      b k = k a b
-prettyKind (HardKind h) _ _ = pure $ pretty h
-prettyKind (l :-> r)    b k = go <$> prettyKind l True k <*> prettyKind r False k where
-  go x y = parensIf b (x <+> "->" <+> y)
-
--- instance Pretty a => Pretty (Kind a) where
-instance a ~ String => Pretty (Kind a) where
-  pretty k = runIdentity $ prettyKind k False $ const . Identity . pretty
 
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
@@ -192,14 +170,6 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
-
--- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
---
--- You should have already removed any free variables from the variable set.
-prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f (Doc b)) -> f (Doc b)
-prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
-  B i -> pure $! text (xs !! i)
-  F a -> k a p
 
 instance Fun Schema where
   fun = prism hither yon
