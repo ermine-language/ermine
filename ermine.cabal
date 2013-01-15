@@ -101,8 +101,6 @@ library
 
   -- console haddocks
   exposed-modules:
-    Ermine.Console.Command.Common
-    Ermine.Console.Command.Kind
     Ermine.Console.Command
     Ermine.Console.Completion
     Ermine.Console.State

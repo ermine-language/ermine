@@ -11,7 +11,6 @@ import Data.Set.Lens
 import Data.Monoid
 import Ermine.Parser.Keywords
 import Ermine.Console.Command
-import Ermine.Console.Command.Common
 import Ermine.Console.State
 import System.Console.Haskeline
 
