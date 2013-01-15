@@ -1,5 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 module Ermine.Console.Command
   ( Command(..)
   , HasCommand(..)
@@ -12,11 +14,19 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Char
 import Data.List
+import Data.Semigroup
 import Ermine.Console.State
+import Ermine.Parser.Kind
+import Ermine.Syntax.Kind
 import System.Console.Haskeline
 import System.Console.Terminfo.PrettyPrint
 import System.Exit
+import Text.Trifecta.Parser
 import Text.PrettyPrint.Free
+
+------------------------------------------------------------------------------
+-- Command
+------------------------------------------------------------------------------
 
 data Command = Command
   { _name   :: String
@@ -55,9 +65,19 @@ showHelp _ = displayLn $ vsep (map format commands) where
     Nothing -> bold (char ':' <> text (c^.name))
     Just a  -> bold (char ':' <> text (c^.name)) <+> angles (dim (text a))
 
+------------------------------------------------------------------------------
+-- commands
+------------------------------------------------------------------------------
+
+parsing :: Parser a -> (a -> Console ()) -> String -> Console ()
+parsing p k s = case parseString p mempty s of
+  Success a   -> k a
+  Failure doc -> displayLn doc
+
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
+  , cmd "uglykind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . general)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   ]
