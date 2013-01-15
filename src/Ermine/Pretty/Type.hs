@@ -18,6 +18,7 @@ module Ermine.Pretty.Type
 
 import Bound
 import Control.Applicative
+import Ermine.Syntax.Kind (Kind)
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Syntax.Global
@@ -38,28 +39,30 @@ prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text
 prettyHardType (Con (Global _ _ _ _ n) _)           = parens (text (Char8.unpack n))
 prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <$> toList xs)))
 
-fromTK :: Scope Int (TK k) a -> Type (Var Int k) (Var Int a)
-fromTK = undefined
+fromTK :: Scope Int (TK k) a -> Type (Var Int (Kind k)) (Var Int a)
+fromTK = runTK . fromScope
 
 -- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
 --
 -- You should have already removed any free variables from the variable set.
-prettyType :: Applicative f => Type k a -> [String] -> (k -> Bool -> f (Doc b)) -> (a -> Int -> f (Doc b)) -> Int -> f (Doc b)
+prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f (Doc b)) -> (a -> Int -> f (Doc b)) -> f (Doc b)
 prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
-prettyType (Var a) _ _ kt d = kt a d
-prettyType (App x y) xs kk kt d = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs kk kt 10 <*> prettyType y xs kk kt 11 -- TODO: group this better
-prettyType (Loc _ r) xs kk kt d = prettyType r xs kk kt d
-prettyType (Exists _tks _cs) _xs _kk _kt _d = pure "exists..."
-prettyType (Forall n ks cs bdy) xs kk kt d = go
-    <$> traverse (\k -> prettyKind (fromScope k) False kkk) ks
-    <*> traverse (\c -> prettyType (fromTK c) rvs kkk tkk 0) cs
-    <*> prettyType (fromTK bdy) rvs kkk tkk 0
+prettyType (Var a) _ d _ kt = kt a d
+prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
+prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
+prettyType (Exists _tks _cs) _xs _d _kk _kt = pure "exists..."
+prettyType (Forall n ks cs bdy) xs d kk kt = go
+    <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
+    <*> traverse (\c -> prettyType (fromTK c) rvs 0 kkk tkk) cs
+    <*> prettyType (fromTK bdy) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
 
+    -- Var Int (Kind k) -> Bool -> f (Doc b)
     kkk (B b) _ = pure $ text (kvs !! b)
-    kkk (F f) p = kk f p
+    kkk (F f) p = prettyKind f p kk
 
+    -- Var Int a -> Int -> f (Doc b)
     tkk (B b) _ = pure $ text (tvs !! b)
     tkk (F f) p = kt f p
 
