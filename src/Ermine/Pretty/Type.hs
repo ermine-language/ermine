@@ -50,22 +50,31 @@ prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
 prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
-prettyType (Exists _tks _cs) _xs _d _kk _kt = pure "exists..."
+prettyType (Exists ks cs) xs d kk kt = go
+    <$> traverse (\k -> prettyKind k False kk) ks
+    <*> traverse (\c -> prettyType (fromScope c) rvs 0 kk tkk) cs
+  where
+    (tvs, rvs) = splitAt (length ks) xs
+    tkk (B b) _ = pure $ text (tvs !! b)
+    tkk (F f) p = kt f p
+    go tks ds = parensIf (d > 0) $ quantified constraints
+      where
+        quantified zs
+          | null ks = zs
+          | otherwise = hsep ("exists" : zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks) <> "." <+> zs
+        constraints
+          | length ds == 1 = head ds
+          | otherwise = parens (fillSep (punctuate "," ds))
 prettyType (Forall n ks cs bdy) xs d kk kt = go
     <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
     <*> traverse (\c -> prettyType (fromTK c) rvs 0 kkk tkk) cs
     <*> prettyType (fromTK bdy) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
-
-    -- Var Int (Kind k) -> Bool -> f (Doc b)
     kkk (B b) _ = pure $ text (kvs !! b)
     kkk (F f) p = prettyKind f p kk
-
-    -- Var Int a -> Int -> f (Doc b)
     tkk (B b) _ = pure $ text (tvs !! b)
     tkk (F f) p = kt f p
-
     go tks ds t = parensIf (d > 0) $ quantified $ constrained t
       where
         consKinds zs
@@ -78,8 +87,3 @@ prettyType (Forall n ks cs bdy) xs d kk kt = go
           LT -> zs
           EQ -> head ds <+> "=>" <+> zs
           GT -> parens (fillSep (punctuate "," ds)) <+> "=>" <+> zs
-
-{-
-  | Exists [Kind k] [Scope Int (Type k) a]
-  deriving (Show, Functor, Foldable, Traversable)
--}
