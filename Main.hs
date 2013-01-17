@@ -27,10 +27,7 @@ loop = do
     Nothing      -> return ()
     Just "quit"  -> return ()
     Just (':':cmd) -> do
-      s <- lift get
-      mt <- liftIO $ handling (filtered (hasn't _ExitCode)) (\xs -> Nothing <$ print xs) $
-                   Just <$> (execStateT ?? s $ executeCommand cmd)
-      maybe (return ()) (lift . put) mt
+      lift $ handling (filtered (hasn't _ExitCode)) (liftIO . print) (executeCommand cmd)
       loop
     Just ""      -> loop
     Just input   -> do
