@@ -33,13 +33,12 @@ import Control.Lens
 import Data.Monoid
 import Data.Set
 import Data.Typeable
-import Text.PrettyPrint.Free
+import Text.PrettyPrint.ANSI.Leijen
 import Text.Trifecta.Rendering
 import Text.Trifecta.Parser
-import System.Console.Terminfo.PrettyPrint
 
 -- | Ermine diagnostic type
-data Diagnostic = Diagnostic !Rendering (Maybe TermDoc) [TermDoc] (Set String)
+data Diagnostic = Diagnostic !Rendering (Maybe Doc) [Doc] (Set String)
   deriving Typeable
 
 -- | Construct a diagnostic

@@ -106,6 +106,8 @@ library
     Ermine.Console.State
 
   build-depends:
+    ansi-terminal             >= 0.6,
+    ansi-wl-pprint            >= 0.6.6,
     base                      >= 4 && < 5,
     bifunctors                >= 3,
     binary                    == 0.5.*,
@@ -130,9 +132,7 @@ library
     transformers              >= 0.2 && < 0.4,
     trifecta                  >= 0.91,
     unordered-containers      >= 0.2.3 && < 0.3,
-    void                      >= 0.5.10,
-    wl-pprint-extras          >= 3.3,
-    wl-pprint-terminfo        >= 3.4
+    void                      >= 0.5.10
 
   --  wl-pprint-terminfo   >= 3.3
   other-modules:

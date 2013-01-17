@@ -2,7 +2,7 @@
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Pretty
--- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -10,18 +10,25 @@
 --
 --------------------------------------------------------------------
 module Ermine.Pretty
-  ( module Text.PrettyPrint.Free
+  ( module Text.PrettyPrint.ANSI.Leijen
   , names
   , parensIf
   , hyph
+  , say
+  , sayLn
   ) where
 
 import Control.Applicative
 import Control.Arrow
+import Control.Monad.IO.Class
 import Control.Lens
+import Data.Maybe
+import Data.Semigroup
 import Numeric.Lens
+import System.IO
 import Text.Hyphenation
-import Text.PrettyPrint.Free
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), (<>))
+import Text.Trifecta.Delta () -- for Text.Trifecta.Instances
 
 -- | This is an infinitely large free variable supply you can trim your used variables out of.
 names :: [String]
@@ -30,29 +37,25 @@ names = map pure az
   az = ['a'..'z']
 
 -- | Pretty print parentheses
-parensIf :: Bool -> Doc a -> Doc a
+parensIf :: Bool -> Doc -> Doc
 parensIf True  = parens
 parensIf False = id
 
 -- | Hyphenate a word using standard TeX-style english_US hyphenation.
-hyph :: String -> Doc a
-hyph t = column $ \k -> columns $ \n ->
-  let (pr,sf) = (fmap fst *** fmap fst) $ span (\ (_,d) -> k + d < n) $ zip xs ls
+hyph :: String -> Doc
+hyph t = column $ \k -> columns $ \mn ->
+  let n = fromMaybe 80 mn
+      (pr,sf) = (fmap fst *** fmap fst) $ span (\ (_,d) -> k + d < n) $ zip xs ls
       ls = tail $ scanl (\a b -> a + length b) 0 xs
       xs = hyphenate english_US t
   in if pr == []
      then text (concat sf)
      else if sf == []
           then text (concat pr)
-          else above (text (concat pr) <> char '-') (text (concat sf))
+          else vsep [text (concat pr) <> char '-', text (concat sf)]
 
-{-
-displayed :: TermDoc -> IO ()
-displayed = displayDoc 0.99
+say :: MonadIO m => Doc -> m ()
+say = liftIO . displayIO stdout . renderPretty 0.8 80
 
-displays :: Doc e -> ShowS
-displays = displayS . renderPretty 1.00 80
-
-displayOut :: MonadIO m => Doc e -> InputT m ()
-displayOut d = outputStrLn (displays d "")
--}
+sayLn :: MonadIO m => Doc -> m ()
+sayLn d = say (d <> linebreak)

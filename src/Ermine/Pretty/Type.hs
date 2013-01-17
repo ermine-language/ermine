@@ -24,13 +24,14 @@ import Ermine.Pretty.Kind
 import Ermine.Syntax.Global
 import Ermine.Syntax.Type
 import Data.Foldable
+import Data.Semigroup
 import Data.Traversable
 import qualified Data.ByteString.Char8 as Char8
 
-bananas :: Doc a -> Doc a
+bananas :: Doc -> Doc
 bananas xs = text "(|" <> xs <> text "|)"
 
-prettyHardType :: HardType -> Doc a
+prettyHardType :: HardType -> Doc
 prettyHardType (Tuple i) = parens (text (replicate (i-1) ','))
 prettyHardType Arrow     = parens ("->")
 prettyHardType (Con (Global _ Idfix _ _ n) _)       = text (Char8.unpack n)
@@ -45,7 +46,7 @@ fromTK = runTK . fromScope
 -- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
 --
 -- You should have already removed any free variables from the variable set.
-prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f (Doc b)) -> (a -> Int -> f (Doc b)) -> f (Doc b)
+prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
 prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better

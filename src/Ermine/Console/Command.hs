@@ -22,7 +22,6 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Syntax.Kind
 import System.Console.Haskeline
-import System.Console.Terminfo.PrettyPrint
 import System.Exit
 import Text.Trifecta.Parser
 
@@ -57,15 +56,15 @@ executeCommand :: String -> Console ()
 executeCommand txt = case getCommand txt of
   Just (c,args)  -> view body c args
   Nothing          -> do
-    displayLn $ ring AudibleBellPreferred <> text "ermine: error: Unknown command:" <+> text (show txt)
+    sayLn $ text "ermine: error: Unknown command:" <+> text (show txt)
     showHelp txt
 
 showHelp :: String -> Console ()
-showHelp _ = displayLn $ vsep (map format commands) where
+showHelp _ = sayLn $ vsep (map format commands) where
   format c = fill 18 (withArg c) <+> hang 18 (fillSep (text <$> words (c^.desc)))
   withArg c = case c^.arg of
     Nothing -> bold (char ':' <> text (c^.name))
-    Just a  -> bold (char ':' <> text (c^.name)) <+> angles (dim (text a))
+    Just a  -> bold (char ':' <> text (c^.name)) <+> angles (text a)
 
 ------------------------------------------------------------------------------
 -- commands
@@ -74,7 +73,7 @@ showHelp _ = displayLn $ vsep (map format commands) where
 parsing :: Parser a -> (a -> Console ()) -> String -> Console ()
 parsing p k s = case parseString p mempty s of
   Success a   -> k a
-  Failure doc -> displayLn doc
+  Failure doc -> sayLn doc
 
 commands :: [Command]
 commands =
@@ -83,6 +82,6 @@ commands =
   , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . general)
   , cmd "pkind"
     & desc .~ "show the pretty printed representation of a kind schema"
-    & body .~ parsing kind (\s -> prettySchema (general s) names absurd >>= displayLn)
+    & body .~ parsing kind (\s -> prettySchema (general s) names absurd >>= sayLn)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   ]
