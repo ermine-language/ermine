@@ -15,10 +15,9 @@ import System.Console.Haskeline
 import System.Exit.Lens
 
 main :: IO ()
-main = do
-  evalStateT ?? def $ runInputT settings $ do
-    outputStrLn logo
-    loop
+main = evalStateT ?? def $ runInputT settings $ do
+  outputStrLn logo
+  loop
 
 loop :: InputT Console ()
 loop = do
