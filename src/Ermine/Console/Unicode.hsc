@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, ForeignFunctionInterface #-}
 module Ermine.Console.Unicode
   ( withUnicode
   ) where
