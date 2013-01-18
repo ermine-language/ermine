@@ -205,6 +205,7 @@ test-suite doctests
       ermine,
       filepath,
       groom >= 0.1.1 && < 0.2,
+      MonadCatchIO-transformers,
       mtl
   ghc-options: -Wall -threaded -v0
   if impl(ghc<7.6.1)
