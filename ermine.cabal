@@ -56,11 +56,6 @@ flag optimized
   manual: True
   default: False
 
--- `cabal install -flib-error` causes compilation failure on warnings from the library
-flag lib-error
-  manual: True
-  default: False
-
 -- `cabal install -f-repl` to disable compiling the repl
 flag repl
   manual: True
@@ -71,6 +66,7 @@ flag q
   default: False
 
 library
+  hs-source-dirs: src
 
   exposed-modules:
     Ermine
@@ -113,6 +109,8 @@ library
     binary                    == 0.5.*,
     bound                     >= 0.6,
     bytestring                >= 0.9 && < 0.11,
+    crypto-api                >= 0.10.2 && < 0.11,
+    cryptohash                >= 0.8.3 && < 0.9,
     containers                >= 0.3 && < 0.6,
     data-default              == 0.4.*,
     filepath                  >= 1.3 && < 1.4,
@@ -132,20 +130,12 @@ library
     transformers              >= 0.2 && < 0.4,
     trifecta                  >= 0.91,
     unordered-containers      >= 0.2.3 && < 0.3,
+    utf8-string               >= 0.3.7 && < 0.4,
     void                      >= 0.5.10
 
   --  wl-pprint-terminfo   >= 3.3
   other-modules:
     Paths_ermine
-
-  hs-source-dirs:  src
-  includes:        openssl/md5.h
-  extra-libraries: crypto
-
-  if flag(lib-error)
-    ghc-options: -Werror
-  else
-    ghc-options: -Wall
 
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
