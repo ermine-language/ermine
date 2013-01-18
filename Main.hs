@@ -10,12 +10,13 @@ import Data.Default
 import Ermine.Console.State
 import Ermine.Console.Command
 import Ermine.Console.Completion
+import Ermine.Console.Unicode
 import Ermine.Version
 import System.Console.Haskeline
 import System.Exit.Lens
 
 main :: IO ()
-main = evalStateT ?? def $ runInputT settings $ do
+main = withUnicode $ evalStateT ?? def $ runInputT settings $ do
   outputStrLn logo
   loop
 

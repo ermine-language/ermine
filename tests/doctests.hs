@@ -7,9 +7,10 @@ import Data.List
 import System.Directory
 import System.FilePath
 import Test.DocTest
+import Ermine.Console.Unicode
 
 main :: IO ()
-main = getSources >>= \sources -> doctest $
+main = withUnicode $ getSources >>= \sources -> doctest $
     "-isrc"
   : "-idist/build/autogen"
   : "-optP-include"
