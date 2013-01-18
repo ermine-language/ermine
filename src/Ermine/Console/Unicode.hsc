@@ -7,11 +7,15 @@ import Control.Monad.IO.Class
 
 ##if defined(i386_HOST_ARCH)
 ##define USE_CP
+import Control.Applicative
+import Control.Exception
 import Foreign.C.Types
 foreign import stdcall "windows.h SetConsoleCP" c_SetConsoleCP :: CUInt -> IO Bool
 foreign import stdcall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
 ##elif defined(x64_64_HOST_ARCH)
 ##define USE_CP
+import Control.Applicative
+import Control.Exception
 import Foreign.C.Types
 foreign import ccall "windows.h SetConsoleCP" c_SetConsoleCP :: CUInt -> IO Bool
 foreign import ccall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
@@ -20,11 +24,11 @@ foreign import ccall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
 -- | Run in a modified codepage where we can print UTF-8 values on Windows.
 --
 -- You should probably run the top level of your program in this.
-withUnicode :: MonadIO m => m a -> m a
-#ifdef USE_CP
+withUnicode :: IO a -> IO a
+##ifdef USE_CP
 withUnicode m = do
   cp <- c_GetConsoleCP
   (c_SetConsoleCP 65001 *> m) `finally` c_SetConsoleCP cp
-#else
+##else
 withUnicode m = m
-#endif
+##endif
