@@ -59,7 +59,7 @@ instance AsDiagnostic SomeException where
 instance Exception Diagnostic
 
 instance Show Diagnostic where
-  show d = show $ explain (d^.rendering) (d^.err)
+  show d = show $ plain $ explain (d^.rendering) (d^.err)
 
 instance HasErr Diagnostic where
   err f (Diagnostic r p a x) = f (Err p a x) <&> \(Err q b y) -> Diagnostic r q b y

@@ -23,10 +23,13 @@ module Ermine.Syntax.Global
 
 import Control.Applicative
 import Control.Lens
-import Data.Data (Data, Typeable)
-import Data.Hashable
+import Crypto.Classes
+import Crypto.Hash.MD5 as MD5
 import Data.ByteString
 import Data.ByteString.Char8 as Char8
+import Data.Data (Data, Typeable)
+import Data.Function (on)
+import Data.Hashable
 import Ermine.Syntax.Digest
 
 -- | The associativity of an infix identifier
@@ -40,14 +43,14 @@ data Fixity
   | Idfix
   deriving (Eq,Ord,Show,Read,Data,Typeable)
 
-instance MD5 Assoc
-instance MD5 Fixity
+instance Digestable Assoc
+instance Digestable Fixity
 
 -- | A 'Global' is a full qualified top level name.
 --
 -- /NB:/ You should construct these with 'global' and only use the constructor for pattern matching.
 data Global = Global
-  { _globalDigest   :: !Digest
+  { _globalDigest   :: !ByteString
   , _globalFixity   :: !Fixity
   , _globalPackage  :: !ByteString
   , _globalModule   :: !ByteString
@@ -72,17 +75,18 @@ globalModule f (Global _ a p m n) = (\m' -> global a p m' n) <$> f m
 globalName f (Global _ a p m n) = global a p m <$> f n
 
 instance Eq Global where
-  a == b = digest a == digest b
+  (==) = (==) `on` _globalDigest
 
 instance Ord Global where
-  compare a b = digest a `compare` digest b
+  compare = compare `on` _globalDigest
 
-instance MD5 Global where
-  digest = _globalDigest
+instance Digestable Global where
+  digest c = digest c . _globalDigest
 
 instance Hashable Global where
-  hashWithSalt s c = hashWithSalt s (digest c)
+  hashWithSalt s c = hashWithSalt s (_globalDigest c)
 
 -- | Construct a 'Global' with a correct digest.
 global :: Fixity -> ByteString -> ByteString -> ByteString -> Global
-global f p m n = Global (digest (Char8.unwords [Char8.pack (show f), p, m, n])) f p m n
+global f p m n = Global d f p m n where
+  d = MD5.finalize (digest (digest initialCtx f) [p,m,n])

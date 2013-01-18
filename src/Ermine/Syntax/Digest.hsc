@@ -15,14 +15,13 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Digest
   (
-  -- * MD5 Digests
-    Digest(..)
   -- * Constructing Digests
-  , MD5(..)
-  , MD5List(..)
+    Digestable(..)
+  , DigestableList(..)
   ) where
 
 import Control.Applicative
+import Crypto.Classes
 import Foreign
 import Foreign.C
 import Data.Data (Data, Typeable)
@@ -34,98 +33,47 @@ import Data.Hashable
 import qualified Data.ByteString.Unsafe as Strict
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.ByteString.UTF8 as UTF8
 
---------------------------------------------------------------------
--- Digest
---------------------------------------------------------------------
-
--- | A 128-bit 'MD5' digest
---
--- >>> digest "hello"
--- Digest 10268287928962245903 5020952346831662890
-data Digest = Digest !Word64 !Word64
-  deriving (Show, Eq, Ord, Data, Typeable)
-
-instance Default Digest where
-  def = Digest 0 0
-
-instance Hashable Digest where
-  hashWithSalt s (Digest hi lo) = s `hashWithSalt` hi `hashWithSalt` lo
-
-#include "openssl/md5.h"
-
-data Ctx
-foreign import ccall unsafe "openssl/md5.h MD5Init"
-  md5Init :: Ptr Ctx -> IO ()
-foreign import ccall unsafe "openssl/md5.h MD5Update"
-  md5Update :: Ptr Ctx -> Ptr Word8 -> CInt -> IO ()
-foreign import ccall unsafe "openssl/md5.h MD5Final"
-  md5Final :: Ptr Word8 -> Ptr Ctx -> IO ()
-
-peekDigest :: Ptr Word8 -> IO Digest
-peekDigest p = Digest <$> peek64 p 8 0 <*> peek64 (plusPtr p 8) 8 0 where
-
-peek64 :: Ptr Word8 -> Int -> Word64 -> IO Word64
-peek64 !_ 0 !i = return i
-peek64 p n i = do
-  w8 <- peek p
-  peek64 (plusPtr p 1) (n-1) (shiftL i 8 .|. fromIntegral w8)
-
-withCtx :: (Ptr Ctx -> IO a) -> Digest
-withCtx f = unsafeDupablePerformIO $ allocaBytes (#const sizeof(MD5_CTX)) $ \ctx -> do
-  md5Init ctx
-  _ <- f ctx
-  allocaBytes 16 $ \pdigest -> do
-    md5Final pdigest ctx
-    peekDigest (castPtr pdigest)
 
 --------------------------------------------------------------------
 -- MD5List
 --------------------------------------------------------------------
 
--- | A helper class provided to aid in MD5 calculation
-class MD5List t where
-  digestList :: [t] -> Digest
+-- | A helper class provided to aid in hash calculation
+class DigestableList t where
+  digestList :: Hash ctx d => ctx -> [t] -> ctx
 
-instance MD5List Strict.ByteString where
-  digestList b = withCtx $ \c -> forM_ b $ \x ->
-    Strict.unsafeUseAsCStringLen x $ \(p, n) -> md5Update c (castPtr p) (fromIntegral n)
+nullBS :: Strict.ByteString
+nullBS = Strict.pack [0]
 
-instance MD5List Char where
-  digestList s = withCtx $ \ctx ->
-    withArrayLen (concatMap f s) $ \n p ->
-      md5Update ctx p (fromIntegral n)
-    where
-      f c = [0, fromIntegral $ shiftR w32 16, fromIntegral $ shiftR w32 8, fromIntegral w32] where
-        w32 :: Word32
-        w32 = fromIntegral (fromEnum c)
+instance DigestableList Strict.ByteString where
+  digestList = Prelude.foldr (\xs c -> updateCtx (updateCtx c xs) nullBS)
+
+instance DigestableList Char where
+  digestList c xs = updateCtx c (UTF8.fromString xs)
 
 --------------------------------------------------------------------
 -- MD5
 --------------------------------------------------------------------
 
--- | A class for things that can be converted directly to an 'MD5' digest.
-class MD5 t where
-  -- | compute the digest. This will default to computing the digest using 'show' if not specified
-  digest :: t -> Digest
-  default digest :: Show t => t -> Digest
-  digest = digest . show
+class Digestable t where
+  -- | update a hash. This will default to updating using 'show' if not specified
+  digest :: Hash ctx d => ctx -> t -> ctx
+  default digest :: (Hash ctx d, Show t) => ctx -> t -> ctx
+  digest c = digest c . show
 
-instance MD5List t => MD5 [t] where
+instance DigestableList t => Digestable [t] where
   digest = digestList
 
-instance MD5 Lazy.ByteString where
-  digest b = digestList (Lazy.toChunks b)
+instance Digestable Lazy.ByteString where
+  digest c = Prelude.foldr (flip updateCtx) c . Lazy.toChunks
 
-instance MD5 () where
-  digest _ = Digest 0 0
+instance Digestable () where
+  digest c _ = c
 
-instance MD5 Digest where
-  digest d = d
+instance Digestable Strict.ByteString where
+  digest = updateCtx
 
-instance MD5 Strict.ByteString where
-  digest b = withCtx $ \c -> Strict.unsafeUseAsCStringLen b $ \(p,n) ->
-    md5Update c (castPtr p) (fromIntegral n)
-
-instance MD5 Builder where
-  digest b = digest (toLazyByteString b)
+instance Digestable Builder where
+  digest c = digest c . toLazyByteString
