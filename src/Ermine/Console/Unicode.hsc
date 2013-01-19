@@ -26,8 +26,8 @@ foreign import ccall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
 withUnicode :: MonadCatchIO m => m a -> m a
 ##ifdef USE_CP
 withUnicode m = do
-  cp <- c_GetConsoleCP
-  (c_SetConsoleCP 65001 *> m) `finally` c_SetConsoleCP cp
+  cp <- liftIO c_GetConsoleCP
+  (liftIO (c_SetConsoleCP 65001) >> m) `finally` liftIO (c_SetConsoleCP cp)
 ##else
 withUnicode m = m
 ##endif
