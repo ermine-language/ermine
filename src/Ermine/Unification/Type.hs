@@ -86,7 +86,7 @@ unifyType is t1 t2 = do
 
 unifyTV :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> m (TypeM s)
 unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
-  Just j | is^.ix i -> cycles is j >>= typeOccurs
+  Just j | is^.contains i -> cycles is j >>= typeOccurs
          | otherwise -> do
     (t', Any m) <- listen $ unifyType (IntSet.insert i is) j t
     if m then liftST $ t' <$ writeSTRef r (Just t')
@@ -111,8 +111,8 @@ unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1
 adjustDepth :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Depth -> TypeM s -> m (TypeM s)
 adjustDepth is depth1 = fmap join . traverse go where
   go v@(Meta _ j s d _)
-    | is^.ix j  = fail "type occurs"
-    | otherwise = liftST (readSTRef s) >>= \ mt -> case mt of
+    | is^.contains j  = fail "type occurs"
+    | otherwise       = liftST (readSTRef s) >>= \ mt -> case mt of
     Just t -> do -- we found a target
       tell (Any True) -- we're zonking
       t' <- adjustDepth (IntSet.insert j is) depth1 t -- chase children

@@ -85,7 +85,7 @@ kindOccurs zs = evalStateT ?? Occ mempty names $ do
   throwM $ die r msg & footnotes .~ docs
   where
     -- walk :: MetaK s -> Bool -> StateT Occ (M s) TermDoc
-    walk v _ | zs^.ix v = unbound v
+    walk v _ | zs^.contains v = unbound v
     walk v b = readMeta v >>= \mk -> case mk of
       Nothing -> unbound v
       Just k -> prettyKind k b walk
@@ -138,8 +138,8 @@ unifyKind is k1 k2 = do
 -- not, at least at this time, bind kinds.
 unifyKV :: (MonadMeta s m, MonadWriter Any m) => IntSet -> Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> m (KindM s)
 unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
-  Just j | is^.ix i  -> cycles is j >>= kindOccurs
-         | otherwise -> do
+  Just j | is^.contains i  -> cycles is j >>= kindOccurs
+         | otherwise       -> do
     (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
          else j <$ tell (Any True)                  -- short-circuit

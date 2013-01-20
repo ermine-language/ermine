@@ -177,7 +177,7 @@ cc = iso (Compose . fmap Const) (fmap getConst . getCompose)
 cycles :: (Foldable f, MonadMeta s m) => IntSet -> f (Meta s f a) -> m (Set (Meta s f a))
 cycles = auf cc traverse_ . go where
   go is m@(Meta _ i r _ _)
-    | is^.ix i = return $ Set.singleton m
+    | is^.contains i = return $ Set.singleton m
     | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
       Just b  -> cycles (IntSet.insert i is) b
       Nothing -> return mempty
@@ -205,9 +205,9 @@ zonk :: (MonadMeta s m, Traversable f, Monad f) => IntSet -> f (Meta s f a) -> (
 zonk is fs occurs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
   Nothing  -> return (return m)
   Just fmf
-    | is^.ix (m^.metaId) -> cycles is fmf >>= occurs
+    | is^.contains (m^.metaId) -> cycles is fmf >>= occurs
     | otherwise -> do
-    r <- zonk (is & ix (m^.metaId) .~ True) fmf occurs
+    r <- zonk (is & contains (m^.metaId) .~ True) fmf occurs
     r <$ writeMeta m r
 
 ------------------------------------------------------------------------------
