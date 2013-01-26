@@ -36,6 +36,7 @@ import Data.Typeable
 import Text.PrettyPrint.ANSI.Leijen
 import Text.Trifecta.Rendering
 import Text.Trifecta.Parser
+import Text.Trifecta.Result
 
 -- | Ermine diagnostic type
 data Diagnostic = Diagnostic !Rendering (Maybe Doc) [Doc] (Set String)

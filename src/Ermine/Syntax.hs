@@ -59,15 +59,15 @@ instance Variable (Either b) where
 class App t where
   app :: Prism' (t a) (t a, t a)
 
-infixl 9 #
+infixl 9 ##
 
 -- | Convenient infix application operator.
-(#) :: App t => t a -> t a -> t a
-(#) = curry (review app)
+(##) :: App t => t a -> t a -> t a
+(##) = curry (review app)
 
 -- | Fold a series of applications.
 apps :: App t => t a -> [t a] -> t a
-apps = foldl (#)
+apps = foldl (##)
 
 --------------------------------------------------------------------
 -- Fun

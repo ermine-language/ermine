@@ -24,6 +24,7 @@ import Ermine.Syntax.Kind
 import System.Console.Haskeline
 import System.Exit
 import Text.Trifecta.Parser
+import Text.Trifecta.Result
 
 ------------------------------------------------------------------------------
 -- Command
