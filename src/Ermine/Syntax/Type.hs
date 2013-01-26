@@ -43,7 +43,7 @@ import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
-import Data.Map hiding (map)
+import Data.Map as Map hiding (map)
 import Data.Set hiding (map)
 import Data.String
 import Data.Void
@@ -293,3 +293,29 @@ instantiateKindVars :: [k] -> TK k a -> Type k a
 instantiateKindVars as = instantiateKinds (vs!!) where
   vs = map pure as
 {-# INLINE instantiateKindVars #-}
+
+-- | Generalizes a type with comparable variables at the kind and type
+-- levels, such as would be the result of parsing. The 'Maybe' at the kind
+-- level may be used for unknown annotations, and 'Nothing' maps to units
+-- in the output.
+--  | Forall !Int [Scope Int Kind k] [Scope Int (TK k) a] !(Scope Int (TK k) a)
+--  newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a } -- TODO: Type (Var Int k) a
+--
+--  Type () b
+--    Scope Int (TK ()) b
+--      TK () (Var Int (TK () b))
+--      Type (Var Int (Kind ())) (Var Int (Type (Var Int (Kind ())) b))
+general :: (Ord k, Ord a) => Type (Maybe k) a -> Type () b
+general ty = Forall kn (replicate tn . Scope . pure $ unknown) [] (Scope $ TK ty')
+ where
+ unknown = F . pure $ ()
+ ((_, _, kn, tn), ty') = bimapAccumL kv tv (Map.empty, Map.empty, 0, 0) ty
+
+ kv st                  Nothing  = (st, unknown)
+ kv st@(km, tm, ki, ti) (Just v) = case km^.at v of
+   Just u  -> (st, B u)
+   Nothing -> let ki' = ki+1 in ki' `seq` ((km & at v ?~ ki, tm, ki', ti), B ki)
+
+ tv st@(km, tm, ki, ti) v = case tm^.at v of
+   Just u  -> (st, B u)
+   Nothing -> let ti' = ti+1 in ti' `seq` ((km, tm & at v ?~ ti, ki, ti'), B ti)
