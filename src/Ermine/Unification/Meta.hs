@@ -49,7 +49,7 @@ module Ermine.Unification.Meta
   , HasMetaEnv(..)
   , MonadMeta
   -- * The unification monad
-  , M, runM, runM_
+  , M, runM, runM_, ioM
   , throwM
   , fresh
   ) where
@@ -57,8 +57,9 @@ import Control.Applicative
 import Control.Exception
 import Control.Lens
 import Control.Monad
+import Control.Monad.IO.Class
 import Control.Monad.Reader.Class
-import Control.Monad.ST (ST, runST)
+import Control.Monad.ST (ST, runST, stToIO)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
 import Data.Foldable
@@ -289,6 +290,13 @@ runM_ :: Rendering -> (forall s. M s a) -> a
 runM_ r m = runST $ do
   i <- newSTRef 0
   unM m (MetaEnv r i)
+
+-- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.
+ioM :: MonadIO m => Rendering -> (forall s. M s a) -> m a
+ioM r m = liftIO $ stToIO $ do
+  i <- newSTRef 0
+  unM m (MetaEnv r i)
+{-# INLINE ioM #-}
 
 -- | Generate a 'fresh' variable
 fresh :: MonadMeta s m => m Int
