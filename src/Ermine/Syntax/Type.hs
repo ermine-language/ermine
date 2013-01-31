@@ -30,6 +30,7 @@ module Ermine.Syntax.Type
   , instantiateKinds
   , instantiateKindVars
   , bindType
+  , general
   -- * Type Variables
   , HasTypeVars(..)
   ) where
@@ -298,13 +299,6 @@ instantiateKindVars as = instantiateKinds (vs!!) where
 -- levels, such as would be the result of parsing. The 'Maybe' at the kind
 -- level may be used for unknown annotations, and 'Nothing' maps to units
 -- in the output.
---  | Forall !Int [Scope Int Kind k] [Scope Int (TK k) a] !(Scope Int (TK k) a)
---  newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a } -- TODO: Type (Var Int k) a
---
---  Type () b
---    Scope Int (TK ()) b
---      TK () (Var Int (TK () b))
---      Type (Var Int (Kind ())) (Var Int (Type (Var Int (Kind ())) b))
 general :: (Ord k, Ord a) => Type (Maybe k) a -> Type () b
 general ty = Forall kn (replicate tn . Scope . pure $ unknown) [] (Scope $ TK ty')
  where
