@@ -39,7 +39,7 @@ import Ermine.Syntax
 import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam, Prim)
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Global
-import Ermine.Syntax.Kind hiding (Var)
+import Ermine.Syntax.Kind hiding (Var, general)
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Scope

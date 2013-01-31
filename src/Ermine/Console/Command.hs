@@ -18,9 +18,12 @@ import Data.Void
 import Data.Semigroup
 import Ermine.Console.State
 import Ermine.Parser.Kind
+import Ermine.Parser.Type
 import Ermine.Pretty
 import Ermine.Pretty.Kind
-import Ermine.Syntax.Kind
+-- import Ermine.Pretty.Type
+import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Type as Type
 import System.Console.Haskeline
 import System.Exit
 import Text.Trifecta.Parser
@@ -80,9 +83,10 @@ commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
-  , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . general)
+  , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . Kind.general)
+  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . Type.general)
   , cmd "pkind"
     & desc .~ "show the pretty printed representation of a kind schema"
-    & body .~ parsing kind (\s -> prettySchema (general s) names absurd >>= sayLn)
+    & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   ]

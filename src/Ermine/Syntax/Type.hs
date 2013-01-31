@@ -51,7 +51,7 @@ import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
-import Ermine.Syntax.Kind hiding (Var)
+import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
 import Prelude.Extras
