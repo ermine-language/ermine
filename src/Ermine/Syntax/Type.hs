@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -30,7 +31,7 @@ module Ermine.Syntax.Type
   , instantiateKinds
   , instantiateKindVars
   , bindType
-  , general
+  , prepare
   -- * Type Variables
   , HasTypeVars(..)
   ) where
@@ -39,6 +40,8 @@ import Bound
 import Control.Lens
 import Control.Applicative
 import Control.Monad (ap)
+import Control.Monad.Trans
+import Control.Monad.State
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
@@ -295,21 +298,27 @@ instantiateKindVars as = instantiateKinds (vs!!) where
   vs = map pure as
 {-# INLINE instantiateKindVars #-}
 
--- | Generalizes a type with comparable variables at the kind and type
--- levels, such as would be the result of parsing. The 'Maybe' at the kind
--- level may be used for unknown annotations, and 'Nothing' maps to units
--- in the output.
-general :: (Ord k, Ord a) => Type (Maybe k) a -> Type () b
-general ty = Forall kn (replicate tn . Scope . pure $ unknown) [] (Scope $ TK ty')
+-- | A function for preparing the sort of type that comes out of parsing for
+-- the inference process. Actions for kind and type variables of types 'k' and
+-- 't' will only be performed once for each unique value, then memoized and the
+-- result re-used. The default action for 'Nothing' kinds will be used at every
+-- occurrence, however.
+prepare :: forall f k a l b. (Applicative f, Monad f, Ord k, Ord a)
+        => f l -> (k -> f l) -> (a -> f b)
+        -> Type (Maybe k) a -> f (Type l b)
+prepare unk knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd wTyp
  where
- unknown = F . pure $ ()
- ((_, _, kn, tn), ty') = bimapAccumL kv tv (Map.empty, Map.empty, 0, 0) ty
+ wKnd :: Maybe k -> StateT (Map k l, Map a b) f l
+ wKnd Nothing  = lift unk
+ wKnd (Just k) = use _1 >>= \km -> case km ^. at k of
+   Just k' -> return k'
+   Nothing -> do k' <- lift (knd k)
+                 _1.at k ?= k'
+                 return k'
+ wTyp :: a -> StateT (Map k l, Map a b) f b
+ wTyp t = use _2 >>= \tm -> case tm ^. at t of
+   Just t' -> return t'
+   Nothing -> do t' <- lift (typ t)
+                 _2.at t ?= t'
+                 return t'
 
- kv st                  Nothing  = (st, unknown)
- kv st@(km, tm, ki, ti) (Just v) = case km^.at v of
-   Just u  -> (st, B u)
-   Nothing -> let ki' = ki+1 in ki' `seq` ((km & at v ?~ ki, tm, ki', ti), B ki)
-
- tv st@(km, tm, ki, ti) v = case tm^.at v of
-   Just u  -> (st, B u)
-   Nothing -> let ti' = ti+1 in ti' `seq` ((km, tm & at v ?~ ti, ki, ti'), B ti)

@@ -85,7 +85,10 @@ parsing p k s = case parseString p mempty s of
 kindBody :: Type (Maybe String) String -> Console ()
 kindBody s = do
   gk <- ioM mempty $ do
-    tm <- kindVars newMeta (Type.general s)
+    tm <- prepare (newMeta ())
+                  (const $ newMeta ())
+                  (const $ pure <$> newMeta ())
+                  s
     k <- inferKind tm
     generalize k
   pk <- prettySchema gk names absurd
@@ -96,11 +99,11 @@ commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
   , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . Kind.general)
-  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . Type.general)
+--  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . Type.general)
   , cmd "pkind" & desc .~ "show the pretty printed representation of a kind schema"
     & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
-  , cmd "ptype" & desc .~ "show the pretty printed representation of a kind schema"
-    & body .~ parsing typ (\s -> prettyType (Type.general s) names (-1) (\_ _ -> pure (text "?")) absurd >>= sayLn)
+--   , cmd "ptype" & desc .~ "show the pretty printed representation of a kind schema"
+--     & body .~ parsing typ (\s -> prettyType (Type.general s) names (-1) (\_ _ -> pure (text "?")) absurd >>= sayLn)
   , cmd "kind" & desc .~ "infer the kind of a type"
     & body .~ parsing typ kindBody
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
