@@ -72,7 +72,8 @@ inferKind (HardType ConcreteRho{}) = return rho
 inferKind (App f x) = do
   kf <- inferKind f
   (a, b) <- matchFunKind kf
-  b <$ checkKind x a
+  checkKind x a
+  b <$ zonk mempty a kindOccurs
 inferKind (Exists ks cs) = do
   for_ cs $ \c ->
     checkKind (instantiateVars ks c) constraint
