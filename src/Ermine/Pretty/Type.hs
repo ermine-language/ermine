@@ -43,7 +43,8 @@ prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <
 fromTK :: Scope Int (TK k) a -> Type (Var Int (Kind k)) (Var Int a)
 fromTK = runTK . fromScope
 
--- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
+-- | Pretty print a 'Type' using a fresh variable supply, an ambient precedence, and
+-- helpers for printing free kind and type variables.
 --
 -- You should have already removed any free variables from the variable set.
 prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
