@@ -325,7 +325,7 @@ prepare unk knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd w
 
 -- remove this if there's a better lensy way.
 inc :: Lens s s Int Int -> State s Int
-inc l = do i <- use l ; i <$ (l += 1)
+inc l = use l <* (l += 1)
 
 -- | Abstract all the unique variables out of a type with ordered type variables and
 -- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
