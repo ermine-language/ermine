@@ -15,10 +15,12 @@ module Ermine.Parser.Type
   , typ
   ) where
 
+import Bound
 import Control.Applicative
 import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
 import Data.Set as Set
+import Data.List as List
 import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
 import Ermine.Syntax
@@ -59,9 +61,20 @@ typ1 = apps <$> typ0 <*> many typ0
 typ2 :: (Monad m, TokenParsing m) => m Typ
 typ2 = chainr1 typ1 ((~>) <$ symbol "->")
 
+typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
+typ3 =  build <$ symbol "forall" <*> some (ident tid) <* dot <*> typ2
+    <|> typ2
+ where
+ build vs t =
+   Forall 0
+          (List.map (const unk) vs)
+          []
+          (abstract (`elemIndex` vs) (abstractKinds (const Nothing) t))
+ unk = Scope . pure . F . pure $ Nothing
+
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
-typ = typ2
+typ = typ3
 
 -- anyTyp = exists | typ
 anyTyp :: (Monad m, TokenParsing m) => m Typ
