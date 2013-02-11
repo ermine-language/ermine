@@ -32,6 +32,7 @@ module Ermine.Syntax.Type
   , instantiateKindVars
   , bindType
   , prepare
+  , abstractAll
   -- * Type Variables
   , HasTypeVars(..)
   ) where
@@ -321,4 +322,19 @@ prepare unk knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd w
    Nothing -> do t' <- lift (typ t)
                  _2.at t ?= t'
                  return t'
+
+-- remove this if there's a better lensy way.
+inc :: Lens s s Int Int -> State s Int
+inc l = do i <- use l ; i <$ (l += 1)
+
+-- | Abstract all the unique variables out of a type with ordered type variables and
+-- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
+-- kind variables and verifiably no type variables. Also returned are the number of
+-- unique kind and type variables
+abstractAll :: (Ord k, Ord a) => Type (Maybe k) a -> (Scope Int (TK ()) b, (Int, Int))
+abstractAll = flip runState (0, 0) . fmap (Scope . TK) . prepare unk kv tv
+ where
+ unk = pure . F . pure $ ()
+ kv _ = B <$> inc _1
+ tv _ = B <$> inc _2
 
