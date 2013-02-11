@@ -99,7 +99,7 @@ commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
   , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . Kind.general)
---  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . Type.general)
+  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . fst . Type.abstractAll)
   , cmd "pkind" & desc .~ "show the pretty printed representation of a kind schema"
     & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
 --   , cmd "ptype" & desc .~ "show the pretty printed representation of a kind schema"
