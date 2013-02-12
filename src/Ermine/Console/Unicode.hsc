@@ -28,9 +28,9 @@ withUnicode :: MonadCatchIO m => m a -> m a
 ##ifdef USE_CP
 withUnicode m = do
   cp <- liftIO c_GetConsoleCP
-  enc <- hGetEncoding stdout
+  enc <- liftIO $ hGetEncoding stdout
   let setup = liftIO $ c_SetConsoleCP 65001 >> hSetEncoding stdout utf8
-      cleanup = liftIO $ hSetEncoding stdout enc >> c_SetConsoleCP cp
+      cleanup = liftIO $ maybe (return ()) (hSetEncoding stdout) enc >> c_SetConsoleCP cp
   finally (setup >> m) cleanup
 ##else
 withUnicode m = m
