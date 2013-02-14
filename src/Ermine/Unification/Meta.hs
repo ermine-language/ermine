@@ -41,9 +41,11 @@ module Ermine.Unification.Meta
   , readMeta
   , writeMeta
   -- ** Pruning
-  , cycles
   , semiprune
+  , occurs
   , zonk
+  , zonk_
+  , zonkWith
   -- * MetaEnv
   , MetaEnv
   , HasMetaEnv(..)
@@ -62,6 +64,7 @@ import Control.Monad.Reader.Class
 import Control.Monad.ST (ST, runST, stToIO)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
+import Control.Monad.Writer.Class
 import Data.Foldable
 import Data.Function (on)
 import Data.Functor.Compose
@@ -73,6 +76,7 @@ import Data.Traversable
 import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Unification.Sharing
 
 ------------------------------------------------------------------------------
 -- MetaEnv
@@ -168,23 +172,6 @@ writeMeta (Meta _ _ r _ _) a = liftST $ writeSTRef r (Just a)
 writeMeta (Skolem _ _) _     = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 
-cc :: (Functor m, Functor n) => Iso (m a) (n b) (Compose m (Const a) x) (Compose n (Const b) y)
-cc = iso (Compose . fmap Const) (fmap getConst . getCompose)
-
--- | Retrieve the set of all cyclic meta-variables
---
--- This matters because when reporting a cycle we may encounter other
--- already formed cycles.
-cycles :: (Foldable f, MonadMeta s m) => IntSet -> f (Meta s f a) -> m (Set (Meta s f a))
-cycles = auf cc traverse_ . go where
-  go is m@(Meta _ i r _ _)
-    | is^.contains i = return $ Set.singleton m
-    | otherwise = liftST (readSTRef r) >>= \mb -> case mb of
-      Just b  -> cycles (IntSet.insert i is) b
-      Nothing -> return mempty
-  go _ _ = return mempty
-{-# INLINE cycles #-}
-
 -- | Path-compression
 semiprune :: (Variable f, Monad f, MonadMeta s m) => f (Meta s f a) -> m (f (Meta s f a))
 semiprune t0 = case preview var t0 of
@@ -202,14 +189,29 @@ semiprune t0 = case preview var t0 of
 {-# INLINE semiprune #-}
 
 -- | Expand meta variables recursively
-zonk :: (MonadMeta s m, Traversable f, Monad f) => IntSet -> f (Meta s f a) -> (Set (Meta s f a) -> m (f (Meta s f a))) -> m (f (Meta s f a))
-zonk is fs occurs = fmap join . for fs $ \m -> readMeta m >>= \mv -> case mv of
-  Nothing  -> return (return m)
-  Just fmf
-    | is^.contains (m^.metaId) -> cycles is fmf >>= occurs
-    | otherwise -> do
-    r <- zonk (is & contains (m^.metaId) .~ True) fmf occurs
-    r <$ writeMeta m r
+zonk :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f) => f (Meta s f a) -> m (f (Meta s f a))
+zonk fs = zonkWith fs $ \_ -> return ()
+{-# INLINE zonk #-}
+
+zonk_ :: (MonadMeta s m, Traversable f, Monad f) => f (Meta s f a) -> m (f (Meta s f a))
+zonk_ fs = runSharing fs $ zonk fs
+{-# INLINE zonk_ #-}
+
+occurs :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f) => f (Meta s f a) -> (Meta s f a -> Bool) -> m () -> m (f (Meta s f a))
+occurs fs p kf = zonkWith fs $ \v -> when (p v) kf
+{-# INLINE occurs #-}
+
+zonkWith :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f) => f (Meta s f a) -> (Meta s f a -> m ()) -> m (f (Meta s f a))
+zonkWith fs0 tweak = go fs0 where
+  go fs = fmap join . for fs $ \m -> do
+    tweak m
+    readMeta m >>= \mv -> case mv of
+      Nothing  -> return (return m)
+      Just fmf -> do
+        tell $ Any True
+        r <- go fmf
+        r <$ writeMeta m r
+{-# INLINE zonkWith #-}
 
 ------------------------------------------------------------------------------
 -- Result

@@ -27,12 +27,20 @@ import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.IntSet as IntSet
 import Data.Set as Set
+import Data.IntMap as IntMap
+import Data.Set.Lens
 import Data.STRef
 import Data.Traversable
+import Ermine.Diagnostic
+import Ermine.Pretty
+import Ermine.Pretty.Kind
+import Ermine.Pretty.Type
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
+import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
+import Ermine.Unification.Sharing
 
 -- | A type meta-variable
 type MetaT s = Meta s (Type (MetaK s)) (KindM s)
@@ -40,12 +48,28 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 -- | A type filled with meta-variables
 type TypeM s = Type (MetaK s) (MetaT s)
 
-typeOccurs :: MonadMeta s m => Set (MetaT s) -> m a
-typeOccurs zs = fail $ "type occurs " ++ show zs
+typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Int -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
+typeOccurs depth1 t p = zonkWith t tweak where
+  tweak m
+    | p m = do
+      zt <- sharing t $ zonk t
+      let st = setOf typeVars zt
+          mt = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList st) names
+          sk = setOf kindVars zt
+          mk = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList sk) names
+          v = mt ^?! ix (st ^?! folded.filtered p.metaId)
+      td <- prettyType zt (drop (Set.size st) names) (-1)
+         (\v _ -> pure $ text $ mk ^?! ix (v^.metaId))
+         (\v _ -> pure $ text $ mt ^?! ix (v^.metaId))
+      r <- view rendering
+      throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
+    | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do
+        depth2 <- readSTRef d
+        Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
 
 -- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
-unifyType :: (MonadWriter Any m, MonadMeta s m) => IntSet -> TypeM s -> TypeM s -> m (TypeM s)
-unifyType is t1 t2 = do
+unifyType :: (MonadWriter Any m, MonadMeta s m) => TypeM s -> TypeM s -> m (TypeM s)
+unifyType t1 t2 = do
   t1' <- semiprune t1
   t2' <- semiprune t2
   go t1' t2'
@@ -56,14 +80,14 @@ unifyType is t1 t2 = do
        m <- liftST $ readSTRef u
        n <- liftST $ readSTRef v
        case compare m n of
-         LT -> unifyTV is True i r d y $ return ()
-         EQ -> unifyTV is True i r d y $ writeSTRef v $! n + 1
-         GT -> unifyTV is False j s e x $ return ()
-    go (Var (Meta _ i r d _)) t                       = unifyTV is True i r d t $ return ()
-    go t                      (Var (Meta _ i r d _))  = unifyTV is False i r d t $ return () -- not as boring as it could be
-    go (App f x)              (App g y)               = App <$> unifyType is f g <*> unifyType is x y
-    go (Loc l s)              t                       = Loc l <$> unifyType is s t
-    go s                      (Loc _ t)               = unifyType is s t
+         LT -> unifyTV True i r d y $ return ()
+         EQ -> unifyTV True i r d y $ writeSTRef v $! n + 1
+         GT -> unifyTV False j s e x $ return ()
+    go (Var (Meta _ i r d _)) t                       = unifyTV True i r d t $ return ()
+    go t                      (Var (Meta _ i r d _))  = unifyTV False i r d t $ return () -- not as boring as it could be
+    go (App f x)              (App g y)               = App <$> unifyType f g <*> unifyType x y
+    go (Loc l s)              t                       = Loc l <$> unifyType s t
+    go s                      (Loc _ t)               = unifyType s t
     go Exists{}               _                       = fail "unifyType: existential"
     go _                      Exists{}                = fail "unifyType: existential"
     go t@(Forall m xs [] a)  (Forall n ys [] b)
@@ -75,20 +99,20 @@ unifyType is t1 t2 = do
           let nxs = instantiateVars sks <$> xs
               nys = instantiateVars sks <$> ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
-            k <- unifyKind mempty x y
+            k <- unifyKind x y
             newSkolem k
-          unifyType is (instantiateKindVars sks (instantiateVars sts a))
-                       (instantiateKindVars sks (instantiateVars sts b))
-        if modified then zonk is t typeOccurs
+          unifyType (instantiateKindVars sks (instantiateVars sts a))
+                    (instantiateKindVars sks (instantiateVars sts b))
+        if modified then zonk t
                     else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"
+{-# INLINE unifyType #-}
 
-unifyTV :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> m (TypeM s)
-unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
-  Just j | is^.contains i -> cycles is j >>= typeOccurs
-         | otherwise -> do
-    (t', Any m) <- listen $ unifyType (IntSet.insert i is) j t
+unifyTV :: (MonadWriter Any m, MonadMeta s m) => Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> m (TypeM s)
+unifyTV interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
+  Just j -> do
+    (t', Any m) <- listen $ unifyType j t
     if m then liftST $ t' <$ writeSTRef r (Just t')
          else j <$ tell (Any True)
   Nothing -> case t of
@@ -104,20 +128,5 @@ unifyTV is interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1
     _ -> do
       tell (Any interesting)
       depth1 <- liftST $ readSTRef d
-      if depth1 < maxBound
-        then adjustDepth (IntSet.insert i is) depth1 t
-        else return t -- we're done, zonk remaining cycles later
-
-adjustDepth :: (MonadWriter Any m, MonadMeta s m) => IntSet -> Depth -> TypeM s -> m (TypeM s)
-adjustDepth is depth1 = fmap join . traverse go where
-  go v@(Meta _ j s d _)
-    | is^.contains j  = fail "type occurs"
-    | otherwise       = liftST (readSTRef s) >>= \ mt -> case mt of
-    Just t -> do -- we found a target
-      tell (Any True) -- we're zonking
-      t' <- adjustDepth (IntSet.insert j is) depth1 t -- chase children
-      liftST $ t' <$ writeSTRef s (Just t')
-    Nothing -> liftST $ do -- we didn't find a target, adjust the depth of this variable
-      depth2 <- readSTRef d
-      Var v <$ when (depth2 > depth1) (writeSTRef d depth1) -- boring
-  go v = return (pure v)
+      zt <- typeOccurs depth1 t $ \v -> v^.metaId == i
+      zt <$ liftST (writeSTRef r (Just zt))

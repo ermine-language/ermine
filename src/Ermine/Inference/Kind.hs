@@ -47,7 +47,7 @@ matchFunKind (HardKind _) = fail "not a fun kind"
 matchFunKind (Var kv) = do
   a <- Var <$> newMeta ()
   b <- Var <$> newMeta ()
-  (a, b) <$ runWriterT (unifyKindVar mempty kv (a :-> b))
+  (a, b) <$ runWriterT (unifyKindVar kv (a :-> b))
 
 instantiateSchema :: Schema (MetaK s) -> M s (KindM s)
 instantiateSchema (Schema n s) = do
@@ -59,7 +59,7 @@ instantiateSchema (Schema n s) = do
 checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
 checkKind t k = do
   k' <- inferKind t
-  () <$ runWriterT (unifyKind mempty k k')
+  () <$ runWriterT (unifyKind k k')
 
 -- | Infer a kind for a given type.
 inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
@@ -72,8 +72,7 @@ inferKind (HardType ConcreteRho{}) = return rho
 inferKind (App f x) = do
   kf <- inferKind f
   (a, b) <- matchFunKind kf
-  checkKind x a
-  b <$ zonk mempty a kindOccurs
+  b <$ checkKind x a
 inferKind (Exists ks cs) = do
   for_ cs $ \c ->
     checkKind (instantiateVars ks c) constraint

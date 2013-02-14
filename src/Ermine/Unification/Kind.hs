@@ -39,11 +39,13 @@ import Control.Monad.Writer.Strict
 import Data.IntMap as IntMap
 import Data.IntSet as IntSet
 import Data.Set as Set
+import Data.Set.Lens
 import Data.STRef
 import Data.Traversable
 import Ermine.Diagnostic
 import Ermine.Syntax.Kind as Kind
 import Ermine.Unification.Meta
+import Ermine.Unification.Sharing
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 
@@ -59,9 +61,6 @@ type MetaK s = Meta s Kind ()
 -- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)
 
-data Occ = Occ { _occVar :: IntMap String, _occFresh :: [String] }
-makeLenses ''Occ
-
 -- | Die with an error message due to a cycle between the specified kinds.
 --
 -- >>> test $ do k <- Var <$> newMeta (); unifyKind mempty k (star ~> k)
@@ -72,35 +71,21 @@ makeLenses ''Occ
 -- *** Exception: (interactive):1:1: error: infinite kinds detected
 -- cyclic kind: a = a -> b
 -- cyclic kind: b = a -> b
-kindOccurs :: MonadMeta s m => Set (MetaK s) -> m a
-kindOccurs zs = evalStateT ?? Occ mempty names $ do
-  ns  <- for (Set.toList zs) $ \z -> occVar.at (z^.metaId).non "" <<~ occFresh %%= (head &&& tail)
-  rhs <- for (Set.toList zs) $ \z -> lift (readMeta z) >>= \mk -> case mk of
-    Nothing -> fail "the impossible happened: unbound cyclic kind-meta-variable"
-    Just k  -> prettyKind k False walk
-  let docs = zipWith ?? ns ?? rhs $ \n r -> text "cyclic kind:" <+> hang 4 (group (pretty n </> char '=' </> r))
+kindOccurs :: (MonadMeta s m, MonadWriter Any m) => KindM s -> (MetaK s -> Bool) -> m (KindM s)
+kindOccurs k p = occurs k p $ do
+  zk <- zonk k
+  let s = setOf kindVars zk
+      m = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList s) names
+      v = m ^?! ix (s ^?! folded.filtered p.metaId)
+  kd <- prettyKind zk False $ \v _ -> pure $ text $ m ^?! ix (v^.metaId)
   r <- view rendering
-  let msg | length ns == 1 = "infinite kind detected"
-          | otherwise      = "infinite kinds detected"
-  throwM $ die r msg & footnotes .~ docs
-  where
-    -- walk :: MetaK s -> Bool -> StateT Occ (M s) TermDoc
-    walk v _ | zs^.contains v = unbound v
-    walk v b = readMeta v >>= \mk -> case mk of
-      Nothing -> unbound v
-      Just k -> prettyKind k b walk
-
-    -- unbound :: MetaK s -> StateT Occ (M s) TermDoc
-    unbound v | i <- v^.metaId = use (occVar.at i) >>= \ mn -> case mn of
-      Just n -> return $ pretty n
-      Nothing -> do
-        n <- occVar.at i.non "" <<~ occFresh %%= (head &&& tail)
-        return $ pretty n
+  throwM $ die r "infinite kind detected" & footnotes .~ [text "cyclic kind:" <+> hang 4 (group (pretty v </> char '=' </> kd))]
+{-# INLINE kindOccurs #-}
 
 -- | Generalize a 'Kind', checking for escaped Skolems.
 generalize :: MonadMeta s m => KindM s -> m (Schema a)
 generalize k0 = do
-  k <- zonk mempty k0 kindOccurs
+  k <- runSharing k0 $ zonk k0
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
   return $ Schema n (Scope r)
   where
@@ -112,8 +97,8 @@ generalize k0 = do
 -- | Returns the a unified form if different from the left argument.
 --
 -- The writer is used to track if any interesting edits have been made
-unifyKind :: (MonadMeta s m, MonadWriter Any m) => IntSet -> KindM s -> KindM s -> m (KindM s)
-unifyKind is k1 k2 = do
+unifyKind :: (MonadMeta s m, MonadWriter Any m) => KindM s -> KindM s -> m (KindM s)
+unifyKind k1 k2 = do
   k1' <- semiprune k1
   k2' <- semiprune k2
   go k1' k2'
@@ -124,33 +109,33 @@ unifyKind is k1 k2 = do
       m <- liftST $ readSTRef u
       n <- liftST $ readSTRef v
       case compare m n of
-        LT -> unifyKV is True i r b $ return ()
-        EQ -> unifyKV is True i r b $ writeSTRef v $! n + 1
-        GT -> unifyKV is False j s a $ return ()
-    go (Var (Meta _ i r _ _)) k    = unifyKV is True i r k $ return ()
-    go k (Var (Meta _ i r _ _))    = unifyKV is False i r k $ return ()
-    go (a :-> b) (c :-> d)         = (:->) <$> unifyKind is a c <*> unifyKind is b d
+        LT -> unifyKV True i r b $ return ()
+        EQ -> unifyKV True i r b $ writeSTRef v $! n + 1
+        GT -> unifyKV False j s a $ return ()
+    go (Var (Meta _ i r _ _)) k    = unifyKV True i r k $ return ()
+    go k (Var (Meta _ i r _ _))    = unifyKV False i r k $ return ()
+    go (a :-> b) (c :-> d)         = (:->) <$> unifyKind a c <*> unifyKind b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
     go _ _ = fail "kind mismatch"
 
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-rankInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
-unifyKV :: (MonadMeta s m, MonadWriter Any m) => IntSet -> Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> m (KindM s)
-unifyKV is interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
-  Just j | is^.contains i  -> cycles is j >>= kindOccurs
-         | otherwise       -> do
-    (k', Any m) <- listen $ unifyKind (IntSet.insert i is) j k
+unifyKV :: (MonadMeta s m, MonadWriter Any m) => Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> m (KindM s)
+unifyKV interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
+  Just j -> do
+    (k', Any m) <- listen $ unifyKind j k
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
          else j <$ tell (Any True)                  -- short-circuit
   Nothing -> do
+    zk <- kindOccurs k $ \v -> v^.metaId == i
     tell (Any interesting)
     liftST $ do
       bump
-      k <$ writeSTRef r (Just k)
+      zk <$ writeSTRef r (Just zk)
 
 -- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
-unifyKindVar :: (MonadMeta s m, MonadWriter Any m) => IntSet -> MetaK s -> KindM s -> m (KindM s)
-unifyKindVar is (Meta _ i r _ _) kv = unifyKV is True i r kv $ return ()
-unifyKindVar _  (Skolem _ _)     _  = fail "unifyKindVar: Skolem"
+unifyKindVar :: (MonadMeta s m, MonadWriter Any m) => MetaK s -> KindM s -> m (KindM s)
+unifyKindVar (Meta _ i r _ _) kv = unifyKV True i r kv $ return ()
+unifyKindVar (Skolem _ _)     _  = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
