@@ -31,8 +31,10 @@ module Ermine.Syntax.Type
   , instantiateKinds
   , instantiateKindVars
   , bindType
+  , memoverse
   , prepare
   , abstractAll
+  , abstractOrdered
   -- * Type Variables
   , HasTypeVars(..)
   ) where
@@ -49,7 +51,7 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map as Map hiding (map)
-import Data.Set hiding (map)
+import Data.Set as Set hiding (map)
 import Data.String
 import Data.Void
 import Ermine.Diagnostic
@@ -299,6 +301,32 @@ instantiateKindVars as = instantiateKinds (vs!!) where
   vs = map pure as
 {-# INLINE instantiateKindVars #-}
 
+-- A local helper function for use with memoverse
+memoizing :: (Functor f) => (a -> f b) -> a -> f (Bool, b)
+memoizing f = fmap ((,) True) . f
+
+-- | A version of bitraverse that allows the functions used to specify whether
+-- their results at each value should be remembered, so that the action is not
+-- performed additional times at that value.
+memoverse :: forall f k a l b. (Applicative f, Monad f, Ord k, Ord a)
+          => (k -> f (Bool, l)) -> (a -> f (Bool, b))
+          -> Type k a -> f (Type l b)
+memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd wTyp
+ where
+ wKnd :: k -> StateT (Map k l, Map a b) f l
+ wKnd k = use _1 >>= \km -> case km ^. at k of
+   Just k' -> return k'
+   Nothing -> do (store, k') <- lift (knd k)
+                 when store $ _1.at k ?= k'
+                 return k'
+
+ wTyp :: a -> StateT (Map k l, Map a b) f b
+ wTyp t = use _2 >>= \tm -> case tm ^. at t of
+   Just t' -> return t'
+   Nothing -> do (store, t') <- lift (typ t)
+                 when store $ _2.at t ?= t'
+                 return t'
+
 -- | A function for preparing the sort of type that comes out of parsing for
 -- the inference process. Actions for kind and type variables of types 'k' and
 -- 't' will only be performed once for each unique value, then memoized and the
@@ -307,21 +335,8 @@ instantiateKindVars as = instantiateKinds (vs!!) where
 prepare :: forall f k a l b. (Applicative f, Monad f, Ord k, Ord a)
         => f l -> (k -> f l) -> (a -> f b)
         -> Type (Maybe k) a -> f (Type l b)
-prepare unk knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd wTyp
- where
- wKnd :: Maybe k -> StateT (Map k l, Map a b) f l
- wKnd Nothing  = lift unk
- wKnd (Just k) = use _1 >>= \km -> case km ^. at k of
-   Just k' -> return k'
-   Nothing -> do k' <- lift (knd k)
-                 _1.at k ?= k'
-                 return k'
- wTyp :: a -> StateT (Map k l, Map a b) f b
- wTyp t = use _2 >>= \tm -> case tm ^. at t of
-   Just t' -> return t'
-   Nothing -> do t' <- lift (typ t)
-                 _2.at t ?= t'
-                 return t'
+prepare unk knd typ =
+  memoverse (maybe ((,) False <$> unk) (memoizing knd)) (memoizing typ)
 
 -- | Abstract all the unique variables out of a type with ordered type variables and
 -- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
@@ -334,3 +349,16 @@ abstractAll = flip runState (0, 0) . fmap (Scope . TK) . prepare unk kv tv
  kv _ = B <$> (_1 <<%= (+1))
  tv _ = B <$> (_2 <<%= (+1))
 
+-- | Abstracts the specified type and kind variables in a type, ensuring that
+-- variables are numbered according to their appearance in the body of the scope.
+-- This is important for HMF type checking. Also returns the number of variables
+-- abstracted in each case (which may be less than the size of the corresponding
+-- set, as the variables may not occur in the term).
+abstractOrdered :: (Ord k, Ord a) => Set k -> Set a -> Type k a -> (Scope Int (TK k) a, (Int, Int))
+abstractOrdered ks ts = flip runState (0, 0) . fmap (Scope . TK) . memoverse (memoizing knd) (memoizing typ)
+ where
+ knd k | k `Set.member` ks = B <$> (_1 <<%= (+1))
+       | otherwise         = pure . F . pure $ k
+
+ typ t | t `Set.member` ts = B <$> (_2 <<%= (+1))
+       | otherwise         = pure . F . TK . pure $ t
