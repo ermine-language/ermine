@@ -21,6 +21,7 @@ import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
 import Data.Set as Set
 import Data.List as List
+import Data.Maybe
 import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
 import Ermine.Parser.Kind
@@ -72,14 +73,19 @@ typVarBinding = flip (,) unk <$> some (ident tid)
 typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
 typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
 
+forallBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
+forallBindings = optional (braces (some (ident tid))) >>= \ks -> case ks of
+  Just ks -> (,) ks . fromMaybe [] <$> optional typVarBindings
+  Nothing -> (,) [] <$> typVarBindings
+
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 =  build <$ symbol "forall" <*> typVarBindings <* dot <*> typ2
+typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ2
     <|> typ2
  where
- build vks t =
-   Forall 0 (Scope . pure . F <$> ks) []
+ build (kvs, tvks) t =
+   Forall (length kvs) (abstract (`elemIndex` fmap Just kvs) <$> ks) []
           (abstract (`elemIndex` vs) (abstractKinds (const Nothing) t))
-  where (vs, ks) = unzip vks
+  where (vs, ks) = unzip tvks
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
