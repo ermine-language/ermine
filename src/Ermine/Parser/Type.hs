@@ -23,7 +23,9 @@ import Data.Set as Set
 import Data.List as List
 import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
+import Ermine.Parser.Kind
 import Ermine.Syntax
+import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -61,16 +63,23 @@ typ1 = apps <$> typ0 <*> many typ0
 typ2 :: (Monad m, TokenParsing m) => m Typ
 typ2 = chainr1 typ1 ((~>) <$ symbol "->")
 
+typVarBinding :: (Monad m, TokenParsing m) => m ([String], Kind (Maybe String))
+typVarBinding = flip (,) unk <$> some (ident tid)
+            <|> parens ((,) <$> some (ident tid) <* colon <*> (fmap Just <$> kind))
+ where
+ unk = pure $ Nothing
+
+typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
+typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
+
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 =  build <$ symbol "forall" <*> some (ident tid) <* dot <*> typ2
+typ3 =  build <$ symbol "forall" <*> typVarBindings <* dot <*> typ2
     <|> typ2
  where
- build vs t =
-   Forall 0
-          (List.map (const unk) vs)
-          []
+ build vks t =
+   Forall 0 (Scope . pure . F <$> ks) []
           (abstract (`elemIndex` vs) (abstractKinds (const Nothing) t))
- unk = Scope . pure . F . pure $ Nothing
+  where (vs, ks) = unzip vks
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
