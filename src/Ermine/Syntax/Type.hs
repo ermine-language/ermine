@@ -27,7 +27,6 @@ module Ermine.Syntax.Type
   , Typical(..)
   -- * Binding
   , TK(..)
-  , abstractKinds
   , instantiateKinds
   , instantiateKindVars
   , bindType
@@ -279,14 +278,6 @@ instance HasKindVars (TK k a) (TK k' a) k k' where
 
 instance Eq k => Eq1 (TK k) where (==#) = (==)
 instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
-
--- | Bind some of the kinds referenced by a 'Type'.
-abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
-abstractKinds f t = TK (first k t) where
-  k y = case f y of
-    Just z -> B z
-    Nothing -> F (return y)
-{-# INLINE abstractKinds #-}
 
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
