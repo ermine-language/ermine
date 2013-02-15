@@ -63,14 +63,13 @@ type KindM s = Kind (MetaK s)
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> test $ do k <- Var <$> newMeta (); unifyKind mempty k (star ~> k)
+-- >>> test $ do k <- Var <$> newMeta (); unifyKind k (star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
 --
--- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind mempty k1 (k1 ~> k2); unifyKind mempty k2 (k1 ~> k2); return (k1 ~> k2)
--- *** Exception: (interactive):1:1: error: infinite kinds detected
+-- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
+-- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = a -> b
--- cyclic kind: b = a -> b
 kindOccurs :: (MonadMeta s m, MonadWriter Any m) => KindM s -> (MetaK s -> Bool) -> m (KindM s)
 kindOccurs k p = occurs k p $ do
   zk <- zonk k
