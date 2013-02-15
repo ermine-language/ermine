@@ -83,7 +83,7 @@ typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ2
     <|> typ2
  where
  build (kvs, tvks) t =
-   Forall (length kvs) (abstract (`elemIndex` fmap Just kvs) <$> ks) []
+   Forall (length kvs) (abstract (>>= (`elemIndex` kvs)) <$> ks) []
           (abstract (`elemIndex` vs) (abstractKinds (const Nothing) t))
   where (vs, ks) = unzip tvks
 
