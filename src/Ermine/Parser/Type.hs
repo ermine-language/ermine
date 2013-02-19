@@ -82,10 +82,7 @@ typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
 typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ2
     <|> typ2
  where
- build (kvs, tvks) t =
-   Forall (length kvs) (abstract (>>= (`elemIndex` kvs)) <$> ks) []
-          (abstract (`elemIndex` vs) (abstractKinds (const Nothing) t))
-  where (vs, ks) = unzip tvks
+ build (kvs, tvks) t = forall (Just <$> kvs) tvks [] t
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ

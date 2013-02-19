@@ -21,6 +21,7 @@ module Ermine.Syntax.Type
   (
   -- * Types
     Type(..)
+  , forall
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -33,7 +34,6 @@ module Ermine.Syntax.Type
   , memoverse
   , prepare
   , abstractAll
-  , abstractOrdered
   -- * Type Variables
   , HasTypeVars(..)
   ) where
@@ -48,7 +48,9 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
+import Data.Ord (comparing)
 import Data.IntMap hiding (map)
+import Data.List (sortBy)
 import Data.Map as Map hiding (map)
 import Data.Set as Set hiding (map)
 import Data.String
@@ -142,6 +144,42 @@ data Type k a
   | Loc !Rendering !(Type k a)
   | Exists [Kind k] [Scope Int (Type k) a]
   deriving (Show, Functor, Foldable, Traversable)
+
+-- A helper function for the forall smart constructor. Given a lens to a
+-- map of variable ids, abstracts over a variable, choosing a new id in
+-- order if necessary. The map should only contain bindings v -> k where
+-- k is less than the size of the map.
+abstractM :: (MonadState s m, Ord v) => Lens' s (Map v Int) -> v -> m Int
+abstractM l v = use l >>= \m -> case m ^. at v of
+  Just i  -> return i
+  Nothing -> let i = Map.size m
+                 m' = m & at v ?~ i
+              in l .= m' >> return i
+
+-- | A smart constructor for forall. Given a list of kinds, a list of type
+-- variables with their kinds, a list of constraints, and a body, abstracts
+-- over the kind and type variables in the constraints and the body in
+-- the canonical order determined by the body.
+forall :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> [Type k t] -> Type k t -> Type k t
+forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
+  body' <- typeVars tty body
+  tvs <- vars <$> use _2
+  tks <- kindVars tkn $ (tkm Map.!) <$> tvs
+  body'' <- kindVars tkn body'
+  kn <- Map.size <$> use _1
+  return $ Forall kn (Scope <$> tks) [] (Scope . TK $ body'')
+ where
+ tkm = Map.fromList tks
+ kss = Set.fromList ks
+
+ tty t | t `Map.member` tkm = B <$> abstractM _2 t
+       | otherwise          = return (F . TK . pure $ t)
+
+ tkn k | k `Set.member` kss = B <$> abstractM _1 k
+       | otherwise          = return (F . pure $ k)
+
+ vars m = map fst . sortBy (comparing snd) $ Map.toList m
+
 
 instance IsString a => IsString (Type k a) where
   fromString = Var . fromString
@@ -299,24 +337,17 @@ memoizing f = fmap ((,) True) . f
 -- | A version of bitraverse that allows the functions used to specify whether
 -- their results at each value should be remembered, so that the action is not
 -- performed additional times at that value.
-memoverse :: forall f k a l b. (Applicative f, Monad f, Ord k, Ord a)
+memoverse :: (Applicative f, Monad f, Ord k, Ord a)
           => (k -> f (Bool, l)) -> (a -> f (Bool, b))
           -> Type k a -> f (Type l b)
-memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse wKnd wTyp
+memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed _1 knd) (memoed _2 typ)
  where
- wKnd :: k -> StateT (Map k l, Map a b) f l
- wKnd k = use _1 >>= \km -> case km ^. at k of
-   Just k' -> return k'
-   Nothing -> do (store, k') <- lift (knd k)
-                 when store $ _1.at k ?= k'
-                 return k'
-
- wTyp :: a -> StateT (Map k l, Map a b) f b
- wTyp t = use _2 >>= \tm -> case tm ^. at t of
-   Just t' -> return t'
-   Nothing -> do (store, t') <- lift (typ t)
-                 when store $ _2.at t ?= t'
-                 return t'
+ memoed :: (Ord v, Monad f) => Lens' s (Map v u) -> (v -> f (Bool, u)) -> v -> StateT s f u
+ memoed l g v = use l >>= \m -> case m ^. at v of
+   Just v' -> return v'
+   Nothing -> do (store, v') <- lift (g v)
+                 when store $ l.at v ?= v'
+                 return v'
 
 -- | A function for preparing the sort of type that comes out of parsing for
 -- the inference process. Actions for kind and type variables of types 'k' and
@@ -339,17 +370,3 @@ abstractAll = flip runState (0, 0) . fmap (Scope . TK) . prepare unk kv tv
  unk = pure . F . pure $ ()
  kv _ = B <$> (_1 <<%= (+1))
  tv _ = B <$> (_2 <<%= (+1))
-
--- | Abstracts the specified type and kind variables in a type, ensuring that
--- variables are numbered according to their appearance in the body of the scope.
--- This is important for HMF type checking. Also returns the number of variables
--- abstracted in each case (which may be less than the size of the corresponding
--- set, as the variables may not occur in the term).
-abstractOrdered :: (Ord k, Ord a) => Set k -> Set a -> Type k a -> (Scope Int (TK k) a, (Int, Int))
-abstractOrdered ks ts = flip runState (0, 0) . fmap (Scope . TK) . memoverse (memoizing knd) (memoizing typ)
- where
- knd k | k `Set.member` ks = B <$> (_1 <<%= (+1))
-       | otherwise         = pure . F . pure $ k
-
- typ t | t `Set.member` ts = B <$> (_2 <<%= (+1))
-       | otherwise         = pure . F . TK . pure $ t
