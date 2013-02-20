@@ -52,6 +52,7 @@ import Data.Ord (comparing)
 import Data.IntMap hiding (map)
 import Data.List (sortBy)
 import Data.Map as Map hiding (map)
+import Data.Maybe
 import Data.Set as Set hiding (map)
 import Data.String
 import Data.Void
@@ -160,23 +161,20 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
-forall :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> [Type k t] -> Type k t -> Type k t
+forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> [Type k t] -> Type k t -> Type k t
 forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tvs <- vars <$> use _2
-  tks <- kindVars tkn $ (tkm Map.!) <$> tvs
+  tks <- kindVars tkn $ (fromJust . tks) <$> tvs
   body'' <- kindVars tkn body'
   kn <- Map.size <$> use _1
   return $ Forall kn (Scope <$> tks) [] (Scope . TK $ body'')
  where
- tkm = Map.fromList tks
- kss = Set.fromList ks
+ tty t | isJust $ tks t = B <$> abstractM _2 t
+       | otherwise      = return (F . TK . pure $ t)
 
- tty t | t `Map.member` tkm = B <$> abstractM _2 t
-       | otherwise          = return (F . TK . pure $ t)
-
- tkn k | k `Set.member` kss = B <$> abstractM _1 k
-       | otherwise          = return (F . pure $ k)
+ tkn k | ks k      = B <$> abstractM _1 k
+       | otherwise = return (F . pure $ k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
 
