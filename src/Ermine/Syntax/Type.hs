@@ -315,6 +315,17 @@ instance HasKindVars (TK k a) (TK k' a) k k' where
 instance Eq k => Eq1 (TK k) where (==#) = (==)
 instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
 
+-- | Bind some of the kinds referenced by a 'Type'.
+-- N.B. This doesn't do any checking to assure that the integers given
+-- are in any kind of canonical order, so this should not be used unless
+-- that doesn't matter.
+abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
+abstractKinds f t = TK (first k t) where
+  k y = case f y of
+    Just z  -> B z
+    Nothing -> F (return y)
+{-# INLINE abstractKinds #-}
+
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
 instantiateKinds k (TK e) = bindType go Var e where
