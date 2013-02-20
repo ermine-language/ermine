@@ -271,7 +271,7 @@ instance Monoid m => Monoid (M s m) where
   mempty  = pure mempty
   mappend = liftA2 mappend
 
-catchingST :: Getting (First a) SomeException t a b -> ST s r -> (a -> ST s r) -> ST s r
+catchingST :: Getting (First a) SomeException a -> ST s r -> (a -> ST s r) -> ST s r
 catchingST l m h = unsafeIOToST $ catchJust (preview l) (unsafeSTToIO m) (unsafeSTToIO . h)
 {-# INLINE catchingST #-}
 
