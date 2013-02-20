@@ -73,9 +73,11 @@ inferKind (App f x) = do
   kf <- inferKind f
   (a, b) <- matchFunKind kf
   b <$ checkKind x a
-inferKind (Exists ks cs) = do
+inferKind (Exists n tks cs) = do
+  sks <- replicateM n $ newSkolem ()
+  let btys = instantiateVars sks <$> tks
   for_ cs $ \c ->
-    checkKind (instantiateVars ks c) constraint
+    checkKind (instantiateKindVars sks $ instantiateVars btys c) constraint
   return constraint
 inferKind (Forall n tks cs b) = do
   sks <- replicateM n $ newSkolem ()

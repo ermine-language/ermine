@@ -143,7 +143,7 @@ data Type k a
   | HardType !HardType
   | Forall !Int [Scope Int Kind k] [Scope Int (TK k) a] !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
-  | Exists [Kind k] [Scope Int (Type k) a]
+  | Exists !Int [Scope Int Kind k] [Scope Int (TK k) a]
   deriving (Show, Functor, Foldable, Traversable)
 
 -- A helper function for the forall smart constructor. Given a lens to a
@@ -202,7 +202,7 @@ instance (Eq k, Eq a) => Eq (Type k a) where
   App l r          == App l' r'            = l == l' && r == r'
   HardType x       == HardType y           = x == y
   Forall n ks cs b == Forall n' ks' cs' b' = n == n' && ks == ks' && cs == cs' && b == b'
-  Exists ks cs     == Exists ks' cs'       = ks == ks' && cs == cs'
+  Exists n ks cs   == Exists n' ks' cs'    = n == n' && ks == ks' && cs == cs'
   _                == _                    = False
 
 instance Bifunctor Type where
@@ -219,7 +219,7 @@ instance Bitraversable Type where
   bitraverse _ _ (HardType t)       = pure $ HardType t
   bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs <*> bitraverseScope f g b
   bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists ks cs)     = Exists <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
@@ -238,7 +238,7 @@ bindType f g (App l r)           = App (bindType f g l) (bindType f g r)
 bindType _ _ (HardType t)        = HardType t
 bindType f g (Forall n tks cs b) = Forall n (map (>>>= f) tks) (map (\c -> hoistScope (bindTK f) c >>>= liftTK . g) cs) (hoistScope (bindTK f) b >>>= liftTK . g)
 bindType f g (Loc r as)          = Loc r (bindType f g as)
-bindType f g (Exists ks cs)      = Exists (map (>>= f) ks) (map (\c -> hoistScope (bindType f Var) c >>>= g) cs)
+bindType f g (Exists n ks cs)    = Exists n (map (>>>= f) ks) (map (\c -> hoistScope (bindTK f) c >>>= liftTK . g) cs)
 
 instance Applicative (Type k) where
   pure = Var

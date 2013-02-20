@@ -52,18 +52,23 @@ prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
 prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
-prettyType (Exists ks cs) xs d kk kt = go
-    <$> traverse (\k -> prettyKind k False kk) ks
-    <*> traverse (\c -> prettyType (fromScope c) rvs 0 kk tkk) cs
+prettyType (Exists n ks cs) xs d kk kt = go
+    <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
+    <*> traverse (\c -> prettyType (fromTK c) rvs 0 kkk tkk) cs
   where
-    (tvs, rvs) = splitAt (length ks) xs
+    (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
+    kkk (B b) _ = pure $ text (kvs !! b)
+    kkk (F f) p = prettyKind f p kk
     tkk (B b) _ = pure $ text (tvs !! b)
     tkk (F f) p = kt f p
     go tks ds = parensIf (d > 0) $ quantified constraints
       where
+        consKinds zs
+          | n /= 0    = braces (fillSep (text <$> kvs)) : zs
+          | otherwise = zs
         quantified zs
           | null ks = zs
-          | otherwise = hsep ("exists" : zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks) <> "." <+> zs
+          | otherwise = hsep ("exists" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
         constraints
           | length ds == 1 = head ds
           | otherwise = parens (fillSep (punctuate "," ds))
