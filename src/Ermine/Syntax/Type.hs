@@ -164,11 +164,16 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> [Type k t] -> Type k t -> Type k t
 forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
-  tvs <- vars <$> use _2
+  tm  <- use _2
+  let tvs = vars tm
   tks <- kindVars tkn $ (fromJust . tks) <$> tvs
   body'' <- kindVars tkn body'
-  kn <- Map.size <$> use _1
-  return $ Forall kn (Scope <$> tks) [] (Scope . TK $ body'')
+  km <- use _1
+  let kn = Map.size km
+  return $ Forall kn
+                  (Scope <$> tks)
+                  (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) <$> cs)
+                  (Scope . TK $ body'')
  where
  tty t | isJust $ tks t = B <$> abstractM _2 t
        | otherwise      = return (F . TK . pure $ t)
