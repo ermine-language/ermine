@@ -163,6 +163,18 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
 forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> Type k t -> Type k t
+forall kp tkp cs (Forall _ ks ds b) = bimap fromRight fromRight $ forall kp' tkp' ds' (itk b)
+ where
+ fromRight (Right x) = x
+ fromRight _         = error "fromRight: Left"
+ itk = instantiateKinds (pure . Left) . over kindVars Right . instantiate (TK . pure . Left) . fmap Right
+ ik  = instantiate (pure . Left) . fmap Right
+ cs' = bimap Right Right cs
+ ds' = itk ds
+ kp' = either (const True) kp
+ ks' = ik <$> ks
+ tkp' (Left  i) = Just $ ks' !! i
+ tkp' (Right v) = fmap (fmap Right) $ tkp v
 forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tm  <- use _2

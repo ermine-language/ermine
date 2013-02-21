@@ -78,10 +78,10 @@ forallBindings = optional (braces (some (ident tid))) >>= \mks -> case mks of
   Nothing -> (,) [] <$> typVarBindings
 
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ2
+typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ3
     <|> typ2
  where
- build (kvs, tvks) t = forall (`Set.member` Set.fromList (Just <$> kvs)) (`Map.lookup` Map.fromList tvks) undefined t
+ build (kvs, tvks) t = forall (`Set.member` Set.fromList (Just <$> kvs)) (`Map.lookup` Map.fromList tvks) (And []) t
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
