@@ -22,6 +22,7 @@ module Ermine.Syntax.Type
   -- * Types
     Type(..)
   , forall
+  , isTrivialConstraint
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -47,7 +48,7 @@ import Control.Monad.State
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
-import Data.Foldable
+import Data.Foldable hiding (all)
 import Data.Ord (comparing)
 import Data.IntMap hiding (map)
 import Data.List (sortBy)
@@ -141,9 +142,10 @@ data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
   | HardType !HardType
-  | Forall !Int [Scope Int Kind k] [Scope Int (TK k) a] !(Scope Int (TK k) a)
+  | Forall !Int [Scope Int Kind k] (Scope Int (TK k) a) !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
-  | Exists !Int [Scope Int Kind k] [Scope Int (TK k) a]
+  | Exists !Int [Scope Int Kind k] (Scope Int (TK k) a)
+  | And [Type k a]
   deriving (Show, Functor, Foldable, Traversable)
 
 -- A helper function for the forall smart constructor. Given a lens to a
@@ -161,7 +163,7 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
-forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> [Type k t] -> Type k t -> Type k t
+forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> Type k t -> Type k t
 forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tm  <- use _2
@@ -172,7 +174,7 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   let kn = Map.size km
   return $ Forall kn
                   (Scope <$> tks)
-                  (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) <$> cs)
+                  (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) $ cs)
                   (Scope . TK $ body'')
  where
  tty t | isJust $ tks t = B <$> abstractM _2 t
@@ -183,6 +185,13 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
 
+-- | Determines whether the type in question is a trivial constraint, which may be
+-- dropped from the type. The simplest example is 'And []', but the function works
+-- for non-normalized constraints that are equivalent.
+isTrivialConstraint :: Type k a -> Bool
+isTrivialConstraint (And cs)         = all isTrivialConstraint cs
+isTrivialConstraint (Exists n ts cs) = isTrivialConstraint (runTK . fromScope $ cs)
+isTrivialConstraint _                = False
 
 instance IsString a => IsString (Type k a) where
   fromString = Var . fromString
@@ -208,6 +217,7 @@ instance (Eq k, Eq a) => Eq (Type k a) where
   HardType x       == HardType y           = x == y
   Forall n ks cs b == Forall n' ks' cs' b' = n == n' && ks == ks' && cs == cs' && b == b'
   Exists n ks cs   == Exists n' ks' cs'    = n == n' && ks == ks' && cs == cs'
+  And cs           == And cs'              = cs == cs'
   _                == _                    = False
 
 instance Bifunctor Type where
@@ -222,9 +232,10 @@ instance Bitraversable Type where
   bitraverse _ g (Var a)            = Var <$> g a
   bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
   bitraverse _ _ (HardType t)       = pure $ HardType t
-  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs <*> bitraverseScope f g b
+  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope f g cs <*> bitraverseScope f g b
   bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> traverse (bitraverseScope f g) cs
+  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> bitraverseScope f g cs
+  bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
   kindVars f = bitraverse f pure
@@ -241,9 +252,10 @@ bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
 bindType _ g (Var a)             = g a
 bindType f g (App l r)           = App (bindType f g l) (bindType f g r)
 bindType _ _ (HardType t)        = HardType t
-bindType f g (Forall n tks cs b) = Forall n (map (>>>= f) tks) (map (\c -> hoistScope (bindTK f) c >>>= liftTK . g) cs) (hoistScope (bindTK f) b >>>= liftTK . g)
+bindType f g (Forall n tks cs b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) cs >>>= liftTK . g) (hoistScope (bindTK f) b >>>= liftTK . g)
 bindType f g (Loc r as)          = Loc r (bindType f g as)
-bindType f g (Exists n ks cs)    = Exists n (map (>>>= f) ks) (map (\c -> hoistScope (bindTK f) c >>>= liftTK . g) cs)
+bindType f g (Exists n ks cs)    = Exists n (map (>>>= f) ks) (hoistScope (bindTK f) cs >>>= liftTK . g)
+bindType f g (And cs)            = And $ bindType f g <$> cs
 
 instance Applicative (Type k) where
   pure = Var

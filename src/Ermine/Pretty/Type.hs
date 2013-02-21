@@ -52,16 +52,19 @@ prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
 prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
+prettyType (And cs) xs d kk kt = go <$> traverse (\c -> prettyType c xs 0 kk kt) cs
+  where go [d] = d
+        go ds  = parens . fillSep $ punctuate "," ds
 prettyType (Exists n ks cs) xs d kk kt = go
     <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
-    <*> traverse (\c -> prettyType (fromTK c) rvs 0 kkk tkk) cs
+    <*> prettyType (fromTK cs) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
     kkk (B b) _ = pure $ text (kvs !! b)
     kkk (F f) p = prettyKind f p kk
     tkk (B b) _ = pure $ text (tvs !! b)
     tkk (F f) p = kt f p
-    go tks ds = parensIf (d > 0) $ quantified constraints
+    go tks ds = parensIf (d > 0) $ quantified ds
       where
         consKinds zs
           | n /= 0    = braces (fillSep (text <$> kvs)) : zs
@@ -69,12 +72,9 @@ prettyType (Exists n ks cs) xs d kk kt = go
         quantified zs
           | null ks = zs
           | otherwise = hsep ("exists" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
-        constraints
-          | length ds == 1 = head ds
-          | otherwise = parens (fillSep (punctuate "," ds))
 prettyType (Forall n ks cs bdy) xs d kk kt = go
     <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
-    <*> traverse (\c -> prettyType (fromTK c) rvs 0 kkk tkk) cs
+    <*> prettyType (fromTK cs) rvs 0 kkk tkk
     <*> prettyType (fromTK bdy) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
@@ -90,7 +90,6 @@ prettyType (Forall n ks cs bdy) xs d kk kt = go
         quantified zs
           | n == 0 && null ks = zs
           | otherwise = hsep ("forall" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
-        constrained zs = case compare (length ds) 1 of
-          LT -> zs
-          EQ -> head ds <+> "=>" <+> zs
-          GT -> parens (fillSep (punctuate "," ds)) <+> "=>" <+> zs
+        constrained zs
+          | isTrivialConstraint . fromTK $ cs = zs
+          | otherwise                         = ds <+> "=>" <+> zs

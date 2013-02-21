@@ -90,7 +90,7 @@ unifyType t1 t2 = do
     go s                      (Loc _ t)               = unifyType s t
     go Exists{}               _                       = fail "unifyType: existential"
     go _                      Exists{}                = fail "unifyType: existential"
-    go t@(Forall m xs [] a)  (Forall n ys [] b)
+    go t@(Forall m xs _ a)   (Forall n ys _ b)
       | m /= n                 = fail "unifyType: forall: mismatched kind arity"
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do

@@ -83,7 +83,7 @@ typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
 typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ2
     <|> typ2
  where
- build (kvs, tvks) t = forall (`Set.member` Set.fromList (Just <$> kvs)) (`Map.lookup` Map.fromList tvks) [] t
+ build (kvs, tvks) t = forall (`Set.member` Set.fromList (Just <$> kvs)) (`Map.lookup` Map.fromList tvks) undefined t
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
