@@ -37,7 +37,6 @@ import Control.Lens
 import Control.Applicative
 import Control.Monad (ap)
 import Data.Bifoldable
-import Data.Bifunctor
 import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)

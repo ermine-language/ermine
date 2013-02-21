@@ -25,7 +25,6 @@ import Control.Monad
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
-import Data.IntSet as IntSet
 import Data.Set as Set
 import Data.IntMap as IntMap
 import Data.Set.Lens
@@ -33,7 +32,6 @@ import Data.STRef
 import Data.Traversable
 import Ermine.Diagnostic
 import Ermine.Pretty
-import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -54,13 +52,13 @@ typeOccurs depth1 t p = zonkWith t tweak where
     | p m = do
       zt <- sharing t $ zonk t
       let st = setOf typeVars zt
-          mt = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList st) names
+          mt = IntMap.fromList $ zipWith (\u n -> (u^.metaId, n)) (Set.toList st) names
           sk = setOf kindVars zt
-          mk = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList sk) names
+          mk = IntMap.fromList $ zipWith (\u n -> (u^.metaId, n)) (Set.toList sk) names
           v = mt ^?! ix (st ^?! folded.filtered p.metaId)
       td <- prettyType zt (drop (Set.size st) names) (-1)
-         (\v _ -> pure $ text $ mk ^?! ix (v^.metaId))
-         (\v _ -> pure $ text $ mt ^?! ix (v^.metaId))
+         (\u _ -> pure $ text $ mk ^?! ix (u^.metaId))
+         (\u _ -> pure $ text $ mt ^?! ix (u^.metaId))
       r <- view rendering
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
     | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do

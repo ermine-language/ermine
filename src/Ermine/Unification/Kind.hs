@@ -30,18 +30,15 @@ module Ermine.Unification.Kind
 
 import Bound
 import Control.Applicative
-import Control.Arrow hiding ((<+>))
 import Control.Lens
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
 import Data.IntMap as IntMap
-import Data.IntSet as IntSet
 import Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
-import Data.Traversable
 import Ermine.Diagnostic
 import Ermine.Syntax.Kind as Kind
 import Ermine.Unification.Meta
@@ -74,9 +71,9 @@ kindOccurs :: (MonadMeta s m, MonadWriter Any m) => KindM s -> (MetaK s -> Bool)
 kindOccurs k p = occurs k p $ do
   zk <- zonk k
   let s = setOf kindVars zk
-      m = IntMap.fromList $ zipWith (\m n -> (m^.metaId, n)) (Set.toList s) names
+      m = IntMap.fromList $ zipWith (\u n -> (u^.metaId, n)) (Set.toList s) names
       v = m ^?! ix (s ^?! folded.filtered p.metaId)
-  kd <- prettyKind zk False $ \v _ -> pure $ text $ m ^?! ix (v^.metaId)
+  kd <- prettyKind zk False $ \u _ -> pure $ text $ m ^?! ix (u^.metaId)
   r <- view rendering
   throwM $ die r "infinite kind detected" & footnotes .~ [text "cyclic kind:" <+> hang 4 (group (pretty v </> char '=' </> kd))]
 {-# INLINE kindOccurs #-}

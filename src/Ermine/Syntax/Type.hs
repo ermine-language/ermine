@@ -42,7 +42,6 @@ module Ermine.Syntax.Type
 import Bound
 import Control.Lens
 import Control.Applicative
-import Control.Monad (ap)
 import Control.Monad.Trans
 import Control.Monad.State
 import Data.Bifunctor
@@ -164,11 +163,11 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
 forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> Type k t -> Type k t
-forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
+forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tm  <- use _2
   let tvs = vars tm
-  tks <- kindVars tkn $ (fromJust . tks) <$> tvs
+  tks <- kindVars tkn $ (fromJust . tkp) <$> tvs
   body'' <- kindVars tkn body'
   km <- use _1
   let kn = Map.size km
@@ -177,10 +176,10 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
                   (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) $ cs)
                   (Scope . TK $ body'')
  where
- tty t | isJust $ tks t = B <$> abstractM _2 t
+ tty t | isJust $ tkp t = B <$> abstractM _2 t
        | otherwise      = return (F . TK . pure $ t)
 
- tkn k | ks k      = B <$> abstractM _1 k
+ tkn k | kp k      = B <$> abstractM _1 k
        | otherwise = return (F . pure $ k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
@@ -189,9 +188,9 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
 -- dropped from the type. The simplest example is 'And []', but the function works
 -- for non-normalized constraints that are equivalent.
 isTrivialConstraint :: Type k a -> Bool
-isTrivialConstraint (And cs)         = all isTrivialConstraint cs
-isTrivialConstraint (Exists n ts cs) = isTrivialConstraint (runTK . fromScope $ cs)
-isTrivialConstraint _                = False
+isTrivialConstraint (And cs)        = all isTrivialConstraint cs
+isTrivialConstraint (Exists _ _ cs) = isTrivialConstraint (runTK . fromScope $ cs)
+isTrivialConstraint _               = False
 
 instance IsString a => IsString (Type k a) where
   fromString = Var . fromString

@@ -26,7 +26,6 @@ import Control.Lens
 import Crypto.Classes
 import Crypto.Hash.MD5 as MD5
 import Data.ByteString
-import Data.ByteString.Char8 as Char8
 import Data.Data (Data, Typeable)
 import Data.Function (on)
 import Data.Hashable

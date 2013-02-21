@@ -65,12 +65,8 @@ import Control.Monad.ST (ST, runST, stToIO)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
 import Control.Monad.Writer.Class
-import Data.Foldable
 import Data.Function (on)
-import Data.Functor.Compose
-import Data.IntSet as IntSet
 import Data.Monoid
-import Data.Set as Set
 import Data.STRef
 import Data.Traversable
 import Data.Word

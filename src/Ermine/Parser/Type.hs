@@ -15,13 +15,11 @@ module Ermine.Parser.Type
   , typ
   ) where
 
-import Bound
 import Control.Applicative
 import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
 import Data.Set as Set
 import Data.Map as Map
-import Data.List as List
 import Data.Maybe
 import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
@@ -75,7 +73,7 @@ typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
 typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
 
 forallBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
-forallBindings = optional (braces (some (ident tid))) >>= \ks -> case ks of
+forallBindings = optional (braces (some (ident tid))) >>= \mks -> case mks of
   Just ks -> (,) ks . fromMaybe [] <$> optional typVarBindings
   Nothing -> (,) [] <$> typVarBindings
 

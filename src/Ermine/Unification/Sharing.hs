@@ -25,7 +25,6 @@ import Control.Monad.Reader.Class
 import Control.Monad.State.Class
 import Control.Monad.Trans.Class
 import Control.Monad.IO.Class
-import Data.Data
 import Data.Foldable
 import Data.Monoid
 import Data.Traversable

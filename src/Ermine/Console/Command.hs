@@ -22,7 +22,6 @@ import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Pretty
 import Ermine.Pretty.Kind
-import Ermine.Pretty.Type
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
@@ -107,5 +106,5 @@ commands =
   , cmd "kind" & desc .~ "infer the kind of a type"
     & body .~ parsing typ kindBody
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
- 
+
   ]

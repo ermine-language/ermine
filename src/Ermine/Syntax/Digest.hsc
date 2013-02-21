@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 --------------------------------------------------------------------
 -- |
@@ -20,17 +19,8 @@ module Ermine.Syntax.Digest
   , DigestableList(..)
   ) where
 
-import Control.Applicative
 import Crypto.Classes
-import Foreign
-import Foreign.C
-import Data.Data (Data, Typeable)
-import GHC.IO (unsafeDupablePerformIO)
-import Data.Foldable hiding (concatMap)
-import Data.Default
 import Data.Binary.Builder
-import Data.Hashable
-import qualified Data.ByteString.Unsafe as Strict
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.ByteString.UTF8 as UTF8
