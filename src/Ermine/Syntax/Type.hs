@@ -163,6 +163,9 @@ abstractM l v = use l >>= \m -> case m ^. at v of
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
 forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> Type k t -> Type k t
+-- This case is fairly inefficient. Also ugly. The former probably won't matter, but it'd
+-- be nice to fix the latter. Not mangling the structure of the terms would, I believe,
+-- be quite complicated, though.
 forall kp tkp cs (Forall _ ks ds b) = bimap fromRight fromRight $ forall kp' tkp' ds' (itk b)
  where
  fromRight (Right x) = x
