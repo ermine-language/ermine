@@ -10,7 +10,6 @@ module Ermine.Console.Options
 import Control.Lens
 import Data.Data
 import Options.Applicative
-import Ermine.Version
 import Paths_ermine
 
 -- enable/disable EKG

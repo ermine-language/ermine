@@ -3,17 +3,19 @@ module Ermine.Console.Unicode
   ( withUnicode
   ) where
 
-import Control.Monad.IO.Class
 import Control.Monad.CatchIO
-import System.IO
 
 ##if defined(i386_HOST_ARCH)
 ##define USE_CP
+import Control.Monad.IO.Class
+import System.IO
 import Foreign.C.Types
 foreign import stdcall "windows.h SetConsoleCP" c_SetConsoleCP :: CUInt -> IO Bool
 foreign import stdcall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
 ##elif defined(x64_64_HOST_ARCH)
 ##define USE_CP
+import Control.Monad.IO.Class
+import System.IO
 import Foreign.C.Types
 foreign import ccall "windows.h SetConsoleCP" c_SetConsoleCP :: CUInt -> IO Bool
 foreign import ccall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
