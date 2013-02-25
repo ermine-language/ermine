@@ -18,7 +18,6 @@ module Ermine.Pretty.Type
 
 import Bound
 import Control.Applicative
-import Ermine.Syntax.Kind (Kind)
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Syntax.Global
@@ -40,9 +39,6 @@ prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text
 prettyHardType (Con (Global _ _ _ _ n) _)           = parens (text (Char8.unpack n))
 prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <$> toList xs)))
 
-fromTK :: Scope Int (TK k) a -> Type (Var Int (Kind k)) (Var Int a)
-fromTK = runTK . fromScope
-
 -- | Pretty print a 'Type' using a fresh variable supply, an ambient precedence, and
 -- helpers for printing free kind and type variables.
 --
@@ -56,14 +52,14 @@ prettyType (And cs) xs _ kk kt = go <$> traverse (\c -> prettyType c xs 0 kk kt)
   where go [d] = d
         go ds  = parens . fillSep $ punctuate "," ds
 prettyType (Exists n ks cs) xs d kk kt = go
-    <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
-    <*> prettyType (fromTK cs) rvs 0 kkk tkk
+    <$> traverse (\k -> prettyKind (fromScope k) False kkk) ks
+    <*> prettyType (unscope cs) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
     kkk (B b) _ = pure $ text (kvs !! b)
-    kkk (F f) p = prettyKind f p kk
+    kkk (F f) p = kk f p
     tkk (B b) _ = pure $ text (tvs !! b)
-    tkk (F f) p = kt f p
+    tkk (F f) p = prettyType f rvs p kkk kt
     go tks ds = parensIf (d > 0) $ quantified ds
       where
         consKinds zs
@@ -73,15 +69,15 @@ prettyType (Exists n ks cs) xs d kk kt = go
           | null ks = zs
           | otherwise = hsep ("exists" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
 prettyType (Forall n ks cs bdy) xs d kk kt = go
-    <$> traverse (\k -> prettyKind (unscope k) False kkk) ks
-    <*> prettyType (fromTK cs) rvs 0 kkk tkk
-    <*> prettyType (fromTK bdy) rvs 0 kkk tkk
+    <$> traverse (\k -> prettyKind (fromScope k) False kkk) ks
+    <*> prettyType (unscope cs) rvs 0 kkk tkk
+    <*> prettyType (unscope bdy) rvs 0 kkk tkk
   where
     (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
     kkk (B b) _ = pure $ text (kvs !! b)
-    kkk (F f) p = prettyKind f p kk
+    kkk (F f) p = kk f p
     tkk (B b) _ = pure $ text (tvs !! b)
-    tkk (F f) p = kt f p
+    tkk (F f) p = prettyType f rvs p kkk kt
     go tks ds t = parensIf (d > 0) $ quantified $ constrained t
       where
         consKinds zs
@@ -91,5 +87,5 @@ prettyType (Forall n ks cs bdy) xs d kk kt = go
           | n == 0 && null ks = zs
           | otherwise = hsep ("forall" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
         constrained zs
-          | isTrivialConstraint . fromTK $ cs = zs
-          | otherwise                         = ds <+> "=>" <+> zs
+          | isTrivialConstraint . fromScope $ cs = zs
+          | otherwise                            = ds <+> "=>" <+> zs

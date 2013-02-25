@@ -28,7 +28,7 @@ module Ermine.Syntax.Type
   , HardType(..)
   , Typical(..)
   -- * Binding
-  , TK(..)
+  , TK
   , instantiateKinds
   , instantiateKindVars
   , bindType
@@ -40,6 +40,7 @@ module Ermine.Syntax.Type
   ) where
 
 import Bound
+import Bound.Var
 import Control.Lens
 import Control.Applicative
 import Control.Monad.Trans
@@ -166,36 +167,34 @@ forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> 
 -- This case is fairly inefficient. Also ugly. The former probably won't matter, but it'd
 -- be nice to fix the latter. Not mangling the structure of the terms would, I believe,
 -- be quite complicated, though.
-forall kp tkp cs (Forall _ ks ds b) = bimap fromRight fromRight $ forall kp' tkp' ds' (itk b)
+forall kp tkp cs (Forall _ ks ds b) =
+  bimap unbound unbound $ forall kp' tkp' (fromScope ds) (fromScope b)
  where
- fromRight (Right x) = x
- fromRight _         = error "fromRight: Left"
- itk = instantiateKinds (pure . Left) . over kindVars Right . instantiate (TK . pure . Left) . fmap Right
- ik  = instantiate (pure . Left) . fmap Right
- cs' = bimap Right Right cs
- ds' = itk ds
- kp' = either (const True) kp
- ks' = ik <$> ks
- tkp' (Left  i) = Just $ ks' !! i
- tkp' (Right v) = fmap (fmap Right) $ tkp v
+ unbound (F v)       = v
+ unbound (B _)       = error "unbound: B"
+ cs' = bimap F F cs
+ kp' = unvar (const True) kp
+ ks' = fromScope <$> ks
+ tkp' (B i) = Just $ ks' !! i
+ tkp' (F v) = fmap (fmap F) $ tkp v
 forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tm  <- use _2
   let tvs = vars tm
-  tks <- kindVars tkn $ (fromJust . tkp) <$> tvs
+  tks <- kindVars (fmap (fmap pure) . tkn) $ (fromJust . tkp) <$> tvs
   body'' <- kindVars tkn body'
   km <- use _1
   let kn = Map.size km
   return $ Forall kn
                   (Scope <$> tks)
                   (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) $ cs)
-                  (Scope . TK $ body'')
+                  (Scope body'')
  where
  tty t | isJust $ tkp t = B <$> abstractM _2 t
-       | otherwise      = return (F . TK . pure $ t)
+       | otherwise      = return (F . pure $ t)
 
  tkn k | kp k      = B <$> abstractM _1 k
-       | otherwise = return (F . pure $ k)
+       | otherwise = return (F k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
 
@@ -204,7 +203,7 @@ forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
 -- for non-normalized constraints that are equivalent.
 isTrivialConstraint :: Type k a -> Bool
 isTrivialConstraint (And cs)        = all isTrivialConstraint cs
-isTrivialConstraint (Exists _ _ cs) = isTrivialConstraint (runTK . fromScope $ cs)
+isTrivialConstraint (Exists _ _ cs) = isTrivialConstraint $ fromScope cs
 isTrivialConstraint _               = False
 
 instance IsString a => IsString (Type k a) where
@@ -246,9 +245,9 @@ instance Bitraversable Type where
   bitraverse _ g (Var a)            = Var <$> g a
   bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
   bitraverse _ _ (HardType t)       = pure $ HardType t
-  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope f g cs <*> bitraverseScope f g b
+  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope (traverse f) g cs <*> bitraverseScope (traverse f) g b
   bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> bitraverseScope f g cs
+  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> bitraverseScope (traverse f) g cs
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
@@ -303,71 +302,42 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
-instance HasTypeVars (TK k a) (TK k b) a b where
-  typeVars = traverse
-  {-# INLINE typeVars #-}
-
--- | 'TK' is a special version of 'Scope' for types that binds kinds. It is used by 'Forall'.
-newtype TK k a = TK { runTK :: Type (Var Int (Kind k)) a } -- TODO: Type (Var Int k) a
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+-- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
+-- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
+-- relative to the extra effort.
+type TK k = Type (Var Int k)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
-liftTK = TK . first (F . return)
+liftTK = first F
 {-# INLINE liftTK #-}
 
 -- | Substitute kind variables in a 'TK', leaving the bound kinds untouched.
 bindTK :: (k -> Kind k') -> TK k a -> TK k' a
-bindTK f = TK . bindType (return . fmap (>>= f)) Var . runTK
+bindTK f = bindType (traverse f) Var
 {-# INLINE bindTK #-}
-
-instance Monad (TK k) where
-  return = TK . Var
-  {-# INLINE return #-}
-  TK t >>= f = TK (t >>= runTK . f)
-  {-# INLINE (>>=) #-}
-
-instance Bifunctor TK where
-  bimap f g = TK . bimap (fmap (fmap f)) g . runTK
-  {-# INLINE bimap #-}
-
-instance Bifoldable TK where
-  bifoldMap f g = bifoldMap (foldMap (foldMap f)) g . runTK
-  {-# INLINE bifoldMap #-}
-
-instance Bitraversable TK where
-  bitraverse f g = fmap TK . bitraverse (traverse (traverse f)) g . runTK
-  {-# INLINE bitraverse #-}
-
-instance HasKindVars (TK k a) (TK k' a) k k' where
-  kindVars f = bitraverse f pure
-  {-# INLINE kindVars #-}
-
-instance Eq k => Eq1 (TK k) where (==#) = (==)
-instance Show k => Show1 (TK k) where showsPrec1 = showsPrec
 
 -- | Bind some of the kinds referenced by a 'Type'.
 -- N.B. This doesn't do any checking to assure that the integers given
 -- are in any kind of canonical order, so this should not be used unless
 -- that doesn't matter.
 abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
-abstractKinds f t = TK (first k t) where
+abstractKinds f t = first k t where
   k y = case f y of
     Just z  -> B z
-    Nothing -> F (return y)
+    Nothing -> F y
 {-# INLINE abstractKinds #-}
 
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
-instantiateKinds k (TK e) = bindType go Var e where
+instantiateKinds k e = bindType go Var e where
   go (B b) = k b
-  go (F a) = a
+  go (F a) = pure a
 {-# INLINE instantiateKinds #-}
 
 -- | Instantiate kinds using a list of variables.
 instantiateKindVars :: [k] -> TK k a -> Type k a
-instantiateKindVars as = instantiateKinds (vs!!) where
-  vs = map pure as
+instantiateKindVars as = first (unvar (as!!) id)
 {-# INLINE instantiateKindVars #-}
 
 -- A local helper function for use with memoverse
@@ -405,8 +375,8 @@ prepare unk knd typ =
 -- kind variables and verifiably no type variables. Also returned are the number of
 -- unique kind and type variables
 abstractAll :: (Ord k, Ord a) => Type (Maybe k) a -> (Scope Int (TK ()) b, (Int, Int))
-abstractAll = flip runState (0, 0) . fmap (Scope . TK) . prepare unk kv tv
+abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
  where
- unk = pure . F . pure $ ()
+ unk = pure $ F ()
  kv _ = B <$> (_1 <<%= (+1))
  tv _ = B <$> (_2 <<%= (+1))
