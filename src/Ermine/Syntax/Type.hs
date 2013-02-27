@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -22,6 +23,7 @@ module Ermine.Syntax.Type
   -- * Types
     Type(..)
   , forall
+  , exists
   , isTrivialConstraint
   , FieldName
   -- * Hard Types
@@ -50,10 +52,11 @@ import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Ord (comparing)
-import Data.IntMap hiding (map)
-import Data.List (sortBy)
-import Data.Map as Map hiding (map)
-import Data.Set as Set hiding (map)
+import Data.IntMap hiding (map, filter, null)
+import Data.List (sortBy, elemIndex)
+import Data.Map as Map hiding (map, filter, null)
+import Data.Set as Set hiding (map, filter, null)
+import Data.Set.Lens as Set
 import Data.String
 import Data.Void
 import Ermine.Diagnostic
@@ -185,10 +188,12 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body'' <- kindVars tkn body'
   kvm <- use _1
   let kn = Map.size kvm
-  return $ Forall kn
-                  (toScope <$> tks')
-                  (abstract (`Map.lookup` tvm) . abstractKinds (`Map.lookup` kvm) $ cs)
-                  (Scope body'')
+      cs' = abstract (`Map.lookup` tvm)
+          . abstractKinds (`Map.lookup` kvm)
+          $ exists (filter (`Map.notMember` kvm) ks)
+                   (filter (flip Map.notMember tvm . fst) tks)
+                   cs
+  return $ Forall kn (toScope <$> tks') cs' (Scope body'')
  where
  km = Set.fromList ks
  tm = Map.fromList tks
@@ -200,6 +205,40 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
        | otherwise         = return (F k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
+
+-- | Abstracts over the specified variables using existential quantification.
+-- The input type is assumed to meet some invariants (see 'mergeConstraints'),
+-- and those invariants are maintained if so.
+exists :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> Type k t -> Type k t
+exists ks tks body = case body of
+  Exists n ls b -> process n ls (fromScope b)
+  _             -> process 0 [] (bimap F F body)
+ where
+ oks = setOf kindVars body
+ ots = setOf typeVars body
+
+ ks'  = filter (`Set.member` oks) ks
+ (ts', tks') = unzip $ filter (\(t, _) -> t `Set.member` ots) tks
+
+ ex n l b
+   | n > 0 || not (null l) = Exists n l b
+   | otherwise             =
+     instantiateKinds panic $ instantiate panic b
+  where
+  panic _ = error "exists: Panic: unquantified bound variable."
+
+ process kn ls b =
+   ex
+     (kn + length ks')
+     (ls ++ map (abstract (`elemIndex` ks')) tks')
+     (toScope $ bimap kf tf b)
+  where
+  tn = length ls
+  tf (F v) | Just i <- elemIndex v ts' = B $ i + tn
+  tf v                                 = v
+
+  kf (F v) | Just i <- elemIndex v ks' = B $ i + tn
+  kf v                                 = v
 
 -- | Takes two constraint types and builds their intersection.
 -- The arguments are assumed to follow the invariants that:
