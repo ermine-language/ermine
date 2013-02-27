@@ -53,7 +53,6 @@ import Data.Ord (comparing)
 import Data.IntMap hiding (map)
 import Data.List (sortBy)
 import Data.Map as Map hiding (map)
-import Data.Maybe
 import Data.Set as Set hiding (map)
 import Data.String
 import Data.Void
@@ -167,37 +166,38 @@ unbound (B _)       = error "unbound: B"
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
-forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> Type k t -> Type k t
+forall :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> Type k t -> Type k t -> Type k t
 -- This case is fairly inefficient. Also ugly. The former probably won't matter, but it'd
 -- be nice to fix the latter. Not mangling the structure of the terms would, I believe,
 -- be quite complicated, though.
-forall kp tkp cs (Forall _ ks ds b) =
+forall ks tks cs (Forall n tls ds b) =
   bimap unbound unbound $
-    forall kp' tkp' (mergeConstraints cs' $ fromScope ds) (fromScope b)
+    forall ks' tks' (mergeConstraints cs' $ fromScope ds) (fromScope b)
  where
  cs' = bimap F F cs
- kp' = unvar (const True) kp
- ks' = fromScope <$> ks
- tkp' (B i) = Just $ ks' !! i
- tkp' (F v) = fmap (fmap F) $ tkp v
-forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
+ ks' = map F ks ++ map B [0 .. n-1]
+ tks' = map (bimap F $ fmap F) tks ++ imap (\i l -> (B i, fromScope l)) tls
+forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
-  tm  <- use _2
-  let tvs = vars tm
-  tks <- kindVars (fmap (fmap pure) . tkn) $ (fromJust . tkp) <$> tvs
+  tvm  <- use _2
+  let tvs = vars tvm
+  tks' <- kindVars tkn $ (tm Map.!) <$> tvs
   body'' <- kindVars tkn body'
-  km <- use _1
-  let kn = Map.size km
+  kvm <- use _1
+  let kn = Map.size kvm
   return $ Forall kn
-                  (Scope <$> tks)
-                  (abstract (`Map.lookup` tm) . abstractKinds (`Map.lookup` km) $ cs)
+                  (toScope <$> tks')
+                  (abstract (`Map.lookup` tvm) . abstractKinds (`Map.lookup` kvm) $ cs)
                   (Scope body'')
  where
- tty t | isJust $ tkp t = B <$> abstractM _2 t
-       | otherwise      = return (F . pure $ t)
+ km = Set.fromList ks
+ tm = Map.fromList tks
 
- tkn k | kp k      = B <$> abstractM _1 k
-       | otherwise = return (F k)
+ tty t | t `Map.member` tm = B <$> abstractM _2 t
+       | otherwise         = return (F . pure $ t)
+
+ tkn k | k `Set.member` km = B <$> abstractM _1 k
+       | otherwise         = return (F k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
 
