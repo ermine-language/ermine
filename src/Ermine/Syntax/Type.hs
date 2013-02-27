@@ -159,6 +159,10 @@ abstractM l v = use l >>= \m -> case m ^. at v of
                  m' = m & at v ?~ i
               in l .= m' >> return i
 
+unbound :: Var b f -> f
+unbound (F v)       = v
+unbound (B _)       = error "unbound: B"
+
 -- | A smart constructor for forall. Given a list of kinds, a list of type
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
@@ -168,10 +172,9 @@ forall :: (Ord k, Ord t) => (k -> Bool) -> (t -> Maybe (Kind k)) -> Type k t -> 
 -- be nice to fix the latter. Not mangling the structure of the terms would, I believe,
 -- be quite complicated, though.
 forall kp tkp cs (Forall _ ks ds b) =
-  bimap unbound unbound $ forall kp' tkp' (fromScope ds) (fromScope b)
+  bimap unbound unbound $
+    forall kp' tkp' (mergeConstraints cs' $ fromScope ds) (fromScope b)
  where
- unbound (F v)       = v
- unbound (B _)       = error "unbound: B"
  cs' = bimap F F cs
  kp' = unvar (const True) kp
  ks' = fromScope <$> ks
@@ -197,6 +200,30 @@ forall kp tkp cs body = evalState ?? (Map.empty, Map.empty) $ do
        | otherwise = return (F k)
 
  vars m = map fst . sortBy (comparing snd) $ Map.toList m
+
+-- | Takes two constraint types and builds their intersection.
+-- The arguments are assumed to follow the invariants that:
+--   1) All existentials are outer-most.
+--   2) There are no exists of exists
+--   3) There are no Ands of Ands
+--   4) All quantified variables are actually used in the bodies
+-- No attempt is made to simplify the constraints, but the above invariants
+-- are maintained.
+mergeConstraints :: Type k t -> Type k t -> Type k t
+mergeConstraints (Exists m ks (Scope c)) (Exists n ls (Scope d)) =
+  Exists (m + n) (ks ++ ls') . Scope $ mergeConstraints c d'
+ where
+ bk = first (+m) -- bump kind var
+ ls' = Scope . fmap bk . unscope <$> ls
+ d' = bimap bk (bimap (+ length ks) (first bk)) d
+mergeConstraints (Exists m ks (Scope c)) d =
+  Exists m ks . Scope $ mergeConstraints c (bimap F (F . pure) d)
+mergeConstraints c (Exists m ks (Scope d)) =
+  Exists m ks . Scope $ mergeConstraints (bimap F (F . pure) c) d
+mergeConstraints (And ls) (And rs) = And $ ls ++ rs
+mergeConstraints (And ls) r        = And $ ls ++ [r]
+mergeConstraints l        (And rs) = And $ l : rs
+mergeConstraints l        r        = And [l, r]
 
 -- | Determines whether the type in question is a trivial constraint, which may be
 -- dropped from the type. The simplest example is 'And []', but the function works
