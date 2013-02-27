@@ -19,7 +19,6 @@ import Control.Applicative
 import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
 import Data.Set as Set
-import Data.Map as Map
 import Data.Maybe
 import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
