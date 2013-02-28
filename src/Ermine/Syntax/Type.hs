@@ -26,6 +26,7 @@ module Ermine.Syntax.Type
   , exists
   , mergeConstraints
   , allConstraints
+  , (~~>)
   , isTrivialConstraint
   , FieldName
   -- * Hard Types
@@ -269,6 +270,13 @@ mergeConstraints l        r        = And [l, r]
 -- | As mergeConstraints, but 0 or more
 allConstraints :: [Type k t] -> Type k t
 allConstraints = foldl' mergeConstraints (And [])
+
+-- | A smart constructor for function types that moves foralls from the right of an arrow.
+-- The right-hand type is assumed to follow the proper invariants for a forall if it is one.
+(~~>) :: Type k t -> Type k t -> Type k t
+a ~~> Forall kn tks cs body =
+  Forall kn tks cs (Scope $ bimap F (F . pure) a ~> unscope body)
+a ~~> b = a ~> b
 
 -- | Determines whether the type in question is a trivial constraint, which may be
 -- dropped from the type. The simplest example is 'And []', but the function works

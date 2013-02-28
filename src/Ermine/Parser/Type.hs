@@ -60,7 +60,7 @@ typ1 = apps <$> typ0 <*> many typ0
 
 -- TODO: typ2 shunting yard
 typ2 :: (Monad m, TokenParsing m) => m Typ
-typ2 = chainr1 typ1 ((~>) <$ symbol "->")
+typ2 = chainr1 typ1 ((~~>) <$ symbol "->")
 
 -- | Parses an optionally annotated type variable.
 --
@@ -131,7 +131,7 @@ typ4 =  build <$ symbol "forall" <*> quantBindings <* dot <*> typ4
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
-typ = typ3
+typ = typ4
 
 -- anyTyp = exists | typ
 anyTyp :: (Monad m, TokenParsing m) => m Typ
