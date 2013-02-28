@@ -120,10 +120,14 @@ constrained = optional constraint >>= \mcs -> case mcs of
   Nothing -> return $ And []
 
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 =  build <$ symbol "forall" <*> quantBindings <* dot <*> constrained <*> typ3
+typ3 = forall [] [] <$> try constrained <*> typ4
     <|> typ2
+
+typ4 :: (Applicative m, Monad m, TokenParsing m) => m Typ
+typ4 =  build <$ symbol "forall" <*> quantBindings <* dot <*> typ4
+    <|> typ3
  where
- build (kvs, tvks) cs t = forall (Just <$> kvs) tvks cs t
+ build (kvs, tvks) t = forall (Just <$> kvs) tvks (And []) t
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
