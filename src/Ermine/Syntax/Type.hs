@@ -24,6 +24,8 @@ module Ermine.Syntax.Type
     Type(..)
   , forall
   , exists
+  , mergeConstraints
+  , allConstraints
   , isTrivialConstraint
   , FieldName
   -- * Hard Types
@@ -52,10 +54,10 @@ import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Ord (comparing)
-import Data.IntMap hiding (map, filter, null)
+import Data.IntMap hiding (map, filter, null, foldl')
 import Data.List (sortBy, elemIndex)
-import Data.Map as Map hiding (map, filter, null)
-import Data.Set as Set hiding (map, filter, null)
+import Data.Map as Map hiding (map, filter, null, foldl')
+import Data.Set as Set hiding (map, filter, null, foldl')
 import Data.Set.Lens as Set
 import Data.String
 import Data.Void
@@ -263,6 +265,10 @@ mergeConstraints (And ls) (And rs) = And $ ls ++ rs
 mergeConstraints (And ls) r        = And $ ls ++ [r]
 mergeConstraints l        (And rs) = And $ l : rs
 mergeConstraints l        r        = And [l, r]
+
+-- | As mergeConstraints, but 0 or more
+allConstraints :: [Type k t] -> Type k t
+allConstraints = foldl' mergeConstraints (And [])
 
 -- | Determines whether the type in question is a trivial constraint, which may be
 -- dropped from the type. The simplest example is 'And []', but the function works

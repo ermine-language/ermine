@@ -24,7 +24,7 @@ import Ermine.Builtin.Type
 import Ermine.Parser.Keywords
 import Ermine.Parser.Kind
 import Ermine.Syntax
-import Ermine.Syntax.Kind as Kind hiding (Var)
+import Ermine.Syntax.Kind as Kind hiding (Var, constraint)
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -62,25 +62,68 @@ typ1 = apps <$> typ0 <*> many typ0
 typ2 :: (Monad m, TokenParsing m) => m Typ
 typ2 = chainr1 typ1 ((~>) <$ symbol "->")
 
+-- | Parses an optionally annotated type variable.
+--
+--   typVarBinding ::= ( ident : kind )
+--                   | ident
 typVarBinding :: (Monad m, TokenParsing m) => m ([String], Kind (Maybe String))
 typVarBinding = flip (,) unk <$> some (ident tid)
             <|> parens ((,) <$> some (ident tid) <* colon <*> (fmap Just <$> kind))
  where
  unk = pure $ Nothing
 
+-- | Parses a series of type var bindings, processing the result to a more
+-- usable format.
+--
+--   typVarBindings ::= typVarBinding typVarBindings0
+--   typVarBindings0 ::= emtpy | typVarBinding typVarBindings0
 typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
 typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
 
-forallBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
-forallBindings = optional (braces (some (ident tid))) >>= \mks -> case mks of
+-- | Parses the bound variables for a quantifier.
+--
+--   quantBindings ::= {kindVars}
+--                   | typVarBindings
+--                   | {kindVars} typVarBindings
+quantBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
+quantBindings = optional (braces (some (ident tid))) >>= \mks -> case mks of
   Just ks -> (,) ks . fromMaybe [] <$> optional typVarBindings
   Nothing -> (,) [] <$> typVarBindings
 
+-- | Parser for a context that expects 0 or more constraints, together
+--
+--   constraints ::= constraints1
+--                 | empty
+--   constraints1 ::= constraint , constraints1
+--                  | constraint
+constraints :: (Monad m, TokenParsing m) => m Typ
+constraints = allConstraints <$> sepBy constraint comma
+
+-- | Parser for a context that expects a single constraint.
+--   constraint ::= exists <vs>. constraint
+--                | ( constraints )
+--                | ident
+constraint :: (Monad m, TokenParsing m) => m Typ
+constraint =
+      buildE <$ symbol "exists" <*> quantBindings <* dot <*> constraint
+  <|> parens constraints
+  -- Single constraints
+  <|> Var <$> ident tid
+ where buildE (kvs, tvks) body = exists (Just <$> kvs) tvks body
+
+-- | Parses an optional constraint context, followed by an arrow if necessary.
+--   constraint ::= constraint =>
+--                | empty
+constrained :: (Monad m, TokenParsing m) => m Typ
+constrained = optional constraint >>= \mcs -> case mcs of
+  Just cs -> cs <$ reserve op "=>"
+  Nothing -> return $ And []
+
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 =  build <$ symbol "forall" <*> forallBindings <* dot <*> typ3
+typ3 =  build <$ symbol "forall" <*> quantBindings <* dot <*> constrained <*> typ3
     <|> typ2
  where
- build (kvs, tvks) t = forall (Just <$> kvs) tvks (And []) t
+ build (kvs, tvks) cs t = forall (Just <$> kvs) tvks cs t
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
