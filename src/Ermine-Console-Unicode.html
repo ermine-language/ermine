@@ -14,19 +14,19 @@
 <a name="line-5"></a>  <span class='hs-layout'>(</span> <span class='hs-varid'>withUnicode</span>
 <a name="line-6"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
 <a name="line-7"></a>
-<a name="line-8"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
-<a name="line-9"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>CatchIO</span>
-<a name="line-10"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>System</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span>
-<a name="line-11"></a>
-<a name="line-12"></a><span class='hs-cpp'>#if defined(i386_HOST_ARCH)</span>
-<a name="line-13"></a><span class='hs-cpp'>#define USE_CP</span>
-<a name="line-14"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
-<a name="line-15"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Foreign</span><span class='hs-varop'>.</span><span class='hs-conid'>C</span><span class='hs-varop'>.</span><span class='hs-conid'>Types</span>
-<a name="line-16"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-varid'>stdcall</span> <span class='hs-str'>"windows.h SetConsoleCP"</span> <span class='hs-varid'>c_SetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>CUInt</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
-<a name="line-17"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-varid'>stdcall</span> <span class='hs-str'>"windows.h GetConsoleCP"</span> <span class='hs-varid'>c_GetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>CUInt</span>
-<a name="line-18"></a><span class='hs-cpp'>#elif defined(x64_64_HOST_ARCH)</span>
-<a name="line-19"></a><span class='hs-cpp'>#define USE_CP</span>
-<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
+<a name="line-8"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>CatchIO</span>
+<a name="line-9"></a>
+<a name="line-10"></a><span class='hs-cpp'>#if defined(i386_HOST_ARCH)</span>
+<a name="line-11"></a><span class='hs-cpp'>#define USE_CP</span>
+<a name="line-12"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
+<a name="line-13"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>System</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span>
+<a name="line-14"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Foreign</span><span class='hs-varop'>.</span><span class='hs-conid'>C</span><span class='hs-varop'>.</span><span class='hs-conid'>Types</span>
+<a name="line-15"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-varid'>stdcall</span> <span class='hs-str'>"windows.h SetConsoleCP"</span> <span class='hs-varid'>c_SetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>CUInt</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
+<a name="line-16"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-varid'>stdcall</span> <span class='hs-str'>"windows.h GetConsoleCP"</span> <span class='hs-varid'>c_GetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>CUInt</span>
+<a name="line-17"></a><span class='hs-cpp'>#elif defined(x64_64_HOST_ARCH)</span>
+<a name="line-18"></a><span class='hs-cpp'>#define USE_CP</span>
+<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
+<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>System</span><span class='hs-varop'>.</span><span class='hs-conid'>IO</span>
 <a name="line-21"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Foreign</span><span class='hs-varop'>.</span><span class='hs-conid'>C</span><span class='hs-varop'>.</span><span class='hs-conid'>Types</span>
 <a name="line-22"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-keyword'>ccall</span> <span class='hs-str'>"windows.h SetConsoleCP"</span> <span class='hs-varid'>c_SetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>CUInt</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>Bool</span>
 <a name="line-23"></a><span class='hs-keyword'>foreign</span> <span class='hs-keyword'>import</span> <span class='hs-keyword'>ccall</span> <span class='hs-str'>"windows.h GetConsoleCP"</span> <span class='hs-varid'>c_GetConsoleCP</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>IO</span> <span class='hs-conid'>CUInt</span>
