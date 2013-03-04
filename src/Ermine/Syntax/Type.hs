@@ -44,6 +44,7 @@ module Ermine.Syntax.Type
   , HasTypeVars(..)
   -- * Type Annotations
   , Annot(..)
+  , annot
   ) where
 
 import Bound
