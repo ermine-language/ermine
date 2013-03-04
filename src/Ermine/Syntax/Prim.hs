@@ -32,6 +32,8 @@ data Prim
   | Char    !Char
   | Float   !Float
   | Double  !Double
+  | Super   !Int
+  | Slot    !Int
   deriving (Eq,Ord,Show,Data,Typeable)
 
 -- | Construct a builtin prim 'DataCon' for a given 'global' in the @\"ermine\"@ package

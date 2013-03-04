@@ -36,18 +36,19 @@ module Ermine.Syntax.Core
 import Bound
 import Control.Applicative
 import Control.Monad
-import Control.Lens
+import Control.Lens as Lens
 import Data.Int
-import Data.List hiding (foldr)
+import Data.List as List
 import Data.Foldable
 import Data.String
+import Data.Vector as Vector hiding (cons)
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Scope
 import Prelude.Extras
-import Prelude hiding (foldr)
+import Prelude
 
 -- $setup
 -- >>> import Text.Groom
@@ -85,7 +86,7 @@ nothing = Prim (prim Idfix "Builtin" "Nothing") []
 class Lit a where
   lit  :: a   -> Core b
   lits :: [a] -> Core b
-  lits = foldr (cons . lit) nil
+  lits = Prelude.foldr (Lens.cons . lit) nil
 
 instance Lit Int64 where lit l = Prim (Int64 l) []
 instance Lit Int where lit i = Prim (Int i) []
@@ -121,6 +122,9 @@ data Core a
   | Lam !(Pat ()) !(Scope Int Core a)
   | Let [Scope Int Core a] !(Scope Int Core a)
   | Case !(Core a) [Alt () Core a]
+  | Dict { supers :: Vector (Core a), slots :: Vector (Scope Int Core a) }
+  | LamDict !(Scope () Core a)
+  | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance IsString a => IsString (Core a) where
@@ -142,12 +146,15 @@ instance Applicative Core where
 
 instance Monad Core where
   return = Var
-  Var a      >>= f = f a
-  Prim k xs  >>= f = Prim k (map (>>= f) xs)
-  App x y    >>= f = App (x >>= f) (y >>= f)
-  Lam p e    >>= f = Lam p (boundBy f e)
-  Let bs e   >>= f = Let (map (boundBy f) bs) (boundBy f e)
-  Case e as  >>= f = Case (e >>= f) (map (>>>= f) as)
+  Var a       >>= f = f a
+  Prim k xs   >>= f = Prim k ((>>= f) <$> xs)
+  App x y     >>= f = App (x >>= f) (y >>= f)
+  Lam p e     >>= f = Lam p (boundBy f e)
+  Let bs e    >>= f = Let (boundBy f <$> bs) (boundBy f e)
+  Case e as   >>= f = Case (e >>= f) ((>>>= f) <$> as)
+  Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
+  LamDict e   >>= f = LamDict (e >>>= f)
+  AppDict x y >>= f = AppDict (x >>= f) (y >>= f)
 
 instance Eq1 Core
 instance Show1 Core
@@ -177,18 +184,30 @@ asp a (P p as) = P (AsP p) (a:as)
 
 -- | A pattern that matches a primitive expression.
 primp :: Prim -> [P a] -> P a
-primp g ps = P (PrimP g (map pattern ps)) (ps >>= bindings)
+primp g ps = P (PrimP g (pattern <$> ps)) (ps >>= bindings)
 
 -- | smart lam constructor
 lam :: Eq a => P a -> Core a -> Core a
-lam (P p as) t = Lam p (abstract (`elemIndex` as) t)
+lam (P p as) t = Lam p (abstract (`List.elemIndex` as) t)
 
 -- | smart let constructor
 let_ :: Eq a => [(a, Core a)] -> Core a -> Core a
-let_ bs b = Let (map (abstr . snd) bs) (abstr b)
-  where vs  = map fst bs
-        abstr = abstract (`elemIndex` vs)
+let_ bs b = Let (abstr . snd <$> bs) (abstr b)
+  where vs  = fst <$> bs
+        abstr = abstract (`List.elemIndex` vs)
 
 -- | smart alt constructor
 alt :: Eq a => P a -> Core a -> Alt () Core a
-alt (P p as) t = Alt p (abstract (`elemIndex` as) t)
+alt (P p as) t = Alt p (abstract (`List.elemIndex` as) t)
+
+{-
+letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a
+letDict supers vslots body = LamDict body' `AppDict` Dict (map snd supers) slots where
+  where abstr = abstract (`elemIndex` vs)
+     go a = case 
+     body' = Scope $ body >>= \a -> case elemIndex supers a of
+       Just i  -> Prim (Super i) (B ())
+       Nothing -> case elemIndex vslots a of
+         Just j -> Prim (Slot j) (B ())
+         Nothing -> Var (F (Var a))
+-}

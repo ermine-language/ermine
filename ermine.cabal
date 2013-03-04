@@ -135,6 +135,7 @@ library
     trifecta                  == 1.*,
     unordered-containers      >= 0.2.3   && < 0.3,
     utf8-string               >= 0.3.7   && < 0.4,
+    vector                    >= 0.10    && < 0.11,
     void                      >= 0.5.10  && < 1
 
   other-modules: Paths_ermine
