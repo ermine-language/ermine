@@ -47,6 +47,7 @@ module Ermine.Syntax.Type
   ) where
 
 import Bound
+import Bound.Scope
 import Bound.Var
 import Control.Lens
 import Control.Applicative
@@ -537,3 +538,50 @@ instance HasKindVars (Annot k a) (Annot k' a) k k' where
 instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
+
+annot :: Type k a -> Annot k a
+annot = Annot 0 . lift
+{-# INLINE annot #-}
+
+instance Fun (Annot k) where
+  fun = prism hither yon
+    where
+    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
+      let Scope t' = mapBound (+n) t
+      in Scope (s ~> t')
+    yon t@(Annot n s) = case fromScope s of
+      App (App (HardType Arrow) l) r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
+        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
+        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
+        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
+        _                               -> Left t
+      _                                 -> Left t
+
+instance App (Annot k) where
+  app = prism hither yon
+    where
+    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
+      let Scope t' = mapBound (+n) t
+      in Scope (App s t')
+    yon t@(Annot n s) = case fromScope s of
+      App l r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
+        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
+        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
+        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
+        _                               -> Left t
+      _                                 -> Left t
+
+instance Variable (Annot k) where
+  var = prism (annot . return) $ \ t@(Annot _ (Scope b)) -> case b of
+    Var (F (Var k)) -> Right k
+    _               -> Left  t
+  {-# INLINE var #-}
+
+instance Typical (Annot k a) where
+  hardType = prism (annot . review hardType) $ \ t@(Annot _ (Scope b)) -> case b of
+    HardType a           -> Right a
+    Var (F (HardType a)) -> Right a
+    _                    -> Left t
+  {-# INLINE hardType #-}
