@@ -42,6 +42,8 @@ module Ermine.Syntax.Type
   , abstractAll
   -- * Type Variables
   , HasTypeVars(..)
+  -- * Type Annotations
+  , Annot(..)
   ) where
 
 import Bound
@@ -147,17 +149,17 @@ infixl 9 `App`
 -- For the purposes of type checking and general ease of use, we maintain several
 -- invariants privileging otherwise isomorphic types. Those invariants are as follows:
 --
---   1. There is never a forall to the right of an arrow; the forall is lifted out:
+--   1. There is never a @forall@ to the right of an arrow; the forall is lifted out:
 --        @T -> forall a. U   ==>   forall a. T -> U@
 --
 --   2. All variables bound by a quantifier are used:
 --        @forall a b. a   ==>   forall a. a@
 --
---   3. Exists must quantify at least one type or kind variable. Exists 0 [] should be
+--   3. Exists must quantify at least one type or kind variable. @'Exists' 0 []@ should be
 --      stripped out of all types:
 --        @exists . C   ==>   C@
 --
---   4. Forall must either quantify one variable or contain a non-trivial constraint:
+--   4. 'Forall' must either quantify one variable or contain a non-trivial constraint:
 --        @forall . T   ==> T@
 --
 --   5. Quantifiers must not directly contain another quantifier of the same type;
@@ -170,7 +172,7 @@ infixl 9 `App`
 --   7. Existentials should be floated out to the top of constraints:
 --        @(exists a. C, exists b. D)   ==>   exists a b. (C, D)@
 --
---   8. Forall should only quantify variables that occur in the non-constraint
+--   8. 'Forall' should only quantify variables that occur in the non-constraint
 --      portion of the body. Other variables should be pushed into existential
 --      quantifiers in the constraints:
 --        @forall a b. C b => a   ==>   forall a. (exists b. C b) => a@
@@ -500,3 +502,38 @@ abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
  unk = pure $ F ()
  kv _ = B <$> (_1 <<%= (+1))
  tv _ = B <$> (_2 <<%= (+1))
+
+-- | A type annotation
+data Annot k a = Annot {-# UNPACK #-} !Int !(Scope Int (Type k) a)
+
+instance Functor (Annot k) where
+  fmap f (Annot n b) = Annot n (fmap f b)
+  {-# INLINE fmap #-}
+
+instance Foldable (Annot k) where
+  foldMap f (Annot _ b) = foldMap f b
+  {-# INLINE foldMap #-}
+
+instance Traversable (Annot k) where
+  traverse f (Annot n b) = Annot n <$> traverse f b
+  {-# INLINE traverse #-}
+
+instance Bifunctor Annot where
+  bimap = bimapDefault
+  {-# INLINE bimap #-}
+
+instance Bifoldable Annot where
+  bifoldMap = bifoldMapDefault
+  {-# INLINE bifoldMap #-}
+
+instance Bitraversable Annot where
+  bitraverse f g (Annot n b) = Annot n <$> bitraverseScope f g b
+  {-# INLINE bitraverse #-}
+
+instance HasKindVars (Annot k a) (Annot k' a) k k' where
+  kindVars f = bitraverse f pure
+  {-# INLINE kindVars #-}
+
+instance HasTypeVars (Annot k a) (Annot k a') a a' where
+  typeVars = traverse
+  {-# INLINE typeVars #-}
