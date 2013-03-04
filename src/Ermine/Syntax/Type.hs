@@ -146,33 +146,43 @@ infixl 9 `App`
 --
 -- For the purposes of type checking and general ease of use, we maintain several
 -- invariants privileging otherwise isomorphic types. Those invariants are as follows:
---   1) There is never a forall to the right of an arrow; the forall is lifted out
---        T -> forall a. U   ==>   forall a. T -> U
---   2) All variables bound by a quantifier are used.
---        forall a b. a   ==>   forall a. a
---   3) Exists must quantify at least one type or kind variable. Exists 0 [] should be
---      stripped out of all types.
---        exists . C   ==>   C
---   4) Forall must either quantify one variable or contain a non-trivial constraint.
---        forall . T   ==> T
---   5) Quantifiers must not directly contain another quantifier of the same type;
---      they should be coalesced.
---        forall a. forall b. T   ==>   forall a b. T
---   6) Ands of constraints should not be nested, the lists should be coalesced.
---        ((C, D), E)   ==>   (C, D, E)
---   7) Existentials should be floated out to the top of constraints.
---        (exists a. C, exists b. D)   ==>   exists a b. (C, D)
---   8) Forall should only quantify variables that occur in the non-constraint
+--
+--   1. There is never a forall to the right of an arrow; the forall is lifted out:
+--        @T -> forall a. U   ==>   forall a. T -> U@
+--
+--   2. All variables bound by a quantifier are used:
+--        @forall a b. a   ==>   forall a. a@
+--
+--   3. Exists must quantify at least one type or kind variable. Exists 0 [] should be
+--      stripped out of all types:
+--        @exists . C   ==>   C@
+--
+--   4. Forall must either quantify one variable or contain a non-trivial constraint:
+--        @forall . T   ==> T@
+--
+--   5. Quantifiers must not directly contain another quantifier of the same type;
+--      they should be coalesced:
+--        @forall a. forall b. T   ==>   forall a b. T@
+--
+--   6. Ands of constraints should not be nested, the lists should be coalesced:
+--        @((C, D), E)   ==>   (C, D, E)@
+--
+--   7. Existentials should be floated out to the top of constraints:
+--        @(exists a. C, exists b. D)   ==>   exists a b. (C, D)@
+--
+--   8. Forall should only quantify variables that occur in the non-constraint
 --      portion of the body. Other variables should be pushed into existential
---      quantifiers in the constraints.
---        forall a b. C b => a   ==>   forall a. (exists b. C b) => a
---   9) The order of the variables in a forall should correspond to that of
+--      quantifiers in the constraints:
+--        @forall a b. C b => a   ==>   forall a. (exists b. C b) => a@
+--
+--   9. The order of the variables in a forall should correspond to that of
 --      their use in the rest of the type. For kinds, this includes their
 --      appearance in the annotations of the type variables in the same
---      quantifier.
---        forall {l k} (b : l) (a : k) (g : l -> *) (f : k -> *). f a -> g b
---          ==>
---        forall {k l} (f : k -> *) (a : k) (g : l -> *) (b : l). f a -> g b
+--      quantifier:
+--
+-- >      forall {l k} (b : l) (a : k) (g : l -> *) (f : k -> *). f a -> g b
+-- >        ==>
+-- >      forall {k l} (f : k -> *) (a : k) (g : l -> *) (b : l). f a -> g b
 data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
