@@ -272,18 +272,6 @@ instance HasKindVars (Schema a) (Schema b) a b where
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
 
-putVar :: (b -> Put) -> (f -> Put) -> Var b f -> Put
-putVar pb _  (B b) = putWord8 0 *> pb b
-putVar _  pf (F f) = putWord8 1 *> pf f
-{-# INLINE putVar #-}
-
-getVar :: Get b -> Get f -> Get (Var b f)
-getVar gb gf = getWord8 >>= \b -> case b of
-  0 -> B <$> gb
-  1 -> F <$> gf
-  _ -> fail $ "getVar: Unexpected constructor code: " ++ show b
-{-# INLINE getVar #-}
-
 instance Binary k => Binary (Schema k) where
-  put (Schema n (Scope b)) = put n *> putKind (putVar put (putKind put)) b
-  get = Schema <$> get <*> (Scope <$> getKind (getVar get (getKind get)))
+  put (Schema n body) = put n *> putScope put putKind put body
+  get = Schema <$> get <*> getScope get getKind get

@@ -20,11 +20,16 @@ module Ermine.Syntax.Scope
   , free
   , BoundBy(..)
   , instantiateVars
+  , putVar
+  , getVar
+  , putScope
+  , getScope
   ) where
 
 import Bound
 import Control.Applicative
 import Control.Lens
+import Data.Binary
 import Data.Bitraversable
 
 -- | Generalizes 'Bound' to permit binding by another type without taking it as a parameter.
@@ -65,3 +70,25 @@ instantiateVars as = instantiate (vs !!) where
   vs = map return as
 {-# INLINE instantiateVars #-}
 
+
+putVar :: (b -> Put) -> (f -> Put) -> Var b f -> Put
+putVar pb _  (B b) = putWord8 0 *> pb b
+putVar _  pf (F f) = putWord8 1 *> pf f
+{-# INLINE putVar #-}
+
+getVar :: Get b -> Get f -> Get (Var b f)
+getVar gb gf = getWord8 >>= \b -> case b of
+  0 -> B <$> gb
+  1 -> F <$> gf
+  _ -> fail $ "getVar: Unexpected constructor code: " ++ show b
+{-# INLINE getVar #-}
+
+putScope :: (b -> Put) -> (forall a. (a -> Put) -> f a -> Put) -> (v -> Put)
+         -> Scope b f v -> Put
+putScope pb pf pv (Scope body) = pf (putVar pb $ pf pv) body
+{-# INLINE putScope #-}
+
+getScope :: Get b -> (forall a. Get a -> Get (f a)) -> Get v
+         -> Get (Scope b f v)
+getScope gb gf gv = Scope <$> gf (getVar gb $ gf gv)
+{-# INLINE getScope #-}
