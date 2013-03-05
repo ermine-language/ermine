@@ -56,6 +56,7 @@ import Control.Monad.Trans
 import Control.Monad.State
 import Data.Bifunctor
 import Data.Bifoldable
+import Data.Binary as Binary
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Ord (comparing)
@@ -85,6 +86,20 @@ data HardType
   | Con !Global !(Schema Void)
   | ConcreteRho !(Set FieldName)
   deriving (Eq, Ord, Show)
+
+instance Binary HardType where
+  put (Tuple n)       = putWord8 0 *> Binary.put n
+  put Arrow           = putWord8 1
+  put (Con g s)       = putWord8 2 *> Binary.put g *> putSchema absurd s
+  put (ConcreteRho s) = putWord8 3 *> Binary.put s
+
+  get = getWord8 >>= \b -> case b of
+    0 -> Tuple <$> Binary.get
+    1 -> pure Arrow
+    2 -> Con <$> Binary.get
+             <*> getSchema (fail "getHardType: getting schema with variables")
+    3 -> ConcreteRho <$> Binary.get
+    _ -> fail $ "getHardType: unexpected constructor tag: " ++ show b
 
 {-
 bananas :: Doc a -> Doc a

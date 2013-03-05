@@ -22,6 +22,8 @@ module Ermine.Syntax.Kind
   (
   -- * Kinds
     Kind(..)
+  , getKind
+  , putKind
   -- * Hard Kinds
   , HardKind(..)
   , Kindly(..)
@@ -29,6 +31,8 @@ module Ermine.Syntax.Kind
   , Schema(..)
   , schema
   , general
+  , putSchema
+  , getSchema
   -- * Kind Variables
   , HasKindVars(..)
   ) where
@@ -272,6 +276,14 @@ instance HasKindVars (Schema a) (Schema b) a b where
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
 
+putSchema :: (k -> Put) -> Schema k -> Put
+putSchema pk (Schema n body) = put n *> putScope put putKind pk body
+{-# INlINE putSchema #-}
+
+getSchema :: Get k -> Get (Schema k)
+getSchema gk = Schema <$> get <*> getScope get getKind gk
+{-# INLINE getSchema #-}
+
 instance Binary k => Binary (Schema k) where
-  put (Schema n body) = put n *> putScope put putKind put body
-  get = Schema <$> get <*> getScope get getKind get
+  put = putSchema put
+  get = getSchema get
