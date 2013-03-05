@@ -42,6 +42,7 @@ import Control.Monad.Trans.Class
 import Ermine.Syntax
 import Ermine.Syntax.Scope
 import Prelude.Extras
+import Data.Binary
 import Data.IntMap
 import Data.Foldable
 import Data.String
@@ -81,6 +82,19 @@ class Kindly k where
 
 instance Kindly HardKind where
   hardKind = id
+
+instance Binary HardKind where
+  put Star       = putWord8 0
+  put Constraint = putWord8 1
+  put Rho        = putWord8 2
+  put Phi        = putWord8 3
+
+  get = getWord8 >>= \b -> case b of
+    0 -> return Star
+    1 -> return Constraint
+    2 -> return Rho
+    3 -> return Phi
+    _ -> fail $ "get HardKind: Unexpected constructor code: " ++ show b
 
 ------------------------------------------------------------------------------
 -- Kind
@@ -140,6 +154,17 @@ instance Eq1 Kind
 instance Ord1 Kind
 instance Show1 Kind
 instance Read1 Kind
+
+instance Binary k => Binary (Kind k) where
+  put (Var v)      = putWord8 0 *> put v
+  put (k :-> l)    = putWord8 1 *> put k *> put l
+  put (HardKind k) = putWord8 2 *> put k
+
+  get = getWord8 >>= \b -> case b of
+    0 -> Var <$> get
+    1 -> (:->) <$> get <*> get
+    2 -> HardKind <$> get
+    _ -> fail $ "get Kind: Unexpected constructor code: " ++ show b
 
 ------------------------------------------------------------------------------
 -- HasKindVars
