@@ -155,16 +155,27 @@ instance Ord1 Kind
 instance Show1 Kind
 instance Read1 Kind
 
-instance Binary k => Binary (Kind k) where
-  put (Var v)      = putWord8 0 *> put v
-  put (k :-> l)    = putWord8 1 *> put k *> put l
-  put (HardKind k) = putWord8 2 *> put k
+putKind :: (k -> Put) -> Kind k -> Put
+putKind p = go
+ where
+   go (Var v)      = putWord8 0 *> p v
+   go (k :-> l)    = putWord8 1 *> go k *> go l
+   go (HardKind k) = putWord8 2 *> put k
+{-# INLINE putKind #-}
 
-  get = getWord8 >>= \b -> case b of
-    0 -> Var <$> get
-    1 -> (:->) <$> get <*> get
-    2 -> HardKind <$> get
-    _ -> fail $ "get Kind: Unexpected constructor code: " ++ show b
+getKind :: Get k -> Get (Kind k)
+getKind g = go
+ where
+   go = getWord8 >>= \b -> case b of
+     0 -> Var <$> g
+     1 -> (:->) <$> go <*> go
+     2 -> HardKind <$> get
+     _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
+{-# INLINE getKind #-}
+
+instance Binary k => Binary (Kind k) where
+  put = putKind put
+  get = getKind get
 
 ------------------------------------------------------------------------------
 -- HasKindVars
@@ -260,3 +271,19 @@ instance HasKindVars (Schema a) (Schema b) a b where
 
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
+
+putVar :: (b -> Put) -> (f -> Put) -> Var b f -> Put
+putVar pb _  (B b) = putWord8 0 *> pb b
+putVar _  pf (F f) = putWord8 1 *> pf f
+{-# INLINE putVar #-}
+
+getVar :: Get b -> Get f -> Get (Var b f)
+getVar gb gf = getWord8 >>= \b -> case b of
+  0 -> B <$> gb
+  1 -> F <$> gf
+  _ -> fail $ "getVar: Unexpected constructor code: " ++ show b
+{-# INLINE getVar #-}
+
+instance Binary k => Binary (Schema k) where
+  put (Schema n (Scope b)) = put n *> putKind (putVar put (putKind put)) b
+  get = Schema <$> get <*> (Scope <$> getKind (getVar get (getKind get)))
