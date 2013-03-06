@@ -451,6 +451,8 @@ putMany p ls = put (length ls) *> traverse_ p ls
 getMany :: Get k -> Get [k]
 getMany g = get >>= \n -> replicateM n g
 
+-- | Binary serialization of a 'Type', given serializers for its two
+-- parameters.
 putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
 putType _  pt (Var v)              = putWord8 0 *> pt v
 putType _  _  (HardType h)         = putWord8 1 *> put h
@@ -469,6 +471,10 @@ putType pk pt (Exists n ks body)   =
 putType pk pt (And ls)             =
   putWord8 6 *> putMany (putType pk pt) ls
 
+-- | Binary deserialization of a 'Type', given deserializers for its two
+-- parameters. This function makes no effort to fix up broken invariants in
+-- the serialized type, so a post-processor should be used if the binary
+-- wasn't produced from a canonical 'Type'.
 getType :: Get k -> Get t -> Get (Type k t)
 getType gk gt = getWord8 >>= \b -> case b of
   0 -> Var <$> gt
@@ -607,9 +613,11 @@ instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
+-- | Binary serialization of annotations.
 putAnnot :: (k -> Put) -> (t -> Put) -> Annot k t -> Put
 putAnnot pk pt (Annot n s) = put n *> putScope put (putType pk) pt s
 
+-- | Binary deserialization of annotations.
 getAnnot :: Get k -> Get t -> Get (Annot k t)
 getAnnot gk gt = Annot <$> get <*> getScope get (getType gk) gt
 
