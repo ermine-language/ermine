@@ -28,6 +28,8 @@ module Ermine.Syntax.Type
   , allConstraints
   , (~~>)
   , isTrivialConstraint
+  , putType
+  , getType
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -441,10 +443,58 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
+putMany :: (k -> Put) -> [k] -> Put
+putMany p ls = Binary.put (length ls) *> traverse_ p ls
+
+getMany :: Get k -> Get [k]
+getMany g = Binary.get >>= \n -> replicateM n g
+
+putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
+putType _  pt (Var v)              = putWord8 0 *> pt v
+putType _  _  (HardType h)         = putWord8 1 *> Binary.put h
+putType pk pt (Loc r t)            = putWord8 2 *> putType pk pt t -- TODO: r
+putType pk pt (App f x)            =
+  putWord8 3 *> putType pk pt f *> putType pk pt x
+putType pk pt (Forall n ks c body) =
+  putWord8 4 *> Binary.put n *>
+  putMany (putScope Binary.put putKind pk) ks *>
+  putScope Binary.put (putTK pk) pt c *>
+  putScope Binary.put (putTK pk) pt body
+putType pk pt (Exists n ks body)   =
+  putWord8 5 *> Binary.put n *>
+  putMany (putScope Binary.put putKind pk) ks *>
+  putScope Binary.put (putTK pk) pt body
+putType pk pt (And ls)             =
+  putWord8 6 *> putMany (putType pk pt) ls
+
+getType :: Get k -> Get t -> Get (Type k t)
+getType gk gt = getWord8 >>= \b -> case b of
+  0 -> Var <$> gt
+  1 -> HardType <$> Binary.get
+  2 -> Loc undefined <$> getType gk gt
+  3 -> App <$> getType gk gt <*> getType gk gt
+  4 -> Forall <$> Binary.get <*> getMany (getScope Binary.get getKind gk)
+              <*> getScope Binary.get (getTK gk) gt
+              <*> getScope Binary.get (getTK gk) gt
+  5 -> Exists <$> Binary.get <*> getMany (getScope Binary.get getKind gk)
+              <*> getScope Binary.get (getTK gk) gt
+  6 -> And <$> getMany (getType gk gt)
+  _ -> fail $ "getType: Unexpected constructor tag: " ++ show b
+
+instance (Binary k, Binary t) => Binary (Type k t) where
+  put = putType Binary.put Binary.put
+  get = getType Binary.get Binary.get
+
 -- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
 -- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
 -- relative to the extra effort.
 type TK k = Type (Var Int k)
+
+putTK :: (k -> Put) -> (t -> Put) -> TK k t -> Put
+putTK pk = putType (putVar Binary.put pk)
+
+getTK :: Get k -> Get t -> Get (TK k t)
+getTK gk = getType (getVar Binary.get gk)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
