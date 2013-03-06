@@ -47,6 +47,8 @@ module Ermine.Syntax.Type
   -- * Type Annotations
   , Annot(..)
   , annot
+  , putAnnot
+  , getAnnot
   ) where
 
 import Bound
@@ -55,7 +57,7 @@ import Bound.Var
 import Control.Lens
 import Control.Applicative
 import Control.Monad.Trans
-import Control.Monad.State
+import Control.Monad.State hiding (put, get)
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Binary as Binary
@@ -90,17 +92,17 @@ data HardType
   deriving (Eq, Ord, Show)
 
 instance Binary HardType where
-  put (Tuple n)       = putWord8 0 *> Binary.put n
+  put (Tuple n)       = putWord8 0 *> put n
   put Arrow           = putWord8 1
-  put (Con g s)       = putWord8 2 *> Binary.put g *> putSchema absurd s
-  put (ConcreteRho s) = putWord8 3 *> Binary.put s
+  put (Con g s)       = putWord8 2 *> put g *> putSchema absurd s
+  put (ConcreteRho s) = putWord8 3 *> put s
 
   get = getWord8 >>= \b -> case b of
-    0 -> Tuple <$> Binary.get
+    0 -> Tuple <$> get
     1 -> pure Arrow
-    2 -> Con <$> Binary.get
+    2 -> Con <$> get
              <*> getSchema (fail "getHardType: getting schema with variables")
-    3 -> ConcreteRho <$> Binary.get
+    3 -> ConcreteRho <$> get
     _ -> fail $ "getHardType: unexpected constructor tag: " ++ show b
 
 {-
@@ -444,46 +446,46 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   {-# INLINE typeVars #-}
 
 putMany :: (k -> Put) -> [k] -> Put
-putMany p ls = Binary.put (length ls) *> traverse_ p ls
+putMany p ls = put (length ls) *> traverse_ p ls
 
 getMany :: Get k -> Get [k]
-getMany g = Binary.get >>= \n -> replicateM n g
+getMany g = get >>= \n -> replicateM n g
 
 putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
 putType _  pt (Var v)              = putWord8 0 *> pt v
-putType _  _  (HardType h)         = putWord8 1 *> Binary.put h
+putType _  _  (HardType h)         = putWord8 1 *> put h
 putType pk pt (Loc r t)            = putWord8 2 *> putType pk pt t -- TODO: r
 putType pk pt (App f x)            =
   putWord8 3 *> putType pk pt f *> putType pk pt x
 putType pk pt (Forall n ks c body) =
-  putWord8 4 *> Binary.put n *>
-  putMany (putScope Binary.put putKind pk) ks *>
-  putScope Binary.put (putTK pk) pt c *>
-  putScope Binary.put (putTK pk) pt body
+  putWord8 4 *> put n *>
+  putMany (putScope put putKind pk) ks *>
+  putScope put (putTK pk) pt c *>
+  putScope put (putTK pk) pt body
 putType pk pt (Exists n ks body)   =
-  putWord8 5 *> Binary.put n *>
-  putMany (putScope Binary.put putKind pk) ks *>
-  putScope Binary.put (putTK pk) pt body
+  putWord8 5 *> put n *>
+  putMany (putScope put putKind pk) ks *>
+  putScope put (putTK pk) pt body
 putType pk pt (And ls)             =
   putWord8 6 *> putMany (putType pk pt) ls
 
 getType :: Get k -> Get t -> Get (Type k t)
 getType gk gt = getWord8 >>= \b -> case b of
   0 -> Var <$> gt
-  1 -> HardType <$> Binary.get
+  1 -> HardType <$> get
   2 -> Loc undefined <$> getType gk gt
   3 -> App <$> getType gk gt <*> getType gk gt
-  4 -> Forall <$> Binary.get <*> getMany (getScope Binary.get getKind gk)
-              <*> getScope Binary.get (getTK gk) gt
-              <*> getScope Binary.get (getTK gk) gt
-  5 -> Exists <$> Binary.get <*> getMany (getScope Binary.get getKind gk)
-              <*> getScope Binary.get (getTK gk) gt
+  4 -> Forall <$> get <*> getMany (getScope get getKind gk)
+              <*> getScope get (getTK gk) gt
+              <*> getScope get (getTK gk) gt
+  5 -> Exists <$> get <*> getMany (getScope get getKind gk)
+              <*> getScope get (getTK gk) gt
   6 -> And <$> getMany (getType gk gt)
   _ -> fail $ "getType: Unexpected constructor tag: " ++ show b
 
 instance (Binary k, Binary t) => Binary (Type k t) where
-  put = putType Binary.put Binary.put
-  get = getType Binary.get Binary.get
+  put = putType put put
+  get = getType get get
 
 -- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
 -- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
@@ -491,10 +493,10 @@ instance (Binary k, Binary t) => Binary (Type k t) where
 type TK k = Type (Var Int k)
 
 putTK :: (k -> Put) -> (t -> Put) -> TK k t -> Put
-putTK pk = putType (putVar Binary.put pk)
+putTK pk = putType (putVar put pk)
 
 getTK :: Get k -> Get t -> Get (TK k t)
-getTK gk = getType (getVar Binary.get gk)
+getTK gk = getType (getVar get gk)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
@@ -604,6 +606,16 @@ instance HasKindVars (Annot k a) (Annot k' a) k k' where
 instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
+
+putAnnot :: (k -> Put) -> (t -> Put) -> Annot k t -> Put
+putAnnot pk pt (Annot n s) = put n *> putScope put (putType pk) pt s
+
+getAnnot :: Get k -> Get t -> Get (Annot k t)
+getAnnot gk gt = Annot <$> get <*> getScope get (getType gk) gt
+
+instance (Binary k, Binary t) => Binary (Annot k t) where
+  put = putAnnot put put
+  get = getAnnot get get
 
 annot :: Type k a -> Annot k a
 annot = Annot 0 . lift
