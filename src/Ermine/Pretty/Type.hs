@@ -47,6 +47,9 @@ prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <
 prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
 prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
+prettyType (App (App (HardType Arrow) x) y) xs d kk kt =
+  combine <$> prettyType x xs 1 kk kt <*> prettyType y xs 0 kk kt
+ where combine dx dy = parensIf (d > 0) $ dx <+> text "->" <+> dy
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
 prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
 prettyType (And cs) xs _ kk kt = go <$> traverse (\c -> prettyType c xs 0 kk kt) cs
