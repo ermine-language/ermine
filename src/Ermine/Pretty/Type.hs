@@ -14,6 +14,7 @@ module Ermine.Pretty.Type
   -- * Pretty Printing Kinds
     prettyHardType
   , prettyType
+  , prettyTypeSchema
   ) where
 
 import Bound
@@ -89,3 +90,14 @@ prettyType (Forall n ks cs bdy) xs d kk kt = go
         constrained zs
           | isTrivialConstraint . fromScope $ cs = zs
           | otherwise                            = ds <+> "=>" <+> zs
+
+prettyTypeSchema :: Applicative f
+                 => Scope Int (TK k) a -> (Int, Int)
+                 -> [String] -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
+prettyTypeSchema (Scope s) (kn, tn) vs kk kt = prettyType s vs' 0 kk' kt'
+ where
+ (kvs, (tvs, vs')) = splitAt tn <$> splitAt kn vs
+ kk' (B i) _ = pure . text $ kvs !! i
+ kk' (F k) b = kk k b
+ kt' (B i) _ = pure . text $ tvs !! i
+ kt' (F t) p = prettyType t vs' p kk' kt
