@@ -143,7 +143,7 @@ anyTyp :: (Monad m, TokenParsing m) => m Typ
 anyTyp = typ
 
 annotation :: (Monad m, TokenParsing m) => m Ann
-annotation = build <$> optional (symbol "some" *> some (ident tid)) <*> typ
+annotation = build <$> optional (symbol "some" *> some (ident tid) <* dot) <*> typ
  where
  build Nothing   t = annot t
  build (Just vs) t = Annot (length vs) (abstract (`elemIndex` vs) t)
