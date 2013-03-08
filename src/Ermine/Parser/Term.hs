@@ -19,10 +19,11 @@ import Control.Lens hiding (op)
 import Data.List (elemIndex)
 import Ermine.Parser.Keywords
 import Ermine.Parser.Type as Type
+import Ermine.Syntax
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
-import Ermine.Syntax.Type hiding (Var, App)
+import Ermine.Syntax.Type hiding (Var, App, Tuple)
 import qualified Ermine.Syntax.Type as Type
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -46,7 +47,10 @@ op = haskellOps
 term0 :: (Monad m, TokenParsing m) => m Tm
 term0 = Var <$> ident termid
    <|> literal
-   <|> parens term
+   <|> parens (tup <$> terms)
+ where
+ tup [x] = x
+ tup xs  = apps (HardTerm . Prim . Tuple $ length xs) xs
 
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = foldl1 App <$> some term0
@@ -72,3 +76,6 @@ literal = HardTerm . Prim . either (Int . fromIntegral) Double <$> naturalOrDoub
 
 term :: (Monad m, TokenParsing m) => m Tm
 term = term2
+
+terms :: (Monad m, TokenParsing m) => m [Tm]
+terms = sepBy term comma
