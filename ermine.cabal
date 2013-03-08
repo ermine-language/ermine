@@ -76,6 +76,7 @@ library
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
     Ermine.Parser.Type
+    Ermine.Parser.Term
     Ermine.Pretty
     Ermine.Pretty.Type
     Ermine.Pretty.Kind

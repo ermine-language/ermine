@@ -11,13 +11,17 @@
 --------------------------------------------------------------------
 module Ermine.Parser.Type
   ( tid
+  , Ann
   , Typ
   , typ
+  , annotation
   ) where
 
+import Bound
 import Control.Applicative
 import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
+import Data.List (elemIndex)
 import Data.Set as Set
 import Data.Maybe
 import Ermine.Builtin.Type
@@ -30,6 +34,7 @@ import Text.Parser.Combinators
 import Text.Parser.Token
 import Text.Parser.Token.Style
 
+type Ann = Annot (Maybe String) String
 type Typ = Type (Maybe String) String
 
 -- | The internal token style used for type variables
@@ -136,3 +141,9 @@ typ = typ4
 -- anyTyp = exists | typ
 anyTyp :: (Monad m, TokenParsing m) => m Typ
 anyTyp = typ
+
+annotation :: (Monad m, TokenParsing m) => m Ann
+annotation = build <$> optional (symbol "some" *> some (ident tid)) <*> typ
+ where
+ build Nothing   t = annot t
+ build (Just vs) t = Annot (length vs) (abstract (`elemIndex` vs) t)
