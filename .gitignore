@@ -4,6 +4,7 @@
 *~
 .*.swo
 .*.swp
+.swp
 .DS_Store
 .ermine_history
 TAGS
