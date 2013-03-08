@@ -579,7 +579,7 @@ abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
  tv _ = B <$> (_2 <<%= (+1))
 
 -- | A type annotation
-data Annot k a = Annot {-# UNPACK #-} !Int !(Scope Int (Type k) a)
+data Annot k a = Annot {-# UNPACK #-} !Int !(Scope Int (Type k) a) deriving Show
 
 instance Functor (Annot k) where
   fmap f (Annot n b) = Annot n (fmap f b)

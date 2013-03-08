@@ -20,6 +20,7 @@ import Ermine.Console.State
 import Ermine.Inference.Kind
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
+import Ermine.Parser.Term
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
@@ -115,6 +116,9 @@ commands =
                     >>= sayLn)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
+  , cmd "uterm"
+      & desc .~ "show the internal representation of a term"
+      & body .~ parsing term (liftIO . print)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
 
   ]
