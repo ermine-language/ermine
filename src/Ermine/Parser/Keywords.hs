@@ -40,6 +40,7 @@ otherKeywords = fromList
   , "subtype"
   , "table"
   , "where"
+  , "_"
   , "Γ"
   , "ρ"
   , "φ"

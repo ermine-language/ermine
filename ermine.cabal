@@ -75,6 +75,7 @@ library
     Ermine.Inference.Kind
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
+    Ermine.Parser.Style
     Ermine.Parser.Type
     Ermine.Parser.Term
     Ermine.Pretty

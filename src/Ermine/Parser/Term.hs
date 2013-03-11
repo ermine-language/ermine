@@ -11,13 +11,16 @@
 -- This module provides the parser for terms
 --------------------------------------------------------------------
 
-module Ermine.Parser.Term where
+module Ermine.Parser.Term ( anyType
+                          , term
+                          , terms
+                          ) where
 
 import Bound
 import Control.Applicative
 import Control.Lens hiding (op)
 import Data.List (elemIndex)
-import Ermine.Parser.Keywords
+import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
 import Ermine.Syntax
 import Ermine.Syntax.Prim
@@ -28,25 +31,15 @@ import Ermine.Syntax.Type hiding (Var, App, Tuple)
 import qualified Ermine.Syntax.Type as Type
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Text.Parser.Token.Style
 
 type Tm = Term Ann String
 
 anyType :: Ann
 anyType = Annot [star] . Scope . Type.Var $ B 0
 
--- | The internal token style used for type variables
-termid :: TokenParsing m => IdentifierStyle m
-termid = haskellIdents
-  & styleName  .~ "term variable"
-  & styleReserved .~ keywords
-
-op :: TokenParsing m => IdentifierStyle m
-op = haskellOps
-
 -- | Parse an atomic term
 term0 :: (Monad m, TokenParsing m) => m Tm
-term0 = Var <$> ident termid
+term0 = Var <$> ident termIdent
    <|> literal
    <|> parens (tup <$> terms)
  where
@@ -60,8 +53,8 @@ term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lam <|> term1
 
 binding :: (Monad m, TokenParsing m) => m ([String], Ann)
-binding = (, anyType) <$> some (ident termid)
-      <|> parens ((,) <$> some (ident termid) <* colon <*> annotation)
+binding = (, anyType) <$> some (ident termIdent)
+      <|> parens ((,) <$> some (ident termIdent) <* colon <*> annotation)
 
 bindings :: (Monad m, TokenParsing m) => m [(String, Ann)]
 bindings = concatMap (\(l,a) -> (,a) <$> l) <$> some binding

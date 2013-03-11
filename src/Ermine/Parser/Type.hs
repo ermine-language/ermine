@@ -10,8 +10,7 @@
 -- This module provides the parser for types
 --------------------------------------------------------------------
 module Ermine.Parser.Type
-  ( tid
-  , Ann
+  ( Ann
   , Typ
   , typ
   , annotation
@@ -19,41 +18,30 @@ module Ermine.Parser.Type
 
 import Bound
 import Control.Applicative
-import Control.Lens hiding (op)
 -- import Data.HashSet as HashSet
 import Data.List (elemIndex)
 import Data.Set as Set
 import Data.Maybe
 import Ermine.Builtin.Type
-import Ermine.Parser.Keywords
 import Ermine.Parser.Kind
+import Ermine.Parser.Style
 import Ermine.Syntax
 import Ermine.Syntax.Kind as Kind hiding (Var, constraint)
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Text.Parser.Token.Style
 
 type Ann = Annot (Maybe String) String
 type Typ = Type (Maybe String) String
-
--- | The internal token style used for type variables
-tid :: TokenParsing m => IdentifierStyle m
-tid = haskellIdents
-  & styleName  .~ "type variable"
-  & styleReserved .~ keywords
-
-op :: TokenParsing m => IdentifierStyle m
-op = haskellOps
 
 banana :: (Monad m, TokenParsing m) => m a -> m a
 banana p = reserve op "(|" *> p <* reserve op "|)"
 
 -- | Parse an atomic type
 typ0 :: (Monad m, TokenParsing m) => m Typ
-typ0 = Var <$> ident tid
-   <|> banana ( Var <$ reserve op ".." <*> ident tid
-            <|> concreteRho . Set.fromList <$> sepBy (ident tid) comma -- TODO: check for collisions
+typ0 = Var <$> ident typeIdent
+   <|> banana ( Var <$ reserve op ".." <*> ident typeIdent
+            <|> concreteRho . Set.fromList <$> sepBy (ident typeIdent) comma -- TODO: check for collisions
               )
    <|> parens ( arrow <$ reserve op "->"
             <|> tuple . (+1) . length <$> some comma
@@ -72,8 +60,8 @@ typ2 = chainr1 typ1 ((~~>) <$ symbol "->")
 --   typVarBinding ::= ( ident : kind )
 --                   | ident
 typVarBinding :: (Monad m, TokenParsing m) => m ([String], Kind (Maybe String))
-typVarBinding = flip (,) unk <$> some (ident tid)
-            <|> parens ((,) <$> some (ident tid) <* colon <*> (fmap Just <$> kind))
+typVarBinding = flip (,) unk <$> some (ident typeIdent)
+            <|> parens ((,) <$> some (ident typeIdent) <* colon <*> (fmap Just <$> kind))
  where
  unk = pure $ Nothing
 
@@ -91,7 +79,7 @@ typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBindin
 --                   | typVarBindings
 --                   | {kindVars} typVarBindings
 quantBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
-quantBindings = optional (braces (some (ident tid))) >>= \mks -> case mks of
+quantBindings = optional (braces (some (ident typeIdent))) >>= \mks -> case mks of
   Just ks -> (,) ks . fromMaybe [] <$> optional typVarBindings
   Nothing -> (,) [] <$> typVarBindings
 
@@ -113,7 +101,7 @@ constraint =
       buildE <$ symbol "exists" <*> quantBindings <* dot <*> constraint
   <|> parens constraints
   -- Single constraints
-  <|> Var <$> ident tid
+  <|> Var <$> ident typeIdent
  where buildE (kvs, tvks) body = exists (Just <$> kvs) tvks body
 
 -- | Parses an optional constraint context, followed by an arrow if necessary.
