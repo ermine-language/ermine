@@ -23,6 +23,7 @@ import Ermine.Syntax
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
+import Ermine.Syntax.Kind (star)
 import Ermine.Syntax.Type hiding (Var, App, Tuple)
 import qualified Ermine.Syntax.Type as Type
 import Text.Parser.Combinators
@@ -32,7 +33,7 @@ import Text.Parser.Token.Style
 type Tm = Term Ann String
 
 anyType :: Ann
-anyType = Annot 1 . Scope . Type.Var $ B 0
+anyType = Annot [star] . Scope . Type.Var $ B 0
 
 -- | The internal token style used for type variables
 termid :: TokenParsing m => IdentifierStyle m

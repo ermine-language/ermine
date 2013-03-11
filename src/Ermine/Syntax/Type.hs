@@ -579,10 +579,10 @@ abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
  tv _ = B <$> (_2 <<%= (+1))
 
 -- | A type annotation
-data Annot k a = Annot {-# UNPACK #-} !Int !(Scope Int (Type k) a) deriving Show
+data Annot k a = Annot [Kind k] !(Scope Int (Type k) a) deriving Show
 
 instance Functor (Annot k) where
-  fmap f (Annot n b) = Annot n (fmap f b)
+  fmap f (Annot ks b) = Annot ks (fmap f b)
   {-# INLINE fmap #-}
 
 instance Foldable (Annot k) where
@@ -590,7 +590,7 @@ instance Foldable (Annot k) where
   {-# INLINE foldMap #-}
 
 instance Traversable (Annot k) where
-  traverse f (Annot n b) = Annot n <$> traverse f b
+  traverse f (Annot ks b) = Annot ks <$> traverse f b
   {-# INLINE traverse #-}
 
 instance Bifunctor Annot where
@@ -602,7 +602,8 @@ instance Bifoldable Annot where
   {-# INLINE bifoldMap #-}
 
 instance Bitraversable Annot where
-  bitraverse f g (Annot n b) = Annot n <$> bitraverseScope f g b
+  bitraverse f g (Annot ks b) =
+    Annot <$> traverse (traverse f) ks <*> bitraverseScope f g b
   {-# INLINE bitraverse #-}
 
 instance HasKindVars (Annot k a) (Annot k' a) k k' where
@@ -615,48 +616,61 @@ instance HasTypeVars (Annot k a) (Annot k a') a a' where
 
 -- | Binary serialization of annotations.
 putAnnot :: (k -> Put) -> (t -> Put) -> Annot k t -> Put
-putAnnot pk pt (Annot n s) = put n *> putScope put (putType pk) pt s
+putAnnot pk pt (Annot ks s) =
+  putMany (putKind pk) ks *> putScope put (putType pk) pt s
 
 -- | Binary deserialization of annotations.
 getAnnot :: Get k -> Get t -> Get (Annot k t)
-getAnnot gk gt = Annot <$> get <*> getScope get (getType gk) gt
+getAnnot gk gt = Annot <$> getMany (getKind gk) <*> getScope get (getType gk) gt
 
 instance (Binary k, Binary t) => Binary (Annot k t) where
   put = putAnnot put put
   get = getAnnot get get
 
 annot :: Type k a -> Annot k a
-annot = Annot 0 . lift
+annot = Annot [] . lift
 {-# INLINE annot #-}
 
 instance Fun (Annot k) where
   fun = prism hither yon
     where
-    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
-      let Scope t' = mapBound (+n) t
+    hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
+      let Scope t' = mapBound (+ length ks) t
       in Scope (s ~> t')
-    yon t@(Annot n s) = case fromScope s of
-      App (App (HardType Arrow) l) r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
-        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
-        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
-        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
-        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
-        _                               -> Left t
+    yon t@(Annot ks s) = case fromScope s of
+      App (App (HardType Arrow) l) r ->
+        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+          (Nothing, Nothing) ->
+            Right (Annot [] (toScope l), Annot [] (toScope r))
+          (Nothing, Just 0)  ->
+            Right (Annot [] (toScope l), Annot ks (toScope r))
+          (Just m, Nothing)  | length ks == m + 1 ->
+            Right (Annot ks (toScope l), Annot [] (toScope r))
+          (Just m, Just o)   | m == o - 1 ->
+            let (ls, rs) = splitAt o ks in
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+          _                               -> Left t
       _                                 -> Left t
 
 instance App (Annot k) where
   app = prism hither yon
     where
-    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
-      let Scope t' = mapBound (+n) t
+    hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
+      let Scope t' = mapBound (+ length ks) t
       in Scope (App s t')
-    yon t@(Annot n s) = case fromScope s of
-      App l r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
-        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
-        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
-        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
-        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
-        _                               -> Left t
+    yon t@(Annot ks s) = case fromScope s of
+      App l r ->
+        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+          (Nothing, Nothing) ->
+            Right (Annot [] (toScope l), Annot [] (toScope r))
+          (Nothing, Just 0) ->
+            Right (Annot [] (toScope l), Annot ks (toScope r))
+          (Just m, Nothing) | length ks == m + 1 ->
+            Right (Annot ks (toScope l), Annot [] (toScope r))
+          (Just m, Just o) | m == o - 1 ->
+            let (ls, rs) = splitAt o ks in
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+          _                               -> Left t
       _                                 -> Left t
 
 instance Variable (Annot k) where

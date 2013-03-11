@@ -143,7 +143,8 @@ anyTyp :: (Monad m, TokenParsing m) => m Typ
 anyTyp = typ
 
 annotation :: (Monad m, TokenParsing m) => m Ann
-annotation = build <$> optional (symbol "some" *> some (ident tid) <* dot) <*> typ
+annotation = build <$> optional (symbol "some" *> typVarBindings <* dot) <*> typ
  where
- build Nothing   t = annot t
- build (Just vs) t = Annot (length vs) (abstract (`elemIndex` vs) t)
+ build Nothing    t = annot t
+ build (Just vks) t = Annot ks (abstract (`elemIndex` vs) t)
+  where (vs, ks) = unzip vks
