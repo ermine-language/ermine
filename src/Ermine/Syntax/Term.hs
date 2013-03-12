@@ -233,4 +233,3 @@ instance HasTermVars s t a b => HasTermVars (IntMap s) (IntMap t) a b where
 
 instance HasTermVars s t a b => HasTermVars (Map k s) (Map k t) a b where
   termVars = traverse.termVars
-
