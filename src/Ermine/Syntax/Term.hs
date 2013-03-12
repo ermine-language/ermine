@@ -114,7 +114,7 @@ data Term t a
   | App !(Term t a) !(Term t a)
   | HardTerm !HardTerm
   | Sig !(Term t a) t
-  | Lam !(Pat t) !(Scope Int (Term t) a)
+  | Lam [Pat t] !(Scope Int (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Int (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to where the term came from
@@ -164,7 +164,7 @@ instance Bitraversable Term where
   bitraverse f g  t0 = tm t0 where
     tm (Var a)        = Var <$> g a
     tm (Sig e t)      = Sig <$> tm e <*> f t
-    tm (Lam p b)      = Lam <$> traverse f p <*> bitraverseScope f g b
+    tm (Lam ps b)     = Lam <$> traverse (traverse f) ps <*> bitraverseScope f g b
     tm (HardTerm t)   = pure (HardTerm t)
     tm (App l r)      = App <$> tm l <*> tm r
     tm (Loc r b)      = Loc r <$> tm b
@@ -185,7 +185,7 @@ bindTerm _ g (Var a)   = g a
 bindTerm f g (App l r) = App (bindTerm f g l) (bindTerm f g r)
 bindTerm f g (Sig e t) = Sig (bindTerm f g e) (f t)
 bindTerm _ _ (HardTerm t) = HardTerm t
-bindTerm f g (Lam p (Scope b)) = Lam (f <$> p) (Scope (bimap f (fmap (bindTerm f g)) b))
+bindTerm f g (Lam ps (Scope b)) = Lam (fmap f <$> ps) (Scope (bimap f (fmap (bindTerm f g)) b))
 bindTerm f g (Loc r b) = Loc r (bindTerm f g b)
 bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)

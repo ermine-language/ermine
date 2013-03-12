@@ -20,8 +20,10 @@ import Ermine.Console.State
 import Ermine.Inference.Kind
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
+import Ermine.Parser.Term
 import Ermine.Pretty
 import Ermine.Pretty.Kind
+import Ermine.Pretty.Type
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
@@ -97,14 +99,26 @@ commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
-  , cmd "ukind" & desc .~ "show the internal representation of a kind schema" & body .~ parsing kind (liftIO . print . Kind.general)
-  , cmd "utype" & desc .~ "show the internal representation of a type" & body .~ parsing typ (liftIO . print . fst . Type.abstractAll)
-  , cmd "pkind" & desc .~ "show the pretty printed representation of a kind schema"
-    & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
---   , cmd "ptype" & desc .~ "show the pretty printed representation of a kind schema"
---     & body .~ parsing typ (\s -> prettyType (Type.general s) names (-1) (\_ _ -> pure (text "?")) absurd >>= sayLn)
+  , cmd "ukind"
+      & desc .~ "show the internal representation of a kind schema"
+      & body .~ parsing kind (liftIO . print . Kind.general)
+  , cmd "utype"
+      & desc .~ "show the internal representation of a type"
+      & body .~ parsing typ (liftIO . print . fst . Type.abstractAll)
+  , cmd "pkind"
+      & desc .~ "show the pretty printed representation of a kind schema"
+      & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
+  , cmd "ptype"
+      & desc .~ "show the pretty printed representation of a type schema"
+      & body .~ parsing typ (\s ->
+                  uncurry prettyTypeSchema (abstractAll s) names
+                          (\_ _ -> pure (text "?")) absurd
+                    >>= sayLn)
   , cmd "kind" & desc .~ "infer the kind of a type"
-    & body .~ parsing typ kindBody
+      & body .~ parsing typ kindBody
+  , cmd "uterm"
+      & desc .~ "show the internal representation of a term"
+      & body .~ parsing term (liftIO . print)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
 
   ]

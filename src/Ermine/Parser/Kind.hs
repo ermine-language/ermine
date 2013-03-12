@@ -14,30 +14,22 @@ module Ermine.Parser.Kind
   ) where
 
 import Control.Applicative
-import Control.Lens
-import Ermine.Parser.Keywords
+import Ermine.Parser.Style
 import Ermine.Syntax.Kind
 import Text.Parser.Combinators
 import Text.Parser.Token
-import Text.Parser.Token.Style
-
--- | The internal token style used for kind variables
-kid :: TokenParsing m => IdentifierStyle m
-kid = haskellIdents
-  & styleName  .~ "kind variable"
-  & styleReserved .~ keywords
 
 -- | Parse an atomic kind (everything but arrows)
 kind0 :: (Monad m, TokenParsing m) => m (Kind String)
 kind0 = parens kind
     <|> star <$ symbol "*"
-    <|> rho <$ reserve kid "rho"
-    <|> rho <$ reserve kid "ρ"
-    <|> phi <$ reserve kid "phi"
-    <|> phi <$ reserve kid "φ"
-    <|> constraint <$ reserve kid "constraint"
-    <|> constraint <$ reserve kid "Γ"
-    <|> Var <$> ident kid
+    <|> rho <$ reserve kindIdent "rho"
+    <|> rho <$ reserve kindIdent "ρ"
+    <|> phi <$ reserve kindIdent "phi"
+    <|> phi <$ reserve kindIdent "φ"
+    <|> constraint <$ reserve kindIdent "constraint"
+    <|> constraint <$ reserve kindIdent "Γ"
+    <|> Var <$> ident kindIdent
 
 -- | Parse a 'Kind'.
 kind :: (Monad m, TokenParsing m) => m (Kind String)

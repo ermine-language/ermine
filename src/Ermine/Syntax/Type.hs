@@ -28,6 +28,8 @@ module Ermine.Syntax.Type
   , allConstraints
   , (~~>)
   , isTrivialConstraint
+  , putType
+  , getType
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -45,6 +47,8 @@ module Ermine.Syntax.Type
   -- * Type Annotations
   , Annot(..)
   , annot
+  , putAnnot
+  , getAnnot
   ) where
 
 import Bound
@@ -53,9 +57,10 @@ import Bound.Var
 import Control.Lens
 import Control.Applicative
 import Control.Monad.Trans
-import Control.Monad.State
+import Control.Monad.State hiding (put, get)
 import Data.Bifunctor
 import Data.Bifoldable
+import Data.Binary as Binary
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Ord (comparing)
@@ -85,6 +90,20 @@ data HardType
   | Con !Global !(Schema Void)
   | ConcreteRho !(Set FieldName)
   deriving (Eq, Ord, Show)
+
+instance Binary HardType where
+  put (Tuple n)       = putWord8 0 *> put n
+  put Arrow           = putWord8 1
+  put (Con g s)       = putWord8 2 *> put g *> putSchema absurd s
+  put (ConcreteRho s) = putWord8 3 *> put s
+
+  get = getWord8 >>= \b -> case b of
+    0 -> Tuple <$> get
+    1 -> pure Arrow
+    2 -> Con <$> get
+             <*> getSchema (fail "getHardType: getting schema with variables")
+    3 -> ConcreteRho <$> get
+    _ -> fail $ "getHardType: unexpected constructor tag: " ++ show b
 
 {-
 bananas :: Doc a -> Doc a
@@ -426,10 +445,64 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
+putMany :: (k -> Put) -> [k] -> Put
+putMany p ls = put (length ls) *> traverse_ p ls
+
+getMany :: Get k -> Get [k]
+getMany g = get >>= \n -> replicateM n g
+
+-- | Binary serialization of a 'Type', given serializers for its two
+-- parameters.
+putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
+putType _  pt (Var v)              = putWord8 0 *> pt v
+putType _  _  (HardType h)         = putWord8 1 *> put h
+putType pk pt (Loc r t)            = putWord8 2 *> putType pk pt t -- TODO: r
+putType pk pt (App f x)            =
+  putWord8 3 *> putType pk pt f *> putType pk pt x
+putType pk pt (Forall n ks c body) =
+  putWord8 4 *> put n *>
+  putMany (putScope put putKind pk) ks *>
+  putScope put (putTK pk) pt c *>
+  putScope put (putTK pk) pt body
+putType pk pt (Exists n ks body)   =
+  putWord8 5 *> put n *>
+  putMany (putScope put putKind pk) ks *>
+  putScope put (putTK pk) pt body
+putType pk pt (And ls)             =
+  putWord8 6 *> putMany (putType pk pt) ls
+
+-- | Binary deserialization of a 'Type', given deserializers for its two
+-- parameters. This function makes no effort to fix up broken invariants in
+-- the serialized type, so a post-processor should be used if the binary
+-- wasn't produced from a canonical 'Type'.
+getType :: Get k -> Get t -> Get (Type k t)
+getType gk gt = getWord8 >>= \b -> case b of
+  0 -> Var <$> gt
+  1 -> HardType <$> get
+  2 -> Loc undefined <$> getType gk gt
+  3 -> App <$> getType gk gt <*> getType gk gt
+  4 -> Forall <$> get <*> getMany (getScope get getKind gk)
+              <*> getScope get (getTK gk) gt
+              <*> getScope get (getTK gk) gt
+  5 -> Exists <$> get <*> getMany (getScope get getKind gk)
+              <*> getScope get (getTK gk) gt
+  6 -> And <$> getMany (getType gk gt)
+  _ -> fail $ "getType: Unexpected constructor tag: " ++ show b
+
+instance (Binary k, Binary t) => Binary (Type k t) where
+  put = putType put put
+  get = getType get get
+
 -- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
 -- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
 -- relative to the extra effort.
 type TK k = Type (Var Int k)
+
+putTK :: (k -> Put) -> (t -> Put) -> TK k t -> Put
+putTK pk = putType (putVar put pk)
+
+getTK :: Get k -> Get t -> Get (TK k t)
+getTK gk = getType (getVar get gk)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
@@ -506,10 +579,10 @@ abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
  tv _ = B <$> (_2 <<%= (+1))
 
 -- | A type annotation
-data Annot k a = Annot {-# UNPACK #-} !Int !(Scope Int (Type k) a)
+data Annot k a = Annot [Kind k] !(Scope Int (Type k) a) deriving Show
 
 instance Functor (Annot k) where
-  fmap f (Annot n b) = Annot n (fmap f b)
+  fmap f (Annot ks b) = Annot ks (fmap f b)
   {-# INLINE fmap #-}
 
 instance Foldable (Annot k) where
@@ -517,7 +590,7 @@ instance Foldable (Annot k) where
   {-# INLINE foldMap #-}
 
 instance Traversable (Annot k) where
-  traverse f (Annot n b) = Annot n <$> traverse f b
+  traverse f (Annot ks b) = Annot ks <$> traverse f b
   {-# INLINE traverse #-}
 
 instance Bifunctor Annot where
@@ -529,7 +602,8 @@ instance Bifoldable Annot where
   {-# INLINE bifoldMap #-}
 
 instance Bitraversable Annot where
-  bitraverse f g (Annot n b) = Annot n <$> bitraverseScope f g b
+  bitraverse f g (Annot ks b) =
+    Annot <$> traverse (traverse f) ks <*> bitraverseScope f g b
   {-# INLINE bitraverse #-}
 
 instance HasKindVars (Annot k a) (Annot k' a) k k' where
@@ -540,38 +614,63 @@ instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
+-- | Binary serialization of annotations.
+putAnnot :: (k -> Put) -> (t -> Put) -> Annot k t -> Put
+putAnnot pk pt (Annot ks s) =
+  putMany (putKind pk) ks *> putScope put (putType pk) pt s
+
+-- | Binary deserialization of annotations.
+getAnnot :: Get k -> Get t -> Get (Annot k t)
+getAnnot gk gt = Annot <$> getMany (getKind gk) <*> getScope get (getType gk) gt
+
+instance (Binary k, Binary t) => Binary (Annot k t) where
+  put = putAnnot put put
+  get = getAnnot get get
+
 annot :: Type k a -> Annot k a
-annot = Annot 0 . lift
+annot = Annot [] . lift
 {-# INLINE annot #-}
 
 instance Fun (Annot k) where
   fun = prism hither yon
     where
-    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
-      let Scope t' = mapBound (+n) t
+    hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
+      let Scope t' = mapBound (+ length ks) t
       in Scope (s ~> t')
-    yon t@(Annot n s) = case fromScope s of
-      App (App (HardType Arrow) l) r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
-        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
-        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
-        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
-        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
-        _                               -> Left t
+    yon t@(Annot ks s) = case fromScope s of
+      App (App (HardType Arrow) l) r ->
+        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+          (Nothing, Nothing) ->
+            Right (Annot [] (toScope l), Annot [] (toScope r))
+          (Nothing, Just 0)  ->
+            Right (Annot [] (toScope l), Annot ks (toScope r))
+          (Just m, Nothing)  | length ks == m + 1 ->
+            Right (Annot ks (toScope l), Annot [] (toScope r))
+          (Just m, Just o)   | m == o - 1 ->
+            let (ls, rs) = splitAt o ks in
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+          _                               -> Left t
       _                                 -> Left t
 
 instance App (Annot k) where
   app = prism hither yon
     where
-    hither (Annot n (Scope s), Annot m t) = Annot (n + m) $
-      let Scope t' = mapBound (+n) t
+    hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
+      let Scope t' = mapBound (+ length ks) t
       in Scope (App s t')
-    yon t@(Annot n s) = case fromScope s of
-      App l r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
-        (Nothing, Nothing)              -> Right (Annot 0 (toScope l), Annot 0 (toScope r))
-        (Nothing, Just 0)               -> Right (Annot 0 (toScope l), Annot n (toScope r))
-        (Just m, Nothing)  | n == m + 1 -> Right (Annot n (toScope l), Annot 0 (toScope r))
-        (Just m, Just o)   | m == o - 1 -> Right (Annot (m + 1) (toScope l), Annot (n - o) (toScope (r & mapped.bound -~ o)))
-        _                               -> Left t
+    yon t@(Annot ks s) = case fromScope s of
+      App l r ->
+        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+          (Nothing, Nothing) ->
+            Right (Annot [] (toScope l), Annot [] (toScope r))
+          (Nothing, Just 0) ->
+            Right (Annot [] (toScope l), Annot ks (toScope r))
+          (Just m, Nothing) | length ks == m + 1 ->
+            Right (Annot ks (toScope l), Annot [] (toScope r))
+          (Just m, Just o) | m == o - 1 ->
+            let (ls, rs) = splitAt o ks in
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+          _                               -> Left t
       _                                 -> Left t
 
 instance Variable (Annot k) where

@@ -14,6 +14,7 @@ module Ermine.Pretty.Type
   -- * Pretty Printing Kinds
     prettyHardType
   , prettyType
+  , prettyTypeSchema
   ) where
 
 import Bound
@@ -46,6 +47,9 @@ prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <
 prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
 prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
 prettyType (Var a) _ d _ kt = kt a d
+prettyType (App (App (HardType Arrow) x) y) xs d kk kt =
+  combine <$> prettyType x xs 1 kk kt <*> prettyType y xs 0 kk kt
+ where combine dx dy = parensIf (d > 0) $ dx <+> text "->" <+> dy
 prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
 prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
 prettyType (And cs) xs _ kk kt = go <$> traverse (\c -> prettyType c xs 0 kk kt) cs
@@ -89,3 +93,14 @@ prettyType (Forall n ks cs bdy) xs d kk kt = go
         constrained zs
           | isTrivialConstraint . fromScope $ cs = zs
           | otherwise                            = ds <+> "=>" <+> zs
+
+prettyTypeSchema :: Applicative f
+                 => Scope Int (TK k) a -> (Int, Int)
+                 -> [String] -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
+prettyTypeSchema (Scope s) (kn, tn) vs kk kt = prettyType s vs' 0 kk' kt'
+ where
+ (kvs, (tvs, vs')) = splitAt tn <$> splitAt kn vs
+ kk' (B i) _ = pure . text $ kvs !! i
+ kk' (F k) b = kk k b
+ kt' (B i) _ = pure . text $ tvs !! i
+ kt' (F t) p = prettyType t vs' p kk' kt

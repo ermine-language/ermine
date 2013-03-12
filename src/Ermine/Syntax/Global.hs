@@ -25,6 +25,8 @@ import Control.Applicative
 import Control.Lens
 import Crypto.Classes
 import Crypto.Hash.MD5 as MD5
+import Data.Binary
+import Data.Bits
 import Data.ByteString
 import Data.Data (Data, Typeable)
 import Data.Function (on)
@@ -41,6 +43,42 @@ data Fixity
   | Postfix !Int
   | Idfix
   deriving (Eq,Ord,Show,Read,Data,Typeable)
+
+-- | Packs fixity info into a Word8.
+--
+-- Format:
+-- >  01234567
+-- >  ccaapppp
+-- cc is constructor tag, 0-3
+-- pppp is precedence level, 0-9
+-- aa is associativity tag, 0-2
+packFixity :: Fixity -> Word8
+packFixity Idfix       = 0xC0
+packFixity (Prefix  n) = 0x80 .|. (0x0F .&. fromIntegral n)
+packFixity (Postfix n) = 0x70 .|. (0x0F .&. fromIntegral n)
+packFixity (Infix a n) = packAssoc a .|. (0x0F .&. fromIntegral n)
+ where
+ packAssoc L = 0x00
+ packAssoc R = 0x10
+ packAssoc N = 0x20
+{-# INLINE packFixity #-}
+
+unpackFixity :: Word8 -> Fixity
+unpackFixity w8 = case 0xC0 .&. w8 of
+                    0x00 -> Infix a n
+                    0x40 -> Prefix n
+                    0x80 -> Postfix n
+                    0xC0 -> Idfix
+                    _    -> error "unpackFixity: IMPOSSIBLE"
+ where
+ n = fromIntegral $ 0x0F .&. w8
+ a = case 0x30 .&. w8 of 0x00 -> L ; 0x10 -> R ; 0x20 -> N
+                         _ -> error "unpackFixity: bad associativity"
+{-# INLINE unpackFixity #-}
+
+instance Binary Fixity where
+  put f = putWord8 $ packFixity f
+  get = unpackFixity <$> getWord8
 
 instance Digestable Assoc
 instance Digestable Fixity
@@ -62,6 +100,10 @@ instance Show Global where
             showChar ' ' . showsPrec 11 p .
             showChar ' ' . showsPrec 11 m .
             showChar ' ' . showsPrec 11 n
+
+instance Binary Global where
+  put (Global d f p m n) = put d *> put f *> put p *> put m *> put n
+  get = Global <$> get <*> get <*> get <*> get <*> get
 
 -- | A lens that will read or update the fixity (and compute a new digest)
 globalFixity :: Simple Lens Global Fixity

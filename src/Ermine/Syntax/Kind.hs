@@ -22,6 +22,8 @@ module Ermine.Syntax.Kind
   (
   -- * Kinds
     Kind(..)
+  , getKind
+  , putKind
   -- * Hard Kinds
   , HardKind(..)
   , Kindly(..)
@@ -29,6 +31,8 @@ module Ermine.Syntax.Kind
   , Schema(..)
   , schema
   , general
+  , putSchema
+  , getSchema
   -- * Kind Variables
   , HasKindVars(..)
   ) where
@@ -42,6 +46,7 @@ import Control.Monad.Trans.Class
 import Ermine.Syntax
 import Ermine.Syntax.Scope
 import Prelude.Extras
+import Data.Binary
 import Data.IntMap
 import Data.Foldable
 import Data.String
@@ -81,6 +86,19 @@ class Kindly k where
 
 instance Kindly HardKind where
   hardKind = id
+
+instance Binary HardKind where
+  put Star       = putWord8 0
+  put Constraint = putWord8 1
+  put Rho        = putWord8 2
+  put Phi        = putWord8 3
+
+  get = getWord8 >>= \b -> case b of
+    0 -> return Star
+    1 -> return Constraint
+    2 -> return Rho
+    3 -> return Phi
+    _ -> fail $ "get HardKind: Unexpected constructor code: " ++ show b
 
 ------------------------------------------------------------------------------
 -- Kind
@@ -140,6 +158,28 @@ instance Eq1 Kind
 instance Ord1 Kind
 instance Show1 Kind
 instance Read1 Kind
+
+putKind :: (k -> Put) -> Kind k -> Put
+putKind p = go
+ where
+   go (Var v)      = putWord8 0 *> p v
+   go (k :-> l)    = putWord8 1 *> go k *> go l
+   go (HardKind k) = putWord8 2 *> put k
+{-# INLINE putKind #-}
+
+getKind :: Get k -> Get (Kind k)
+getKind g = go
+ where
+   go = getWord8 >>= \b -> case b of
+     0 -> Var <$> g
+     1 -> (:->) <$> go <*> go
+     2 -> HardKind <$> get
+     _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
+{-# INLINE getKind #-}
+
+instance Binary k => Binary (Kind k) where
+  put = putKind put
+  get = getKind get
 
 ------------------------------------------------------------------------------
 -- HasKindVars
@@ -235,3 +275,15 @@ instance HasKindVars (Schema a) (Schema b) a b where
 
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
+
+putSchema :: (k -> Put) -> Schema k -> Put
+putSchema pk (Schema n body) = put n *> putScope put putKind pk body
+{-# INlINE putSchema #-}
+
+getSchema :: Get k -> Get (Schema k)
+getSchema gk = Schema <$> get <*> getScope get getKind gk
+{-# INLINE getSchema #-}
+
+instance Binary k => Binary (Schema k) where
+  put = putSchema put
+  get = getSchema get
