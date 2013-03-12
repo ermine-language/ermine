@@ -49,3 +49,5 @@ import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Type
 import Ermine.Version
+
+{-# ANN module "HLint: ignore Use import/export shortcut" #-}

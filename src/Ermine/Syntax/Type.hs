@@ -519,7 +519,7 @@ bindTK f = bindType (traverse f) Var
 -- are in any kind of canonical order, so this should not be used unless
 -- that doesn't matter.
 abstractKinds :: (k -> Maybe Int) -> Type k a -> TK k a
-abstractKinds f t = first k t where
+abstractKinds f = first k where
   k y = case f y of
     Just z  -> B z
     Nothing -> F y
@@ -527,7 +527,7 @@ abstractKinds f t = first k t where
 
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
-instantiateKinds k e = bindType go Var e where
+instantiateKinds k = bindType go Var where
   go (B b) = k b
   go (F a) = pure a
 {-# INLINE instantiateKinds #-}

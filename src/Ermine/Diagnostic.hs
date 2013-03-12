@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Diagnostic

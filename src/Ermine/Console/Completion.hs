@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Ermine.Console.Completion
   ( settings
   ) where
@@ -27,7 +26,7 @@ completed :: (String,String) -> Console (String, [Completion])
 completed (ls, rs)
   | ' ' `notElem` ls = completeWith startingKeywordSet (ls, rs)
   | loading rls = completeFilename (ls, rs)
-  | otherwise   = do completeWith keywordSet (ls, rs)
+  | otherwise   = completeWith keywordSet (ls, rs)
   where rls = reverse ls
 
 completeWith :: Set String -> CompletionFunc Console

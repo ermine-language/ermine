@@ -67,7 +67,7 @@ typVarBinding :: (Monad m, TokenParsing m) => m ([String], Kind (Maybe String))
 typVarBinding = flip (,) unk <$> some (ident typeIdent)
             <|> parens ((,) <$> some (ident typeIdent) <* colon <*> (fmap Just <$> kind))
  where
- unk = pure $ Nothing
+ unk = pure Nothing
 
 -- | Parses a series of type var bindings, processing the result to a more
 -- usable format.
@@ -106,7 +106,7 @@ constraint =
   <|> parens constraints
   -- Single constraints
   <|> Var <$> ident typeIdent
- where buildE (kvs, tvks) body = exists (Just <$> kvs) tvks body
+ where buildE (kvs, tvks) = exists (Just <$> kvs) tvks
 
 -- | Parses an optional constraint context, followed by an arrow if necessary.
 --   constraint ::= constraint =>
@@ -124,7 +124,7 @@ typ4 :: (Applicative m, Monad m, TokenParsing m) => m Typ
 typ4 =  build <$ symbol "forall" <*> quantBindings <* dot <*> typ4
     <|> typ3
  where
- build (kvs, tvks) t = forall (Just <$> kvs) tvks (And []) t
+ build (kvs, tvks) = forall (Just <$> kvs) tvks (And [])
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
