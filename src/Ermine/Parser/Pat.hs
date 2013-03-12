@@ -18,10 +18,12 @@ module Ermine.Parser.Pat ( validate
 import Control.Applicative
 import Control.Lens hiding (op)
 import Data.Foldable as Foldable
+import Data.Traversable as Traversable
 import qualified Data.Set as Set
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.Pat
+import Ermine.Syntax.Prim
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -37,14 +39,25 @@ validate ns =
                ns
 
 varP :: (Monad m, TokenParsing m) => m BP
-varP = (go ?? anyType) <$> ident termIdent
-   <|> parens (go <$> ident termIdent <* colon <*> annotation)
- where
- go v ann = ([v], SigP ann)
+varP = ident termIdent <&> \v -> ([v], SigP anyType)
 
 pat0 :: (Monad m, TokenParsing m) => m BP
 pat0 = varP
    <|> ([], WildcardP) <$ symbol "_"
+   <|> parens (fmap tup . sequenceA <$> pats)
+ where
+ tup [p] = p
+ tup ps  = PrimP (Tuple $ length ps) ps
+
+sigp :: (Monad m, TokenParsing m) => m BP
+sigp = f <$> try (ident termIdent <* colon) <*> annotation
+ where f v ann = ([v], SigP ann)
+
+pat1 :: (Monad m, TokenParsing m) => m BP
+pat1 = sigp <|> pat0
+
+pats :: (Monad m, TokenParsing m) => m [BP]
+pats = pat `sepBy` comma
 
 pat :: (Monad m, TokenParsing m) => m BP
-pat = pat0
+pat = pat1
