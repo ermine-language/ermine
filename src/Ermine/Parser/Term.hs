@@ -19,9 +19,12 @@ module Ermine.Parser.Term ( anyType
 import Bound
 import Control.Applicative
 import Control.Lens hiding (op)
+import Control.Monad
 import Data.List (elemIndex)
+import Data.Traversable
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
+import Ermine.Parser.Pat
 import Ermine.Syntax
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Pat
@@ -33,9 +36,6 @@ import Text.Parser.Combinators
 import Text.Parser.Token
 
 type Tm = Term Ann String
-
-anyType :: Ann
-anyType = Annot [star] . Scope . Type.Var $ B 0
 
 -- | Parse an atomic term
 term0 :: (Monad m, TokenParsing m) => m Tm
@@ -52,18 +52,15 @@ term1 = foldl1 App <$> some term0
 term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lam <|> term1
 
-binding :: (Monad m, TokenParsing m) => m ([String], Ann)
-binding = (, anyType) <$> some (ident termIdent)
-      <|> parens ((,) <$> some (ident termIdent) <* colon <*> annotation)
-
-bindings :: (Monad m, TokenParsing m) => m [(String, Ann)]
-bindings = concatMap (\(l,a) -> (,a) <$> l) <$> some binding
+bindings :: (Monad m, TokenParsing m) => m ([String], [Pat Ann])
+bindings = do p@(vs, _) <- sequenceA <$> some pat0
+              validate vs
+              return p
 
 lam :: (Monad m, TokenParsing m) => m Tm
 lam = build <$> try (bindings <* reserve op "->") <*> term
  where
- build [          ] body = body
- build ((v,ann):vs) body = Lam (SigP ann) . abstract (`elemIndex` [v]) $ build vs body
+ build (vs, ps) body = Lam ps $ abstract (`elemIndex` vs) body
 
 literal :: (Monad m, TokenParsing m) => m Tm
 literal = HardTerm . Prim . either (Int . fromIntegral) Double <$> naturalOrDouble
