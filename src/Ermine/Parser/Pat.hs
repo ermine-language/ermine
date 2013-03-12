@@ -12,11 +12,10 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Pat ( validate
-                         , pat0
+                         , pat
                          ) where
 
 import Control.Applicative
-import Control.Monad
 import Control.Lens hiding (op)
 import Data.Foldable as Foldable
 import qualified Data.Set as Set
@@ -46,3 +45,6 @@ varP = (go ?? anyType) <$> ident termIdent
 pat0 :: (Monad m, TokenParsing m) => m BP
 pat0 = varP
    <|> ([], WildcardP) <$ symbol "_"
+
+pat :: (Monad m, TokenParsing m) => m BP
+pat = pat0

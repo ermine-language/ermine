@@ -18,8 +18,6 @@ module Ermine.Parser.Term ( anyType
 
 import Bound
 import Control.Applicative
-import Control.Lens hiding (op)
-import Control.Monad
 import Data.List (elemIndex)
 import Data.Traversable
 import Ermine.Parser.Style
@@ -29,9 +27,6 @@ import Ermine.Syntax
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
-import Ermine.Syntax.Kind (star)
-import Ermine.Syntax.Type hiding (Var, App, Tuple)
-import qualified Ermine.Syntax.Type as Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -53,7 +48,7 @@ term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lam <|> term1
 
 bindings :: (Monad m, TokenParsing m) => m ([String], [Pat Ann])
-bindings = do p@(vs, _) <- sequenceA <$> some pat0
+bindings = do p@(vs, _) <- sequenceA <$> some pat
               validate vs
               return p
 
