@@ -28,12 +28,14 @@ import Data.Semigroup
 import Data.Traversable
 import qualified Data.ByteString.Char8 as Char8
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
+
 bananas :: Doc -> Doc
 bananas xs = text "(|" <> xs <> text "|)"
 
 prettyHardType :: HardType -> Doc
 prettyHardType (Tuple i) = parens (text (replicate (i-1) ','))
-prettyHardType Arrow     = parens ("->")
+prettyHardType Arrow     = parens "->"
 prettyHardType (Con (Global _ Idfix _ _ n) _)       = text (Char8.unpack n)
 prettyHardType (Con (Global _ (Prefix _) _ _ n) _)  = parens ("prefix" <+> text (Char8.unpack n))
 prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text (Char8.unpack n))

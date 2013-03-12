@@ -48,9 +48,9 @@ hyph t = column $ \k -> columns $ \mn ->
       (pr,sf) = (fmap fst *** fmap fst) $ span (\ (_,d) -> k + d < n) $ zip xs ls
       ls = tail $ scanl (\a b -> a + length b) 0 xs
       xs = hyphenate english_US t
-  in if pr == []
+  in if null pr
      then text (concat sf)
-     else if sf == []
+     else if null sf
           then text (concat pr)
           else vsep [text (concat pr) <> char '-', text (concat sf)]
 

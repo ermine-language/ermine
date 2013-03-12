@@ -15,7 +15,7 @@ module Ermine.Syntax
   -- * Application
   , App (..)
   , apps
-  , (#)
+  , ( # )
   -- * Fun
   , Fun(..)
   , (~>)

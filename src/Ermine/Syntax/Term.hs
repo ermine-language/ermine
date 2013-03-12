@@ -161,7 +161,7 @@ instance Bifoldable Term where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Term where
-  bitraverse f g  t0 = tm t0 where
+  bitraverse f g = tm where
     tm (Var a)        = Var <$> g a
     tm (Sig e t)      = Sig <$> tm e <*> f t
     tm (Lam ps b)     = Lam <$> traverse (traverse f) ps <*> bitraverseScope f g b
@@ -233,4 +233,3 @@ instance HasTermVars s t a b => HasTermVars (IntMap s) (IntMap t) a b where
 
 instance HasTermVars s t a b => HasTermVars (Map k s) (Map k t) a b where
   termVars = traverse.termVars
-

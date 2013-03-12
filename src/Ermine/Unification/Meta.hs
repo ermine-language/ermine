@@ -227,7 +227,9 @@ instance Functor Result where
 -- M
 ------------------------------------------------------------------------------
 
+#ifndef HLINT
 type MonadMeta s m = (Applicative m, MonadST m, MonadReader (MetaEnv (World m)) m, World m ~ s)
+#endif
 
 -- | The unification monad provides a 'fresh' variable supply and tracks a current
 -- 'Rendering' to blame for any unification errors.

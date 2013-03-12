@@ -40,7 +40,7 @@ import Text.Trifecta.Result
 data Command = Command
   { _name   :: String
   , _alts   :: [String]
-  , _arg    :: Maybe (String)
+  , _arg    :: Maybe String
   , _tabbed :: Maybe (CompletionFunc Console)
   , _desc   :: String
   , _body   :: String -> Console ()
