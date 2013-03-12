@@ -456,7 +456,7 @@ getMany g = get >>= \n -> replicateM n g
 putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
 putType _  pt (Var v)              = putWord8 0 *> pt v
 putType _  _  (HardType h)         = putWord8 1 *> put h
-putType pk pt (Loc r t)            = putWord8 2 *> putType pk pt t -- TODO: r
+putType pk pt (Loc _ t)            = putWord8 2 *> putType pk pt t -- TODO: r
 putType pk pt (App f x)            =
   putWord8 3 *> putType pk pt f *> putType pk pt x
 putType pk pt (Forall n ks c body) =
