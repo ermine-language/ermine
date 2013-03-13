@@ -45,11 +45,11 @@ banana p = reserve op "(|" *> p <* reserve op "|)"
 typ0 :: (Monad m, TokenParsing m) => m Typ
 typ0 = Var <$> ident typeIdent
    <|> banana ( Var <$ reserve op ".." <*> ident typeIdent
-            <|> concreteRho . Set.fromList <$> sepBy (ident typeIdent) comma -- TODO: check for collisions
+            <|> concreteRho . Set.fromList <$> commaSep (ident typeIdent) -- TODO: check for collisions
               )
    <|> parens ( arrow <$ reserve op "->"
             <|> tuple . (+1) . length <$> some comma
-            <|> tup <$> sepBy anyTyp comma
+            <|> tup <$> commaSep anyTyp
               )
 
 typ1 :: (Monad m, TokenParsing m) => m Typ
@@ -94,7 +94,7 @@ quantBindings = optional (braces (some (ident typeIdent))) >>= \mks -> case mks 
 --   constraints1 ::= constraint , constraints1
 --                  | constraint
 constraints :: (Monad m, TokenParsing m) => m Typ
-constraints = allConstraints <$> sepBy constraint comma
+constraints = allConstraints <$> commaSep constraint
 
 -- | Parser for a context that expects a single constraint.
 --   constraint ::= exists <vs>. constraint

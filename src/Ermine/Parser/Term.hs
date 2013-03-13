@@ -58,7 +58,7 @@ alt = do (vs, p) <- pat
          Alt p (abstract (`elemIndex` vs) body) <$ validate vs
 
 match :: (Monad m, TokenParsing m) => m Tm
-match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (alt `sepBy` semi)
+match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep alt)
 
 term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lam <|> sig
@@ -83,4 +83,4 @@ term :: (Monad m, TokenParsing m) => m Tm
 term = term2
 
 terms :: (Monad m, TokenParsing m) => m [Tm]
-terms = sepBy term comma
+terms = commaSep term

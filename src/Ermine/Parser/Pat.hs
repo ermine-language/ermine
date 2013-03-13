@@ -57,7 +57,7 @@ pat1 :: (Monad m, TokenParsing m) => m BP
 pat1 = sigp <|> pat0
 
 pats :: (Monad m, TokenParsing m) => m [BP]
-pats = pat `sepBy` comma
+pats = commaSep pat
 
 pat :: (Monad m, TokenParsing m) => m BP
 pat = pat1
