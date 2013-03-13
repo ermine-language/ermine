@@ -44,8 +44,14 @@ term0 = Var <$> ident termIdent
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = foldl1 App <$> some term0
 
+sig :: (Monad m, TokenParsing m) => m Tm
+sig = build <$> term1 <*> optional (colon *> annotation)
+ where
+ build tm Nothing  = tm
+ build tm (Just t) = Sig tm t
+
 term2 :: (Monad m, TokenParsing m) => m Tm
-term2 = lam <|> term1
+term2 = lam <|> sig
 
 bindings :: (Monad m, TokenParsing m) => m ([String], [Pat Ann])
 bindings = do p@(vs, _) <- sequenceA <$> some pat
