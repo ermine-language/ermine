@@ -74,7 +74,10 @@ lam = build <$> try (bindings <* reserve op "->") <*> term
  build (vs, ps) body = Lam ps $ abstract (`elemIndex` vs) body
 
 literal :: (Monad m, TokenParsing m) => m Tm
-literal = HardTerm . Prim . either (Int . fromIntegral) Double <$> naturalOrDouble
+literal = HardTerm . Prim <$>
+  (either (Int . fromIntegral) Double <$> naturalOrDouble
+    <|> String <$> stringLiteral
+    <|> Char <$> charLiteral)
 
 term :: (Monad m, TokenParsing m) => m Tm
 term = term2
