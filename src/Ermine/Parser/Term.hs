@@ -42,13 +42,23 @@ term0 = Var <$> ident termIdent
  tup xs  = apps (HardTerm . Prim . Tuple $ length xs) xs
 
 term1 :: (Monad m, TokenParsing m) => m Tm
-term1 = foldl1 App <$> some term0
+term1 = match
+    <|> foldl1 App <$> some term0
 
 sig :: (Monad m, TokenParsing m) => m Tm
 sig = build <$> term1 <*> optional (colon *> annotation)
  where
  build tm Nothing  = tm
  build tm (Just t) = Sig tm t
+
+alt :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
+alt = do (vs, p) <- pat
+         reserve op "->"
+         body <- term
+         Alt p (abstract (`elemIndex` vs) body) <$ validate vs
+
+match :: (Monad m, TokenParsing m) => m Tm
+match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (alt `sepBy` semi)
 
 term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lam <|> sig
