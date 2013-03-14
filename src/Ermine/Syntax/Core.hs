@@ -13,20 +13,12 @@
 module Ermine.Syntax.Core
   (
   -- * Core Terms
-    Core(..)
+    Branch(..)
+  , Core(..)
   , Lit(..)
-  -- * Smart patterns
-  , P
-  , varp
-  , _p
-  , strictp
-  , lazyp
-  , asp
-  , primp
   -- * Smart constructors
   , lam
   , let_
-  , alt
   -- * Common built-in terms
   , cons
   , nil
@@ -41,10 +33,9 @@ import Data.Int
 import Data.List as List
 import Data.Foldable
 import Data.String
-import Data.Vector as Vector hiding (cons)
+import Data.Vector as Vector hiding (cons, length)
 import Ermine.Syntax
 import Ermine.Syntax.Global
-import Ermine.Syntax.Pat
 import Ermine.Syntax.Prim
 import Ermine.Syntax.Scope
 import Prelude.Extras
@@ -111,6 +102,12 @@ instance Num (Core a) where
   signum a     = Prim (prim Idfix "Builtin" "signum") [a]
   fromInteger i = Prim (Int (fromInteger i)) []
 
+data Branch a = Branch { tag :: !Int, body :: Scope Int Core a }
+  deriving (Eq,Show,Functor,Foldable,Traversable)
+
+instance BoundBy Branch Core where
+  boundBy f (Branch n b) = Branch n (boundBy f b)
+
 -- | Core values are the output of the compilation process.
 --
 -- They are terms where the dictionary passing has been made explicit
@@ -119,9 +116,9 @@ data Core a
   = Var a
   | Prim !Prim [Core a]
   | App !(Core a) !(Core a)
-  | Lam !(Pat ()) !(Scope Int Core a)
+  | Lam !Int !(Scope Int Core a)
   | Let [Scope Int Core a] !(Scope Int Core a)
-  | Case !(Core a) [Alt () Core a]
+  | Case !(Core a) (Scope () Core a) [Branch a] -- TODO: IntMap?
   | Dict { supers :: Vector (Core a), slots :: Vector (Scope Int Core a) }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
@@ -149,9 +146,9 @@ instance Monad Core where
   Var a       >>= f = f a
   Prim k xs   >>= f = Prim k ((>>= f) <$> xs)
   App x y     >>= f = App (x >>= f) (y >>= f)
-  Lam p e     >>= f = Lam p (boundBy f e)
+  Lam n e     >>= f = Lam n (boundBy f e)
   Let bs e    >>= f = Let (boundBy f <$> bs) (boundBy f e)
-  Case e as   >>= f = Case (e >>= f) ((>>>= f) <$> as)
+  Case e d as >>= f = Case (e >>= f) (d >>>= f) (boundBy f <$> as)
   Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   LamDict e   >>= f = LamDict (e >>>= f)
   AppDict x y >>= f = AppDict (x >>= f) (y >>= f)
@@ -159,46 +156,15 @@ instance Monad Core where
 instance Eq1 Core
 instance Show1 Core
 
--- | Smart Pattern
-data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
-
--- | A pattern that binds a variable.
-varp :: a -> P a
-varp a = P VarP [a]
-
--- | A wildcard pattern that ignores its argument
-_p :: P a
-_p = P WildcardP []
-
--- | A strict (bang) pattern
-strictp :: P a -> P a
-strictp (P p bs) = P (StrictP p) bs
-
--- | A lazy (irrefutable) pattern
-lazyp :: P a -> P a
-lazyp (P p bs) = P (LazyP p) bs
-
--- | An as @(\@)@ pattern.
-asp :: a -> P a -> P a
-asp a (P p as) = P (AsP p) (a:as)
-
--- | A pattern that matches a primitive expression.
-primp :: Prim -> [P a] -> P a
-primp g ps = P (PrimP g (pattern <$> ps)) (ps >>= bindings)
-
 -- | smart lam constructor
-lam :: Eq a => P a -> Core a -> Core a
-lam (P p as) t = Lam p (abstract (`List.elemIndex` as) t)
+lam :: Eq a => [a] -> Core a -> Core a
+lam as t = Lam (length as) (abstract (`List.elemIndex` as) t)
 
 -- | smart let constructor
 let_ :: Eq a => [(a, Core a)] -> Core a -> Core a
 let_ bs b = Let (abstr . snd <$> bs) (abstr b)
   where vs  = fst <$> bs
         abstr = abstract (`List.elemIndex` vs)
-
--- | smart alt constructor
-alt :: Eq a => P a -> Core a -> Alt () Core a
-alt (P p as) t = Alt p (abstract (`List.elemIndex` as) t)
 
 {-
 letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a
