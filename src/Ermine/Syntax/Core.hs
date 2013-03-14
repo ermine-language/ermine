@@ -102,11 +102,13 @@ instance Num (Core a) where
   signum a     = Prim (prim Idfix "Builtin" "signum") [a]
   fromInteger i = Prim (Int (fromInteger i)) []
 
-data Branch a = Branch { tag :: !Int, body :: Scope Int Core a }
+data Branch a = Labeled { tag :: !Int, body :: Scope Int Core a }
+              | Default {              body :: Scope Int Core a }
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance BoundBy Branch Core where
-  boundBy f (Branch n b) = Branch n (boundBy f b)
+  boundBy f (Default   b) = Default   (boundBy f b)
+  boundBy f (Labeled n b) = Labeled n (boundBy f b)
 
 -- | Core values are the output of the compilation process.
 --
@@ -118,7 +120,7 @@ data Core a
   | App !(Core a) !(Core a)
   | Lam !Int !(Scope Int Core a)
   | Let [Scope Int Core a] !(Scope Int Core a)
-  | Case !(Core a) (Scope () Core a) [Branch a] -- TODO: IntMap?
+  | Case !(Core a) [Branch a] -- TODO: IntMap?
   | Dict { supers :: Vector (Core a), slots :: Vector (Scope Int Core a) }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
@@ -148,7 +150,7 @@ instance Monad Core where
   App x y     >>= f = App (x >>= f) (y >>= f)
   Lam n e     >>= f = Lam n (boundBy f e)
   Let bs e    >>= f = Let (boundBy f <$> bs) (boundBy f e)
-  Case e d as >>= f = Case (e >>= f) (d >>>= f) (boundBy f <$> as)
+  Case e as   >>= f = Case (e >>= f) (boundBy f <$> as)
   Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   LamDict e   >>= f = LamDict (e >>>= f)
   AppDict x y >>= f = AppDict (x >>= f) (y >>= f)
