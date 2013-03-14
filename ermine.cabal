@@ -71,6 +71,7 @@ library
   exposed-modules:
     Ermine
     Ermine.Builtin.Pat
+    Ermine.Builtin.Term
     Ermine.Builtin.Type
     Ermine.Diagnostic
     Ermine.Inference.Kind
@@ -89,7 +90,7 @@ library
     Ermine.Syntax.Global
     Ermine.Syntax.Kind
     Ermine.Syntax.Pat
-    Ermine.Syntax.Prim
+    Ermine.Syntax.Literal
     Ermine.Syntax.Scope
     Ermine.Syntax.Term
     Ermine.Syntax.Type

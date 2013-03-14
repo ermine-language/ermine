@@ -21,7 +21,7 @@ module Ermine
   , module Ermine.Syntax.Global
   , module Ermine.Syntax.Kind
   , module Ermine.Syntax.Pat
-  , module Ermine.Syntax.Prim
+  , module Ermine.Syntax.Literal
   , module Ermine.Syntax.Scope
   , module Ermine.Syntax.Term
   , module Ermine.Syntax.Type
@@ -36,12 +36,12 @@ import Ermine.Diagnostic
 import Ermine.Inference.Kind
 import Ermine.Parser.Kind
 import Ermine.Syntax
-import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam, Prim)
+import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam)
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
 import Ermine.Syntax.Pat
-import Ermine.Syntax.Prim
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term hiding (Var, App, Loc)
 import Ermine.Syntax.Type hiding (Var, App, Loc, Tuple)

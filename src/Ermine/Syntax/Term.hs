@@ -44,9 +44,10 @@ import Data.Map hiding (map)
 import Data.String
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var)
 import Ermine.Syntax.Pat
-import Ermine.Syntax.Prim
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type hiding (App, Loc, Var)
 import Prelude.Extras
@@ -54,16 +55,18 @@ import Prelude.Extras
 
 -- | Simple terms that can be compared with structural equality.
 data HardTerm
-  = Prim Prim
-  | Hole      -- ^ A placeholder that can take any type. Easy to 'Remember'.
+  = Lit Literal
+  | DataCon !Global
+  | Tuple !Int      -- (,,)
+  | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
 
 -- | This class provides a prism to match against or inject a 'HardTerm'.
 class Terminal t where
   hardTerm :: Prism' t HardTerm
 
-  primTerm :: Prim -> t
-  primTerm = review hardTerm . Prim
+  litTerm :: Literal -> t
+  litTerm = review hardTerm . Lit
 
   hole :: t
   hole = review hardTerm Hole

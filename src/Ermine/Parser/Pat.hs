@@ -23,7 +23,7 @@ import qualified Data.Set as Set
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.Pat
-import Ermine.Syntax.Prim
+import Ermine.Syntax.Literal
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -47,7 +47,7 @@ pat0 = varP
    <|> parens (fmap tup . sequenceA <$> pats)
  where
  tup [p] = p
- tup ps  = PrimP (Tuple $ length ps) ps
+ tup ps  = TupP ps
 
 sigp :: (Monad m, TokenParsing m) => m BP
 sigp = f <$> try (ident termIdent <* colon) <*> annotation

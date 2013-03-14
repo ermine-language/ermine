@@ -24,7 +24,8 @@ import Control.Applicative
 import Data.Bitraversable
 import Data.Foldable
 import Data.Traversable
-import Ermine.Syntax.Prim
+import Ermine.Syntax.Global
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 
 -- | Patterns used by 'Term' and 'Core'.
@@ -35,7 +36,9 @@ data Pat t
   | AsP (Pat t)
   | StrictP (Pat t)
   | LazyP (Pat t)
-  | PrimP Prim [Pat t]
+  | LitP Literal
+  | ConP Global [Pat t]
+  | TupP [Pat t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | One alternative of a core expression

@@ -24,7 +24,7 @@ import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
 import Ermine.Parser.Pat
 import Ermine.Syntax
-import Ermine.Syntax.Prim
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
 import Text.Parser.Combinators
@@ -39,7 +39,7 @@ term0 = Var <$> ident termIdent
    <|> parens (tup <$> terms)
  where
  tup [x] = x
- tup xs  = apps (HardTerm . Prim . Tuple $ length xs) xs
+ tup xs  = apps (HardTerm . Tuple $ length xs) xs
 
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match
@@ -74,7 +74,7 @@ lam = build <$> try (bindings <* reserve op "->") <*> term
  build (vs, ps) body = Lam ps $ abstract (`elemIndex` vs) body
 
 literal :: (Monad m, TokenParsing m) => m Tm
-literal = HardTerm . Prim <$>
+literal = HardTerm . Lit <$>
   (either (Int . fromIntegral) Double <$> naturalOrDouble
     <|> String <$> stringLiteral
     <|> Char <$> charLiteral)

@@ -17,15 +17,16 @@ module Ermine.Builtin.Pat ( P(..)
                           , strictp
                           , lazyp
                           , asp
-                          , primp
+                          , conp
                           , alt
                           ) where
 
 import Bound
 import Control.Applicative
 import Data.List as List
+import Ermine.Syntax.Global
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Pat
-import Ermine.Syntax.Prim
 
 -- | Smart Pattern
 data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
@@ -50,9 +51,13 @@ lazyp (P p bs) = P (LazyP p) bs
 asp :: a -> P a -> P a
 asp a (P p as) = P (AsP p) (a:as)
 
--- | A pattern that matches a primitive expression.
-primp :: Prim -> [P a] -> P a
-primp g ps = P (PrimP g (pattern <$> ps)) (ps >>= bindings)
+-- | A pattern that matches a constructor expression.
+conp :: Global -> [P a] -> P a
+conp g ps = P (ConP g (pattern <$> ps)) (ps >>= bindings)
+
+-- | A pattern that matches a literal value
+litp :: Literal -> P a
+litp l = P (LitP l) []
 
 -- | smart alt constructor
 alt :: (Monad f, Eq a) => P a -> f a -> Alt () f a
