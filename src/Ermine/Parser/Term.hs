@@ -16,10 +16,10 @@ module Ermine.Parser.Term ( anyType
                           , terms
                           ) where
 
-import Bound
 import Control.Applicative
-import Data.List (elemIndex)
 import Data.Traversable
+import Ermine.Builtin.Pat
+import Ermine.Builtin.Term
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
 import Ermine.Parser.Pat
@@ -51,27 +51,26 @@ sig = build <$> term1 <*> optional (colon *> annotation)
  build tm Nothing  = tm
  build tm (Just t) = Sig tm t
 
-alt :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
-alt = do (vs, p) <- pat
-         reserve op "->"
-         body <- term
-         Alt p (abstract (`elemIndex` vs) body) <$ validate vs
+branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
+branch = do pp <- pat
+            reserve op "->"
+            body <- term
+            validate pp $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
+            return $ alt pp body
 
 match :: (Monad m, TokenParsing m) => m Tm
-match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep alt)
+match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep branch)
 
 term2 :: (Monad m, TokenParsing m) => m Tm
-term2 = lam <|> sig
+term2 = lambda <|> sig
 
-bindings :: (Monad m, TokenParsing m) => m ([String], [Pat Ann])
-bindings = do p@(vs, _) <- sequenceA <$> some pat
-              validate vs
-              return p
+bindings :: (Monad m, TokenParsing m) => m (Binder String [Pat Ann])
+bindings = do pps <- sequenceA <$> some pat
+              validate pps $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
+              return pps
 
-lam :: (Monad m, TokenParsing m) => m Tm
-lam = build <$> try (bindings <* reserve op "->") <*> term
- where
- build (vs, ps) body = Lam ps $ abstract (`elemIndex` vs) body
+lambda :: (Monad m, TokenParsing m) => m Tm
+lambda = lam <$> try (bindings <* reserve op "->") <*> term
 
 literal :: (Monad m, TokenParsing m) => m Tm
 literal = HardTerm . Lit <$>

@@ -1,4 +1,6 @@
-
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Builtin.Pat
@@ -11,54 +13,80 @@
 -- Smart builders for convenient building of patterns.
 --------------------------------------------------------------------
 
-module Ermine.Builtin.Pat ( P(..)
+module Ermine.Builtin.Pat ( Binder(..)
+                          , P
                           , varp
+                          , sigp
                           , _p
                           , strictp
                           , lazyp
                           , asp
                           , conp
+                          , tupp
+                          , litp
                           , alt
                           ) where
 
 import Bound
 import Control.Applicative
+import Control.Comonad
 import Data.List as List
+import Data.Foldable
+import Data.Traversable
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pat
 
--- | Smart Pattern
-data P a = P { pattern :: Pat (), bindings :: [a] } deriving Show
+data Binder v a = Binder { vars :: [v], item :: a }
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Applicative (Binder v) where
+  pure = Binder []
+  Binder ls f <*> Binder rs x = Binder (ls ++ rs) (f x)
+
+instance Comonad (Binder v) where
+  extract = item
+  extend f b = b { item = f b }
+
+-- | Smart pattern
+type P t v = Binder v (Pat t)
 
 -- | A pattern that binds a variable.
-varp :: a -> P a
-varp a = P VarP [a]
+varp :: v -> P t v
+varp v = Binder [v] VarP
+
+-- | A pattern that binds a variable with a type annotation.
+sigp :: v -> t -> P t v
+sigp v t = Binder [v] $ SigP t
 
 -- | A wildcard pattern that ignores its argument
-_p :: P a
-_p = P WildcardP []
+_p :: P t v
+_p = pure WildcardP
 
 -- | A strict (bang) pattern
-strictp :: P a -> P a
-strictp (P p bs) = P (StrictP p) bs
+strictp :: P t v -> P t v
+strictp = fmap StrictP
 
 -- | A lazy (irrefutable) pattern
-lazyp :: P a -> P a
-lazyp (P p bs) = P (LazyP p) bs
+lazyp :: P t v -> P t v
+lazyp = fmap LazyP
 
 -- | An as @(\@)@ pattern.
-asp :: a -> P a -> P a
-asp a (P p as) = P (AsP p) (a:as)
+asp :: v -> P t v -> P t v
+asp v (Binder vs p) = Binder (v:vs) $ AsP p
 
 -- | A pattern that matches a constructor expression.
-conp :: Global -> [P a] -> P a
-conp g ps = P (ConP g (pattern <$> ps)) (ps >>= bindings)
+conp :: Global -> [P t v] -> P t v
+conp g ps = ConP g <$> sequenceA ps
+
+-- | A tuple pattern
+tupp :: [P t v] -> P t v
+tupp = fmap build . sequenceA where build [p] = p ; build ps = TupP ps
 
 -- | A pattern that matches a literal value
-litp :: Literal -> P a
-litp l = P (LitP l) []
+litp :: Literal -> P t v
+litp = pure . LitP
 
 -- | smart alt constructor
-alt :: (Monad f, Eq a) => P a -> f a -> Alt () f a
-alt (P p as) t = Alt p (abstract (`List.elemIndex` as) t)
+alt :: (Monad f, Eq v) => P t v -> f v -> Alt t f v
+alt (Binder vs p) = Alt p . abstract (`List.elemIndex` vs)

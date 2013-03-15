@@ -11,14 +11,20 @@
 -- Smart builders for convenient building of terms.
 --------------------------------------------------------------------
 
-module Ermine.Builtin.Term (dataCon) where
+module Ermine.Builtin.Term ( lam
+                           , dataCon
+                           ) where
 
+import Bound
 import Data.ByteString.Char8
-import Data.String
+import Data.List as List
 import Ermine.Builtin.Pat
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
+
+lam :: Eq v => Binder v [Pat t] -> Term t v -> Term t v
+lam (Binder vs ps) = Lam ps . abstract (`List.elemIndex` vs)
 
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
 dataCon :: Fixity -> String -> String -> Term t v

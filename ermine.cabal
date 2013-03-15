@@ -118,6 +118,7 @@ library
     bytestring                >= 0.9     && < 0.11,
     crypto-api                >= 0.10.2  && < 0.11,
     cryptohash                >= 0.8.3   && < 0.9,
+    comonad                   >= 3,
     containers                >= 0.3     && < 0.6,
     data-default              >= 0.4     && < 0.6,
     ekg                       >= 0.3     && < 0.4,

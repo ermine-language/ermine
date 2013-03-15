@@ -13,51 +13,44 @@
 
 module Ermine.Parser.Pat ( validate
                          , pat
+                         , PP
                          ) where
 
 import Control.Applicative
 import Control.Lens hiding (op)
 import Data.Foldable as Foldable
-import Data.Traversable as Traversable
+import Data.Void
 import qualified Data.Set as Set
+import Ermine.Builtin.Pat
 import Ermine.Parser.Style
 import Ermine.Parser.Type
-import Ermine.Syntax.Pat
-import Ermine.Syntax.Literal
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type BP = ([String], Pat Ann)
-
-validate :: (Functor m, Monad m, Parsing m) => [String] -> m ()
-validate ns =
-  () <$ foldlM (\s n ->
-                 if n `Set.member` s
-                   then unexpected $ "duplicate bindings in pattern for: " ++ n
-                   else return $ Set.insert n s)
+validate :: (Functor m, Monad m, Ord v) => Binder v a -> (v -> m Void) -> m ()
+validate b e =
+  () <$ foldlM (\s n -> if n `Set.member` s then vacuous $ e n else return $ Set.insert n s)
                Set.empty
-               ns
+               (vars b)
 
-varP :: (Monad m, TokenParsing m) => m BP
-varP = ident termIdent <&> \v -> ([v], SigP anyType)
+type PP = P Ann String
 
-pat0 :: (Monad m, TokenParsing m) => m BP
+varP :: (Monad m, TokenParsing m) => m PP
+varP = ident termIdent <&> sigp ?? anyType
+
+pat0 :: (Monad m, TokenParsing m) => m PP
 pat0 = varP
-   <|> ([], WildcardP) <$ symbol "_"
-   <|> parens (fmap tup . sequenceA <$> pats)
- where
- tup [p] = p
- tup ps  = TupP ps
+   <|> _p <$ symbol "_"
+   <|> parens (tupp <$> pats)
 
-sigp :: (Monad m, TokenParsing m) => m BP
-sigp = f <$> try (ident termIdent <* colon) <*> annotation
- where f v ann = ([v], SigP ann)
+sigP :: (Monad m, TokenParsing m) => m PP
+sigP = sigp <$> try (ident termIdent <* colon) <*> annotation
 
-pat1 :: (Monad m, TokenParsing m) => m BP
-pat1 = sigp <|> pat0
+pat1 :: (Monad m, TokenParsing m) => m PP
+pat1 = sigP <|> pat0
 
-pats :: (Monad m, TokenParsing m) => m [BP]
+pats :: (Monad m, TokenParsing m) => m [PP]
 pats = commaSep pat
 
-pat :: (Monad m, TokenParsing m) => m BP
+pat :: (Monad m, TokenParsing m) => m PP
 pat = pat1
