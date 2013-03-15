@@ -19,6 +19,7 @@ import Bound
 import Data.ByteString.Char8
 import Data.List as List
 import Ermine.Builtin.Pat
+import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term
@@ -29,4 +30,3 @@ lam (Binder vs ps) = Lam ps . abstract (`List.elemIndex` vs)
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
 dataCon :: Fixity -> String -> String -> Term t v
 dataCon f m n = HardTerm . DataCon $ global f (pack "ermine") (pack m) (pack n)
-

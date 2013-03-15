@@ -19,6 +19,9 @@ module Ermine.Syntax
   -- * Fun
   , Fun(..)
   , (~>)
+  -- * Tup
+  , Tup(..)
+  , tup
   ) where
 
 import Control.Lens
@@ -82,3 +85,15 @@ infixr 0 ~>
 -- | Provide ad hoc overloading of function arrows.
 (~>) :: Fun t => t a -> t a -> t a
 (~>) = curry (review fun)
+
+--------------------------------------------------------------------
+-- Tup
+--------------------------------------------------------------------
+
+-- | Discriminable tupling.
+class Tup t where
+  tupled :: Prism' t [t]
+
+-- | Tuple up several tupleable values.
+tup :: Tup t => [t] -> t
+tup = review tupled

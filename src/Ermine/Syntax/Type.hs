@@ -165,6 +165,18 @@ instance App (Type k) where
 
 infixl 9 `App`
 
+-- TODO: lift out foralls
+instance Tup (Type k t) where
+  tupled = prism hither yon
+   where
+   hither l = apps (HardType . Tuple $ length l) l
+   yon original = go [] original
+    where go stk (App f x) = go (x:stk) f
+          go stk (HardType (Tuple n))
+            | length stk == n = Right stk
+          go _   _ = Left original
+
+
 -- | Ermine types, parameterized by their free kind variables and free type variables
 --
 -- For the purposes of type checking and general ease of use, we maintain several
@@ -685,3 +697,4 @@ instance Typical (Annot k a) where
     Var (F (HardType a)) -> Right a
     _                    -> Left t
   {-# INLINE hardType #-}
+

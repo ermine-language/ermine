@@ -16,6 +16,7 @@ module Ermine.Parser.Term ( anyType
                           , terms
                           ) where
 
+import Control.Lens ((??))
 import Control.Applicative
 import Data.Traversable
 import Ermine.Builtin.Pat
@@ -37,19 +38,13 @@ term0 :: (Monad m, TokenParsing m) => m Tm
 term0 = Var <$> ident termIdent
    <|> literal
    <|> parens (tup <$> terms)
- where
- tup [x] = x
- tup xs  = apps (HardTerm . Tuple $ length xs) xs
 
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match
     <|> foldl1 App <$> some term0
 
 sig :: (Monad m, TokenParsing m) => m Tm
-sig = build <$> term1 <*> optional (colon *> annotation)
- where
- build tm Nothing  = tm
- build tm (Just t) = Sig tm t
+sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
 
 branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
 branch = do pp <- pat

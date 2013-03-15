@@ -49,7 +49,7 @@ import Ermine.Syntax.Kind hiding (Var)
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
-import Ermine.Syntax.Type hiding (App, Loc, Var)
+import Ermine.Syntax.Type hiding (App, Loc, Var, Tuple)
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -136,6 +136,16 @@ instance App (Term t) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
+
+instance Tup (Term t a) where
+  tupled = prism hither yon
+   where
+   hither l = apps (HardTerm . Tuple $ length l) l
+   yon original = go [] original
+    where go stk (App f x) = go (x:stk) f
+          go stk (HardTerm (Tuple n))
+            | length stk == n = Right stk
+          go _   _ = Left original
 
 instance Terminal (Term t a) where
   hardTerm = prism HardTerm $ \t -> case t of

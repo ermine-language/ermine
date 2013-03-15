@@ -23,7 +23,6 @@ import Control.Applicative
 import Data.List (elemIndex)
 import Data.Set as Set
 import Data.Maybe
-import Ermine.Builtin.Type
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax

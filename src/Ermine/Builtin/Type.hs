@@ -35,7 +35,6 @@ module Ermine.Builtin.Type
   -- ** Containers
   , list
   , maybe_
-  , tup
   -- ** Type Equality
   , equality
   -- ** Classes
@@ -161,6 +160,10 @@ string = builtin_ "String"
 --
 -- >>> infer (list int)
 -- *
+--
+-- >>> infer (tup [int, list int])
+-- *
+
 list :: Builtin t => t
 list = builtin (star ~> star) "List"
 
@@ -172,13 +175,6 @@ list = builtin (star ~> star) "List"
 -- *
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
-
--- |
--- >>> infer (tup [int, list int])
--- *
-tup :: [Type k t] -> Type k t
-tup [x] = x
-tup xs = apps (tuple (length xs)) xs
 
 -- |
 -- >>> infer equality

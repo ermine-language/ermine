@@ -20,10 +20,12 @@ module Ermine.Syntax.Pat
   ) where
 
 import Bound
+import Control.Lens
 import Control.Applicative
 import Data.Bitraversable
 import Data.Foldable
 import Data.Traversable
+import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
@@ -54,3 +56,6 @@ instance Monad f => BoundBy (Alt t f) f where
 -- | Helper function for traversing both sides of an 'Alt'.
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
+
+instance Tup (Pat t) where
+  tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
