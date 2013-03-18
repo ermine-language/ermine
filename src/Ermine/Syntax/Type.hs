@@ -150,14 +150,14 @@ instance Typical HardType where
   hardType = id
   {-# INLINE hardType #-}
 
-instance Fun (Type k) where
+instance Fun (Type k t) where
   -- TODO: make this preserve invariants about 'Forall'.
   fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
     HardType Arrow `App` l `App` r -> Right (l, r)
     _                              -> Left t
   {-# INLINE fun #-}
 
-instance App (Type k) where
+instance App (Type k t) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
@@ -643,7 +643,7 @@ annot :: Type k a -> Annot k a
 annot = Annot [] . lift
 {-# INLINE annot #-}
 
-instance Fun (Annot k) where
+instance Fun (Annot k t) where
   fun = prism hither yon
     where
     hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
@@ -664,7 +664,7 @@ instance Fun (Annot k) where
           _                               -> Left t
       _                                 -> Left t
 
-instance App (Annot k) where
+instance App (Annot k t) where
   app = prism hither yon
     where
     hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $

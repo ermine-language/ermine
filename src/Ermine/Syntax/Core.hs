@@ -124,7 +124,7 @@ data Core a
 instance IsString a => IsString (Core a) where
   fromString = Var . fromString
 
-instance App Core where
+instance App (Core a) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t

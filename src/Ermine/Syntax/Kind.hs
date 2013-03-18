@@ -114,7 +114,7 @@ data Kind a
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
 
-instance Fun Kind where
+instance Fun (Kind a) where
   fun = prism (uncurry (:->)) $ \t -> case t of
     l :-> r -> Right (l, r)
     _       -> Left t
@@ -211,7 +211,7 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
 
-instance Fun Schema where
+instance Fun (Schema a) where
   fun = prism hither yon
     where
     hither (Schema n (Scope s), Schema m t) = Schema (n + m) $
