@@ -13,6 +13,7 @@
 
 module Ermine.Parser.Pat ( validate
                          , pat
+                         , pat0
                          , PP
                          ) where
 

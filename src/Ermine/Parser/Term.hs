@@ -18,7 +18,10 @@ module Ermine.Parser.Term ( anyType
 
 import Control.Lens ((??))
 import Control.Applicative
-import Data.Traversable
+import Data.Function
+import Data.Either (partitionEithers)
+import Data.List (groupBy)
+import Data.Traversable hiding (mapM)
 import Ermine.Builtin.Pat
 import Ermine.Builtin.Term
 import Ermine.Parser.Style
@@ -78,3 +81,25 @@ term = term2
 
 terms :: (Monad m, TokenParsing m) => m [Tm]
 terms = commaSep term
+
+typeDecl :: (Monad m, TokenParsing m) => m (String, Ann)
+typeDecl = (,) <$> try (ident termIdent) <*> annotation
+
+termDeclClause :: (Monad m, TokenParsing m) => m (String, [PP], Tm)
+termDeclClause = (,,) <$> ident termIdent <*> many pat0 <* reserve op "=" <*> term
+
+declClauses :: (Monad m, TokenParsing m) => m [Either (String, Ann) (String, [PP], Tm)]
+declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause)
+
+decls :: (Monad m, TokenParsing m) => m ([(String, Ann)], [(String, [([PP], Tm)])])
+decls = do (ts, cs) <- partitionEithers <$> declClauses
+           fmap (ts,) . mapM validate $ groupBy ((==) `on` fst3) cs
+ where
+ fst3 (x, _, _) = x
+ tail3 (_, y, z) = (y, z)
+ validate ((name, ps, b):rest)
+   | all pl rest = return (name, (ps, b) : map tail3 rest)
+   | otherwise   =
+     fail $ "Equations for `" ++ name ++ "' have differing numbers of arguments."
+  where pl (_, qs, _) = length ps == length qs
+
