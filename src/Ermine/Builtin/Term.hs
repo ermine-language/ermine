@@ -19,7 +19,6 @@ import Bound
 import Data.ByteString.Char8
 import Data.List as List
 import Ermine.Builtin.Pat
-import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pat
 import Ermine.Syntax.Term

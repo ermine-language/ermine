@@ -24,7 +24,6 @@ import Control.Lens
 import Control.Applicative
 import Data.Bitraversable
 import Data.Foldable
-import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
