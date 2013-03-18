@@ -137,6 +137,7 @@ instance App (Term t a) where
     App l r -> Right (l,r)
     _       -> Left t
 
+instance Tup' (Term t a)
 instance Tup (Term t a) where
   tupled = prism hither yon
    where

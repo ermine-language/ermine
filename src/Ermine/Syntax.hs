@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Syntax
@@ -20,8 +21,8 @@ module Ermine.Syntax
   , Fun(..)
   , (~>)
   -- * Tup
+  , Tup'(..)
   , Tup(..)
-  , tup
   ) where
 
 import Control.Lens
@@ -90,10 +91,14 @@ infixr 0 ~>
 -- Tup
 --------------------------------------------------------------------
 
+-- | Irreversible tupling.
+class Tup' t where
+  tup :: [t] -> t
+
+  default tup :: Tup t => [t] -> t
+  tup = review tupled
+
 -- | Discriminable tupling.
-class Tup t where
+class Tup' t => Tup t where
   tupled :: Prism' t [t]
 
--- | Tuple up several tupleable values.
-tup :: Tup t => [t] -> t
-tup = review tupled

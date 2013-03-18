@@ -29,10 +29,9 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 
--- | Patterns used by 'Term' and 'Core'.
+-- | Patterns used by 'Term'
 data Pat t
-  = VarP
-  | SigP t             -- ^ not used by 'Core'
+  = SigP t
   | WildcardP
   | AsP (Pat t)
   | StrictP (Pat t)
@@ -56,5 +55,6 @@ instance Monad f => BoundBy (Alt t f) f where
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
 
+instance Tup' (Pat t)
 instance Tup (Pat t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p

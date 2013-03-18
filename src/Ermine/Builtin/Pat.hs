@@ -15,14 +15,12 @@
 
 module Ermine.Builtin.Pat ( Binder(..)
                           , P
-                          , varp
                           , sigp
                           , _p
                           , strictp
                           , lazyp
                           , asp
                           , conp
-                          , tupp
                           , litp
                           , alt
                           ) where
@@ -33,6 +31,7 @@ import Control.Comonad
 import Data.List as List
 import Data.Foldable
 import Data.Traversable
+import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pat
@@ -48,12 +47,11 @@ instance Comonad (Binder v) where
   extract = item
   extend f b = b { item = f b }
 
+instance Tup' t => Tup' (Binder v t) where
+  tup = fmap tup . sequenceA
+
 -- | Smart pattern
 type P t v = Binder v (Pat t)
-
--- | A pattern that binds a variable.
-varp :: v -> P t v
-varp v = Binder [v] VarP
 
 -- | A pattern that binds a variable with a type annotation.
 sigp :: v -> t -> P t v
@@ -78,10 +76,6 @@ asp v (Binder vs p) = Binder (v:vs) $ AsP p
 -- | A pattern that matches a constructor expression.
 conp :: Global -> [P t v] -> P t v
 conp g ps = ConP g <$> sequenceA ps
-
--- | A tuple pattern
-tupp :: [P t v] -> P t v
-tupp = fmap build . sequenceA where build [p] = p ; build ps = TupP ps
 
 -- | A pattern that matches a literal value
 litp :: Literal -> P t v

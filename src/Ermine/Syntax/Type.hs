@@ -165,6 +165,7 @@ instance App (Type k t) where
 
 infixl 9 `App`
 
+instance Tup' (Type k t)
 -- TODO: lift out foralls
 instance Tup (Type k t) where
   tupled = prism hither yon

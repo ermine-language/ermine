@@ -24,6 +24,7 @@ import qualified Data.Set as Set
 import Ermine.Builtin.Pat
 import Ermine.Parser.Style
 import Ermine.Parser.Type
+import Ermine.Syntax
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -41,7 +42,7 @@ varP = ident termIdent <&> sigp ?? anyType
 pat0 :: (Monad m, TokenParsing m) => m PP
 pat0 = varP
    <|> _p <$ symbol "_"
-   <|> parens (tupp <$> pats)
+   <|> parens (tup <$> pats)
 
 sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (ident termIdent <* colon) <*> annotation
