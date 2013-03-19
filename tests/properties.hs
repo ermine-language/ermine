@@ -8,10 +8,12 @@
 module Main where
 
 import Control.Applicative
+import Control.Monad
 import Control.Lens
 import Data.Functor.Compose
 import Data.Proxy
 import Ermine.Syntax
+import Ermine.Syntax.Global
 import Test.QuickCheck
 import Test.QuickCheck.Function
 import Test.Framework.TH
@@ -41,6 +43,22 @@ variable _ = isVariable (var :: Prism' (t a) a)
 
 prop_var_list  = variable (Proxy :: Proxy [Int])
 prop_var_maybe = variable (Proxy :: Proxy (Maybe Char))
+
+prop_x = False
+
+instance Arbitrary Assoc where
+  arbitrary     = Test.QuickCheck.elements [L, R, N]
+
+genPrecedence = choose (0, 9) :: Gen Int
+
+instance Arbitrary Fixity where
+    arbitrary = 
+      oneof [ liftM2 Infix   arbitrary genPrecedence,
+              liftM  Prefix  genPrecedence, 
+              liftM  Postfix genPrecedence,
+              return Idfix ]
+
+prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f 
 
 main :: IO ()
 main = $defaultMainGenerator

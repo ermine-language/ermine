@@ -19,6 +19,8 @@ module Ermine.Syntax.Global
   , globalPackage
   , globalModule
   , globalName
+  , unpackFixity
+  , packFixity
   ) where
 
 import Control.Applicative
