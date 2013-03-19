@@ -54,8 +54,8 @@ data Fixity
 -- aa is associativity tag, 0-2
 packFixity :: Fixity -> Word8
 packFixity Idfix       = 0xC0
-packFixity (Prefix  n) = 0x80 .|. (0x0F .&. fromIntegral n)
-packFixity (Postfix n) = 0x70 .|. (0x0F .&. fromIntegral n)
+packFixity (Prefix  n) = 0x40 .|. (0x0F .&. fromIntegral n)
+packFixity (Postfix n) = 0x80 .|. (0x0F .&. fromIntegral n)
 packFixity (Infix a n) = packAssoc a .|. (0x0F .&. fromIntegral n)
  where
  packAssoc L = 0x00
