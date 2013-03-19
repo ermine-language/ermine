@@ -15,15 +15,19 @@
 module Ermine.Parser.Term ( anyType
                           , term
                           , terms
+                          , declarations
+                          , letBlock
                           ) where
 
+import Bound
 import Control.Lens hiding (op)
 import Control.Applicative
 import Control.Comonad
 import Control.Monad.State
 import Data.Function
 import Data.Either (partitionEithers)
-import Data.List (groupBy, find)
+import Data.List (groupBy, find, elemIndex)
+import Data.Monoid
 import Data.Set as Set hiding (map)
 import Data.Foldable (foldrM)
 import Data.Traversable hiding (mapM)
@@ -82,13 +86,16 @@ literal = HardTerm . Lit <$>
     <|> Char <$> charLiteral)
 
 term :: (Monad m, TokenParsing m) => m Tm
-term = term2
+term = letBlock <|> term2
+
+letBlock :: (Monad m, TokenParsing m) => m Tm
+letBlock = let_ <$ symbol "let" <*> braces declarations <* symbol "in" <*> term
 
 terms :: (Monad m, TokenParsing m) => m [Tm]
 terms = commaSep term
 
 typeDecl :: (Monad m, TokenParsing m) => m (String, Ann)
-typeDecl = (,) <$> try (ident termIdent) <*> annotation
+typeDecl = (,) <$> try (ident termIdent <* colon) <*> annotation
 
 termDeclClause :: (Monad m, TokenParsing m) => m (String, Binder String [Pat Ann], Tm)
 termDeclClause = (,,) <$> ident termIdent <*> pat0s <* reserve op "=" <*> term
@@ -107,10 +114,11 @@ type TmDecl = (String, [(Binder String [Pat Ann], Tm)])
 
 decls :: (Monad m, TokenParsing m) => m ([TyDecl], [TmDecl])
 decls = do (ts, cs) <- partitionEithers <$> declClauses
-           fmap (ts,) . mapM validate $ groupBy ((==) `on` (^._1)) cs
+           fmap (ts,) . mapM validateShape $ groupBy ((==) `on` (^._1)) cs
  where
  tail3 (_, y, z) = (y, z)
- validate ((name, ps, b):rest)
+ validateShape [                  ] = error "decl:validateShape: IMPOSSIBLE"
+ validateShape ((name, ps, b):rest)
    | all pl rest = return (name, (ps, b) : map tail3 rest)
    | otherwise   =
      fail $ "Equations for `" ++ name ++ "' have differing numbers of arguments."
@@ -129,13 +137,20 @@ validateDecls tys tms
  tyns = map fst tys
  tmns = map fst tms
 
---bindings :: (Monad m, TokenParsing m) => m [Binding String String]
---bindings = do (tys, tms) <- decls
---              validateDecls tys tms
---              let tmns = map fst tms
--- where
--- mkbody ps b
---   | 
+declarations :: (Monad m, TokenParsing m) => m (Binder String [Binding Ann String])
+declarations = do
+  (tys, tms) <- decls
+  let ns = map fst tms
+      mkbody (Binder vs ps, b) = Body ps $ abstract f b
+       where f x | Just i <- elemIndex x vs = Just (Right i)
+                 | Just i <- elemIndex x ns = Just (Left i)
+                 | otherwise                = Nothing
+      -- TODO: Rendering
+      mkbinding (s, pbs) = Binding mempty (bindType s) $ map mkbody pbs
+      bindType s
+        | Just t <- lookup s tys = Explicit t
+        | otherwise              = Implicit
+  Binder ns (map mkbinding tms) <$ validateDecls tys tms
 
 uncovered :: Ord a => [a] -> [a] -> Maybe a
 uncovered xs ys = find (`Set.notMember` s) ys
