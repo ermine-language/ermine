@@ -165,9 +165,7 @@ instance App (Type k t) where
 
 infixl 9 `App`
 
-instance Tup' (Type k t)
--- TODO: lift out foralls
-instance Tup (Type k t) where
+instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Type k t) where
   tupled = prism hither yon
    where
    hither l = apps (HardType . Tuple $ length l) l

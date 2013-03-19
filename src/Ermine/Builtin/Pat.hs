@@ -1,6 +1,10 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Builtin.Pat
@@ -28,8 +32,11 @@ module Ermine.Builtin.Pat ( Binder(..)
 import Bound
 import Control.Applicative
 import Control.Comonad
+import Control.Lens
+import Control.Lens.Internal.Review
 import Data.List as List
 import Data.Foldable
+import Data.Functor.Identity
 import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -47,8 +54,8 @@ instance Comonad (Binder v) where
   extract = item
   extend f b = b { item = f b }
 
-instance Tup' t => Tup' (Binder v t) where
-  tup = fmap tup . sequenceA
+instance (p ~ Reviewed, f ~ Identity, Tup Reviewed Identity t) => Tup p f (Binder v t) where
+  tupled = unto (fmap tup . sequenceA)
 
 -- | Smart pattern
 type P t v = Binder v (Pat t)
