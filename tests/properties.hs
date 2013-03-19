@@ -10,12 +10,17 @@ module Main where
 import Control.Applicative
 import Control.Monad
 import Control.Lens
+import Data.Binary
+import Data.Binary.Get
+import Data.Binary.Put
+import Data.ByteString
 import Data.Functor.Compose
 import Data.Proxy
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Test.QuickCheck
 import Test.QuickCheck.Function
+import Test.QuickCheck.Instances
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
@@ -57,6 +62,12 @@ instance Arbitrary Fixity where
               return Idfix ]
 
 prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f 
+
+instance Arbitrary Global where
+    arbitrary = liftM4 global arbitrary arbitrary arbitrary arbitrary
+
+prop_pack_unpack_global :: Global -> Bool
+prop_pack_unpack_global g = runGet get (runPut $ put g) == g
 
 main :: IO ()
 main = $defaultMainGenerator

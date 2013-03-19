@@ -191,9 +191,12 @@ test-suite properties
   else
     build-depends:
       base,
+      binary,
+      bytestring,
       ermine,
       lens,
       QuickCheck                 >= 2.4,
+      quickcheck-instances       >= 0.3.1,
       tagged                     >= 0.4.4 && < 0.5,
       test-framework             >= 0.6,
       test-framework-quickcheck2 >= 0.2,
