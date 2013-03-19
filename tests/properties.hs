@@ -44,8 +44,6 @@ variable _ = isVariable (var :: Prism' (t a) a)
 prop_var_list  = variable (Proxy :: Proxy [Int])
 prop_var_maybe = variable (Proxy :: Proxy (Maybe Char))
 
-prop_x = False
-
 instance Arbitrary Assoc where
   arbitrary     = Test.QuickCheck.elements [L, R, N]
 
