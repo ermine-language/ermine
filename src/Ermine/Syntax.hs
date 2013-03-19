@@ -1,4 +1,6 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Syntax
@@ -21,11 +23,13 @@ module Ermine.Syntax
   , Fun(..)
   , (~>)
   -- * Tup
-  , Tup'(..)
   , Tup(..)
+  , tup
   ) where
 
 import Control.Lens
+import Control.Lens.Internal.Review
+import Data.Functor.Identity
 
 --------------------------------------------------------------------
 -- Variable
@@ -92,13 +96,16 @@ infixr 0 ~>
 --------------------------------------------------------------------
 
 -- | Irreversible tupling.
+{-
 class Tup' t where
-  tup :: [t] -> t
 
   default tup :: Tup t => [t] -> t
   tup = review tupled
+-}
 
--- | Discriminable tupling.
-class Tup' t => Tup t where
-  tupled :: Prism' t [t]
+-- | (Possibly) Discriminable tupling.
+class (Reviewable p, Functor f) => Tup p f t where
+  tupled :: Overloaded' p f t [t]
 
+tup :: Tup Reviewed Identity t => [t] -> t
+tup = review tupled

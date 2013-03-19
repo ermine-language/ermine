@@ -137,8 +137,7 @@ instance App (Term t a) where
     App l r -> Right (l,r)
     _       -> Left t
 
-instance Tup' (Term t a)
-instance Tup (Term t a) where
+instance (Choice p, Reviewable p, Applicative f) => Tup p f (Term t a) where
   tupled = prism hither yon
    where
    hither l = apps (HardTerm . Tuple $ length l) l
