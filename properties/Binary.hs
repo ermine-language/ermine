@@ -51,8 +51,16 @@ instance Arbitrary HardKind where
 prop_pack_unpack_hardkind :: HardKind -> Bool
 prop_pack_unpack_hardkind = pack_unpack
 
+instance Arbitrary a => Arbitrary (Kind a) where
+    arbitrary = 
+      oneof [ liftM  Var arbitrary,
+              liftM2 (:->) arbitrary arbitrary,
+              liftM  HardKind arbitrary ]
+
+prop_pack_unpack_kind :: Kind Int -> Bool
+prop_pack_unpack_kind = pack_unpack
+
+
 
 tests = $testGroupGenerator
-
-
 
