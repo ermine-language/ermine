@@ -57,7 +57,7 @@ prop_pack_unpack_hardkind :: HardKind -> Bool
 prop_pack_unpack_hardkind = pack_unpack
 
 instance Arbitrary a => Arbitrary (Kind a) where
-    arbitrary = 
+    arbitrary =
       oneof [ liftM  Var arbitrary,
               liftM2 (:->) arbitrary arbitrary,
               liftM  HardKind arbitrary ]
@@ -68,7 +68,7 @@ prop_pack_unpack_kind = pack_unpack
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
     arbitrary = oneof [ liftM B arbitrary, liftM F arbitrary ]
 
-class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a) 
+class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a)
 
 instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
     arbitrary = Lift1 <$> arbitrary1
