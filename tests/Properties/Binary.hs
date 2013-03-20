@@ -5,7 +5,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module BinaryProperties where
+module Properties.Binary where
 
 import Control.Monad
 import Control.Lens
@@ -27,15 +27,18 @@ instance Arbitrary Assoc where
 genPrecedence = choose (0, 9) :: Gen Int
 
 instance Arbitrary Fixity where
-    arbitrary = 
+    arbitrary =
       oneof [ liftM2 Infix   arbitrary genPrecedence,
-              liftM  Prefix  genPrecedence, 
+              liftM  Prefix  genPrecedence,
               liftM  Postfix genPrecedence,
               return Idfix ]
 
 instance Arbitrary Global where
     arbitrary = liftM4 global arbitrary arbitrary arbitrary arbitrary
 
-prop_pack_unpack_fixity_ f = (unpackFixity . packFixity) f == f
-prop_pack_unpack_global_ :: Global -> Bool
-prop_pack_unpack_global_ g = runGet get (runPut $ put g) == g
+prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f
+
+prop_pack_unpack_global :: Global -> Bool
+prop_pack_unpack_global g = runGet get (runPut $ put g) == g
+
+tests = $testGroupGenerator

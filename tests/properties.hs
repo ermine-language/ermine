@@ -10,19 +10,15 @@ module Main where
 import Test.QuickCheck
 import Test.QuickCheck.Function
 import Test.QuickCheck.Instances
+import Test.Framework
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-import VarProperties
-import BinaryProperties
-
--- from VarProperties
-prop_var_list  = prop_var_list_
-prop_var_maybe = prop_var_maybe_
-
--- from BinaryProperties
-prop_pack_unpack_fixity = prop_pack_unpack_fixity_
-prop_pack_unpack_global = prop_pack_unpack_global_
+import Properties.Var as Var
+import Properties.Binary as Binary
 
 main :: IO ()
-main = $defaultMainGenerator
+main = defaultMain
+  [ Var.tests
+  , Binary.tests
+  ]

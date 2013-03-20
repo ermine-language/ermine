@@ -185,6 +185,9 @@ test-suite properties
   main-is:        properties.hs
   ghc-options:    -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs: tests
+  other-modules:
+    Properties.Binary
+    Properties.Var
 
   if !flag(properties)
     buildable: False
