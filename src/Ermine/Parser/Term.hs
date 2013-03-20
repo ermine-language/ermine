@@ -97,36 +97,38 @@ terms = commaSep term
 typeDecl :: (Monad m, TokenParsing m) => m (String, Ann)
 typeDecl = (,) <$> try (ident termIdent <* colon) <*> annotation
 
-termDeclClause :: (Monad m, TokenParsing m) => m (String, Binder String [Pat Ann], Tm)
+termDeclClause :: (Monad m, TokenParsing m)
+               => m (String, Binder String [Pat Ann], Tm, Where)
 termDeclClause =
-    post <$> ident termIdent <*> pat0s <* reserve op "=" <*> term <*> optional whereClause
+    (,,,) <$> ident termIdent <*> pat0s <* reserve op "=" <*> term <*> whereClause
  where
- post nm ps tm wh = (nm, ps, maybe id (let_) wh tm)
  pat0s = do ps <- sequenceA <$> many pat0
             ps <$ validate ps
                     (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
 
-whereClause :: (Monad m, TokenParsing m) => m (Binder String [Binding Ann String])
-whereClause = symbol "where" *> braces declarations
+type Where = Binder String [Binding Ann String]
+
+whereClause :: (Monad m, TokenParsing m) => m Where
+whereClause = symbol "where" *> braces declarations <|> pure (pure [])
 
 declClauses :: (Monad m, TokenParsing m)
-            => m [Either (String, Ann) (String, Binder String [Pat Ann], Tm)]
+            => m [Either (String, Ann) (String, Binder String [Pat Ann], Tm, Where)]
 declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause)
 
 type TyDecl = (String, Ann)
-type TmDecl = (String, [(Binder String [Pat Ann], Tm)])
+type TmDecl = (String, [(Binder String [Pat Ann], Tm, Where)])
 
 decls :: (Monad m, TokenParsing m) => m ([TyDecl], [TmDecl])
 decls = do (ts, cs) <- partitionEithers <$> declClauses
            fmap (ts,) . mapM validateShape $ groupBy ((==) `on` (^._1)) cs
  where
- tail3 (_, y, z) = (y, z)
+ tail4 (_, x, y, z) = (x, y, z)
  validateShape [                  ] = error "decl:validateShape: IMPOSSIBLE"
- validateShape ((name, ps, b):rest)
-   | all pl rest = return (name, (ps, b) : map tail3 rest)
+ validateShape ((name, ps, b, wh):rest)
+   | all pl rest = return (name, (ps, b, wh) : map tail4 rest)
    | otherwise   =
      fail $ "Equations for `" ++ name ++ "' have differing numbers of arguments."
-  where pl (_, qs, _) = length (extract ps) == length (extract qs)
+  where pl (_, qs, _, _) = length (extract ps) == length (extract qs)
 
 validateDecls :: (Monad m, TokenParsing m) => [TyDecl] -> [TmDecl] -> m ()
 validateDecls tys tms
@@ -145,9 +147,13 @@ declarations :: (Monad m, TokenParsing m) => m (Binder String [Binding Ann Strin
 declarations = do
   (tys, tms) <- decls
   let ns = map fst tms
-      mkbody (Binder vs ps, b) = Body ps $ abstract f b
-       where f x | Just i <- elemIndex x vs = Just (Right i)
-                 | Just i <- elemIndex x ns = Just (Left i)
+      mkbody (Binder vs ps, b, wh) = Body ps (abstract f b) (fmap av <$> extract wh)
+       where ws = vars wh
+             av x | Just i <- elemIndex x vs = B i
+                  | otherwise                = F x
+             f x | Just i <- elemIndex x ws = Just (W i)
+                 | Just i <- elemIndex x vs = Just (P i)
+                 | Just i <- elemIndex x ns = Just (D i)
                  | otherwise                = Nothing
       -- TODO: Rendering
       mkbinding (s, pbs) = Binding mempty (bindType s) $ map mkbody pbs

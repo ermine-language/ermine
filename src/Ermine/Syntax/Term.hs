@@ -27,12 +27,14 @@ module Ermine.Syntax.Term
   , HardTerm(..)
   , Terminal(..)
   -- * Bindings
+  , DeclBound(..)
   , Binding(..)
   , BindingType(..)
   , Body(..)
   ) where
 
 import Bound
+import Bound.Var
 import Control.Lens
 import Control.Applicative
 import Control.Monad (ap)
@@ -80,9 +82,19 @@ data BindingType t
   | Implicit
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | Bound variables in a declaration are rather complicated. One can refer
+-- to any of the following:
+--   1. Definitions in the same declaration sequence
+--   2. Variables bound in a pattern
+--   3. Definitions in a where clause
+-- the 'DeclBound' type captures these three cases in the respective constructors.
+data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read)
+
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
-data Body t a = Body [Pat t] !(Scope (Either Int Int) (Term t) a)
+-- Each Body contains a list of where clause bindings to which the body and
+-- guards can refer.
+data Body t a = Body [Pat t] !(Scope DeclBound (Term t) a) [Binding t (Var Int a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Body where
@@ -92,7 +104,10 @@ instance Bifoldable Body where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Body where
-  bitraverse f g (Body ps ss) = Body <$> traverse (traverse f) ps <*> bitraverseScope f g ss
+  bitraverse f g (Body ps ss wh) =
+    Body <$> traverse (traverse f) ps
+         <*> bitraverseScope f g ss
+         <*> traverse (bitraverse f (traverse g)) wh
 
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
 -- and a list of right hand side bindings.
@@ -205,7 +220,10 @@ bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
 bindTerm f g (Let bs (Scope b)) = Let (bindBinding f g <$> bs) (Scope (bimap f (fmap (bindTerm f g)) b))
 
 bindBody :: (t -> t') -> (a -> Term t' b) -> Body t a -> Body t' b
-bindBody f g (Body ps (Scope b)) = Body (fmap f <$> ps) (Scope (bimap f (fmap (bindTerm f g)) b))
+bindBody f g (Body ps (Scope b) wh) =
+    Body (fmap f <$> ps)
+         (Scope (bimap f (fmap (bindTerm f g)) b))
+         (fmap (bindBinding f (unvar (pure . B) (fmap F . g))) wh)
 
 bindBinding :: (t -> t') -> (a -> Term t' b) -> Binding t a -> Binding t' b
 bindBinding f g (Binding r bt bs) = Binding r (fmap f bt) (bindBody f g <$> bs)
