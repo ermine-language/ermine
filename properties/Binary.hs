@@ -27,6 +27,8 @@ import Test.QuickCheck.Instances
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
+class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a)
+
 instance Arbitrary Assoc where
   arbitrary     = Test.QuickCheck.elements [L, R, N]
 
@@ -62,19 +64,26 @@ instance Arbitrary a => Arbitrary (Kind a) where
               liftM2 (:->) arbitrary arbitrary,
               liftM  HardKind arbitrary ]
 
+instance Arbitrary1 Kind where
+    arbitrary1 = arbitrary
+
 prop_pack_unpack_kind :: Kind Int -> Bool
 prop_pack_unpack_kind = pack_unpack
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
     arbitrary = oneof [ liftM B arbitrary, liftM F arbitrary ]
 
-class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a)
-
 instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
     arbitrary = Lift1 <$> arbitrary1
 
 instance (Arbitrary b,Arbitrary v,Arbitrary1 f,Functor f) => Arbitrary (Scope b f v) where
     arbitrary = Scope . fmap (fmap lower1) <$> arbitrary1
+
+instance (Arbitrary a, Arbitrary1 Kind) => Arbitrary (Schema a) where
+    arbitrary = Schema <$> arbitrary <*> arbitrary
+
+prop_pack_unpack_schema :: Schema Int -> Bool
+prop_pack_unpack_schema = pack_unpack
 
 tests = $testGroupGenerator
 
