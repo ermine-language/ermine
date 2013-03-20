@@ -1,0 +1,1 @@
+import "hint" HLint.Default
