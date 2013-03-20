@@ -11,6 +11,7 @@ module Binary where
 import Bound.Scope
 import Bound.Var
 import Control.Monad
+import Control.Applicative
 import Control.Lens
 import Data.Binary
 import Data.Binary.Get
@@ -68,12 +69,13 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
 
 class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a) 
 
-newtype Fuck f u = Fuck (f u)
+newtype WrapArb f u = WrapArb { unwrapArb :: f u }
 
---instance (Arbitrary1 f, Arbitrary a) => Arbitrary (Fuck f a)
+instance (Arbitrary1 f, Arbitrary u) => Arbitrary (WrapArb f u) where
+    arbitrary = WrapArb <$> arbitrary1
 
---instance (Arbitrary b, Arbitrary v, Arbitrary1 f) => Arbitrary (Scope b f v) where
---    arbitrary = liftM Scope arbitrary1
+instance (Arbitrary b,Arbitrary v,Arbitrary1 f,Functor f) => Arbitrary (Scope b f v) where
+    arbitrary = Scope . fmap (fmap unwrapArb) <$> arbitrary1
 
 tests = $testGroupGenerator
 
