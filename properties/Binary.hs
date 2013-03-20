@@ -15,6 +15,7 @@ import Data.Binary.Put
 import Data.ByteString
 import Ermine.Syntax
 import Ermine.Syntax.Global
+import Ermine.Syntax.Kind
 import Test.QuickCheck
 import Test.QuickCheck.Function
 import Test.QuickCheck.Instances
@@ -33,12 +34,25 @@ instance Arbitrary Fixity where
               liftM  Postfix genPrecedence,
               return Idfix ]
 
+prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f
+
 instance Arbitrary Global where
     arbitrary = liftM4 global arbitrary arbitrary arbitrary arbitrary
 
-prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f
+pack_unpack :: (Binary a, Eq a) => a -> Bool
+pack_unpack a = runGet get (runPut $ put a) == a
 
 prop_pack_unpack_global :: Global -> Bool
-prop_pack_unpack_global g = runGet get (runPut $ put g) == g
+prop_pack_unpack_global = pack_unpack
+
+instance Arbitrary HardKind where
+    arbitrary = oneof $ fmap return [ Star, Constraint, Rho, Phi ]
+
+prop_pack_unpack_hardkind :: HardKind -> Bool
+prop_pack_unpack_hardkind = pack_unpack
+
 
 tests = $testGroupGenerator
+
+
+
