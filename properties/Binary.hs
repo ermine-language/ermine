@@ -2,11 +2,14 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Binary where
 
+import Bound.Scope
+import Bound.Var
 import Control.Monad
 import Control.Lens
 import Data.Binary
@@ -60,7 +63,17 @@ instance Arbitrary a => Arbitrary (Kind a) where
 prop_pack_unpack_kind :: Kind Int -> Bool
 prop_pack_unpack_kind = pack_unpack
 
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
+    arbitrary = oneof [ liftM B arbitrary, liftM F arbitrary ]
 
+class Arbitrary1 f where arbitrary1 :: Arbitrary a => Gen (f a) 
+
+newtype Fuck f u = Fuck (f u)
+
+--instance (Arbitrary1 f, Arbitrary a) => Arbitrary (Fuck f a)
+
+--instance (Arbitrary b, Arbitrary v, Arbitrary1 f) => Arbitrary (Scope b f v) where
+--    arbitrary = liftM Scope arbitrary1
 
 tests = $testGroupGenerator
 
