@@ -199,6 +199,7 @@ test-suite properties
       bytestring,
       ermine,
       lens,
+      prelude-extras,
       QuickCheck                 >= 2.4,
       quickcheck-instances       >= 0.3.1,
       tagged                     >= 0.4.4 && < 0.5,
