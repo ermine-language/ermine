@@ -5,7 +5,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Properties.Var where
+module Var where
 
 import Control.Applicative
 import Control.Monad

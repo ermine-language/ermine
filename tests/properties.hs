@@ -14,11 +14,14 @@ import Test.Framework
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-import Properties.Var as Var
-import Properties.Binary as Binary
+import Binary
+import Var
 
+-- | /NB:/ when adding a test suite here, make sure you add it to
+-- the @other-modules:@ block under @test-suite properties@ in
+-- @ermine.cabal@ or you'll break @cabal sdist@.
 main :: IO ()
 main = defaultMain
-  [ Var.tests
-  , Binary.tests
+  [ Binary.tests
+  , Var.tests
   ]

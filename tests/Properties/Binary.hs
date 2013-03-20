@@ -5,7 +5,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Properties.Binary where
+module Binary where
 
 import Control.Monad
 import Control.Lens
