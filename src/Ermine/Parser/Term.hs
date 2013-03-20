@@ -98,12 +98,16 @@ typeDecl :: (Monad m, TokenParsing m) => m (String, Ann)
 typeDecl = (,) <$> try (ident termIdent <* colon) <*> annotation
 
 termDeclClause :: (Monad m, TokenParsing m) => m (String, Binder String [Pat Ann], Tm)
-termDeclClause = (,,) <$> ident termIdent <*> pat0s <* reserve op "=" <*> term
+termDeclClause =
+    post <$> ident termIdent <*> pat0s <* reserve op "=" <*> term <*> optional whereClause
  where
+ post nm ps tm wh = (nm, ps, maybe id (let_) wh tm)
  pat0s = do ps <- sequenceA <$> many pat0
             ps <$ validate ps
                     (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
 
+whereClause :: (Monad m, TokenParsing m) => m (Binder String [Binding Ann String])
+whereClause = symbol "where" *> braces declarations
 
 declClauses :: (Monad m, TokenParsing m)
             => m [Either (String, Ann) (String, Binder String [Pat Ann], Tm)]
