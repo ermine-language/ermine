@@ -79,7 +79,7 @@ instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
 instance (Arbitrary b,Arbitrary v,Arbitrary1 f,Functor f) => Arbitrary (Scope b f v) where
     arbitrary = Scope . fmap (fmap lower1) <$> arbitrary1
 
-instance (Arbitrary a, Arbitrary1 Kind) => Arbitrary (Schema a) where
+instance Arbitrary a => Arbitrary (Schema a) where
     arbitrary = Schema <$> arbitrary <*> arbitrary
 
 prop_pack_unpack_schema :: Schema Int -> Bool
