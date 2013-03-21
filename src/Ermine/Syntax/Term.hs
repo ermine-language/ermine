@@ -31,6 +31,7 @@ module Ermine.Syntax.Term
   , Binding(..)
   , BindingType(..)
   , Body(..)
+  , Guarded(..)
   ) where
 
 import Bound
@@ -94,8 +95,14 @@ data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read)
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
 -- guards can refer.
-data Body t a = Body [Pat t] !(Scope DeclBound (Term t) a) [Binding t (Var Int a)]
+data Body t a = Body [Pat t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+-- | A datatype for representing potentially guarded cases of a function
+-- body.
+data Guarded tm = Unguarded tm
+                | Guarded [(tm, tm)]
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 instance Bifunctor Body where
   bimap = bimapDefault
@@ -106,7 +113,7 @@ instance Bifoldable Body where
 instance Bitraversable Body where
   bitraverse f g (Body ps ss wh) =
     Body <$> traverse (traverse f) ps
-         <*> bitraverseScope f g ss
+         <*> traverse (bitraverseScope f g) ss
          <*> traverse (bitraverse f (traverse g)) wh
 
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
@@ -220,9 +227,10 @@ bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
 bindTerm f g (Let bs (Scope b)) = Let (bindBinding f g <$> bs) (Scope (bimap f (fmap (bindTerm f g)) b))
 
 bindBody :: (t -> t') -> (a -> Term t' b) -> Body t a -> Body t' b
-bindBody f g (Body ps (Scope b) wh) =
+bindBody f g (Body ps gs wh) =
+  let s (Scope b) = Scope $ bimap f (fmap $ bindTerm f g) b in
     Body (fmap f <$> ps)
-         (Scope (bimap f (fmap (bindTerm f g)) b))
+         (s <$> gs)
          (fmap (bindBinding f (unvar (pure . B) (fmap F . g))) wh)
 
 bindBinding :: (t -> t') -> (a -> Term t' b) -> Binding t a -> Binding t' b

@@ -23,6 +23,7 @@ module Ermine.Builtin.Term ( lam
                            , finalizeBinding
                            , PreBody(..)
                            , body
+                           , gbody
                            , shapely
                            , finalizeBody
                            ) where
@@ -51,10 +52,13 @@ let_ (Binder vs ds) b = Let ds $ abstract (`List.elemIndex` vs) b
 
 data PreBinding t v = PreBinding Rendering (BindingType t) [PreBody t v]
 
-data PreBody t v = PreBody (Binder v [Pat t]) (Term t v) (Binder v [Binding t v])
+data PreBody t v = PreBody (Binder v [Pat t]) (Guarded (Term t v)) (Binder v [Binding t v])
 
 body :: Binder v [Pat t] -> Term t v -> Binder v [Binding t v] -> PreBody t v
-body = PreBody
+body ps b wh = PreBody ps (Unguarded b) wh
+
+gbody :: Binder v [Pat t] -> [(Term t v, Term t v)] -> Binder v [Binding t v] -> PreBody t v
+gbody ps gs wh = PreBody ps (Guarded gs) wh
 
 shapely :: [PreBody t v] -> Bool
 shapely [    ] = False
@@ -77,8 +81,8 @@ finalizeBinding :: Eq v => [v] -> PreBinding t v -> Binding t v
 finalizeBinding vs (PreBinding r bt bs) = Binding r bt $ finalizeBody vs <$> bs
 
 finalizeBody :: Eq v => [v] -> PreBody t v -> Body t v
-finalizeBody ns (PreBody (Binder vs ps) c (Binder ws wh)) =
-  Body ps (abstract f c) (fmap av <$> wh)
+finalizeBody ns (PreBody (Binder vs ps) gs (Binder ws wh)) =
+  Body ps (abstract f <$> gs) (fmap av <$> wh)
  where
  av x | Just i <- elemIndex x vs = B i
       | otherwise                = F x

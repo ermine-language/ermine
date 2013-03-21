@@ -22,7 +22,7 @@ module Ermine.Parser.Term ( anyType
 import Control.Lens hiding (op)
 import Control.Applicative
 import Control.Comonad
-import Control.Monad.State
+import Control.Monad.State hiding (guard)
 import Data.Function
 import Data.Either (partitionEithers)
 import Data.List (groupBy, find)
@@ -99,11 +99,18 @@ termDeclClause :: (Monad m, TokenParsing m)
                => m (String, PBody)
 termDeclClause =
     (,) <$> ident termIdent
-        <*> (body <$> pat0s <* reserve op "=" <*> term <*> whereClause)
+        <*> (PreBody <$> pat0s <*> guarded <*> whereClause)
  where
  pat0s = do ps <- sequenceA <$> many pat0
             ps <$ validate ps
                     (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
+
+guard :: (Monad m, TokenParsing m) => m (Tm, Tm)
+guard = (,) <$ reserve op "|" <*> term <* reserve op "=" <*> term
+
+guarded :: (Monad m, TokenParsing m) => m (Guarded Tm)
+guarded = Guarded <$> some guard
+      <|> Unguarded <$ reserve op "=" <*> term
 
 type PBody = PreBody Ann String
 type Where = Binder String [Binding Ann String]
