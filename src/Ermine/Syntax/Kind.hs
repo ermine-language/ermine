@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -43,16 +44,19 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Ermine.Syntax
-import Ermine.Syntax.Scope
-import Prelude.Extras
 import Data.Binary
-import Data.IntMap
+import Data.Data
+import Data.Hashable
 import Data.Foldable
+import Data.IntMap
 import Data.String
 import Data.Traversable
-import Data.Data
 import Data.Map as Map
+import GHC.Generics
+import Ermine.Syntax
+import Ermine.Syntax.Hashable
+import Ermine.Syntax.Scope
+import Prelude.Extras
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -69,7 +73,9 @@ data HardKind
   | Constraint
   | Rho
   | Phi
-  deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable, Generic)
+
+instance Hashable HardKind
 
 ------------------------------------------------------------------------------
 -- Kindly
@@ -109,7 +115,10 @@ data Kind a
   = Var a
   | Kind a :-> Kind a
   | HardKind HardKind
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
+
+instance Hashable a => Hashable (Kind a)
+instance Hashable1 Kind
 
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
@@ -209,7 +218,10 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 
 -- | Kind schemas
 data Schema a = Schema !Int !(Scope Int Kind a)
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
+
+-- instance Hashable a => Hashable (Schema a)
+-- instance Hashable1 Schema
 
 instance Fun (Schema a) where
   fun = prism hither yon
