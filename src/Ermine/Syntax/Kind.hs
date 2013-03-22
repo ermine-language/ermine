@@ -47,6 +47,7 @@ import Control.Monad.Trans.Class
 import Data.Binary
 import Data.Data
 import Data.Hashable
+import Data.Hashable.Extras
 import Data.Foldable
 import Data.IntMap
 import Data.String
@@ -54,7 +55,6 @@ import Data.Traversable
 import Data.Map as Map
 import GHC.Generics
 import Ermine.Syntax
-import Ermine.Syntax.Hashable
 import Ermine.Syntax.Scope
 import Prelude.Extras
 
