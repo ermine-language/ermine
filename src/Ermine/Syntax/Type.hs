@@ -64,6 +64,7 @@ import Data.Binary as Binary
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Ord (comparing)
+import Data.Monoid
 import Data.IntMap hiding (map, filter, null, foldl')
 import Data.List (sortBy, elemIndex)
 import Data.Map as Map hiding (map, filter, null, foldl')
