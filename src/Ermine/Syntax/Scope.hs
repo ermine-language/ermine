@@ -70,7 +70,6 @@ instantiateVars as = instantiate (vs !!) where
   vs = map return as
 {-# INLINE instantiateVars #-}
 
-
 putVar :: (b -> Put) -> (f -> Put) -> Var b f -> Put
 putVar pb _  (B b) = putWord8 0 *> pb b
 putVar _  pf (F f) = putWord8 1 *> pf f
