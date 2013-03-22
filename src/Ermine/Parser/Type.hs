@@ -44,7 +44,7 @@ banana p = reserve op "(|" *> p <* reserve op "|)"
 typ0 :: (Monad m, TokenParsing m) => m Typ
 typ0 = Var <$> ident typeIdent
    <|> banana ( Var <$ reserve op ".." <*> ident typeIdent
-            <|> concreteRho . Set.fromList <$> commaSep (ident typeIdent) -- TODO: check for collisions
+            <|> concreteRho <$> commaSep (ident typeIdent)
               )
    <|> parens ( arrow <$ reserve op "->"
             <|> tuple . (+1) . length <$> some comma

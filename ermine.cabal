@@ -114,7 +114,7 @@ library
     base                      >= 4       && < 5,
     bifunctors                == 3.*,
     binary                    == 0.5.*,
-    bound                     >= 0.6     && < 1,
+    bound                     >= 0.7     && < 1,
     bytestring                >= 0.9     && < 0.11,
     crypto-api                >= 0.10.2  && < 0.11,
     cryptohash                >= 0.8.3   && < 0.9,
@@ -144,7 +144,7 @@ library
     unordered-containers      >= 0.2.3   && < 0.3,
     utf8-string               >= 0.3.7   && < 0.4,
     vector                    >= 0.10    && < 0.11,
-    void                      >= 0.5.10  && < 1
+    void                      >= 0.6     && < 1
 
   other-modules: Paths_ermine
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N

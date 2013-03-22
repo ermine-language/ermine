@@ -220,8 +220,8 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 data Schema a = Schema !Int !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
 
--- instance Hashable a => Hashable (Schema a)
--- instance Hashable1 Schema
+instance Hashable a => Hashable (Schema a)
+instance Hashable1 Schema
 
 instance Fun (Schema a) where
   fun = prism hither yon

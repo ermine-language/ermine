@@ -3,6 +3,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -63,10 +64,12 @@ import Data.Bifoldable
 import Data.Binary as Binary
 import Data.Bitraversable
 import Data.Foldable hiding (all)
-import Data.Ord (comparing)
+import Data.Hashable
+import Data.Hashable.Extras
 import Data.IntMap hiding (map, filter, null, foldl')
 import Data.List (sortBy, elemIndex)
 import Data.Map as Map hiding (map, filter, null, foldl')
+import Data.Ord (comparing)
 import Data.Set as Set hiding (map, filter, null, foldl')
 import Data.Set.Lens as Set
 import Data.String
@@ -77,6 +80,7 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
+import GHC.Generics
 import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -88,8 +92,10 @@ data HardType
   = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
   | Arrow      -- (->) :: * -> * -> *
   | Con !Global !(Schema Void)
-  | ConcreteRho !(Set FieldName)
-  deriving (Eq, Ord, Show)
+  | ConcreteRho [FieldName]
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable HardType
 
 instance Binary HardType where
   put (Tuple n)       = putWord8 0 *> put n
@@ -142,7 +148,7 @@ class Typical t where
   con g k = review hardType (Con g k)
   {-# INLINE con #-}
 
-  concreteRho :: Set FieldName -> t
+  concreteRho :: [FieldName] -> t
   concreteRho s = review hardType (ConcreteRho s)
   {-# INLINE concreteRho #-}
 
@@ -226,6 +232,25 @@ data Type k a
   | Exists !Int [Scope Int Kind k] (Scope Int (TK k) a)
   | And [Type k a]
   deriving (Show, Functor, Foldable, Traversable)
+
+instance Hashable2 Type
+instance Hashable k => Hashable1 (Type k)
+
+distApp, distHardType, distForall, distExists, distAnd :: Int
+distApp = fromIntegral $ (maxBound :: Word) `quot` 3
+distHardType = fromIntegral $ (maxBound :: Word) `quot` 5
+distForall =  fromIntegral $ (maxBound :: Word) `quot` 7
+distExists = fromIntegral $ (maxBound :: Word) `quot` 11
+distAnd = fromIntegral $ (maxBound :: Word) `quot` 13
+
+instance (Hashable k, Hashable a) => Hashable (Type k a) where
+  hashWithSalt n (Var a)             = hashWithSalt n a
+  hashWithSalt n (App l r)           = hashWithSalt n l `hashWithSalt` r `hashWithSalt` distApp
+  hashWithSalt n (HardType t)        = hashWithSalt n t `hashWithSalt` distHardType
+  hashWithSalt n (Forall k tvs cs b) = hashWithSalt n k `hashWithSalt` tvs `hashWithSalt` cs `hashWithSalt` b `hashWithSalt` distForall
+  hashWithSalt n (Loc _ ty)          = hashWithSalt n ty
+  hashWithSalt n (Exists k tvs cs)   = hashWithSalt n k `hashWithSalt` tvs `hashWithSalt` cs `hashWithSalt` distExists
+  hashWithSalt n (And xs)            = hashWithSalt n xs `hashWithSalt` distAnd
 
 -- A helper function for the forall smart constructor. Given a lens to a
 -- map of variable ids, abstracts over a variable, choosing a new id in
