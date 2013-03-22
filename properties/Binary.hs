@@ -98,6 +98,8 @@ instance Arbitrary T.HardType where
 instance Arbitrary k => Arbitrary1 (Type k) where
     arbitrary1 = arbitrary 
 
+-- used in Type arbitrary. 
+-- i couldn't seem to put it in a where clause. -JC 3/22/13
 resizearb :: Arbitrary a => Int -> Gen a
 resizearb n = resize (n `div` 2) arbitrary
 
@@ -114,7 +116,6 @@ instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
                ,Exists   <$> arbitrary <*> resizearb n <*> resizearb n
                ,And      <$> resizearb n
               ]
-        where subtype = type' (n `div` 2)
 
 prop_pack_unpack_hardtype :: HardType -> Bool
 prop_pack_unpack_hardtype = pack_unpack
