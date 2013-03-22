@@ -98,23 +98,29 @@ instance Arbitrary T.HardType where
 instance Arbitrary k => Arbitrary1 (Type k) where
     arbitrary1 = arbitrary 
 
+resizearb :: Arbitrary a => Int -> Gen a
+resizearb n = resize (n `div` 2) arbitrary
+
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
-    arbitrary =
-      oneof [ T.Var    <$> arbitrary
-             ,App      <$> arbitrary <*> arbitrary
-             ,HardType <$> arbitrary
-             ,Forall   <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-             -- | Loc !Rendering !(Type k a)
-             --,Loc something something
-             ,Exists   <$> arbitrary <*> arbitrary <*> arbitrary
-             ,And      <$> arbitrary
-            ]
+    arbitrary = sized type' where 
+      type' 0 = oneof [ T.Var <$> arbitrary, HardType <$> arbitrary ]
+      type' n | n>0 = 
+        oneof [ T.Var    <$> arbitrary
+               ,App      <$> resizearb n <*> resizearb n
+               ,HardType <$> arbitrary
+               ,Forall   <$> arbitrary <*> resizearb n <*> resizearb n <*> resizearb n
+               -- | Loc !Rendering !(Type k a)
+               --,Loc something something
+               ,Exists   <$> arbitrary <*> resizearb n <*> resizearb n
+               ,And      <$> resizearb n
+              ]
+        where subtype = type' (n `div` 2)
 
 prop_pack_unpack_hardtype :: HardType -> Bool
 prop_pack_unpack_hardtype = pack_unpack
 
---prop_pack_unpack_type :: Type Int Int -> Bool
---prop_pack_unpack_type = pack_unpack
+prop_pack_unpack_type :: Type Int Int -> Bool
+prop_pack_unpack_type = pack_unpack
 
 tests = $testGroupGenerator
 
