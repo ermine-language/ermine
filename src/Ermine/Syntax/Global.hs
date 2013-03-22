@@ -11,7 +11,8 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Global
   ( Global(Global)
-  , global
+  , AsGlobal(..)
+  , glob
   , Assoc(..)
   , Fixity(..)
   -- * Lenses
@@ -109,13 +110,13 @@ instance Binary Global where
 
 -- | A lens that will read or update the fixity (and compute a new digest)
 globalFixity :: Simple Lens Global Fixity
-globalFixity f (Global _ a p m n) = (\a' -> global a' p m n) <$> f a
+globalFixity f (Global _ a p m n) = (\a' -> glob a' p m n) <$> f a
 
 -- | A lenses that will read or update part of the Global and compute a new digest as necessary.
 globalPackage, globalModule, globalName :: Simple Lens Global ByteString
-globalPackage f (Global _ a p m n) = (\p' -> global a p' m n) <$> f p
-globalModule f (Global _ a p m n) = (\m' -> global a p m' n) <$> f m
-globalName f (Global _ a p m n) = global a p m <$> f n
+globalPackage f (Global _ a p m n) = (\p' -> glob a p' m n) <$> f p
+globalModule f (Global _ a p m n) = (\m' -> glob a p m' n) <$> f m
+globalName f (Global _ a p m n) = glob a p m <$> f n
 
 instance Eq Global where
   (==) = (==) `on` _globalDigest
@@ -129,7 +130,10 @@ instance Digestable Global where
 instance Hashable Global where
   hashWithSalt s c = hashWithSalt s (_globalDigest c)
 
+class AsGlobal t where
+  -- global :: Prism' t Global
+
 -- | Construct a 'Global' with a correct digest.
-global :: Fixity -> ByteString -> ByteString -> ByteString -> Global
-global f p m n = Global d f p m n where
+glob :: Fixity -> ByteString -> ByteString -> ByteString -> Global
+glob f p m n = Global d f p m n where
   d = MD5.finalize (digest (digest initialCtx f) [p,m,n])

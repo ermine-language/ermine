@@ -67,7 +67,7 @@ instance Builtin HardType where
   builtin s n = con (builtin s n) (Kind.general s)
 
 instance Builtin Global where
-  builtin _ n = global Idfix (pack "ermine") (pack "Prelude") (pack n)
+  builtin _ n = glob Idfix (pack "ermine") (pack "Prelude") (pack n)
 
 instance Builtin (Type k t) where
   builtin s n = HardType (builtin s n)

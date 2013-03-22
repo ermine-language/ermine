@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
-module Ermine.Syntax.Head
+module Ermine.Syntax.Instance
   ( Head(..)
   , HasHead(..)
   ) where
@@ -9,6 +9,7 @@ module Ermine.Syntax.Head
 import Control.Lens
 import Data.Data
 import Data.Hashable
+import Ermine.Syntax.Core
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import Ermine.Syntax.Global
@@ -25,6 +26,16 @@ data Head = Head
 makeLensesWith ?? ''Head $ classyRules & lensClass .~ \_ -> Just ("HasHead","head_")
 
 instance Hashable Head
+
+data Instance = Instance
+  { _instanceContext :: [Type Int Int]
+  , _instanceHead :: Head
+  , _instanceBody :: Core Id
+  }
+
+data Id
+  = GlobalId Global
+  | InstanceId Head
 
 -- instance Ord a => Ord [a]
 -- Head ord 0 [star] [] [list (pure 0)]

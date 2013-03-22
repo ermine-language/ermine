@@ -45,7 +45,7 @@ lam (Binder vs ps) = Lam ps . abstract (`List.elemIndex` vs)
 
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
 dataCon :: Fixity -> String -> String -> Term t v
-dataCon f m n = HardTerm . DataCon $ global f (pack "ermine") (pack m) (pack n)
+dataCon f m n = HardTerm . DataCon $ glob f (pack "ermine") (pack m) (pack n)
 
 let_ :: Eq v => Binder v [Binding t v] -> Term t v -> Term t v
 let_ (Binder vs ds) b = Let ds $ abstract (`List.elemIndex` vs) b
