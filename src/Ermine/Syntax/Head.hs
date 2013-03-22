@@ -1,6 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Ermine.Syntax.Head where
+{-# LANGUAGE DeriveGeneric #-}
+module Ermine.Syntax.Head
+  ( Head(..)
+  , HasHead(..)
+  ) where
 
 import Control.Lens
 import Data.Data
@@ -8,6 +12,7 @@ import Data.Hashable
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import Ermine.Syntax.Global
+import GHC.Generics
 
 data Head = Head
   { _headClass     :: !Global
@@ -15,11 +20,11 @@ data Head = Head
   , _headTypeKinds :: [Kind Int]
   , _headKinds     :: [Kind Int]
   , _headTypes     :: [Type Int Int]
-  } deriving (Show,Eq) -- ,Data,Typeable)
+  } deriving (Show,Eq,Generic,Typeable)
 
-makeLensesWith ?? ''Head $ classyRules & lensClass .~ \x -> Just ("HasHead","head_")
+makeLensesWith ?? ''Head $ classyRules & lensClass .~ \_ -> Just ("HasHead","head_")
 
--- instance Hashable Head where
+instance Hashable Head
 
 -- instance Ord a => Ord [a]
 -- Head ord 0 [star] [] [list (pure 0)]
