@@ -4,6 +4,9 @@
 module Ermine.Syntax.Instance
   ( Head(..)
   , HasHead(..)
+  , Instance(..)
+  , HasInstance(..)
+  , Id(..)
   ) where
 
 import Control.Lens
@@ -23,6 +26,12 @@ data Head = Head
   , _headTypes     :: [Type Int Int]
   } deriving (Show,Eq,Generic,Typeable)
 
+class AsHead t where
+  _Head :: Prism' t Head
+
+instance AsHead Head where
+  _Head = id
+
 makeLensesWith ?? ''Head $ classyRules & lensClass .~ \_ -> Just ("HasHead","head_")
 
 instance Hashable Head
@@ -36,6 +45,19 @@ data Instance = Instance
 data Id
   = GlobalId Global
   | InstanceId Head
+
+makeLensesWith ?? ''Instance $ classyRules & lensClass .~ \_ -> Just ("HasInstance","instance_")
+
+instance HasHead Instance where
+  head_ = instanceHead
+
+makePrisms ''Id
+
+instance AsGlobal Id where
+  _Global = _GlobalId
+
+instance AsHead Id where
+  _Head = _InstanceId
 
 -- instance Ord a => Ord [a]
 -- Head ord 0 [star] [] [list (pure 0)]

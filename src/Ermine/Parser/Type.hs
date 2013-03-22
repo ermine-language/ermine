@@ -19,9 +19,7 @@ module Ermine.Parser.Type
 
 import Bound
 import Control.Applicative
--- import Data.HashSet as HashSet
 import Data.List (elemIndex)
-import Data.Set as Set
 import Data.Maybe
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
