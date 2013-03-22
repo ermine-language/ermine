@@ -11,15 +11,12 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Global
   ( Global(Global)
+  , HasGlobal(..)
   , AsGlobal(..)
   , glob
   , Assoc(..)
   , Fixity(..)
   -- * Lenses
-  , globalFixity
-  , globalPackage
-  , globalModule
-  , globalName
   , unpackFixity
   , packFixity
   ) where
@@ -108,15 +105,19 @@ instance Binary Global where
   put (Global d f p m n) = put d *> put f *> put p *> put m *> put n
   get = Global <$> get <*> get <*> get <*> get <*> get
 
--- | A lens that will read or update the fixity (and compute a new digest)
-globalFixity :: Simple Lens Global Fixity
-globalFixity f (Global _ a p m n) = (\a' -> glob a' p m n) <$> f a
+class HasGlobal t where
+  global :: Lens' t Global
+  -- | A lens that will read or update the fixity (and compute a new digest)
+  globalFixity :: Lens' t Fixity
+  globalFixity f = global $ \ (Global _ a p m n) -> (\a' -> glob a' p m n) <$> f a
+  -- | A lenses that will read or update part of the Global and compute a new digest as necessary.
+  globalPackage, globalModule, globalName :: Lens' t ByteString
+  globalPackage f = global $ \ (Global _ a p m n) -> (\p' -> glob a p' m n) <$> f p
+  globalModule f = global $ \ (Global _ a p m n) -> (\m' -> glob a p m' n) <$> f m
+  globalName f = global $ \ (Global _ a p m n) -> glob a p m <$> f n
 
--- | A lenses that will read or update part of the Global and compute a new digest as necessary.
-globalPackage, globalModule, globalName :: Simple Lens Global ByteString
-globalPackage f (Global _ a p m n) = (\p' -> glob a p' m n) <$> f p
-globalModule f (Global _ a p m n) = (\m' -> glob a p m' n) <$> f m
-globalName f (Global _ a p m n) = glob a p m <$> f n
+instance HasGlobal Global where
+  global = id
 
 instance Eq Global where
   (==) = (==) `on` _globalDigest
@@ -131,9 +132,12 @@ instance Hashable Global where
   hashWithSalt s c = hashWithSalt s (_globalDigest c)
 
 class AsGlobal t where
-  -- global :: Prism' t Global
+  _Global :: Prism' t Global
+
+instance AsGlobal Global where
+  _Global = id
 
 -- | Construct a 'Global' with a correct digest.
-glob :: Fixity -> ByteString -> ByteString -> ByteString -> Global
-glob f p m n = Global d f p m n where
+glob :: AsGlobal t => Fixity -> ByteString -> ByteString -> ByteString -> t
+glob f p m n = _Global # Global d f p m n where
   d = MD5.finalize (digest (digest initialCtx f) [p,m,n])
