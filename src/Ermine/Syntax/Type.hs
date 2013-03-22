@@ -66,6 +66,7 @@ import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Hashable
 import Data.Hashable.Extras
+import Data.Monoid
 import Data.IntMap hiding (map, filter, null, foldl')
 import Data.List (sortBy, elemIndex)
 import Data.Map as Map hiding (map, filter, null, foldl')
@@ -515,7 +516,7 @@ getType :: Get k -> Get t -> Get (Type k t)
 getType gk gt = getWord8 >>= \b -> case b of
   0 -> Var <$> gt
   1 -> HardType <$> get
-  2 -> Loc undefined <$> getType gk gt
+  2 -> Loc mempty <$> getType gk gt
   3 -> App <$> getType gk gt <*> getType gk gt
   4 -> Forall <$> get <*> getMany (getScope get getKind gk)
               <*> getScope get (getTK gk) gt
