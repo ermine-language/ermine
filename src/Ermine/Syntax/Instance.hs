@@ -82,10 +82,10 @@ instance AsHead Id where
 ------------------------------------------------------------------------------
 
 -- instance Ord a => Ord [a]
--- Instance [ord (pure 0)] (Head ord 0 [star] [] [list (pure 0)]) (LamDict o (Scope (Dict [AppDict (InstanceId (Head eq 0 [star] [] [list (pure 0))) (AppDict (Slot 0) (B ()))] ...)))
+-- Instance [ord (pure 0)] (Head ord 0 [star] [] [list (pure 0)]) (LamDict (Scope (Dict [AppDict (InstanceId (Head eq 0 [star] [] [list (pure 0))) (AppDict (Slot 0) (B ()))] ...)))
 
 -- instance Category (:-)
--- Instnace [] (Head category 0 [] [constraint] [con ":-" ...]) (Dict ... ...)
+-- Instance [] (Head category 0 [] [constraint] [con ":-" ...]) (Dict [] ...)
 
 data Instance = Instance
   { _instanceContext :: [Type Int Int]
