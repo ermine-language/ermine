@@ -8,10 +8,10 @@
 </head>
 <body>
 <pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE DeriveDataTypeable #-}</span>
-<a name="line-2"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-3"></a><span class='hs-comment'>-- |</span>
-<a name="line-4"></a><span class='hs-comment'>-- Module    :  Ermine.Syntax.Literal</span>
-<a name="line-5"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012</span>
+<a name="line-2"></a><span class='hs-comment'>{-# LANGUAGE DeriveGeneric #-}</span>
+<a name="line-3"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-4"></a><span class='hs-comment'>-- |</span>
+<a name="line-5"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013</span>
 <a name="line-6"></a><span class='hs-comment'>-- License   :  BSD3</span>
 <a name="line-7"></a><span class='hs-comment'>-- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
 <a name="line-8"></a><span class='hs-comment'>-- Stability :  experimental</span>
@@ -21,18 +21,22 @@
 <a name="line-12"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Literal</span> <span class='hs-layout'>(</span><span class='hs-conid'>Literal</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
 <a name="line-13"></a>
 <a name="line-14"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Data</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-conid'>Fixity</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span>
-<a name="line-15"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Int</span>
-<a name="line-16"></a>
-<a name="line-17"></a><a name="Literal"></a><span class='hs-comment'>-- | Primitive literal values used by patterns, terms and core.</span>
-<a name="line-18"></a><a name="Literal"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Literal</span>
-<a name="line-19"></a>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Int</span>     <span class='hs-varop'>!</span><span class='hs-conid'>Int</span>
-<a name="line-20"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Int64</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Int64</span>
-<a name="line-21"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Byte</span>    <span class='hs-varop'>!</span><span class='hs-conid'>Int8</span>
-<a name="line-22"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Short</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Int16</span>
-<a name="line-23"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>String</span>  <span class='hs-conid'>String</span>
-<a name="line-24"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Char</span>    <span class='hs-varop'>!</span><span class='hs-conid'>Char</span>
-<a name="line-25"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Float</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Float</span>
-<a name="line-26"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Double</span>  <span class='hs-varop'>!</span><span class='hs-conid'>Double</span>
-<a name="line-27"></a>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span><span class='hs-conid'>Ord</span><span class='hs-layout'>,</span><span class='hs-conid'>Show</span><span class='hs-layout'>,</span><span class='hs-conid'>Read</span><span class='hs-layout'>,</span><span class='hs-conid'>Data</span><span class='hs-layout'>,</span><span class='hs-conid'>Typeable</span><span class='hs-layout'>)</span>
+<a name="line-15"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Hashable</span>
+<a name="line-16"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Int</span>
+<a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>GHC</span><span class='hs-varop'>.</span><span class='hs-conid'>Generics</span>
+<a name="line-18"></a>
+<a name="line-19"></a><a name="Literal"></a><span class='hs-comment'>-- | Primitive literal values used by patterns, terms and core.</span>
+<a name="line-20"></a><a name="Literal"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Literal</span>
+<a name="line-21"></a>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Int</span>     <span class='hs-varop'>!</span><span class='hs-conid'>Int</span>
+<a name="line-22"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Int64</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Int64</span>
+<a name="line-23"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Byte</span>    <span class='hs-varop'>!</span><span class='hs-conid'>Int8</span>
+<a name="line-24"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Short</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Int16</span>
+<a name="line-25"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>String</span>  <span class='hs-conid'>String</span>
+<a name="line-26"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Char</span>    <span class='hs-varop'>!</span><span class='hs-conid'>Char</span>
+<a name="line-27"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Float</span>   <span class='hs-varop'>!</span><span class='hs-conid'>Float</span>
+<a name="line-28"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Double</span>  <span class='hs-varop'>!</span><span class='hs-conid'>Double</span>
+<a name="line-29"></a>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span><span class='hs-conid'>Ord</span><span class='hs-layout'>,</span><span class='hs-conid'>Show</span><span class='hs-layout'>,</span><span class='hs-conid'>Read</span><span class='hs-layout'>,</span><span class='hs-conid'>Data</span><span class='hs-layout'>,</span><span class='hs-conid'>Typeable</span><span class='hs-layout'>,</span><span class='hs-conid'>Generic</span><span class='hs-layout'>)</span>
+<a name="line-30"></a>
+<a name="line-31"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Hashable</span> <span class='hs-conid'>Literal</span>
 </pre></body>
 </html>
