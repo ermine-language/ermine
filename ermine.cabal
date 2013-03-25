@@ -75,6 +75,7 @@ library
     Ermine.Builtin.Type
     Ermine.Diagnostic
     Ermine.Inference.Kind
+    Ermine.Inference.Witness
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
     Ermine.Parser.Pat

@@ -237,12 +237,12 @@ data Type k a
 instance Hashable2 Type
 instance Hashable k => Hashable1 (Type k)
 
-distApp, distHardType, distForall, distExists, distAnd :: Int
-distApp = fromIntegral $ (maxBound :: Word) `quot` 3
-distHardType = fromIntegral $ (maxBound :: Word) `quot` 5
-distForall =  fromIntegral $ (maxBound :: Word) `quot` 7
-distExists = fromIntegral $ (maxBound :: Word) `quot` 11
-distAnd = fromIntegral $ (maxBound :: Word) `quot` 13
+distApp, distHardType, distForall, distExists, distAnd :: Word
+distApp      = maxBound `quot` 3
+distHardType = maxBound `quot` 5
+distForall   = maxBound `quot` 7
+distExists   = maxBound `quot` 11
+distAnd      = maxBound `quot` 13
 
 instance (Hashable k, Hashable a) => Hashable (Type k a) where
   hashWithSalt n (Var a)             = hashWithSalt n a

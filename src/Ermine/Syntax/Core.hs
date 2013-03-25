@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -38,11 +39,14 @@ import Data.Data
 import Data.Int
 import Data.List as List
 import Data.Foldable
+import Data.Hashable
+import Data.Hashable.Extras
 import Data.String
-import Data.Vector as Vector hiding (cons, length)
+import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
+import GHC.Generics
 import Prelude.Extras
 import Prelude
 
@@ -92,7 +96,10 @@ instance Lit a => Lit (Maybe a) where
 
 data Branch a = Labeled { tag :: !Int, body :: Scope Int Core a }
               | Default {              body :: Scope Int Core a }
-  deriving (Eq,Show,Read,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Read,Functor,Foldable,Traversable,Generic)
+
+instance Hashable1 Branch
+instance Hashable a => Hashable (Branch a)
 
 instance BoundBy Branch Core where
   boundBy f (Default   b) = Default   (boundBy f b)
@@ -102,7 +109,9 @@ data HardCore
   = Super   !Int
   | Slot    !Int
   | Lit     !Literal
-  deriving (Eq,Ord,Show,Read,Data,Typeable)
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
+
+instance Hashable HardCore
 
 -- | Core values are the output of the compilation process.
 --
@@ -116,10 +125,35 @@ data Core a
   | Lam !Int !(Scope Int Core a)
   | Let [Scope Int Core a] !(Scope Int Core a)
   | Case !(Core a) [Branch a] -- TODO: IntMap?
-  | Dict { supers :: Vector (Core a), slots :: Vector (Scope Int Core a) }
+  | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
+
+instance Hashable1 Core
+
+distHardCore, distData, distApp, distLam, distLet, distCase, distDict, distLamDict, distAppDict :: Word
+distHardCore = maxBound `quot` 3
+distData     = maxBound `quot` 5
+distApp      = maxBound `quot` 7
+distLam      = maxBound `quot` 11
+distLet      = maxBound `quot` 13
+distCase     = maxBound `quot` 17
+distDict     = maxBound `quot` 19
+distLamDict  = maxBound `quot` 23
+distAppDict  = maxBound `quot` 29
+
+instance Hashable a => Hashable (Core a) where
+  hashWithSalt n (Var a)       = hashWithSalt n a
+  hashWithSalt n (HardCore c)  = hashWithSalt n c  `hashWithSalt` distHardCore
+  hashWithSalt n (Data i cs)   = hashWithSalt n i  `hashWithSalt` cs `hashWithSalt` distData
+  hashWithSalt n (App x y)     = hashWithSalt n x  `hashWithSalt` y `hashWithSalt` distApp
+  hashWithSalt n (Lam k b)     = hashWithSalt n k  `hashWithSalt` b `hashWithSalt` distLam
+  hashWithSalt n (Let ts b)    = hashWithSalt n ts `hashWithSalt` b `hashWithSalt` distLet
+  hashWithSalt n (Case c bs)   = hashWithSalt n c  `hashWithSalt` bs `hashWithSalt` distCase
+  hashWithSalt n (Dict s ss)   = hashWithSalt n s  `hashWithSalt` ss `hashWithSalt` distDict
+  hashWithSalt n (LamDict b)   = hashWithSalt n b `hashWithSalt` distLamDict
+  hashWithSalt n (AppDict x y) = hashWithSalt n x `hashWithSalt` y `hashWithSalt` distAppDict
 
 instance IsString a => IsString (Core a) where
   fromString = Var . fromString

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Syntax.Literal
@@ -12,7 +13,9 @@
 module Ermine.Syntax.Literal (Literal(..)) where
 
 import Data.Data hiding (Fixity(..))
+import Data.Hashable
 import Data.Int
+import GHC.Generics
 
 -- | Primitive literal values used by patterns, terms and core.
 data Literal
@@ -24,4 +27,6 @@ data Literal
   | Char    !Char
   | Float   !Float
   | Double  !Double
-  deriving (Eq,Ord,Show,Read,Data,Typeable)
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
+
+instance Hashable Literal

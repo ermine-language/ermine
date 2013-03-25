@@ -68,6 +68,7 @@ instance Hashable Head where
 data Id
   = GlobalId !Global
   | InstanceId !Head
+  deriving (Show,Eq,Typeable,Generic)
 
 makePrisms ''Id
 
@@ -76,6 +77,8 @@ instance AsGlobal Id where
 
 instance AsHead Id where
   _Head = _InstanceId
+
+instance Hashable Id
 
 ------------------------------------------------------------------------------
 -- Instance
