@@ -42,10 +42,10 @@ instance Arbitrary Fixity where
               Postfix <$> genPrecedence,
               return  Idfix ]
 
-prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == f
+prop_pack_unpack_fixity f = (unpackFixity . packFixity) f == Just f
 
 instance Arbitrary Global where
-    arbitrary = global <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 pack_unpack :: (Binary a, Eq a) => a -> Bool
 pack_unpack a = runGet get (runPut $ put a) == a
