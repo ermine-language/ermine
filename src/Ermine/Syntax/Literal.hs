@@ -2,8 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Literal
--- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental

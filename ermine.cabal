@@ -89,6 +89,8 @@ library
     Ermine.Syntax.Core
     Ermine.Syntax.Digest
     Ermine.Syntax.Global
+    Ermine.Syntax.Head
+    Ermine.Syntax.Id
     Ermine.Syntax.Instance
     Ermine.Syntax.Kind
     Ermine.Syntax.Pat

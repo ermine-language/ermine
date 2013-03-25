@@ -8,7 +8,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Ermine.Inference.Witness
-  ( Witness(..)
+  ( Witness(Witness)
   , HasWitness(..)
   ) where
 
@@ -22,7 +22,7 @@ import Data.Hashable
 import Data.Hashable.Extras
 import Data.Typeable
 import Ermine.Syntax.Core
-import Ermine.Syntax.Instance
+import Ermine.Syntax.Id
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import GHC.Generics
