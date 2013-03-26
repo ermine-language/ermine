@@ -42,10 +42,12 @@ import Control.Lens.Internal.Review
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Bifoldable
+import Data.Binary as Binary
 import Data.Bitraversable
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
+import Data.Monoid
 import Data.String
 import Ermine.Diagnostic
 import Ermine.Syntax
@@ -66,6 +68,19 @@ data HardTerm
   | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show)
 
+instance Binary HardTerm where
+  put (Lit l)     = putWord8 0 *> put l
+  put (DataCon g) = putWord8 1 *> put g
+  put (Tuple i)   = putWord8 2 *> put i
+  put Hole        = putWord8 3
+
+  get = getWord8 >>= \b -> case b of
+    0 -> Lit     <$> get
+    1 -> DataCon <$> get
+    2 -> Tuple   <$> get
+    3 -> return  Hole
+    _ -> fail    $ "get HardTerm: Unexpected constructor code: " ++ show b
+
 -- | This class provides a prism to match against or inject a 'HardTerm'.
 class Terminal t where
   hardTerm :: Prism' t HardTerm
@@ -85,6 +100,20 @@ data BindingType t
   | Implicit
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+instance Binary t => Binary (BindingType t) where
+  put = putBindingType put
+  get = getBindingType get
+
+putBindingType :: (t -> Put) -> BindingType t -> Put
+putBindingType pt (Explicit t) = putWord8 0 *> pt t
+putBindingType _   Implicit    = putWord8 1
+
+getBindingType :: Get t -> Get (BindingType t)
+getBindingType gt = getWord8 >>= \b -> case b of
+  0 -> Explicit <$> gt
+  1 -> return Implicit
+  _ -> fail $ "getBindingType: Unexpected constructor code: " ++ show b
+
 -- | Bound variables in a declaration are rather complicated. One can refer
 -- to any of the following:
 --   1. Definitions in the same declaration sequence
@@ -93,6 +122,16 @@ data BindingType t
 -- the 'DeclBound' type captures these three cases in the respective constructors.
 data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read)
 
+instance Binary DeclBound where
+  put (D i) = putWord8 0 *> put i
+  put (P i) = putWord8 1 *> put i
+  put (W i) = putWord8 2 *> put i
+  get = getWord8 >>= \b -> case b of
+          0 -> D <$> get
+          1 -> P <$> get
+          2 -> W <$> get
+          _ -> fail $ "get DeclBound: Unexpected constructor code: " ++ show b
+
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
@@ -100,11 +139,42 @@ data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read)
 data Body t a = Body [Pat t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+instance (Binary t, Binary a) => Binary (Body t a) where
+  put = putBody put put
+  get = getBody get get
+
+putBody :: (t -> Put) -> (a -> Put) -> Body t a -> Put
+putBody pt pa (Body pats g bs) =
+  putMany (putPat pt) pats *>
+  putGuarded (putScope put (putTerm pt) pa) g *>
+  putMany (putBinding pt (putVar put pa)) bs
+
+getBody :: Get t -> Get a -> Get (Body t a)
+getBody gt ga = Body <$>
+  getMany (getPat gt) <*>
+  getGuarded (getScope get (getTerm gt) ga) <*>
+  getMany (getBinding gt (getVar get ga))
+
 -- | A datatype for representing potentially guarded cases of a function
 -- body.
 data Guarded tm = Unguarded tm
                 | Guarded [(tm, tm)]
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Binary tm => Binary (Guarded tm) where
+  put = putGuarded put
+  get = getGuarded get
+
+putGuarded :: (tm -> Put) -> Guarded tm -> Put
+putGuarded ptm (Unguarded tm) = putWord8 0 *> ptm tm
+putGuarded ptm (Guarded tms)  = putWord8 1 *> putMany putPair tms where
+  putPair (tm1, tm2) = ptm tm1 *> ptm tm2
+
+getGuarded :: Get t -> Get (Guarded t)
+getGuarded gtm = getWord8 >>= \b -> case b of
+  0 -> Unguarded <$> gtm
+  1 -> Guarded <$> getMany ((,) <$> gtm <*> gtm)
+  _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
 
 instance Bifunctor Body where
   bimap = bimapDefault
@@ -122,6 +192,16 @@ instance Bitraversable Body where
 -- and a list of right hand side bindings.
 data Binding t a = Binding !Rendering !(BindingType t) [Body t a]
   deriving (Show, Functor, Foldable, Traversable)
+
+instance (Binary t, Binary a) => Binary (Binding t a) where
+  put = putBinding put put
+  get = getBinding get get
+
+putBinding :: (t -> Put) -> (a -> Put) -> Binding t a -> Put
+putBinding pt pa (Binding _ bt body) = putBindingType pt bt *> putMany (putBody pt pa) body
+
+getBinding :: Get t -> Get a -> Get (Binding t a)
+getBinding gt ga = Binding <$> return mempty <*> getBindingType gt <*> getMany (getBody gt ga)
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
   Binding _ t bs == Binding _ t' bs' = t == t' && bs == bs'
@@ -269,3 +349,40 @@ instance HasTermVars s t a b => HasTermVars (IntMap s) (IntMap t) a b where
 
 instance HasTermVars s t a b => HasTermVars (Map k s) (Map k t) a b where
   termVars = traverse.termVars
+
+
+putMany :: (k -> Put) -> [k] -> Put
+putMany p ls = put (length ls) *> traverse_ p ls
+
+getMany :: Get k -> Get [k]
+getMany g = get >>= \n -> replicateM n g
+
+-- | Binary serialization of a 'Term', given serializers for its two
+-- parameters.
+putTerm :: (t -> Put) -> (a -> Put) -> Term t a -> Put
+putTerm _  pa (Var a)        = putWord8 0 *> pa a
+putTerm pt pa (App t1 t2)    = putWord8 1 *> putTerm pt pa t1 *> putTerm pt pa t2
+putTerm _ _   (HardTerm h)   = putWord8 2 *> put h
+putTerm pt pa (Sig t1 t)     = putWord8 3 *> putTerm pt pa t1 *> pt t
+putTerm pt pa (Lam ps s)     = putWord8 4 *> putMany (putPat pt) ps *> putScope put (putTerm pt) pa s
+putTerm pt pa (Case t alts)  = putWord8 5 *> putTerm pt pa t *> putMany (putAlt pt (putTerm pt) pa) alts
+putTerm pt pa (Let bs s)     = putWord8 6 *> putMany (putBinding pt pa) bs *> putScope put (putTerm pt) pa s
+putTerm pt pa (Loc _ t)      = putWord8 7 *> putTerm pt pa t
+putTerm pt pa (Remember i t) = putWord8 8 *> put i *> putTerm pt pa t
+
+getTerm :: Get t -> Get a -> Get (Term t a)
+getTerm gt ga = getWord8 >>= \b -> case b of
+  0 -> Var <$> ga
+  1 -> App <$> getTerm gt ga <*> getTerm gt ga
+  2 -> HardTerm <$> get
+  3 -> Sig  <$> getTerm gt ga <*> gt
+  4 -> Lam  <$> getMany (getPat gt) <*> getScope get (getTerm gt) ga
+  5 -> Case <$> getTerm gt ga <*> getMany (getAlt gt (getTerm gt) ga)
+  6 -> Let  <$> getMany (getBinding gt ga) <*> getScope get (getTerm gt) ga
+  7 -> Loc  <$> return mempty <*> getTerm gt ga
+  8 -> Remember <$> get <*> getTerm gt ga
+  _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
+
+instance (Binary k, Binary t) => Binary (Term k t) where
+  put = putTerm put put
+  get = getTerm get get
