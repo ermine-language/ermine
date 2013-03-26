@@ -83,11 +83,12 @@ library
     Ermine.Parser.Type
     Ermine.Parser.Term
     Ermine.Pretty
-    Ermine.Pretty.Type
     Ermine.Pretty.Global
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
+    Ermine.Pretty.Pattern
     Ermine.Pretty.Term
+    Ermine.Pretty.Type
     Ermine.Syntax
     Ermine.Syntax.Core
     Ermine.Syntax.Digest

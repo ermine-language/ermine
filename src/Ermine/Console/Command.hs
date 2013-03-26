@@ -14,8 +14,10 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Char
 import Data.List
-import Data.Void
+import Data.Set (notMember)
+import Data.Set.Lens
 import Data.Semigroup
+import Data.Void
 import Ermine.Console.State
 import Ermine.Inference.Kind
 import Ermine.Parser.Kind
@@ -24,6 +26,7 @@ import Ermine.Parser.Term
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
+import Ermine.Pretty.Term
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
@@ -119,6 +122,12 @@ commands =
   , cmd "uterm"
       & desc .~ "show the internal representation of a term"
       & body .~ parsing term (liftIO . print)
+  , cmd "pterm"
+      & desc .~ "show the pretty printed representation of a term"
+      & body .~ parsing term (\tm ->
+                  let names' = filter (`notMember` setOf traverse tm) names in
+                  prettyTerm tm names' (-1) (error "TODO: prettyAnn") (pure . pure . text)
+                    >>= sayLn)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
 
   ]
