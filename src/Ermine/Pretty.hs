@@ -14,12 +14,13 @@ module Ermine.Pretty
   , names
   , parensIf
   , hyph
+  , prePunctuate
+  , block
   , say
   , sayLn
   ) where
 
 import Control.Applicative
-import Control.Arrow
 import Control.Monad.IO.Class
 import Control.Lens
 import Data.Maybe
@@ -45,7 +46,7 @@ parensIf False = id
 hyph :: String -> Doc
 hyph t = column $ \k -> columns $ \mn ->
   let n = fromMaybe 80 mn
-      (pr,sf) = (fmap fst *** fmap fst) $ span (\ (_,d) -> k + d < n) $ zip xs ls
+      (pr,sf) = (bimap (fmap fst) (fmap fst)) $ span (\ (_,d) -> k + d < n) $ zip xs ls
       ls = tail $ scanl (\a b -> a + length b) 0 xs
       xs = hyphenate english_US t
   in if null pr
@@ -54,8 +55,17 @@ hyph t = column $ \k -> columns $ \mn ->
           then text (concat pr)
           else vsep [text (concat pr) <> char '-', text (concat sf)]
 
+prePunctuate :: Doc -> [Doc] -> [Doc]
+prePunctuate _ [    ] = []
+prePunctuate p (d:ds) = d : map (p <+>) ds
+
+block :: [Doc] -> Doc
+block [] = text "{}"
+block (d:ds) = group $ line <> sep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
+
 say :: MonadIO m => Doc -> m ()
 say = liftIO . displayIO stdout . renderPretty 0.8 80
 
 sayLn :: MonadIO m => Doc -> m ()
 sayLn d = say (d <> linebreak)
+

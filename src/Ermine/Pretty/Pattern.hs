@@ -1,4 +1,4 @@
-
+{-# LANGUAGE RankNTypes #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Dan Doel 2013
@@ -11,8 +11,10 @@
 
 module Ermine.Pretty.Pattern ( prettyPattern
                              , lambdaPatterns
+                             , prettyAlt
                              ) where
 
+import Bound
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State
@@ -71,3 +73,17 @@ lambdaPatterns :: Applicative f
                => [Pat t] -> [String] -> (t -> Int -> f Doc) -> (Int, f Doc)
 lambdaPatterns ps vs tk =
   runPP (hsep <$> traverse (prettyPat' ?? 1000 ?? tk) ps) vs
+
+prettyAlt :: Applicative f
+          => [String]
+          -> (forall r. g r -> [String] -> Int -> (r -> Int -> f Doc) -> f Doc)
+          -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> Alt t g v -> f Doc
+prettyAlt vs kg kt kv (Alt p (Scope e)) = h <$> fpd <*> kg e rest (-1) kv'
+ where
+ (n, fpd) = prettyPattern p vs (-1) kt
+ (bnd, rest) = splitAt n vs
+
+ kv' (B i) _    = pure . text $ bnd !! i
+ kv' (F g) prec = kg g rest prec kv
+
+ h pd ed = pd <+> text "->" <+> ed

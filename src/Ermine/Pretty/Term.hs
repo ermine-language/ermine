@@ -15,6 +15,8 @@ module Ermine.Pretty.Term ( prettyHardTerm
 
 import Bound
 import Control.Applicative
+import Data.Semigroup
+import Data.Traversable
 import Ermine.Pretty
 import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
@@ -51,6 +53,11 @@ prettyTerm (Lam ps (Scope e)) vars prec kt kv =
  h pd bd = parensIf (prec >= 0) $ pd <+> text "->" <+> bd
  kv' (B i) _ = pure . text $ used !! i
  kv' (F t) p = prettyTerm t vars' p kt kv
+prettyTerm (Case d alts)  vars prec kt kv =
+  h <$> prettyTerm d vars (-1) kt kv
+    <*> traverse (prettyAlt vars (\tm vs pr kv' -> prettyTerm tm vs pr kt kv') kt kv) alts
+ where
+ h dd cs = parensIf (prec > 9) $
+             text "case" <+> dd <+> text "of" <> nest 2 (block cs)
 prettyTerm _ _ _ _ _ = error "TODO"
--- prettyTerm (Case d alts)  vars prec kt kv = undefined
 -- prettyTerm (Let bs e)     vars prec kt kv = undefined
