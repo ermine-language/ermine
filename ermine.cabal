@@ -25,14 +25,19 @@ description:
     >         ; ; / /"""=            \;;\\""=  Copyright © 2010-13 S&P Capital IQ
     >      ;"""';\::""""""=            \\"""=
     >      \/"""
+    .
+    <<overview.png>>
 
 build-type:    Custom
 extra-source-files:
   .travis.yml
   .vim.custom
   .gitignore
+  images/overview.png
+  scripts/overview.sh
   README.markdown
   CHANGELOG.markdown
+
 data-files:
   data/logo.txt
   data/logos.txt
