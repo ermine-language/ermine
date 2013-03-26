@@ -84,7 +84,10 @@ library
     Ermine.Parser.Term
     Ermine.Pretty
     Ermine.Pretty.Type
+    Ermine.Pretty.Global
     Ermine.Pretty.Kind
+    Ermine.Pretty.Literal
+    Ermine.Pretty.Term
     Ermine.Syntax
     Ermine.Syntax.Core
     Ermine.Syntax.Digest
