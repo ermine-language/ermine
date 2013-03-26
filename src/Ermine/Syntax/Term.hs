@@ -1,4 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -37,8 +38,9 @@ module Ermine.Syntax.Term
 import Bound
 import Bound.Var
 import Control.Lens
+import Control.Lens.Internal.Review
 import Control.Applicative
-import Control.Monad (ap)
+import Control.Monad.Identity
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
@@ -159,15 +161,10 @@ instance App (Term t a) where
     App l r -> Right (l,r)
     _       -> Left t
 
-instance (Choice p, Reviewable p, Applicative f) => Tup p f (Term t a) where
-  tupled = prism hither yon
-   where
-   hither l = apps (HardTerm . Tuple $ length l) l
-   yon original = go [] original
-    where go stk (App f x) = go (x:stk) f
-          go stk (HardTerm (Tuple n))
-            | length stk == n = Right stk
-          go _   _ = Left original
+instance (p ~ Reviewed, f ~ Identity) => Tup p f (Term t a) where
+  tupled = unto hither
+   where hither [x] = x
+         hither l = apps (HardTerm . Tuple $ length l) l
 
 instance Terminal (Term t a) where
   hardTerm = prism HardTerm $ \t -> case t of
