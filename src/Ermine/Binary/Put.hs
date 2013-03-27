@@ -16,6 +16,8 @@ module Ermine.Binary.Put
   ) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy as Lazy
+import Control.Monad.RWS.Strict as Strict
 import Control.Monad.State.Lazy as Lazy
 import Control.Monad.State.Strict as Strict
 import Control.Monad.Writer.Lazy as Lazy
@@ -190,3 +192,5 @@ instance MonadPut m => MonadPut (Strict.StateT s m)
 instance MonadPut m => MonadPut (ReaderT e m)
 instance (MonadPut m, Monoid w) => MonadPut (Lazy.WriterT w m)
 instance (MonadPut m, Monoid w) => MonadPut (Strict.WriterT w m)
+instance (MonadPut m, Monoid w) => MonadPut (Lazy.RWST r w s m)
+instance (MonadPut m, Monoid w) => MonadPut (Strict.RWST r w s m)

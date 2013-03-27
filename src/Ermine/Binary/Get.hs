@@ -16,6 +16,8 @@ module Ermine.Binary.Get
   ) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy as Lazy
+import Control.Monad.RWS.Strict as Strict
 import Control.Monad.State.Lazy as Lazy
 import Control.Monad.State.Strict as Strict
 import Control.Monad.Writer.Lazy as Lazy
@@ -324,5 +326,41 @@ instance (MonadGet m, Monoid w) => MonadGet (Strict.WriterT w m) where
     where
     distribute (Left a, s') = Left (Left a, s')
     distribute (Right b, s') = Right (Right b, s')
+    factor = either id id
+  {-# INLINE lookAheadE #-}
+
+instance (MonadGet m, Monoid w) => MonadGet (Strict.RWST r w s m) where
+  type Unchecked (Strict.RWST r w s m) = Unchecked m
+  type Bytes (Strict.RWST r w s m) = Bytes m
+  lookAhead (Strict.RWST m) = Strict.RWST $ \r s -> lookAhead (m r s)
+  {-# INLINE lookAhead #-}
+  lookAheadM (Strict.RWST m) = Strict.RWST (\r s -> liftM factor $ lookAheadE $ liftM distribute $ m r s )
+    where
+    distribute (Nothing, s',w') = Left (Nothing, s', w')
+    distribute (Just a, s',w') = Right (Just a, s', w')
+    factor = either id id
+  {-# INLINE lookAheadM #-}
+  lookAheadE (Strict.RWST m) = Strict.RWST (\r s -> liftM factor $ lookAheadE $ liftM distribute $ m r s)
+    where
+    distribute (Left a, s', w') = Left (Left a, s', w')
+    distribute (Right b, s', w') = Right (Right b, s', w')
+    factor = either id id
+  {-# INLINE lookAheadE #-}
+
+instance (MonadGet m, Monoid w) => MonadGet (Lazy.RWST r w s m) where
+  type Unchecked (Lazy.RWST r w s m) = Unchecked m
+  type Bytes (Lazy.RWST r w s m) = Bytes m
+  lookAhead (Lazy.RWST m) = Lazy.RWST $ \r s -> lookAhead (m r s)
+  {-# INLINE lookAhead #-}
+  lookAheadM (Lazy.RWST m) = Lazy.RWST (\r s -> liftM factor $ lookAheadE $ liftM distribute $ m r s )
+    where
+    distribute (Nothing, s',w') = Left (Nothing, s', w')
+    distribute (Just a, s',w') = Right (Just a, s', w')
+    factor = either id id
+  {-# INLINE lookAheadM #-}
+  lookAheadE (Lazy.RWST m) = Lazy.RWST (\r s -> liftM factor $ lookAheadE $ liftM distribute $ m r s)
+    where
+    distribute (Left a, s', w') = Left (Left a, s', w')
+    distribute (Right b, s', w') = Right (Right b, s', w')
     factor = either id id
   {-# INLINE lookAheadE #-}
