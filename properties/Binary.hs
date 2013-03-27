@@ -21,6 +21,7 @@ import Data.Binary.Put
 import Data.ByteString
 import Data.Monoid
 import Ermine.Syntax
+import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as K
 import Ermine.Syntax.Literal
@@ -85,6 +86,15 @@ prop_pack_unpack_binding = pack_unpack
 
 prop_pack_unpack_term :: Term Int Int -> Bool
 prop_pack_unpack_term = pack_unpack
+
+prop_pack_unpack_hardcore :: HardCore -> Bool
+prop_pack_unpack_hardcore = pack_unpack
+
+prop_pack_unpack_branch :: Branch Int -> Bool
+prop_pack_unpack_branch = pack_unpack
+
+prop_pack_unpack_core :: Core Int -> Bool
+prop_pack_unpack_core = pack_unpack
 
 -- Random choice of Binary test case type. May or may not be worth
 -- keeping this around.

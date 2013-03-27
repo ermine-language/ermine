@@ -20,6 +20,7 @@ module Ermine.Syntax.Core
   -- * Core Terms
     Branch(..)
   , Core(..)
+  , HardCore(..)
   , Lit(..)
   -- * Smart constructors
   , lam
@@ -34,6 +35,7 @@ import Bound
 import Control.Applicative
 import Control.Monad
 import Control.Lens as Lens
+import Data.Binary as Binary
 import Data.Data
 import Data.Int
 import Data.List as List
@@ -41,8 +43,8 @@ import Data.Foldable
 import Data.Hashable
 import Data.Hashable.Extras
 import Data.String
-import Data.Word
 import Ermine.Syntax
+import Ermine.Syntax.Binary
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics
@@ -104,6 +106,20 @@ instance BoundBy Branch Core where
   boundBy f (Default   b) = Default   (boundBy f b)
   boundBy f (Labeled n b) = Labeled n (boundBy f b)
 
+instance Binary a => Binary (Branch a) where
+  put = putBranch put
+  get = getBranch get
+
+putBranch :: (a -> Put) -> Branch a -> Put
+putBranch pa (Labeled i b) = putWord8 0 *> put i *> putScope put putCore pa b
+putBranch pa (Default   b) = putWord8 1 *>          putScope put putCore pa b
+
+getBranch :: Get a -> Get (Branch a)
+getBranch ga = getWord8 >>= \b -> case b of
+  0 -> Labeled <$> get <*> getScope get getCore ga
+  1 -> Default <$>         getScope get getCore ga
+  _ -> fail $ "getBranch: Unexpected constructor code: " ++ show b
+
 data HardCore
   = Super   !Int
   | Slot    !Int
@@ -111,6 +127,17 @@ data HardCore
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 instance Hashable HardCore
+
+instance Binary HardCore where
+  put (Super i) = putWord8 0 *> put i
+  put (Slot g)  = putWord8 1 *> put g
+  put (Lit i)   = putWord8 2 *> put i
+
+  get = getWord8 >>= \b -> case b of
+    0 -> Super <$> get
+    1 -> Slot  <$> get
+    2 -> Lit   <$> get
+    _ -> fail   $ "get HardCore: Unexpected constructor code: " ++ show b
 
 -- | Core values are the output of the compilation process.
 --
@@ -128,6 +155,37 @@ data Core a
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
+
+-- | Binary serialization of a 'Core', given serializers for its parameter.
+putCore :: (a -> Put) -> Core a -> Put
+putCore pa (Var a)          = putWord8 0 *> pa a
+putCore _  (HardCore h)     = putWord8 1 *> put h
+putCore pa (Data i cs)      = putWord8 2 *> put i *> putMany (putCore pa) cs
+putCore pa (App c1 c2)      = putWord8 3 *> putCore pa c1 *> putCore pa c2
+putCore pa (Lam i s)        = putWord8 4 *> put i *> putScope put putCore pa s
+putCore pa (Let ss s)       = putWord8 5 *> putMany (putScope put putCore pa) ss *> putScope put putCore pa s
+putCore pa (Case c bs)      = putWord8 6 *> putCore pa c *> putMany (putBranch pa) bs
+putCore pa (Dict sups slts) = putWord8 7 *> putMany (putCore pa) sups *> putMany (putScope put putCore pa) slts
+putCore pa (LamDict s)      = putWord8 8 *> putScope put putCore pa s
+putCore pa (AppDict c1 c2)  = putWord8 9 *> putCore pa c1 *> putCore pa c2
+
+getCore :: Get a -> Get (Core a)
+getCore ga = getWord8 >>= \b -> case b of
+  0 -> Var      <$> ga
+  1 -> HardCore <$> get
+  2 -> Data     <$> get <*> getMany (getCore ga)
+  3 -> App      <$> getCore ga <*> getCore ga
+  4 -> Lam      <$> get <*> getScope get getCore ga
+  5 -> Let      <$> getMany (getScope get getCore ga) <*> getScope get getCore ga
+  6 -> Case     <$> getCore ga <*> getMany (getBranch ga)
+  7 -> Dict     <$> getMany (getCore ga) <*> getMany (getScope get getCore ga)
+  8 -> LamDict  <$> getScope get getCore ga
+  9 -> AppDict  <$> getCore ga <*> getCore ga
+  _ -> fail $ "getCore: Unexpected constructor code: " ++ show b
+
+instance Binary a => Binary (Core a) where
+  put = putCore put
+  get = getCore get
 
 instance Hashable1 Core
 

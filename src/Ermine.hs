@@ -36,7 +36,7 @@ import Ermine.Diagnostic
 import Ermine.Inference.Kind
 import Ermine.Parser.Kind
 import Ermine.Syntax
-import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam)
+import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam, Lit)
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
