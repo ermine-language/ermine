@@ -203,7 +203,9 @@ test-suite properties
   ghc-options:    -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs: . properties
   other-modules:
+    Arbitrary
     Binary
+    Syntax
     Var
 
   if !flag(properties)

@@ -16,6 +16,7 @@ import Test.Framework.Providers.QuickCheck2
 
 import Binary
 import Var
+import Syntax
 
 -- | /NB:/ when adding a test suite here, make sure you add it to
 -- the @other-modules:@ block under @test-suite properties@ in
@@ -24,4 +25,5 @@ main :: IO ()
 main = defaultMain
   [ Binary.tests
   , Var.tests
+  , Syntax.tests
   ]
