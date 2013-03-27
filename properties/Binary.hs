@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+
 module Binary where
 
 import Bound.Scope
@@ -165,6 +167,32 @@ instance Arbitrary t => Arbitrary (Pattern t) where
 
 prop_pack_unpack_pattern :: Pattern Int -> Bool
 prop_pack_unpack_pattern = pack_unpack
+
+-- Random choice of Binary test case type. May or may not be worth
+-- keeping this around.
+data AnyBinary where
+  AB :: (Show t, Eq t, Binary t) => t -> AnyBinary
+
+binaryGens :: [Gen AnyBinary]
+binaryGens = [ AB <$> (arbitrary :: Gen Global)
+             , AB <$> (arbitrary :: Gen HardKind)
+             , AB <$> (arbitrary :: Gen HardType)
+             , AB <$> (arbitrary :: Gen (Kind Int))
+             , AB <$> (arbitrary :: Gen (Schema Int))
+             , AB <$> (arbitrary :: Gen (Type Int Int))
+             , AB <$> (arbitrary :: Gen Literal)
+             , AB <$> (arbitrary :: Gen HardTerm)
+             , AB <$> (arbitrary :: Gen (Pattern Int))
+             ]
+
+instance Arbitrary AnyBinary where
+  arbitrary = oneof binaryGens
+
+instance Show AnyBinary where
+  show (AB v) = "AB" ++ show v
+
+prop_pack_unpack_random :: AnyBinary -> Bool
+prop_pack_unpack_random (AB b) = pack_unpack b
 
 tests = $testGroupGenerator
 
