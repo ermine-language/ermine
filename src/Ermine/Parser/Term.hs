@@ -10,7 +10,6 @@
 --
 -- This module provides the parser for terms
 --------------------------------------------------------------------
-
 module Ermine.Parser.Term ( anyType
                           , term
                           , terms

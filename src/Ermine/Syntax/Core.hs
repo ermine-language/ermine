@@ -14,7 +14,6 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --------------------------------------------------------------------
-
 module Ermine.Syntax.Core
   (
   -- * Core Terms

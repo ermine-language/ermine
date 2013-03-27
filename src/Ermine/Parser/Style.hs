@@ -9,7 +9,6 @@
 -- This module provides the style information for tokenizing of
 -- various portions of the language.
 --------------------------------------------------------------------
-
 module Ermine.Parser.Style ( termIdent
                            , typeIdent
                            , kindIdent

@@ -1,4 +1,3 @@
-
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Dan Doel 2013
@@ -8,7 +7,6 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-
 module Ermine.Pretty.Global (prettyGlobal) where
 
 import Data.ByteString.Char8 (unpack)

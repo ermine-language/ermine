@@ -8,7 +8,6 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-
 module Ermine.Pretty.Pattern ( prettyPattern
                              , lambdaPatterns
                              , prettyAlt
