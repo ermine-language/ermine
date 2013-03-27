@@ -9,39 +9,38 @@
 <body>
 <pre><a name="line-1"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
 <a name="line-2"></a><span class='hs-comment'>-- |</span>
-<a name="line-3"></a><span class='hs-comment'>-- Module    :  Ermine.Parser.Kind</span>
-<a name="line-4"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012</span>
-<a name="line-5"></a><span class='hs-comment'>-- License   :  BSD3</span>
-<a name="line-6"></a><span class='hs-comment'>-- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
-<a name="line-7"></a><span class='hs-comment'>-- Stability :  experimental</span>
-<a name="line-8"></a><span class='hs-comment'>-- Portability: non-portable</span>
-<a name="line-9"></a><span class='hs-comment'>--</span>
-<a name="line-10"></a><span class='hs-comment'>-- This module provides the parser for kinds.</span>
-<a name="line-11"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-12"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span>
-<a name="line-13"></a>  <span class='hs-layout'>(</span> <span class='hs-varid'>kind</span>
-<a name="line-14"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-15"></a>
-<a name="line-16"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
-<a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Style</span>
-<a name="line-18"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span>
-<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Combinators</span>
-<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Token</span>
-<a name="line-21"></a>
-<a name="line-22"></a><a name="kind0"></a><span class='hs-comment'>-- | Parse an atomic kind (everything but arrows)</span>
-<a name="line-23"></a><span class='hs-definition'>kind0</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-layout'>(</span><span class='hs-conid'>Kind</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
-<a name="line-24"></a><span class='hs-definition'>kind0</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>parens</span> <span class='hs-varid'>kind</span>
-<a name="line-25"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>star</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>symbol</span> <span class='hs-str'>"*"</span>
-<a name="line-26"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>rho</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"rho"</span>
-<a name="line-27"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>rho</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"ρ"</span>
-<a name="line-28"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>phi</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"phi"</span>
-<a name="line-29"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>phi</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"φ"</span>
-<a name="line-30"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>constraint</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"constraint"</span>
-<a name="line-31"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>constraint</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"Γ"</span>
-<a name="line-32"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>Var</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>ident</span> <span class='hs-varid'>kindIdent</span>
-<a name="line-33"></a>
-<a name="line-34"></a><a name="kind"></a><span class='hs-comment'>-- | Parse a 'Kind'.</span>
-<a name="line-35"></a><span class='hs-definition'>kind</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-layout'>(</span><span class='hs-conid'>Kind</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
-<a name="line-36"></a><span class='hs-definition'>kind</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>chainr1</span> <span class='hs-varid'>kind0</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conop'>:-&gt;</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>symbol</span> <span class='hs-str'>"-&gt;"</span><span class='hs-layout'>)</span>
+<a name="line-3"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012</span>
+<a name="line-4"></a><span class='hs-comment'>-- License   :  BSD3</span>
+<a name="line-5"></a><span class='hs-comment'>-- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
+<a name="line-6"></a><span class='hs-comment'>-- Stability :  experimental</span>
+<a name="line-7"></a><span class='hs-comment'>-- Portability: non-portable</span>
+<a name="line-8"></a><span class='hs-comment'>--</span>
+<a name="line-9"></a><span class='hs-comment'>-- This module provides the parser for kinds.</span>
+<a name="line-10"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-11"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span>
+<a name="line-12"></a>  <span class='hs-layout'>(</span> <span class='hs-varid'>kind</span>
+<a name="line-13"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-14"></a>
+<a name="line-15"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
+<a name="line-16"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Style</span>
+<a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span>
+<a name="line-18"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Combinators</span>
+<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Token</span>
+<a name="line-20"></a>
+<a name="line-21"></a><a name="kind0"></a><span class='hs-comment'>-- | Parse an atomic kind (everything but arrows)</span>
+<a name="line-22"></a><span class='hs-definition'>kind0</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-layout'>(</span><span class='hs-conid'>Kind</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
+<a name="line-23"></a><span class='hs-definition'>kind0</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>parens</span> <span class='hs-varid'>kind</span>
+<a name="line-24"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>star</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>symbol</span> <span class='hs-str'>"*"</span>
+<a name="line-25"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>rho</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"rho"</span>
+<a name="line-26"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>rho</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"ρ"</span>
+<a name="line-27"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>phi</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"phi"</span>
+<a name="line-28"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>phi</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"φ"</span>
+<a name="line-29"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>constraint</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"constraint"</span>
+<a name="line-30"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-varid'>constraint</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>reserve</span> <span class='hs-varid'>kindIdent</span> <span class='hs-str'>"Γ"</span>
+<a name="line-31"></a>    <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>Var</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>ident</span> <span class='hs-varid'>kindIdent</span>
+<a name="line-32"></a>
+<a name="line-33"></a><a name="kind"></a><span class='hs-comment'>-- | Parse a 'Kind'.</span>
+<a name="line-34"></a><span class='hs-definition'>kind</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-layout'>(</span><span class='hs-conid'>Kind</span> <span class='hs-conid'>String</span><span class='hs-layout'>)</span>
+<a name="line-35"></a><span class='hs-definition'>kind</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>chainr1</span> <span class='hs-varid'>kind0</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-conop'>:-&gt;</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$</span> <span class='hs-varid'>symbol</span> <span class='hs-str'>"-&gt;"</span><span class='hs-layout'>)</span>
 </pre></body>
 </html>
