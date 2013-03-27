@@ -263,6 +263,7 @@ instance (Eq t, Eq a) => Eq (Term t a) where
   HardTerm t   == HardTerm t'  = t == t'
   Case b as    == Case b' as'  = b == b' && as == as'
   App a b      == App c d      = a == c  && b == d
+  Let bs e     == Let bs' e'   = bs == bs' && e == e' -- this is rather inflexible
   _            == _            = False
 
 instance Bifunctor Term where
