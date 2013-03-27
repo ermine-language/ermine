@@ -17,7 +17,6 @@ import Bound
 import Control.Applicative
 import Control.Lens
 import Data.Semigroup
-import Data.Traversable
 import Data.Bifunctor
 import Ermine.Pretty
 import Ermine.Pretty.Global
@@ -78,8 +77,8 @@ prettyBinding nm (Binding _ bt bs) dvs vs kt kv =
   h <*> traverse (\bd -> prettyBody nm bd dvs vs kt kv) bs
  where
  h = case bt of
-       (Explicit ty) -> pure id -- TODO: Type decl
-       Implicit      -> pure id
+       Explicit _ty -> pure id -- TODO: Type decl
+       Implicit     -> pure id
 
 prettyBindings :: Applicative f
                => [(Doc, Binding t v)] -> [Doc] -> [String]
@@ -89,7 +88,7 @@ prettyBindings bs dvs vs kt kv =
 
 prettyGuarded :: Applicative f => Guarded tm -> (tm -> f Doc) -> f Doc
 prettyGuarded (Unguarded tm) k = (equals </>) <$> k tm
-prettyGuarded (Guarded l)    k = align . sep <$> traverse (\(l, r) -> h <$> k l <*> k r) l
+prettyGuarded (Guarded l)    k = align . sep <$> traverse (\(l', r) -> h <$> k l' <*> k r) l
  where
  h g b = text "|" <+> g <+> equals </> b
 
@@ -97,11 +96,11 @@ prettyBody :: Applicative f
            => Doc -> Body t v -> [Doc] -> [String]
            -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f Doc
 prettyBody nm (Body ps gs wh) dvs vs kt kv =
-  h <$> fpd <*> prettyGuarded gs (\(Scope e) -> prettyTerm e rest (-1) kt kv') <*> wd
+  h <$> fpd <*> prettyGuarded gs (\(Scope e) -> prettyTerm e rest (-1) kt kv') <*> wrd
  where
  wl = length wh
- wd | wl == 0   = pure Nothing
-    | otherwise = Just <$> prettyBindings (zip wvs wh) wvs rest kt kw
+ wrd | wl == 0   = pure Nothing
+     | otherwise = Just <$> prettyBindings (zip wvs wh) wvs rest kt kw
  (n, fpd) = lambdaPatterns ps vs kt
  (pvs, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt n vs
 
