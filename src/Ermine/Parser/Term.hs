@@ -57,7 +57,7 @@ sig :: (Monad m, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
 
 branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
-branch = do pp <- pat
+branch = do pp <- pattern
             reserve op "->"
             b <- term
             validate pp $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
@@ -70,7 +70,7 @@ term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lambda <|> sig
 
 patterns :: (Monad m, TokenParsing m) => m (Binder String [Pattern Ann])
-patterns = do pps <- sequenceA <$> some pat
+patterns = do pps <- sequenceA <$> some pattern
               validate pps $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
               return pps
 
@@ -99,11 +99,11 @@ termDeclClause :: (Monad m, TokenParsing m)
                => m (String, PBody)
 termDeclClause =
     (,) <$> ident termIdent
-        <*> (PreBody <$> pat0s <*> guarded <*> whereClause)
+        <*> (PreBody <$> pattern0s <*> guarded <*> whereClause)
  where
- pat0s = do ps <- sequenceA <$> many pat0
-            ps <$ validate ps
-                    (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
+ pattern0s = do ps <- sequenceA <$> many pattern0
+                ps <$ validate ps
+                        (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
 
 guard :: (Monad m, TokenParsing m) => m (Tm, Tm)
 guard = (,) <$ reserve op "|" <*> term <* reserve op "=" <*> term

@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Parser.Pattern
+-- Module    :  Ermine.Parser.pattern
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -12,8 +12,8 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Pattern ( validate
-                         , pat
-                         , pat0
+                         , pattern
+                         , pattern0
                          , PP
                          ) where
 
@@ -40,19 +40,19 @@ type PP = P Ann String
 varP :: (Monad m, TokenParsing m) => m PP
 varP = ident termIdent <&> sigp ?? anyType
 
-pat0 :: (Monad m, TokenParsing m) => m PP
-pat0 = varP
+pattern0 :: (Monad m, TokenParsing m) => m PP
+pattern0 = varP
    <|> _p <$ symbol "_"
-   <|> parens (tup <$> pats)
+   <|> parens (tup <$> patterns)
 
 sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (ident termIdent <* colon) <*> annotation
 
-pat1 :: (Monad m, TokenParsing m) => m PP
-pat1 = sigP <|> pat0
+pattern1 :: (Monad m, TokenParsing m) => m PP
+pattern1 = sigP <|> pattern0
 
-pats :: (Monad m, TokenParsing m) => m [PP]
-pats = commaSep pat
+patterns :: (Monad m, TokenParsing m) => m [PP]
+patterns = commaSep pattern
 
-pat :: (Monad m, TokenParsing m) => m PP
-pat = pat1
+pattern :: (Monad m, TokenParsing m) => m PP
+pattern = pattern1
