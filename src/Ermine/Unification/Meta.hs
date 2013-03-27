@@ -256,7 +256,7 @@ instance Monad (M s) where
 
 instance MonadST (M s) where
   type World (M s) = s
-  liftST m = M $ \_ -> m
+  liftST m = M $ const m
   {-# INLINE liftST #-}
 
 instance MonadReader (MetaEnv s) (M s) where
