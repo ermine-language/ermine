@@ -97,6 +97,7 @@ library
     Ermine.Syntax
     Ermine.Syntax.Core
     Ermine.Syntax.Digest
+    Ermine.Syntax.Exposed
     Ermine.Syntax.Global
     Ermine.Syntax.Head
     Ermine.Syntax.Id
@@ -149,6 +150,7 @@ library
     parsers                   >= 0.5     && < 1,
     prelude-extras            >= 0.3     && < 1,
     random                    >= 1.0.0.3 && < 1.1,
+    semigroupoids             >= 3.0.2   && < 4,
     semigroups                >= 0.9     && < 1,
     split                     >= 0.2.1.1 && < 0.3,
     time                      == 1.4.*,
