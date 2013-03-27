@@ -5,6 +5,7 @@ module Arbitrary where
 import Bound
 import Control.Applicative
 import Data.Monoid
+import Ermine.Syntax.Core    as Core
 import Ermine.Syntax.Global  as Global
 import Ermine.Syntax.Kind    as Kind
 import Ermine.Syntax.Literal as Lit
@@ -125,7 +126,7 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Binding t a) where
 
 instance Arbitrary HardTerm where
   arbitrary = oneof [
-    Lit          <$> arbitrary,
+    Term.Lit     <$> arbitrary,
     DataCon      <$> arbitrary,
     Term.Tuple   <$> arbitrary,
     return Hole ]
@@ -144,6 +145,26 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
       Term.Loc  <$> return mempty <*> resizearb n,
       Term.Remember <$> arbitrary <*> resizearb n ]
 
+instance Arbitrary a => Arbitrary (Branch a) where
+  arbitrary = oneof [ Labeled <$> arbitrary <*> arbitrary, Default <$> arbitrary ]
+
+instance Arbitrary HardCore where
+  arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary ]
+
+instance Arbitrary a => Arbitrary (Core a) where
+  arbitrary = sized core' where
+    core' 0 = oneof [ Core.Var <$> arbitrary, HardCore <$> arbitrary ]
+    core' n = oneof [
+      Core.Var  <$> arbitrary,
+      HardCore  <$> arbitrary,
+      Core.App  <$> resizearb n <*> resizearb n,
+      Core.Lam  <$> arbitrary   <*> resizearb n,
+      Core.Let  <$> resizearb n <*> resizearb n,
+      Core.Case <$> resizearb n <*> resizearb n,
+      Core.Dict <$> resizearb n <*> resizearb n,
+      Core.LamDict <$> resizearb n,
+      Core.AppDict <$> resizearb n <*> resizearb n ]
+
 -- Higher-order arbitrary
 class Arbitrary1 f where
   arbitrary1 :: Arbitrary a => Gen (f a)
@@ -155,6 +176,7 @@ instance Arbitrary1 Maybe
 instance Arbitrary1 []
 instance Arbitrary a => Arbitrary1 (Either a)
 instance Arbitrary1 Kind
+instance Arbitrary1 Core
 instance Arbitrary k => Arbitrary1 (Type k)
 instance Arbitrary t => Arbitrary1 (Term t)
 
