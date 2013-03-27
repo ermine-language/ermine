@@ -265,7 +265,7 @@
 <a name="line-256"></a>
 <a name="line-257"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>MonadST</span> <span class='hs-layout'>(</span><span class='hs-conid'>M</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
 <a name="line-258"></a>  <span class='hs-keyword'>type</span> <span class='hs-conid'>World</span> <span class='hs-layout'>(</span><span class='hs-conid'>M</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>s</span>
-<a name="line-259"></a>  <span class='hs-varid'>liftST</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>M</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span><span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span>
+<a name="line-259"></a>  <span class='hs-varid'>liftST</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>M</span> <span class='hs-varop'>$</span> <span class='hs-varid'>const</span> <span class='hs-varid'>m</span>
 <a name="line-260"></a>  <span class='hs-comment'>{-# INLINE liftST #-}</span>
 <a name="line-261"></a>
 <a name="line-262"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>MonadReader</span> <span class='hs-layout'>(</span><span class='hs-conid'>MetaEnv</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-conid'>M</span> <span class='hs-varid'>s</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
