@@ -75,6 +75,8 @@ library
 
   exposed-modules:
     Ermine
+    Ermine.Binary.Get
+    Ermine.Binary.Put
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type
@@ -131,6 +133,7 @@ library
     binary                    == 0.5.*,
     bound                     >= 0.7     && < 1,
     bytestring                >= 0.9     && < 0.11,
+    cereal                    >= 0.3.5.2 && < 0.4,
     crypto-api                >= 0.10.2  && < 0.11,
     cryptohash                >= 0.8.3   && < 0.9,
     comonad                   >= 3,
