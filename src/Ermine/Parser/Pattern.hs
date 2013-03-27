@@ -1,7 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Parser.pattern
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

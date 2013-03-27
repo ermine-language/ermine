@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax
 -- Copyright :  (c) Edward Kmett 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

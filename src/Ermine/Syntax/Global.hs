@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Global
 -- Copyright :  (c) Edward Kmett 2011
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

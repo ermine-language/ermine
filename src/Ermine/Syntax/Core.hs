@@ -8,7 +8,6 @@
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Core
 -- Copyright :  (c) Edward Kmett 2012
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

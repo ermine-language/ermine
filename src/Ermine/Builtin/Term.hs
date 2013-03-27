@@ -2,7 +2,6 @@
 
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Builtin.Term
 -- Copyright :  (c) Edward Kmett, Dan Doel 2012-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

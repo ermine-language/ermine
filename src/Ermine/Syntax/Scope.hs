@@ -4,7 +4,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Scope
 -- Copyright :  (c) Edward Kmett
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>

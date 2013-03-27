@@ -6,7 +6,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Pattern
 -- Copyright :  (c) Edward Kmett
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
