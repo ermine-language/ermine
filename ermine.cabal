@@ -95,6 +95,7 @@ library
     Ermine.Pretty.Term
     Ermine.Pretty.Type
     Ermine.Syntax
+    Ermine.Syntax.Binary
     Ermine.Syntax.Core
     Ermine.Syntax.Digest
     Ermine.Syntax.Exposed

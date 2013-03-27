@@ -23,11 +23,11 @@ module Ermine.Syntax.Pattern
 import Bound
 import Control.Applicative
 import Control.Lens
-import Control.Monad
 import Data.Bitraversable
 import Data.Binary as Binary
 import Data.Foldable
 import Ermine.Syntax
+import Ermine.Syntax.Binary
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
@@ -60,12 +60,6 @@ bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
-
-putMany :: (k -> Put) -> [k] -> Put
-putMany p ls = put (length ls) *> traverse_ p ls
-
-getMany :: Get k -> Get [k]
-getMany g = get >>= \n -> replicateM n g
 
 -- | Binary serialization of a 'Alt', given serializers for its parameters.
 putAlt :: (t -> Put) -> (forall x. (x -> Put) -> f x -> Put) -> (a -> Put) -> Alt t f a -> Put

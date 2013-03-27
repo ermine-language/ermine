@@ -50,6 +50,7 @@ import Data.Monoid
 import Data.String
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Binary
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var)
 import Ermine.Syntax.Pattern
@@ -349,13 +350,6 @@ instance HasTermVars s t a b => HasTermVars (IntMap s) (IntMap t) a b where
 
 instance HasTermVars s t a b => HasTermVars (Map k s) (Map k t) a b where
   termVars = traverse.termVars
-
-
-putMany :: (k -> Put) -> [k] -> Put
-putMany p ls = put (length ls) *> traverse_ p ls
-
-getMany :: Get k -> Get [k]
-getMany g = get >>= \n -> replicateM n g
 
 -- | Binary serialization of a 'Term', given serializers for its two
 -- parameters.

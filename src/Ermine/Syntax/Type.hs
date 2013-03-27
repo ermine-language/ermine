@@ -76,6 +76,7 @@ import Data.String
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Binary
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
@@ -480,12 +481,6 @@ instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
 instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
-
-putMany :: (k -> Put) -> [k] -> Put
-putMany p ls = put (length ls) *> traverse_ p ls
-
-getMany :: Get k -> Get [k]
-getMany g = get >>= \n -> replicateM n g
 
 -- | Binary serialization of a 'Type', given serializers for its two
 -- parameters.
