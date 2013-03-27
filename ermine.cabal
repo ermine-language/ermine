@@ -75,7 +75,7 @@ library
 
   exposed-modules:
     Ermine
-    Ermine.Builtin.Pat
+    Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type
     Ermine.Diagnostic
@@ -83,7 +83,7 @@ library
     Ermine.Inference.Witness
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
-    Ermine.Parser.Pat
+    Ermine.Parser.Pattern
     Ermine.Parser.Style
     Ermine.Parser.Type
     Ermine.Parser.Term
@@ -102,7 +102,7 @@ library
     Ermine.Syntax.Id
     Ermine.Syntax.Instance
     Ermine.Syntax.Kind
-    Ermine.Syntax.Pat
+    Ermine.Syntax.Pattern
     Ermine.Syntax.Literal
     Ermine.Syntax.Scope
     Ermine.Syntax.Term

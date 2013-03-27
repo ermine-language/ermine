@@ -34,13 +34,13 @@ import Control.Comonad
 import Data.ByteString.Char8 hiding (elemIndex, unzip, all, length)
 import Data.List as List
 import Data.Monoid
-import Ermine.Builtin.Pat
+import Ermine.Builtin.Pattern
 import Ermine.Diagnostic
 import Ermine.Syntax.Global
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
 
-lam :: Eq v => Binder v [Pat t] -> Term t v -> Term t v
+lam :: Eq v => Binder v [Pattern t] -> Term t v -> Term t v
 lam (Binder vs ps) = Lam ps . abstract (`List.elemIndex` vs)
 
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
@@ -52,12 +52,12 @@ let_ (Binder vs ds) b = Let ds $ abstract (`List.elemIndex` vs) b
 
 data PreBinding t v = PreBinding Rendering (BindingType t) [PreBody t v]
 
-data PreBody t v = PreBody (Binder v [Pat t]) (Guarded (Term t v)) (Binder v [Binding t v])
+data PreBody t v = PreBody (Binder v [Pattern t]) (Guarded (Term t v)) (Binder v [Binding t v])
 
-body :: Binder v [Pat t] -> Term t v -> Binder v [Binding t v] -> PreBody t v
+body :: Binder v [Pattern t] -> Term t v -> Binder v [Binding t v] -> PreBody t v
 body ps b wh = PreBody ps (Unguarded b) wh
 
-gbody :: Binder v [Pat t] -> [(Term t v, Term t v)] -> Binder v [Binding t v] -> PreBody t v
+gbody :: Binder v [Pattern t] -> [(Term t v, Term t v)] -> Binder v [Binding t v] -> PreBody t v
 gbody ps gs wh = PreBody ps (Guarded gs) wh
 
 shapely :: [PreBody t v] -> Bool

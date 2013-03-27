@@ -23,7 +23,7 @@ import Data.Semigroup
 import Ermine.Pretty
 import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 
 newtype PP f a = PP { unPP :: State [String] (Sum Int, f a) }
 
@@ -50,7 +50,7 @@ runPP :: PP f a -> [String] -> (Int, f a)
 runPP pp = first getSum . evalState (unPP pp)
 
 prettyPat' :: Applicative f
-           => Pat t -> Int -> (t -> Int -> f Doc) -> PP f Doc
+           => Pattern t -> Int -> (t -> Int -> f Doc) -> PP f Doc
 prettyPat' (SigP _t)   _    _  = varPP
 prettyPat' WildcardP   _    _  = pure $ text "_"
 prettyPat' (AsP p)     prec kt = h <$> varPP <*> prettyPat' p 12 kt
@@ -65,12 +65,12 @@ prettyPat' (ConP g ps) prec kt = h <$> traverse (prettyPat' ?? 11 ?? kt) ps
 prettyPat' (TupP ps)   _    kt = tupled <$> traverse (prettyPat' ?? 0 ?? kt) ps
 
 prettyPattern :: Applicative f
-              => Pat t -> [String] -> Int
+              => Pattern t -> [String] -> Int
               -> (t -> Int -> f Doc) -> (Int, f Doc)
 prettyPattern p vs prec tk = runPP (prettyPat' p prec tk) vs
 
 lambdaPatterns :: Applicative f
-               => [Pat t] -> [String] -> (t -> Int -> f Doc) -> (Int, f Doc)
+               => [Pattern t] -> [String] -> (t -> Int -> f Doc) -> (Int, f Doc)
 lambdaPatterns ps vs tk =
   runPP (lsep <$> traverse (prettyPat' ?? 1000 ?? tk) ps) vs
  where lsep [] = empty ; lsep l = space <> hsep l

@@ -53,7 +53,7 @@ import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var)
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type hiding (App, Loc, Var, Tuple)
@@ -136,7 +136,7 @@ instance Binary DeclBound where
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
 -- guards can refer.
-data Body t a = Body [Pat t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
+data Body t a = Body [Pattern t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (Binary t, Binary a) => Binary (Body t a) where
@@ -221,7 +221,7 @@ data Term t a
   | App !(Term t a) !(Term t a)
   | HardTerm !HardTerm
   | Sig !(Term t a) t
-  | Lam [Pat t] !(Scope Int (Term t) a)
+  | Lam [Pattern t] !(Scope Int (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Int (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to where the term came from

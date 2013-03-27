@@ -6,7 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Syntax.Pat
+-- Module    :  Ermine.Syntax.Pattern
 -- Copyright :  (c) Edward Kmett
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -14,8 +14,8 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Syntax.Pat
-  ( Pat(..)
+module Ermine.Syntax.Pattern
+  ( Pattern(..)
   , Alt(..)
   , bitraverseAlt
   , getAlt, putAlt, getPat, putPat
@@ -34,19 +34,19 @@ import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 
 -- | Patterns used by 'Term'
-data Pat t
+data Pattern t
   = SigP t
   | WildcardP
-  | AsP (Pat t)
-  | StrictP (Pat t)
-  | LazyP (Pat t)
+  | AsP (Pattern t)
+  | StrictP (Pattern t)
+  | LazyP (Pattern t)
   | LitP Literal
-  | ConP Global [Pat t]
-  | TupP [Pat t]
+  | ConP Global [Pattern t]
+  | TupP [Pattern t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | One alternative of a core expression
-data Alt t f a = Alt !(Pat t) !(Scope Int f a)
+data Alt t f a = Alt !(Pattern t) !(Scope Int f a)
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Bound (Alt t) where
@@ -59,7 +59,7 @@ instance Monad f => BoundBy (Alt t f) f where
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
 
-instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pat t) where
+instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
 
 putMany :: (k -> Put) -> [k] -> Put
@@ -75,8 +75,8 @@ putAlt pt pf pa (Alt p s) = putPat pt p *> putScope put pf pa s
 getAlt :: Get t -> (forall x. Get x -> Get (f x)) -> Get a -> Get (Alt t f a)
 getAlt gt gf ga = Alt <$> getPat gt <*> getScope get gf ga
 
--- | Binary serialization of a 'Pat', given serializers for its parameter.
-putPat :: (t -> Put) -> Pat t -> Put
+-- | Binary serialization of a 'Pattern', given serializers for its parameter.
+putPat :: (t -> Put) -> Pattern t -> Put
 putPat pt (SigP t)    = putWord8 0 *> pt t
 putPat _  WildcardP   = putWord8 1
 putPat pt (AsP p)     = putWord8 2 *> putPat pt p
@@ -86,7 +86,7 @@ putPat _  (LitP l)    = putWord8 5 *> put l
 putPat pt (ConP g ps) = putWord8 6 *> put g *> putMany (putPat pt) ps
 putPat pt (TupP ps)   = putWord8 7 *> putMany (putPat pt) ps
 
-getPat :: Get t -> Get (Pat t)
+getPat :: Get t -> Get (Pattern t)
 getPat gt = getWord8 >>= \b -> case b of
   0 -> SigP <$> gt
   1 -> return WildcardP
@@ -96,8 +96,8 @@ getPat gt = getWord8 >>= \b -> case b of
   5 -> LitP    <$> get
   6 -> ConP    <$> get <*> getMany (getPat gt)
   7 -> TupP    <$> getMany (getPat gt)
-  _ -> fail $ "get Pat: unexpected constructor tag: " ++ show b
+  _ -> fail $ "get Pattern: unexpected constructor tag: " ++ show b
 
-instance Binary t => Binary (Pat t) where
+instance Binary t => Binary (Pattern t) where
   put = putPat put
   get = getPat get

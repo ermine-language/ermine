@@ -20,7 +20,7 @@ module Ermine
   , module Ermine.Syntax.Digest
   , module Ermine.Syntax.Global
   , module Ermine.Syntax.Kind
-  , module Ermine.Syntax.Pat
+  , module Ermine.Syntax.Pattern
   , module Ermine.Syntax.Literal
   , module Ermine.Syntax.Scope
   , module Ermine.Syntax.Term
@@ -40,7 +40,7 @@ import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam)
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term hiding (Var, App, Loc)

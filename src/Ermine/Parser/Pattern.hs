@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Parser.Pat
+-- Module    :  Ermine.Parser.Pattern
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -11,7 +11,7 @@
 -- This module provides the parser for terms
 --------------------------------------------------------------------
 
-module Ermine.Parser.Pat ( validate
+module Ermine.Parser.Pattern ( validate
                          , pat
                          , pat0
                          , PP
@@ -22,7 +22,7 @@ import Control.Lens hiding (op)
 import Data.Foldable as Foldable
 import Data.Void
 import qualified Data.Set as Set
-import Ermine.Builtin.Pat
+import Ermine.Builtin.Pattern
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax

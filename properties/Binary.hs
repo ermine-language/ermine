@@ -21,7 +21,7 @@ import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as K
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term as Term
 import Ermine.Syntax.Type as Type
 import Prelude.Extras
@@ -151,7 +151,7 @@ instance Arbitrary HardTerm where
 prop_pack_unpack_hardterm :: HardTerm -> Bool
 prop_pack_unpack_hardterm = pack_unpack
 
-instance Arbitrary t => Arbitrary (Pat t) where
+instance Arbitrary t => Arbitrary (Pattern t) where
   arbitrary = sized tree' where
     tree' 0 =  oneof [ SigP <$> arbitrary, return WildcardP, LitP <$> arbitrary ]
     tree' n = oneof [
@@ -164,7 +164,7 @@ instance Arbitrary t => Arbitrary (Pat t) where
       ConP    <$> arbitrary <*> resizearb n,
       TupP    <$> resizearb n ]
 
-prop_pack_unpack_pattern :: Pat Int -> Bool
+prop_pack_unpack_pattern :: Pattern Int -> Bool
 prop_pack_unpack_pattern = pack_unpack
 
 tests = $testGroupGenerator

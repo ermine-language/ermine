@@ -29,14 +29,14 @@ import Data.List (groupBy, find)
 import Data.Set as Set hiding (map)
 import Data.Foldable (foldrM)
 import Data.Traversable hiding (mapM)
-import Ermine.Builtin.Pat
+import Ermine.Builtin.Pattern
 import Ermine.Builtin.Term
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
-import Ermine.Parser.Pat
+import Ermine.Parser.Pattern
 import Ermine.Syntax
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -69,7 +69,7 @@ match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep branch
 term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lambda <|> sig
 
-patterns :: (Monad m, TokenParsing m) => m (Binder String [Pat Ann])
+patterns :: (Monad m, TokenParsing m) => m (Binder String [Pattern Ann])
 patterns = do pps <- sequenceA <$> some pat
               validate pps $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
               return pps

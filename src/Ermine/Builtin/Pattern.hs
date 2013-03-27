@@ -7,7 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 --------------------------------------------------------------------
 -- |
--- Module    :  Ermine.Builtin.Pat
+-- Module    :  Ermine.Builtin.Pattern
 -- Copyright :  (c) Edward Kmett, Dan Doel 2012-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
@@ -17,7 +17,7 @@
 -- Smart builders for convenient building of patterns.
 --------------------------------------------------------------------
 
-module Ermine.Builtin.Pat ( Binder(..)
+module Ermine.Builtin.Pattern ( Binder(..)
                           , P
                           , sigp
                           , _p
@@ -41,7 +41,7 @@ import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Pat
+import Ermine.Syntax.Pattern
 
 data Binder v a = Binder { vars :: [v], item :: a }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
@@ -58,7 +58,7 @@ instance (p ~ Reviewed, f ~ Identity, Tup Reviewed Identity t) => Tup p f (Binde
   tupled = unto (fmap tup . sequenceA)
 
 -- | Smart pattern
-type P t v = Binder v (Pat t)
+type P t v = Binder v (Pattern t)
 
 -- | A pattern that binds a variable with a type annotation.
 sigp :: v -> t -> P t v
