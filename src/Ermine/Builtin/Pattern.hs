@@ -15,18 +15,18 @@
 --
 -- Smart builders for convenient building of patterns.
 --------------------------------------------------------------------
-
-module Ermine.Builtin.Pattern ( Binder(..)
-                          , P
-                          , sigp
-                          , _p
-                          , strictp
-                          , lazyp
-                          , asp
-                          , conp
-                          , litp
-                          , alt
-                          ) where
+module Ermine.Builtin.Pattern
+  ( Binder(..)
+  , P
+  , sigp
+  , _p
+  , strictp
+  , lazyp
+  , asp
+  , conp
+  , litp
+  , alt
+  ) where
 
 import Bound
 import Control.Applicative

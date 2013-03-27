@@ -1,5 +1,4 @@
 {-# LANGUAGE PatternGuards #-}
-
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett, Dan Doel 2012-2013
@@ -10,22 +9,22 @@
 --
 -- Smart builders for convenient building of terms.
 --------------------------------------------------------------------
-
-module Ermine.Builtin.Term ( lam
-                           , dataCon
-                           , let_
-                           , implicit
-                           , explicit
-                           , bindings
-                           , PreBinding(..)
-                           , finalizeBindings
-                           , finalizeBinding
-                           , PreBody(..)
-                           , body
-                           , gbody
-                           , shapely
-                           , finalizeBody
-                           ) where
+module Ermine.Builtin.Term
+  ( lam
+  , dataCon
+  , let_
+  , implicit
+  , explicit
+  , bindings
+  , PreBinding(..)
+  , finalizeBindings
+  , finalizeBinding
+  , PreBody(..)
+  , body
+  , gbody
+  , shapely
+  , finalizeBody
+  ) where
 
 import Bound
 import Control.Applicative

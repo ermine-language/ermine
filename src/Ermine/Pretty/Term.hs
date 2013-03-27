@@ -7,9 +7,10 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Pretty.Term ( prettyHardTerm
-                          , prettyTerm
-                          ) where
+module Ermine.Pretty.Term
+  ( prettyHardTerm
+  , prettyTerm
+  ) where
 
 import Bound
 import Control.Applicative

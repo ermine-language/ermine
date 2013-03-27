@@ -9,7 +9,9 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Syntax.Literal (Literal(..)) where
+module Ermine.Syntax.Literal
+  ( Literal(..)
+  ) where
 
 import Control.Applicative
 import Data.Binary as Binary

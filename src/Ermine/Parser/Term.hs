@@ -10,12 +10,13 @@
 --
 -- This module provides the parser for terms
 --------------------------------------------------------------------
-module Ermine.Parser.Term ( anyType
-                          , term
-                          , terms
-                          , declarations
-                          , letBlock
-                          ) where
+module Ermine.Parser.Term
+  ( anyType
+  , term
+  , terms
+  , declarations
+  , letBlock
+  ) where
 
 import Control.Lens hiding (op)
 import Control.Applicative

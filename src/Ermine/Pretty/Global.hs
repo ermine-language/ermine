@@ -7,7 +7,9 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Pretty.Global (prettyGlobal) where
+module Ermine.Pretty.Global
+  ( prettyGlobal
+  ) where
 
 import Data.ByteString.Char8 (unpack)
 import Ermine.Pretty

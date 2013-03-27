@@ -7,7 +7,9 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Pretty.Literal (prettyLiteral) where
+module Ermine.Pretty.Literal
+  ( prettyLiteral
+  ) where
 
 import Ermine.Pretty
 import Ermine.Syntax.Literal

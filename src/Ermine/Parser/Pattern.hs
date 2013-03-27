@@ -9,12 +9,12 @@
 --
 -- This module provides the parser for terms
 --------------------------------------------------------------------
-
-module Ermine.Parser.Pattern ( validate
-                         , pattern
-                         , pattern0
-                         , PP
-                         ) where
+module Ermine.Parser.Pattern
+  ( validate
+  , pattern
+  , pattern0
+  , PP
+  ) where
 
 import Control.Applicative
 import Control.Lens hiding (op)

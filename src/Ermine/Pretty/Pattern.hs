@@ -8,10 +8,11 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Pretty.Pattern ( prettyPattern
-                             , lambdaPatterns
-                             , prettyAlt
-                             ) where
+module Ermine.Pretty.Pattern
+  ( prettyPattern
+  , lambdaPatterns
+  , prettyAlt
+  ) where
 
 import Bound
 import Control.Applicative hiding (empty)
