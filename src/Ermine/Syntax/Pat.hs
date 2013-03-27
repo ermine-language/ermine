@@ -97,3 +97,7 @@ getPat gt = getWord8 >>= \b -> case b of
   6 -> ConP    <$> get <*> getMany (getPat gt)
   7 -> TupP    <$> getMany (getPat gt)
   _ -> fail $ "get Pat: unexpected constructor tag: " ++ show b
+
+instance Binary t => Binary (Pat t) where
+  put = putPat put
+  get = getPat get

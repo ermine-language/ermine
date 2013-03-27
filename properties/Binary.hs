@@ -20,7 +20,10 @@ import Data.ByteString
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as K
-import Ermine.Syntax.Type as T
+import Ermine.Syntax.Literal
+import Ermine.Syntax.Pat
+import Ermine.Syntax.Term as Term
+import Ermine.Syntax.Type as Type
 import Prelude.Extras
 import Test.QuickCheck
 import Test.QuickCheck.Function
@@ -86,14 +89,14 @@ instance Arbitrary a => Arbitrary (Schema a) where
 prop_pack_unpack_schema :: Schema Int -> Bool
 prop_pack_unpack_schema = pack_unpack
 
-instance Arbitrary T.HardType where
+instance Arbitrary Type.HardType where
     arbitrary = 
-      oneof [ T.Tuple  <$> arbitrary,
-              return T.Arrow,
+      oneof [ Type.Tuple  <$> arbitrary,
+              return Type.Arrow,
               -- TODO: learn more about Data.Void
               -- | Con !Global !(Schema Void)
-              --T.Con    <$> arbitrary <*> arbitrary,
-              T.ConcreteRho <$> arbitrary ]
+              --Type.Con    <$> arbitrary <*> arbitrary,
+              Type.ConcreteRho <$> arbitrary ]
 
 instance Arbitrary k => Arbitrary1 (Type k) where
     arbitrary1 = arbitrary 
@@ -105,10 +108,10 @@ resizearb n = resize (n `div` 2) arbitrary
 
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
     arbitrary = sized type' where 
-      type' 0 = oneof [ T.Var <$> arbitrary, HardType <$> arbitrary ]
+      type' 0 = oneof [ Type.Var <$> arbitrary, HardType <$> arbitrary ]
       type' n | n>0 = 
-        oneof [ T.Var    <$> arbitrary
-               ,App      <$> resizearb n <*> resizearb n
+        oneof [ Type.Var    <$> arbitrary
+               ,Type.App      <$> resizearb n <*> resizearb n
                ,HardType <$> arbitrary
                ,Forall   <$> arbitrary <*> resizearb n <*> resizearb n <*> resizearb n
                -- | Loc !Rendering !(Type k a)
@@ -122,6 +125,47 @@ prop_pack_unpack_hardtype = pack_unpack
 
 prop_pack_unpack_type :: Type Int Int -> Bool
 prop_pack_unpack_type = pack_unpack
+
+
+instance Arbitrary Literal where
+    arbitrary =
+      oneof [ Int     <$> arbitrary,
+              Int64   <$> arbitrary,
+              Byte    <$> arbitrary,
+              Short   <$> arbitrary,
+              String  <$> arbitrary,
+              Char    <$> arbitrary,
+              Float   <$> arbitrary,
+              Double  <$> arbitrary ]
+
+prop_pack_unpack_literal :: Literal -> Bool
+prop_pack_unpack_literal = pack_unpack
+
+instance Arbitrary HardTerm where
+  arbitrary = oneof [
+    Lit          <$> arbitrary,
+    DataCon      <$> arbitrary,
+    Term.Tuple   <$> arbitrary,
+    return Hole ]
+
+prop_pack_unpack_hardterm :: HardTerm -> Bool
+prop_pack_unpack_hardterm = pack_unpack
+
+instance Arbitrary t => Arbitrary (Pat t) where
+  arbitrary = sized tree' where
+    tree' 0 =  oneof [ SigP <$> arbitrary, return WildcardP, LitP <$> arbitrary ]
+    tree' n = oneof [
+      SigP    <$> arbitrary,
+      return WildcardP,
+      AsP     <$> resizearb n,
+      StrictP <$> resizearb n,
+      LazyP   <$> resizearb n,
+      LitP    <$> arbitrary,
+      ConP    <$> arbitrary <*> resizearb n,
+      TupP    <$> resizearb n ]
+
+prop_pack_unpack_pattern :: Pat Int -> Bool
+prop_pack_unpack_pattern = pack_unpack
 
 tests = $testGroupGenerator
 
