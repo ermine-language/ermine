@@ -380,7 +380,7 @@ getTerm gt ga = getWord8 >>= \b -> case b of
   6 -> Let  <$> getMany (getBinding gt ga) <*> getScope get (getTerm gt) ga
   7 -> Loc  <$> return mempty <*> getTerm gt ga
   8 -> Remember <$> get <*> getTerm gt ga
-  _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
+  _ -> fail $ "getTerm: Unexpected constructor code: " ++ show b
 
 instance (Binary k, Binary t) => Binary (Term k t) where
   put = putTerm put put

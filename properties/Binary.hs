@@ -19,6 +19,7 @@ import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Put
 import Data.ByteString
+import Data.Monoid
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as K
@@ -127,7 +128,6 @@ prop_pack_unpack_hardtype = pack_unpack
 prop_pack_unpack_type :: Type Int Int -> Bool
 prop_pack_unpack_type = pack_unpack
 
-
 instance Arbitrary Literal where
   arbitrary = oneof [
     Int     <$> arbitrary,
@@ -167,6 +167,63 @@ instance Arbitrary t => Arbitrary (Pattern t) where
 
 prop_pack_unpack_pattern :: Pattern Int -> Bool
 prop_pack_unpack_pattern = pack_unpack
+
+instance (Arbitrary t,Arbitrary1 f,Arbitrary a,Functor f) => Arbitrary (Alt t f a) where
+  arbitrary = Alt <$> arbitrary <*> arbitrary
+
+instance Arbitrary t => Arbitrary (BindingType t) where
+  arbitrary = oneof [ Explicit <$> arbitrary, return Implicit ]
+
+prop_pack_unpack_binding_type :: BindingType Int -> Bool
+prop_pack_unpack_binding_type = pack_unpack
+
+instance Arbitrary DeclBound where
+  arbitrary = oneof [ D <$> arbitrary, P <$> arbitrary, W <$> arbitrary ]
+
+prop_pack_unpack_decl_bound :: DeclBound -> Bool
+prop_pack_unpack_decl_bound = pack_unpack
+
+instance Arbitrary tm => Arbitrary (Guarded tm) where
+  arbitrary = oneof [ Unguarded <$> arbitrary, Guarded <$> arbitrary ]
+
+prop_pack_unpack_guarded :: Guarded Int -> Bool
+prop_pack_unpack_guarded = pack_unpack
+
+instance (Arbitrary t, Arbitrary a) => Arbitrary (Body t a) where
+  arbitrary = sized body' where
+    body' 0 = Body <$> return [] <*> resizearb 0 <*> return []
+    body' n = Body <$> arbitrary <*> resizearb n <*> resizearb n
+
+prop_pack_unpack_body :: Body Int Int -> Bool
+prop_pack_unpack_body = pack_unpack
+
+instance (Arbitrary t, Arbitrary a) => Arbitrary (Binding t a) where
+  arbitrary = sized binding' where
+    binding' 0 = Binding <$> return mempty <*> arbitrary <*> return []
+    binding' n = Binding <$> return mempty <*> arbitrary <*> resizearb n
+
+prop_pack_unpack_binding :: Binding Int Int -> Bool
+prop_pack_unpack_binding = pack_unpack
+
+instance Arbitrary t => Arbitrary1 (Term t) where
+  arbitrary1 = arbitrary
+
+instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
+  arbitrary = sized term' where
+    term' 0 = oneof [ Term.Var <$> arbitrary, HardTerm <$> arbitrary ]
+    term' n = oneof [
+      Term.Var  <$> arbitrary,
+      Term.App  <$> resizearb n <*> resizearb n,
+      HardTerm  <$> arbitrary,
+      Term.Sig  <$> resizearb n <*> arbitrary,
+      Term.Lam  <$> arbitrary <*> resizearb n,
+      Term.Case <$> resizearb n <*> resizearb n,
+      Term.Let  <$> resizearb n <*> resizearb n,
+      Term.Loc  <$> return mempty <*> resizearb n,
+      Term.Remember <$> arbitrary <*> resizearb n ]
+
+prop_pack_unpack_term :: Term Int Int -> Bool
+prop_pack_unpack_term = pack_unpack
 
 -- Random choice of Binary test case type. May or may not be worth
 -- keeping this around.
