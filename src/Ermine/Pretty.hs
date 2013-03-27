@@ -60,8 +60,8 @@ prePunctuate _ [    ] = []
 prePunctuate p (d:ds) = d : map (p <+>) ds
 
 block :: [Doc] -> Doc
-block [] = text "{}"
-block (d:ds) = group $ line <> sep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
+block [    ] = text "{}"
+block (d:ds) = sep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
 
 say :: MonadIO m => Doc -> m ()
 say = liftIO . displayIO stdout . renderPretty 0.8 80

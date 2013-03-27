@@ -15,8 +15,10 @@ module Ermine.Pretty.Term ( prettyHardTerm
 
 import Bound
 import Control.Applicative
+import Control.Lens
 import Data.Semigroup
 import Data.Traversable
+import Data.Bifunctor
 import Ermine.Pretty
 import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
@@ -58,6 +60,60 @@ prettyTerm (Case d alts)  vars prec kt kv =
     <*> traverse (prettyAlt vars (\tm vs pr kv' -> prettyTerm tm vs pr kt kv') kt kv) alts
  where
  h dd cs = parensIf (prec > 9) $
-             text "case" <+> dd <+> text "of" <> nest 2 (block cs)
-prettyTerm _ _ _ _ _ = error "TODO"
--- prettyTerm (Let bs e)     vars prec kt kv = undefined
+             text "case" <+> dd <+> text "of" <> nest 2 (group $ line <> block cs)
+prettyTerm (Let bs e)     vars prec kt kv =
+  h <$> prettyBindings (zip dvs bs) dvs rest kt kv
+    <*> prettyTerm (unscope e) rest (-1) kt kv'
+ where
+ (dvs, rest) = first (map text) $ splitAt (length bs) vars
+ kv' (B i) _  = pure $ dvs !! i
+ kv' (F t) pr = prettyTerm t rest pr kt kv
+
+ h bd ed = parensIf (prec > 9) $ text "let" <+> align bd </> text "in" </> ed
+
+prettyBinding :: Applicative f
+              => Doc -> Binding t v -> [Doc] -> [String]
+              -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f [Doc]
+prettyBinding nm (Binding _ bt bs) dvs vs kt kv =
+  h <*> traverse (\bd -> prettyBody nm bd dvs vs kt kv) bs
+ where
+ h = case bt of
+       (Explicit ty) -> pure id -- TODO: Type decl
+       Implicit      -> pure id
+
+prettyBindings :: Applicative f
+               => [(Doc, Binding t v)] -> [Doc] -> [String]
+               -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f Doc
+prettyBindings bs dvs vs kt kv =
+  block . concat <$> traverse (\p -> uncurry prettyBinding p dvs vs kt kv) bs
+
+prettyGuarded :: Applicative f => Guarded tm -> (tm -> f Doc) -> f Doc
+prettyGuarded (Unguarded tm) k = (equals </>) <$> k tm
+prettyGuarded (Guarded l)    k = align . sep <$> traverse (\(l, r) -> h <$> k l <*> k r) l
+ where
+ h g b = text "|" <+> g <+> equals </> b
+
+prettyBody :: Applicative f
+           => Doc -> Body t v -> [Doc] -> [String]
+           -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f Doc
+prettyBody nm (Body ps gs wh) dvs vs kt kv =
+  h <$> fpd <*> prettyGuarded gs (\(Scope e) -> prettyTerm e rest (-1) kt kv') <*> wd
+ where
+ wl = length wh
+ wd | wl == 0   = pure Nothing
+    | otherwise = Just <$> prettyBindings (zip wvs wh) wvs rest kt kw
+ (n, fpd) = lambdaPatterns ps vs kt
+ (pvs, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt n vs
+
+ h pd gd Nothing   = align $ nm <> pd <> nest 2 (softline <> gd)
+ h pd gd (Just wd) = align $ nm <> pd <> nest 2 (softline <> gd)
+                  <> nest 1 (line <> text "where" </> align wd)
+
+ kv' (B (D i)) _  = pure $ dvs !! i
+ kv' (B (P i)) _  = pure . text $ pvs !! i
+ kv' (B (W i)) _  = pure $ wvs !! i
+ kv' (F tm)    pr = prettyTerm tm rest pr kt kv
+
+ kw (B i) = const . pure . text $ pvs !! i
+ kw (F v) = kv v
+

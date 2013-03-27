@@ -15,7 +15,7 @@ module Ermine.Pretty.Pattern ( prettyPattern
                              ) where
 
 import Bound
-import Control.Applicative
+import Control.Applicative hiding (empty)
 import Control.Lens
 import Control.Monad.State
 import Data.Bifunctor
@@ -72,7 +72,8 @@ prettyPattern p vs prec tk = runPP (prettyPat' p prec tk) vs
 lambdaPatterns :: Applicative f
                => [Pat t] -> [String] -> (t -> Int -> f Doc) -> (Int, f Doc)
 lambdaPatterns ps vs tk =
-  runPP (hsep <$> traverse (prettyPat' ?? 1000 ?? tk) ps) vs
+  runPP (lsep <$> traverse (prettyPat' ?? 1000 ?? tk) ps) vs
+ where lsep [] = empty ; lsep l = space <> hsep l
 
 prettyAlt :: Applicative f
           => [String]
