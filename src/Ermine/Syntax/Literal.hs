@@ -13,7 +13,6 @@ module Ermine.Syntax.Literal
   ( Literal(..)
   ) where
 
-import Control.Applicative
 import Control.Monad
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
@@ -42,14 +41,14 @@ data Literal
 instance Hashable Literal
 
 instance Serial Literal where
-  serialize (Int    i) = putWord8 0 *> serialize i
-  serialize (Int64  i) = putWord8 1 *> serialize i
-  serialize (Byte   i) = putWord8 2 *> serialize i
-  serialize (Short  i) = putWord8 3 *> serialize i
-  serialize (String i) = putWord8 4 *> serialize i
-  serialize (Char   i) = putWord8 5 *> serialize i
-  serialize (Float  i) = putWord8 6 *> serialize i
-  serialize (Double i) = putWord8 7 *> serialize i
+  serialize (Int    i) = putWord8 0 >> serialize i
+  serialize (Int64  i) = putWord8 1 >> serialize i
+  serialize (Byte   i) = putWord8 2 >> serialize i
+  serialize (Short  i) = putWord8 3 >> serialize i
+  serialize (String i) = putWord8 4 >> serialize i
+  serialize (Char   i) = putWord8 5 >> serialize i
+  serialize (Float  i) = putWord8 6 >> serialize i
+  serialize (Double i) = putWord8 7 >> serialize i
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Int    deserialize
