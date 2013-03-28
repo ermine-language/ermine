@@ -113,8 +113,8 @@ instance Serial1 Branch where
   serializeWith pa (Labeled i b) = putWord8 0 >> serialize i >> serializeWith pa b
   serializeWith pa (Default   b) = putWord8 1 >>          serializeWith pa b
   deserializeWith ga = getWord8 >>= \b -> case b of
-    0 -> Labeled <$> deserialize <*> deserializeWith ga
-    1 -> Default <$>                 deserializeWith ga
+    0 -> liftM2 Labeled deserialize (deserializeWith ga)
+    1 -> liftM Default (deserializeWith ga)
     _ -> fail $ "Branch.deserializeWith: Unexpected constructor code: " ++ show b
 
 instance Serial a => Serial (Branch a) where
