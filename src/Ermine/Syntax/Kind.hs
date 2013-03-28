@@ -22,8 +22,6 @@ module Ermine.Syntax.Kind
   (
   -- * Kinds
     Kind(..)
-  , getKind
-  , putKind
   -- * Hard Kinds
   , HardKind(..)
   , Kindly(..)
@@ -31,8 +29,6 @@ module Ermine.Syntax.Kind
   , Schema(..)
   , schema
   , general
-  , putSchema
-  , getSchema
   -- * Kind Variables
   , HasKindVars(..)
   ) where
@@ -43,7 +39,8 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Data.Binary as B
+import qualified Data.Binary as Binary
+import Data.Binary (Binary)
 import Data.Bytes.Serial
 import Data.Bytes.Get
 import Data.Bytes.Put
@@ -52,7 +49,8 @@ import Data.Hashable
 import Data.Hashable.Extras
 import Data.Foldable
 import Data.IntMap
-import Data.Serialize as S
+import qualified Data.Serialize as Serialize
+import Data.Serialize (Serialize)
 import Data.String
 import Data.Traversable
 import Data.Map as Map
@@ -79,6 +77,7 @@ data HardKind
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable, Generic)
 
 instance Hashable HardKind
+instance Serial HardKind
 
 ------------------------------------------------------------------------------
 -- Kindly
@@ -175,14 +174,14 @@ instance Serial1 Kind where
   serializeWith p = go where
     go (Var v)      = putWord8 0 >> p v
     go (k :-> l)    = putWord8 1 >> go k >> go l
-    go (HardKind k) = putWord8 2 >> put k
-  {-# INLINE serializeWith1 #-}
+    go (HardKind k) = putWord8 2 >> serialize k
+  {-# INLINE serializeWith #-}
 
   deserializeWith g = go where
     go = getWord8 >>= \b -> case b of
       0 -> liftM Var g
       1 -> liftM2 (:->) go go
-      2 -> liftM HardKind get
+      2 -> liftM HardKind deserialize
       _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
   {-# INLINE deserializeWith #-}
 
@@ -191,12 +190,12 @@ instance Serial a => Serial (Kind a) where
   deserialize = deserializeWith deserialize
 
 instance Binary k => Binary (Kind k) where
-  put = serializeWith B.put
-  get = deserializeWith B.get
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
 
 instance Serialize k => Serialize (Kind k) where
-  put = serializeWith S.put
-  get = deserializeWith S.put
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
 
 ------------------------------------------------------------------------------
 -- HasKindVars
@@ -296,14 +295,21 @@ instance HasKindVars (Schema a) (Schema b) a b where
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
 
-putSchema :: (k -> Put) -> Schema k -> Put
-putSchema pk (Schema n body) = put n *> putScope put putKind pk body
-{-# INlINE putSchema #-}
+instance Serial1 Schema where
+  serializeWith pk (Schema n body) = serialize n >> serializeWith pk body
+  {-# INlINE serializeWith #-}
 
-getSchema :: Get k -> Get (Schema k)
-getSchema gk = Schema <$> get <*> getScope get getKind gk
-{-# INLINE getSchema #-}
+  deserializeWith gk = liftM2 Schema deserialize (deserializeWith gk)
+  {-# INLINE deserializeWith #-}
 
 instance Binary k => Binary (Schema k) where
-  put = putSchema put
-  get = getSchema get
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize k => Serialize (Schema k) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
+instance Serial k => Serial (Schema k) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
