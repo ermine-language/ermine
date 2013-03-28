@@ -17,7 +17,7 @@ module Ermine.Syntax.Pattern
   ( Pattern(..)
   , Alt(..)
   , bitraverseAlt
-  , getAlt, putAlt, getPat, putPat
+  -- , getAlt, putAlt, getPat, putPat
   ) where
 
 import Bound
@@ -67,14 +67,16 @@ bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
 
-instance (Serial t, Serial1 f) => Serial1 (Alt t f)  where
+instance (Serial t, Serial1 f) => Serial1 (Alt t f) where
+  serializeWith pa (Alt p s) = do
+    serialize p
+    serializeWith pa s
 
--- | Binary serialization of a 'Alt', given serializers for its parameters.
-putAlt :: MonadPut m => (t -> m p) -> (a -> m p) -> Alt t f a -> m ()
-putAlt pt pa (Alt p s) = serializeWith pt p >> serializeWith pa s
+  deserializeWith ga = liftM2 Alt deserialize (deserializeWith ga)
 
-getAlt :: MonadGet m => m t -> m a -> m (Alt t f a)
-getAlt gt ga = liftM2 Alt (deserializeWith gt) (deserializeWith ga)
+instance (Serial t, Serial1 f, Serial a) => Serial (Alt t f a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
 
 instance Serial1 Pattern where
   serializeWith pt (SigP t)    = putWord8 0 >> pt t
@@ -97,6 +99,14 @@ instance Serial1 Pattern where
     7 -> liftM TupP $ deserializeWith (deserializeWith gt)
     _ -> fail $ "get Pattern: unexpected constructor tag: " ++ show b
 
+instance Serial a => Serial (Pattern a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
+
 instance Binary t => Binary (Pattern t) where
   put = serializeWith Binary.put
   get = deserializeWith Binary.get
+
+instance Serialize t => Serialize (Pattern t) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
