@@ -35,14 +35,21 @@ import Bound
 import Control.Applicative
 import Control.Monad
 import Control.Lens as Lens
-import Data.Binary as Binary
+import qualified Data.Binary as Binary
+import Data.Binary (Binary)
+import Data.Bytes.Get
+import Data.Bytes.Put
+import Data.Bytes.Serial
 import Data.Data
 import Data.Int
 import Data.List as List
 import Data.Foldable
 import Data.Hashable
 import Data.Hashable.Extras
+import qualified Data.Serialize as Serialize
+import Data.Serialize (Serialize)
 import Data.String
+import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Binary
 import Ermine.Syntax.Literal
@@ -102,23 +109,29 @@ data Branch a = Labeled { tag :: !Int, body :: Scope Int Core a }
 instance Hashable1 Branch
 instance Hashable a => Hashable (Branch a)
 
+instance Serial1 Branch where
+  serializeWith pa (Labeled i b) = putWord8 0 >> serialize i >> serializeWith pa b
+  serializeWith pa (Default   b) = putWord8 1 >>          serializeWith pa b
+  deserializeWith ga = getWord8 >>= \b -> case b of
+    0 -> Labeled <$> deserialize <*> deserializeWith ga
+    1 -> Default <$>                 deserializeWith ga
+    _ -> fail $ "Branch.deserializeWith: Unexpected constructor code: " ++ show b
+
+instance Serial a => Serial (Branch a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
+
+instance Binary a => Binary (Branch a) where
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize a => Serialize (Branch a) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
 instance BoundBy Branch Core where
   boundBy f (Default   b) = Default   (boundBy f b)
   boundBy f (Labeled n b) = Labeled n (boundBy f b)
-
-instance Binary a => Binary (Branch a) where
-  put = putBranch put
-  get = getBranch get
-
-putBranch :: (a -> Put) -> Branch a -> Put
-putBranch pa (Labeled i b) = putWord8 0 *> put i *> putScope put putCore pa b
-putBranch pa (Default   b) = putWord8 1 *>          putScope put putCore pa b
-
-getBranch :: Get a -> Get (Branch a)
-getBranch ga = getWord8 >>= \b -> case b of
-  0 -> Labeled <$> get <*> getScope get getCore ga
-  1 -> Default <$>         getScope get getCore ga
-  _ -> fail $ "getBranch: Unexpected constructor code: " ++ show b
 
 data HardCore
   = Super   !Int
@@ -128,16 +141,24 @@ data HardCore
 
 instance Hashable HardCore
 
-instance Binary HardCore where
-  put (Super i) = putWord8 0 *> put i
-  put (Slot g)  = putWord8 1 *> put g
-  put (Lit i)   = putWord8 2 *> put i
+instance Serial HardCore where
+  serialize (Super i) = putWord8 0 >> serialize i
+  serialize (Slot g)  = putWord8 1 >> serialize g
+  serialize (Lit i)   = putWord8 2 >> serialize i
 
-  get = getWord8 >>= \b -> case b of
-    0 -> Super <$> get
-    1 -> Slot  <$> get
-    2 -> Lit   <$> get
-    _ -> fail   $ "get HardCore: Unexpected constructor code: " ++ show b
+  deserialize = getWord8 >>= \b -> case b of
+    0 -> liftM Super deserialize
+    1 -> liftM Slot deserialize
+    2 -> liftM Lit deserialize
+    _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
+
+instance Binary HardCore where
+  put = serialize
+  get = deserialize
+
+instance Serialize HardCore where
+  put = serialize
+  get = deserialize
 
 -- | Core values are the output of the compilation process.
 --
@@ -156,36 +177,43 @@ data Core a
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
 
--- | Binary serialization of a 'Core', given serializers for its parameter.
-putCore :: (a -> Put) -> Core a -> Put
-putCore pa (Var a)          = putWord8 0 *> pa a
-putCore _  (HardCore h)     = putWord8 1 *> put h
-putCore pa (Data i cs)      = putWord8 2 *> put i *> putMany (putCore pa) cs
-putCore pa (App c1 c2)      = putWord8 3 *> putCore pa c1 *> putCore pa c2
-putCore pa (Lam i s)        = putWord8 4 *> put i *> putScope put putCore pa s
-putCore pa (Let ss s)       = putWord8 5 *> putMany (putScope put putCore pa) ss *> putScope put putCore pa s
-putCore pa (Case c bs)      = putWord8 6 *> putCore pa c *> putMany (putBranch pa) bs
-putCore pa (Dict sups slts) = putWord8 7 *> putMany (putCore pa) sups *> putMany (putScope put putCore pa) slts
-putCore pa (LamDict s)      = putWord8 8 *> putScope put putCore pa s
-putCore pa (AppDict c1 c2)  = putWord8 9 *> putCore pa c1 *> putCore pa c2
+instance Serial1 Core where
+  -- | Binary serialization of a 'Core', given serializers for its parameter.
+  serializeWith pa (Var a)          = putWord8 0 >> pa a
+  serializeWith _  (HardCore h)     = putWord8 1 >> serialize h
+  serializeWith pa (Data i cs)      = putWord8 2 >> serialize i >> serializeWith (serializeWith pa) cs
+  serializeWith pa (App c1 c2)      = putWord8 3 >> serializeWith pa c1 >> serializeWith pa c2
+  serializeWith pa (Lam i s)        = putWord8 4 >> serialize i >> serializeWith pa s
+  serializeWith pa (Let ss s)       = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
+  serializeWith pa (Case c bs)      = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith pa) bs
+  serializeWith pa (Dict sups slts) = putWord8 7 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
+  serializeWith pa (LamDict s)      = putWord8 8 >> serializeWith pa s
+  serializeWith pa (AppDict c1 c2)  = putWord8 9 >> serializeWith pa c1 >> serializeWith pa c2
 
-getCore :: Get a -> Get (Core a)
-getCore ga = getWord8 >>= \b -> case b of
-  0 -> Var      <$> ga
-  1 -> HardCore <$> get
-  2 -> Data     <$> get <*> getMany (getCore ga)
-  3 -> App      <$> getCore ga <*> getCore ga
-  4 -> Lam      <$> get <*> getScope get getCore ga
-  5 -> Let      <$> getMany (getScope get getCore ga) <*> getScope get getCore ga
-  6 -> Case     <$> getCore ga <*> getMany (getBranch ga)
-  7 -> Dict     <$> getMany (getCore ga) <*> getMany (getScope get getCore ga)
-  8 -> LamDict  <$> getScope get getCore ga
-  9 -> AppDict  <$> getCore ga <*> getCore ga
-  _ -> fail $ "getCore: Unexpected constructor code: " ++ show b
+  deserializeWith ga = getWord8 >>= \b -> case b of
+    0 -> liftM Var ga
+    1 -> liftM HardCore deserialize
+    2 -> liftM2 Data deserialize (deserializeWith (deserializeWith ga))
+    3 -> liftM2 App (deserializeWith ga) (deserializeWith ga)
+    4 -> liftM2 Lam deserialize (deserializeWith ga)
+    5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
+    6 -> liftM2 Case (deserializeWith ga) (deserializeWith (deserializeWith ga))
+    7 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith (deserializeWith ga))
+    8 -> liftM LamDict (deserializeWith ga)
+    9 -> liftM2 AppDict (deserializeWith ga) (deserializeWith ga)
+    _ -> fail $ "deserializeWith: Unexpected constructor code: " ++ show b
+
+instance Serial a => Serial (Core a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
 
 instance Binary a => Binary (Core a) where
-  put = putCore put
-  get = getCore get
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize a => Serialize (Core a) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
 
 instance Hashable1 Core
 

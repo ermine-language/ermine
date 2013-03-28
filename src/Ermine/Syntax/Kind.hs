@@ -43,12 +43,16 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans.Class
-import Data.Binary
+import Data.Binary as B
+import Data.Bytes.Serial
+import Data.Bytes.Get
+import Data.Bytes.Put
 import Data.Data
 import Data.Hashable
 import Data.Hashable.Extras
 import Data.Foldable
 import Data.IntMap
+import Data.Serialize as S
 import Data.String
 import Data.Traversable
 import Data.Map as Map
@@ -167,27 +171,32 @@ instance Ord1 Kind
 instance Show1 Kind
 instance Read1 Kind
 
-putKind :: (k -> Put) -> Kind k -> Put
-putKind p = go
- where
-   go (Var v)      = putWord8 0 *> p v
-   go (k :-> l)    = putWord8 1 *> go k *> go l
-   go (HardKind k) = putWord8 2 *> put k
-{-# INLINE putKind #-}
+instance Serial1 Kind where
+  serializeWith p = go where
+    go (Var v)      = putWord8 0 >> p v
+    go (k :-> l)    = putWord8 1 >> go k >> go l
+    go (HardKind k) = putWord8 2 >> put k
+  {-# INLINE serializeWith1 #-}
 
-getKind :: Get k -> Get (Kind k)
-getKind g = go
- where
-   go = getWord8 >>= \b -> case b of
-     0 -> Var <$> g
-     1 -> (:->) <$> go <*> go
-     2 -> HardKind <$> get
-     _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
-{-# INLINE getKind #-}
+  deserializeWith g = go where
+    go = getWord8 >>= \b -> case b of
+      0 -> liftM Var g
+      1 -> liftM2 (:->) go go
+      2 -> liftM HardKind get
+      _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
+  {-# INLINE deserializeWith #-}
+
+instance Serial a => Serial (Kind a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
 
 instance Binary k => Binary (Kind k) where
-  put = putKind put
-  get = getKind get
+  put = serializeWith B.put
+  get = deserializeWith B.get
+
+instance Serialize k => Serialize (Kind k) where
+  put = serializeWith S.put
+  get = deserializeWith S.put
 
 ------------------------------------------------------------------------------
 -- HasKindVars
