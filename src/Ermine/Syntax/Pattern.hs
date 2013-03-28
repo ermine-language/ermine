@@ -18,6 +18,8 @@ module Ermine.Syntax.Pattern
   , Alt(..)
   , bitraverseAlt
   -- , getAlt, putAlt, getPat, putPat
+  , serializeAlt3
+  , deserializeAlt3
   ) where
 
 import Bound
@@ -77,6 +79,16 @@ instance (Serial t, Serial1 f) => Serial1 (Alt t f) where
 instance (Serial t, Serial1 f, Serial a) => Serial (Alt t f a) where
   serialize = serializeWith serialize
   deserialize = deserializeWith deserialize
+
+serializeAlt3 :: MonadPut m
+              => (t -> m ()) -> (forall a. (a -> m ()) -> f a -> m ()) -> (v -> m ())
+              -> Alt t f v -> m ()
+serializeAlt3 pt pf pv (Alt p b) = serializeWith pt p *> serializeScope3 serialize pf pv b
+
+deserializeAlt3 :: MonadGet m
+                => m t -> (forall a. m a -> m (f a)) -> m v -> m (Alt t f v)
+deserializeAlt3 gt gf gv =
+  Alt <$> deserializeWith gt <*> deserializeScope3 deserialize gf gv
 
 instance Serial1 Pattern where
   serializeWith pt (SigP t)    = putWord8 0 >> pt t

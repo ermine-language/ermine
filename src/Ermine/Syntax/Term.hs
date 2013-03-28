@@ -1,6 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -41,13 +42,19 @@ import Control.Lens.Internal.Review
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Bifoldable
-import Data.Binary as Binary
+import qualified Data.Binary as Binary
+import Data.Binary (Binary)
 import Data.Bitraversable
+import Data.Bytes.Get
+import Data.Bytes.Put
+import Data.Bytes.Serial
 import Data.Foldable
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.Monoid
 import Data.String
+import qualified Data.Serialize as Serialize
+import Data.Serialize (Serialize)
 import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -56,6 +63,7 @@ import Ermine.Syntax.Pattern
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type hiding (App, Loc, Var, Tuple)
+import GHC.Generics
 import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 
@@ -65,20 +73,7 @@ data HardTerm
   | DataCon !Global
   | Tuple !Int      -- (,,)
   | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
-  deriving (Eq, Show)
-
-instance Binary HardTerm where
-  put (Lit l)     = putWord8 0 *> put l
-  put (DataCon g) = putWord8 1 *> put g
-  put (Tuple i)   = putWord8 2 *> put i
-  put Hole        = putWord8 3
-
-  get = getWord8 >>= \b -> case b of
-    0 -> Lit     <$> get
-    1 -> DataCon <$> get
-    2 -> Tuple   <$> get
-    3 -> return  Hole
-    _ -> fail    $ "get HardTerm: Unexpected constructor code: " ++ show b
+  deriving (Eq, Show, Generic)
 
 -- | This class provides a prism to match against or inject a 'HardTerm'.
 class Terminal t where
@@ -97,21 +92,7 @@ instance Terminal HardTerm where
 data BindingType t
   = Explicit t
   | Implicit
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-instance Binary t => Binary (BindingType t) where
-  put = putBindingType put
-  get = getBindingType get
-
-putBindingType :: (t -> Put) -> BindingType t -> Put
-putBindingType pt (Explicit t) = putWord8 0 *> pt t
-putBindingType _   Implicit    = putWord8 1
-
-getBindingType :: Get t -> Get (BindingType t)
-getBindingType gt = getWord8 >>= \b -> case b of
-  0 -> Explicit <$> gt
-  1 -> return Implicit
-  _ -> fail $ "getBindingType: Unexpected constructor code: " ++ show b
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, Generic1)
 
 -- | Bound variables in a declaration are rather complicated. One can refer
 -- to any of the following:
@@ -119,17 +100,7 @@ getBindingType gt = getWord8 >>= \b -> case b of
 --   2. Variables bound in a pattern
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
-data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read)
-
-instance Binary DeclBound where
-  put (D i) = putWord8 0 *> put i
-  put (P i) = putWord8 1 *> put i
-  put (W i) = putWord8 2 *> put i
-  get = getWord8 >>= \b -> case b of
-          0 -> D <$> get
-          1 -> P <$> get
-          2 -> W <$> get
-          _ -> fail $ "get DeclBound: Unexpected constructor code: " ++ show b
+data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read,Generic)
 
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
@@ -138,42 +109,11 @@ instance Binary DeclBound where
 data Body t a = Body [Pattern t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-instance (Binary t, Binary a) => Binary (Body t a) where
-  put = putBody put put
-  get = getBody get get
-
-putBody :: (t -> Put) -> (a -> Put) -> Body t a -> Put
-putBody pt pa (Body pats g bs) =
-  putMany (putPat pt) pats *>
-  putGuarded (putScope put (putTerm pt) pa) g *>
-  putMany (putBinding pt (putVar put pa)) bs
-
-getBody :: Get t -> Get a -> Get (Body t a)
-getBody gt ga = Body <$>
-  getMany (getPat gt) <*>
-  getGuarded (getScope get (getTerm gt) ga) <*>
-  getMany (getBinding gt (getVar get ga))
-
 -- | A datatype for representing potentially guarded cases of a function
 -- body.
 data Guarded tm = Unguarded tm
                 | Guarded [(tm, tm)]
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
-
-instance Binary tm => Binary (Guarded tm) where
-  put = putGuarded put
-  get = getGuarded get
-
-putGuarded :: (tm -> Put) -> Guarded tm -> Put
-putGuarded ptm (Unguarded tm) = putWord8 0 *> ptm tm
-putGuarded ptm (Guarded tms)  = putWord8 1 *> putMany putPair tms where
-  putPair (tm1, tm2) = ptm tm1 *> ptm tm2
-
-getGuarded :: Get t -> Get (Guarded t)
-getGuarded gtm = getWord8 >>= \b -> case b of
-  0 -> Unguarded <$> gtm
-  1 -> Guarded <$> getMany ((,) <$> gtm <*> gtm)
-  _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
 
 instance Bifunctor Body where
   bimap = bimapDefault
@@ -191,16 +131,6 @@ instance Bitraversable Body where
 -- and a list of right hand side bindings.
 data Binding t a = Binding !Rendering !(BindingType t) [Body t a]
   deriving (Show, Functor, Foldable, Traversable)
-
-instance (Binary t, Binary a) => Binary (Binding t a) where
-  put = putBinding put put
-  get = getBinding get get
-
-putBinding :: (t -> Put) -> (a -> Put) -> Binding t a -> Put
-putBinding pt pa (Binding _ bt body) = putBindingType pt bt *> putMany (putBody pt pa) body
-
-getBinding :: Get t -> Get a -> Get (Binding t a)
-getBinding gt ga = Binding <$> return mempty <*> getBindingType gt <*> getMany (getBody gt ga)
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
   Binding _ t bs == Binding _ t' bs' = t == t' && bs == bs'
@@ -350,32 +280,147 @@ instance HasTermVars s t a b => HasTermVars (IntMap s) (IntMap t) a b where
 instance HasTermVars s t a b => HasTermVars (Map k s) (Map k t) a b where
   termVars = traverse.termVars
 
--- | Binary serialization of a 'Term', given serializers for its two
--- parameters.
-putTerm :: (t -> Put) -> (a -> Put) -> Term t a -> Put
-putTerm _  pa (Var a)        = putWord8 0 *> pa a
-putTerm pt pa (App t1 t2)    = putWord8 1 *> putTerm pt pa t1 *> putTerm pt pa t2
-putTerm _ _   (HardTerm h)   = putWord8 2 *> put h
-putTerm pt pa (Sig t1 t)     = putWord8 3 *> putTerm pt pa t1 *> pt t
-putTerm pt pa (Lam ps s)     = putWord8 4 *> putMany (putPat pt) ps *> putScope put (putTerm pt) pa s
-putTerm pt pa (Case t alts)  = putWord8 5 *> putTerm pt pa t *> putMany (putAlt pt (putTerm pt) pa) alts
-putTerm pt pa (Let bs s)     = putWord8 6 *> putMany (putBinding pt pa) bs *> putScope put (putTerm pt) pa s
-putTerm pt pa (Loc _ t)      = putWord8 7 *> putTerm pt pa t
-putTerm pt pa (Remember i t) = putWord8 8 *> put i *> putTerm pt pa t
+--------------------------------------------------------------------
+-- Serialization
+--------------------------------------------------------------------
 
-getTerm :: Get t -> Get a -> Get (Term t a)
-getTerm gt ga = getWord8 >>= \b -> case b of
-  0 -> Var <$> ga
-  1 -> App <$> getTerm gt ga <*> getTerm gt ga
-  2 -> HardTerm <$> get
-  3 -> Sig  <$> getTerm gt ga <*> gt
-  4 -> Lam  <$> getMany (getPat gt) <*> getScope get (getTerm gt) ga
-  5 -> Case <$> getTerm gt ga <*> getMany (getAlt gt (getTerm gt) ga)
-  6 -> Let  <$> getMany (getBinding gt ga) <*> getScope get (getTerm gt) ga
-  7 -> Loc  <$> return mempty <*> getTerm gt ga
-  8 -> Remember <$> get <*> getTerm gt ga
-  _ -> fail $ "getTerm: Unexpected constructor code: " ++ show b
+instance Serial HardTerm
+instance Binary HardTerm where put = serialize ; get = deserialize
+instance Serialize HardTerm where put = serialize ; get = deserialize
 
-instance (Binary k, Binary t) => Binary (Term k t) where
-  put = putTerm put put
-  get = getTerm get get
+instance Serial DeclBound
+instance Binary DeclBound where put = serialize ; get = deserialize
+instance Serialize DeclBound where put = serialize ; get = deserialize
+
+instance Serial1 BindingType
+
+instance Serial t => Serial (BindingType t) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance Binary t => Binary (BindingType t) where
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize t => Serialize (BindingType t) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
+instance Serial2 Binding where
+  serializeWith2 pt pa (Binding _ bt body) =
+    serializeWith pt bt *> serializeWith (serializeWith2 pt pa) body
+
+  deserializeWith2 gt ga = Binding <$> return mempty
+                                   <*> deserializeWith gt
+                                   <*> deserializeWith (deserializeWith2 gt ga)
+
+instance Serial t => Serial1 (Binding t) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial t, Serial v) => Serial (Binding t v) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance (Binary t, Binary v) => Binary (Binding t v) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+instance Serial2 Body where
+  serializeWith2 pt pa (Body pats g bs) =
+    serializeWith (serializeWith pt) pats *>
+    serializeWith (serializeScope3 serialize (serializeWith2 pt) pa) g *>
+    serializeWith (serializeWith2 pt (serializeWith pa)) bs
+
+  deserializeWith2 gt ga =
+    Body <$> deserializeWith (deserializeWith gt)
+         <*> deserializeWith (deserializeScope3 deserialize (deserializeWith2 gt) ga)
+         <*> deserializeWith (deserializeWith2 gt (deserializeWith ga))
+
+instance Serial t => Serial1 (Body t) where
+  serializeWith = serializeWith2 serialize
+
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial t, Serial v) => Serial (Body t v) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance (Binary t, Binary a) => Binary (Body t a) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+instance (Serialize t, Serialize a) => Serialize (Body t a) where
+  put = serializeWith2   Serialize.put Serialize.put
+  get = deserializeWith2 Serialize.get Serialize.get
+
+instance Serial1 Guarded where
+  serializeWith ptm (Unguarded tm) = putWord8 0 *> ptm tm
+  serializeWith ptm (Guarded tms)  = putWord8 1 *> serializeWith putPair tms where
+    putPair (tm1, tm2) = ptm tm1 *> ptm tm2
+
+  deserializeWith gtm = getWord8 >>= \b -> case b of
+    0 -> Unguarded <$> gtm
+    1 -> Guarded <$> deserializeWith ((,) <$> gtm <*> gtm)
+    _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
+
+instance Serial v => Serial (Guarded v) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance Binary tm => Binary (Guarded tm) where
+  put = serializeWith   Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize tm => Serialize (Guarded tm) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
+instance Serial2 Term where
+  serializeWith2 pt pa = go
+   where
+   go (Var a)        = putWord8 0 *> pa a
+   go (App t1 t2)    = putWord8 1 *> go t1 *> go t2
+   go (HardTerm h)   = putWord8 2 *> serialize h
+   go (Sig t1 t)     = putWord8 3 *> go t1 *> pt t
+   go (Lam ps s)     =
+     putWord8 4 *> serializeWith (serializeWith pt) ps
+                *> serializeScope3 serialize (serializeWith2 pt) pa s
+   go (Case t alts)  =
+     putWord8 5 *> go t *> serializeWith (serializeAlt3 pt (serializeWith2 pt) pa) alts
+   go (Let bs s)     =
+     putWord8 6 *> serializeWith (serializeWith2 pt pa) bs
+                *> serializeScope3 serialize (serializeWith2 pt) pa s
+   go (Loc _ t)      = putWord8 7 *> go t
+   go (Remember i t) = putWord8 8 *> serialize i *> go t
+  {-# INLINE serializeWith2 #-}
+
+  deserializeWith2 gt ga = go
+   where
+   go = getWord8 >>= \b -> case b of
+     0 -> Var <$> ga
+     1 -> App <$> go <*> go
+     2 -> HardTerm <$> deserialize
+     3 -> Sig  <$> go <*> gt
+     4 -> Lam  <$> deserializeWith (deserializeWith gt)
+               <*> deserializeScope3 deserialize (deserializeWith2 gt) ga
+     5 -> Case <$> go <*> deserializeWith (deserializeAlt3 gt (deserializeWith2 gt) ga)
+     6 -> Let  <$> deserializeWith (deserializeWith2 gt ga)
+               <*> deserializeScope3 deserialize (deserializeWith2 gt) ga
+     7 -> Loc  <$> return mempty <*> go
+     8 -> Remember <$> deserialize <*> go
+     _ -> fail $ "getTerm: Unexpected constructor code: " ++ show b
+  {-# INLINE deserializeWith2 #-}
+
+instance Serial t => Serial1 (Term t) where
+  serializeWith   = serializeWith2   serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial t, Serial v) => Serial (Term t v) where
+  serialize   = serialize1
+  deserialize = deserialize1
+
+instance (Binary t, Binary v) => Binary (Term t v) where
+  put = serializeWith2 Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+instance (Serialize t, Serialize v) => Serialize (Term t v) where
+  put = serializeWith2 Serialize.put Serialize.put
+  get = deserializeWith2 Serialize.get Serialize.get
+
