@@ -28,8 +28,6 @@ module Ermine.Syntax.Type
   , allConstraints
   , (~~>)
   , isTrivialConstraint
-  , putType
-  , getType
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -47,8 +45,6 @@ module Ermine.Syntax.Type
   -- * Type Annotations
   , Annot(..)
   , annot
-  , putAnnot
-  , getAnnot
   ) where
 
 import Bound
@@ -60,7 +56,11 @@ import Control.Monad.Trans
 import Control.Monad.State hiding (put, get)
 import Data.Bifunctor
 import Data.Bifoldable
-import Data.Binary as Binary
+import qualified Data.Binary as Binary
+import Data.Binary (Binary)
+import Data.Bytes.Serial
+import Data.Bytes.Get
+import Data.Bytes.Put
 import Data.Bitraversable
 import Data.Foldable hiding (all)
 import Data.Hashable
@@ -72,8 +72,11 @@ import Data.Map as Map hiding (map, filter, null, foldl')
 import Data.Ord (comparing)
 import Data.Set as Set hiding (map, filter, null, foldl')
 import Data.Set.Lens as Set
+import qualified Data.Serialize as Serialize
+import Data.Serialize (Serialize)
 import Data.String
 import Data.Void
+import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -96,20 +99,6 @@ data HardType
   deriving (Eq, Ord, Show, Generic)
 
 instance Hashable HardType
-
-instance Binary HardType where
-  put (Tuple n)       = putWord8 0 *> put n
-  put Arrow           = putWord8 1
-  put (Con g s)       = putWord8 2 *> put g *> putSchema absurd s
-  put (ConcreteRho s) = putWord8 3 *> put s
-
-  get = getWord8 >>= \b -> case b of
-    0 -> Tuple <$> get
-    1 -> pure Arrow
-    2 -> Con <$> get
-             <*> getSchema (fail "getHardType: getting schema with variables")
-    3 -> ConcreteRho <$> get
-    _ -> fail $ "getHardType: unexpected constructor tag: " ++ show b
 
 {-
 bananas :: Doc a -> Doc a
@@ -481,58 +470,10 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
--- | Binary serialization of a 'Type', given serializers for its two
--- parameters.
-putType :: (k -> Put) -> (t -> Put) -> Type k t -> Put
-putType _  pt (Var v)              = putWord8 0 *> pt v
-putType _  _  (HardType h)         = putWord8 1 *> put h
-putType pk pt (Loc _ t)            = putWord8 2 *> putType pk pt t -- TODO: r
-putType pk pt (App f x)            =
-  putWord8 3 *> putType pk pt f *> putType pk pt x
-putType pk pt (Forall n ks c body) =
-  putWord8 4 *> put n *>
-  putMany (putScope put putKind pk) ks *>
-  putScope put (putTK pk) pt c *>
-  putScope put (putTK pk) pt body
-putType pk pt (Exists n ks body)   =
-  putWord8 5 *> put n *>
-  putMany (putScope put putKind pk) ks *>
-  putScope put (putTK pk) pt body
-putType pk pt (And ls)             =
-  putWord8 6 *> putMany (putType pk pt) ls
-
--- | Binary deserialization of a 'Type', given deserializers for its two
--- parameters. This function makes no effort to fix up broken invariants in
--- the serialized type, so a post-processor should be used if the binary
--- wasn't produced from a canonical 'Type'.
-getType :: Get k -> Get t -> Get (Type k t)
-getType gk gt = getWord8 >>= \b -> case b of
-  0 -> Var <$> gt
-  1 -> HardType <$> get
-  2 -> Loc mempty <$> getType gk gt
-  3 -> App <$> getType gk gt <*> getType gk gt
-  4 -> Forall <$> get <*> getMany (getScope get getKind gk)
-              <*> getScope get (getTK gk) gt
-              <*> getScope get (getTK gk) gt
-  5 -> Exists <$> get <*> getMany (getScope get getKind gk)
-              <*> getScope get (getTK gk) gt
-  6 -> And <$> getMany (getType gk gt)
-  _ -> fail $ "getType: Unexpected constructor tag: " ++ show b
-
-instance (Binary k, Binary t) => Binary (Type k t) where
-  put = putType put put
-  get = getType get get
-
 -- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
 -- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
 -- relative to the extra effort.
 type TK k = Type (Var Int k)
-
-putTK :: (k -> Put) -> (t -> Put) -> TK k t -> Put
-putTK pk = putType (putVar put pk)
-
-getTK :: Get k -> Get t -> Get (TK k t)
-getTK gk = getType (getVar get gk)
 
 -- | Embed a type which does not reference the freshly bound kinds into 'TK'.
 liftTK :: Type k a -> TK k a
@@ -582,8 +523,8 @@ memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed 
  memoed :: (Ord v, Monad f) => Lens' s (Map v u) -> (v -> f (Bool, u)) -> v -> StateT s f u
  memoed l g v = use l >>= \m -> case m ^. at v of
    Just v' -> return v'
-   Nothing -> do (store, v') <- lift (g v)
-                 when store $ l.at v ?= v'
+   Nothing -> do (memo, v') <- lift (g v)
+                 when memo $ l.at v ?= v'
                  return v'
 
 -- | A function for preparing the sort of type that comes out of parsing for
@@ -644,19 +585,6 @@ instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
--- | Binary serialization of annotations.
-putAnnot :: (k -> Put) -> (t -> Put) -> Annot k t -> Put
-putAnnot pk pt (Annot ks s) =
-  putMany (putKind pk) ks *> putScope put (putType pk) pt s
-
--- | Binary deserialization of annotations.
-getAnnot :: Get k -> Get t -> Get (Annot k t)
-getAnnot gk gt = Annot <$> getMany (getKind gk) <*> getScope get (getType gk) gt
-
-instance (Binary k, Binary t) => Binary (Annot k t) where
-  put = putAnnot put put
-  get = getAnnot get get
-
 annot :: Type k a -> Annot k a
 annot = Annot [] . lift
 {-# INLINE annot #-}
@@ -715,4 +643,104 @@ instance Typical (Annot k a) where
     Var (F (HardType a)) -> Right a
     _                    -> Left t
   {-# INLINE hardType #-}
+
+
+--------------------------------------------------------------------
+-- Serialization
+--------------------------------------------------------------------
+
+instance Serial HardType where
+  serialize (Tuple n)        = putWord8 0 *> serialize n
+  serialize Arrow            = putWord8 1
+  serialize (Con g s)        = putWord8 2 *> serialize g *> serializeWith absurd s
+  serialize (ConcreteRho fs) = putWord8 3 *> serialize fs
+
+  deserialize = getWord8 >>= \b -> case b of
+    0 -> Tuple <$> deserialize
+    1 -> pure Arrow
+    2 -> Con <$> deserialize
+             <*> deserializeWith
+                   (fail "deserialize: HardType: getting schema with variables")
+    3 -> ConcreteRho <$> deserialize
+    _ -> fail $ "deserialize: HardType: unexpected constructor tag: " ++ show b
+
+instance Binary HardType where
+  put = serialize
+  get = deserialize
+
+instance Serialize HardType where
+  put = serialize
+  get = deserialize
+
+serializeTK :: MonadPut m => (k -> m ()) -> (t -> m ()) -> TK k t -> m ()
+serializeTK = serializeWith2 . serializeWith
+
+deserializeTK :: MonadGet m => m k -> m t -> m (TK k t)
+deserializeTK = deserializeWith2 . deserializeWith
+
+instance Serial2 Type where
+  serializeWith2 _  pt (Var v)              = putWord8 0 *> pt v
+  serializeWith2 _  _  (HardType h)         = putWord8 1 *> serialize h
+  serializeWith2 pk pt (Loc _r t)           = putWord8 2 *> serializeWith2 pk pt t
+  serializeWith2 pk pt (App f x)            =
+    putWord8 3 *> serializeWith2 pk pt f *> serializeWith2 pk pt x
+  serializeWith2 pk pt (Forall n ks c body) =
+    putWord8 4 *> serialize n *>
+    serializeWith (serializeScope serialize pk) ks *>
+    serializeScope3 serialize (serializeTK pk) pt c *>
+    serializeScope3 serialize (serializeTK pk) pt body
+  serializeWith2 pk pt (Exists n ks body)   =
+    putWord8 5 *> serialize n *>
+    serializeWith (serializeScope serialize pk) ks *>
+    serializeScope3 serialize (serializeTK pk) pt body
+  serializeWith2 pk pt (And ls)             =
+    putWord8 6 *> serializeWith (serializeWith2 pk pt) ls
+
+  deserializeWith2 gk gt = getWord8 >>= \b -> case b of
+    0 -> Var <$> gt
+    1 -> HardType <$> deserialize
+    2 -> Loc mempty <$> deserializeWith2 gk gt
+    3 -> App <$> deserializeWith2 gk gt <*> deserializeWith2 gk gt
+    4 -> Forall <$> deserialize
+                <*> deserializeWith (deserializeScope deserialize gk)
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+    5 -> Exists <$> deserialize
+                <*> deserializeWith (deserializeScope deserialize gk)
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+    6 -> And <$> deserializeWith (deserializeWith2 gk gt)
+    _ -> fail $ "deserializeWith2: Unexpected constructor tag: " ++ show b
+
+instance Serial k => Serial1 (Type k) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial k, Serial t) => Serial (Type k t) where
+  serialize = serializeWith2 serialize serialize
+  deserialize = deserializeWith2 deserialize deserialize
+
+instance (Binary k, Binary t) => Binary (Type k t) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+instance Serial2 Annot where
+  serializeWith2 pk pt (Annot ks s) =
+    serializeWith (serializeWith pk) ks *>
+    serializeScope3 serialize (serializeWith2 pk) pt s
+
+  deserializeWith2 gk gt =
+    Annot <$> deserializeWith (deserializeWith gk)
+          <*> deserializeScope3 deserialize (deserializeWith2 gk) gt
+
+instance Serial t => Serial1 (Annot t) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial t, Serial v) => Serial (Annot t v) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
+
+instance (Binary k, Binary t) => Binary (Annot k t) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
 

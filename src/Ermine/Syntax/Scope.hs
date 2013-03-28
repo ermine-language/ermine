@@ -20,11 +20,16 @@ module Ermine.Syntax.Scope
   , BoundBy(..)
   , instantiateVars
   -- , putVar , getVar , putScope, getScope
+  , serializeScope3
+  , deserializeScope3
   ) where
 
 import Bound
 import Control.Applicative
 import Control.Lens
+import Data.Bytes.Serial
+import Data.Bytes.Get
+import Data.Bytes.Put
 import Data.Bitraversable
 
 -- | Generalizes 'Bound' to permit binding by another type without taking it as a parameter.
@@ -64,3 +69,13 @@ instantiateVars :: Monad t => [a] -> Scope Int t a -> t a
 instantiateVars as = instantiate (vs !!) where
   vs = map return as
 {-# INLINE instantiateVars #-}
+
+serializeScope3 :: MonadPut m
+                => (b -> m ()) -> (forall a. (a -> m ()) -> f a -> m ()) -> (v -> m ())
+                -> Scope b f v -> m ()
+serializeScope3 pb pf pv (Scope e) = pf (serializeWith2 pb (pf pv)) e
+
+deserializeScope3 :: MonadGet m
+                  => m b -> (forall a. m a -> m (f a)) -> m v
+                  -> m (Scope b f v)
+deserializeScope3 gb gf gv = Scope <$> gf (deserializeWith2 gb (gf gv))
