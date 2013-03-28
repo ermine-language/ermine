@@ -223,7 +223,7 @@ test-suite properties
       prelude-extras,
       QuickCheck                 >= 2.4,
       quickcheck-instances       >= 0.3.1,
-      tagged                     >= 0.4.4 && < 0.5,
+      tagged                     >= 0.4.4 && < 1,
       test-framework             >= 0.6,
       test-framework-quickcheck2 >= 0.2,
       test-framework-th          >= 0.2,
