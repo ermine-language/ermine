@@ -25,12 +25,7 @@ module Ermine.Syntax.Scope
 import Bound
 import Control.Applicative
 import Control.Lens
-import Control.Monad
--- import Data.Binary
 import Data.Bitraversable
-import Data.Bytes.Get
-import Data.Bytes.Put
-import Data.Bytes.Serial
 
 -- | Generalizes 'Bound' to permit binding by another type without taking it as a parameter.
 class Monad m => BoundBy tm m | tm -> m where
@@ -69,25 +64,3 @@ instantiateVars :: Monad t => [a] -> Scope Int t a -> t a
 instantiateVars as = instantiate (vs !!) where
   vs = map return as
 {-# INLINE instantiateVars #-}
-
-{-
-putVar :: MonadPut m => (b -> m ()) -> (f -> m ()) -> Var b f -> m ()
-putVar pb _  (B b) = putWord8 0 >> pb b
-putVar _  pf (F f) = putWord8 1 >> pf f
-{-# INLINE putVar #-}
-
-getVar :: MonadGet m => m b -> m f -> m (Var b f)
-getVar gb gf = getWord8 >>= \b -> case b of
-  0 -> liftM B gb
-  1 -> liftM F gf
-  _ -> fail $ "getVar: Unexpected constructor code: " ++ show b
-{-# INLINE getVar #-}
-
-putScope :: MonadPut m => (b -> m ()) -> (forall a. (a -> m ()) -> f a -> m ()) -> (v -> m ()) -> Scope b f v -> m ()
-putScope pb pf pv (Scope body) = pf (putVar pb $ pf pv) body
-{-# INLINE putScope #-}
-
-getScope :: MonadGet m => m b -> (forall a. m a -> m (f a)) -> m v -> m (Scope b f v)
-getScope gb gf gv = liftM Scope $ gf (getVar gb $ gf gv)
-{-# INLINE getScope #-}
--}
