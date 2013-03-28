@@ -51,7 +51,6 @@ import Data.Serialize (Serialize)
 import Data.String
 import Data.Word
 import Ermine.Syntax
-import Ermine.Syntax.Binary
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics

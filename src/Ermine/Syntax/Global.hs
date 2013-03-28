@@ -23,14 +23,22 @@ module Ermine.Syntax.Global
 
 import Control.Applicative
 import Control.Lens
+import Control.Monad
 import Crypto.Classes
 import Crypto.Hash.MD5 as MD5
-import Data.Binary
+import Data.Binary (Binary)
+import qualified Data.Binary as Binary
 import Data.Bits
+import Data.Bytes.Get
+import Data.Bytes.Put
+import Data.Bytes.Serial
 import Data.ByteString
 import Data.Data (Data, Typeable)
 import Data.Function (on)
 import Data.Hashable
+import Data.Serialize (Serialize)
+import qualified Data.Serialize as Serialize
+import Data.Word
 import Ermine.Syntax.Digest
 
 -- | The associativity of an infix identifier
@@ -85,11 +93,19 @@ fixity :: Prism' Word8 Fixity
 fixity = prism' packFixity unpackFixity
 {-# INLINE fixity #-}
 
-instance Binary Fixity where
-  put f = putWord8 $ packFixity f
-  get = do
+instance Serial Fixity where
+  serialize f = putWord8 $ packFixity f
+  deserialize = do
     w <- getWord8
     unpackFixity w
+
+instance Binary Fixity where
+  put = serialize
+  get = deserialize
+
+instance Serialize Fixity where
+  put = serialize
+  get = deserialize
 
 instance Digestable Assoc
 instance Digestable Fixity
@@ -112,9 +128,13 @@ instance Show Global where
             showChar ' ' . showsPrec 11 m .
             showChar ' ' . showsPrec 11 n
 
+instance Serial Global where
+  serialize (Global d f p m n) = serialize d >> serialize f >> serialize p >> serialize m >> serialize n
+  deserialize = liftM5 Global deserialize deserialize deserialize deserialize deserialize
+
 instance Binary Global where
-  put (Global d f p m n) = put d *> put f *> put p *> put m *> put n
-  get = Global <$> get <*> get <*> get <*> get <*> get
+  put = serialize
+  get = deserialize
 
 class HasGlobal t where
   global :: Lens' t Global

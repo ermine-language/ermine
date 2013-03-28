@@ -50,7 +50,6 @@ import Data.Monoid
 import Data.String
 import Ermine.Diagnostic
 import Ermine.Syntax
-import Ermine.Syntax.Binary
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var)
 import Ermine.Syntax.Pattern

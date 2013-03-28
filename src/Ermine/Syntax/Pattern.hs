@@ -22,12 +22,18 @@ module Ermine.Syntax.Pattern
 
 import Bound
 import Control.Applicative
+import Control.Monad
 import Control.Lens
 import Data.Bitraversable
-import Data.Binary as Binary
+import qualified Data.Binary as Binary
+import Data.Binary (Binary)
+import Data.Bytes.Serial
+import Data.Bytes.Get
+import Data.Bytes.Put
 import Data.Foldable
+import qualified Data.Serialize as Serialize
+import Data.Serialize (Serialize)
 import Ermine.Syntax
-import Ermine.Syntax.Binary
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
@@ -61,36 +67,36 @@ bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
 
+instance (Serial t, Serial1 f) => Serial1 (Alt t f)  where
+
 -- | Binary serialization of a 'Alt', given serializers for its parameters.
-putAlt :: (t -> Put) -> (forall x. (x -> Put) -> f x -> Put) -> (a -> Put) -> Alt t f a -> Put
-putAlt pt pf pa (Alt p s) = putPat pt p *> putScope put pf pa s
+putAlt :: MonadPut m => (t -> m p) -> (a -> m p) -> Alt t f a -> m ()
+putAlt pt pa (Alt p s) = serializeWith pt p >> serializeWith pa s
 
-getAlt :: Get t -> (forall x. Get x -> Get (f x)) -> Get a -> Get (Alt t f a)
-getAlt gt gf ga = Alt <$> getPat gt <*> getScope get gf ga
+getAlt :: MonadGet m => m t -> m a -> m (Alt t f a)
+getAlt gt ga = liftM2 Alt (deserializeWith gt) (deserializeWith ga)
 
--- | Binary serialization of a 'Pattern', given serializers for its parameter.
-putPat :: (t -> Put) -> Pattern t -> Put
-putPat pt (SigP t)    = putWord8 0 *> pt t
-putPat _  WildcardP   = putWord8 1
-putPat pt (AsP p)     = putWord8 2 *> putPat pt p
-putPat pt (StrictP p) = putWord8 3 *> putPat pt p
-putPat pt (LazyP p)   = putWord8 4 *> putPat pt p
-putPat _  (LitP l)    = putWord8 5 *> put l
-putPat pt (ConP g ps) = putWord8 6 *> put g *> putMany (putPat pt) ps
-putPat pt (TupP ps)   = putWord8 7 *> putMany (putPat pt) ps
+instance Serial1 Pattern where
+  serializeWith pt (SigP t)    = putWord8 0 >> pt t
+  serializeWith _  WildcardP   = putWord8 1
+  serializeWith pt (AsP p)     = putWord8 2 >> serializeWith pt p
+  serializeWith pt (StrictP p) = putWord8 3 >> serializeWith pt p
+  serializeWith pt (LazyP p)   = putWord8 4 >> serializeWith pt p
+  serializeWith _  (LitP l)    = putWord8 5 >> serialize l
+  serializeWith pt (ConP g ps) = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
+  serializeWith pt (TupP ps)   = putWord8 7 >> serializeWith (serializeWith pt) ps
 
-getPat :: Get t -> Get (Pattern t)
-getPat gt = getWord8 >>= \b -> case b of
-  0 -> SigP <$> gt
-  1 -> return WildcardP
-  2 -> AsP     <$> getPat gt
-  3 -> StrictP <$> getPat gt
-  4 -> LazyP   <$> getPat gt
-  5 -> LitP    <$> get
-  6 -> ConP    <$> get <*> getMany (getPat gt)
-  7 -> TupP    <$> getMany (getPat gt)
-  _ -> fail $ "get Pattern: unexpected constructor tag: " ++ show b
+  deserializeWith gt = getWord8 >>= \b -> case b of
+    0 -> liftM SigP gt
+    1 -> return WildcardP
+    2 -> liftM AsP $ deserializeWith gt
+    3 -> liftM StrictP $ deserializeWith gt
+    4 -> liftM LazyP $ deserializeWith gt
+    5 -> liftM LitP deserialize
+    6 -> liftM2 ConP deserialize $ deserializeWith (deserializeWith gt)
+    7 -> liftM TupP $ deserializeWith (deserializeWith gt)
+    _ -> fail $ "get Pattern: unexpected constructor tag: " ++ show b
 
 instance Binary t => Binary (Pattern t) where
-  put = putPat put
-  get = getPat get
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
