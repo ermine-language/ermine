@@ -7,6 +7,7 @@ import Control.Applicative
 import Data.Monoid
 import Ermine.Syntax.Core    as Core
 import Ermine.Syntax.Global  as Global
+import Ermine.Syntax.Hint    as Hint
 import Ermine.Syntax.Kind    as Kind
 import Ermine.Syntax.Literal as Lit
 import Ermine.Syntax.Pattern as Pat
@@ -20,6 +21,9 @@ import Test.QuickCheck.Instances
 -- Orphans
 instance Arbitrary HardKind where
   arbitrary = oneof $ return <$> [ Star, Constraint, Rho, Phi ]
+
+instance Arbitrary a => Arbitrary (Hinted a) where
+  arbitrary = oneof [ Unhinted <$> arbitrary, Hinted <$> arbitrary <*> arbitrary ]
 
 instance Arbitrary a => Arbitrary (Kind a) where
   arbitrary = oneof [
@@ -175,6 +179,7 @@ instance Arbitrary a => Arbitrary1 ((,) a)
 instance Arbitrary1 Maybe
 instance Arbitrary1 []
 instance Arbitrary a => Arbitrary1 (Either a)
+instance Arbitrary1 Hinted
 instance Arbitrary1 Kind
 instance Arbitrary1 Core
 instance Arbitrary k => Arbitrary1 (Type k)

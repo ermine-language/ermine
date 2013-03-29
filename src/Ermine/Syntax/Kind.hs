@@ -260,7 +260,7 @@ instance Variable Schema where
 -- | Lift a kind into a kind schema
 --
 -- >>> schema (star ~> star)
--- Schema 0 (Scope (Var (F (HardKind Star :-> HardKind Star))))
+-- Schema [] (Scope (Var (F (HardKind Star :-> HardKind Star))))
 schema :: Kind a -> Schema a
 schema k = Schema [] (lift k)
 
@@ -269,20 +269,20 @@ schema k = Schema [] (lift k)
 -- When working with 'Ermine.Kind.Inference.Meta' variables, you want to use
 -- generalize to 'zonk' the kind and check skolems.
 --
--- >>> general "a"
--- Schema 1 (Scope (Var (B 0)))
+-- >>> general "a" (Hinted ?? ())
+-- Schema [Hinted "a" ()] (Scope (Var (B 0)))
 --
--- >>> general ("a" ~> "a")
--- Schema 1 (Scope (Var (B 0) :-> Var (B 0)))
+-- >>> general ("a" ~> "a") (Hinted ?? ())
+-- Schema [Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 0)))
 --
--- >>> general ("a" ~> "b")
--- Schema 2 (Scope (Var (B 0) :-> Var (B 1)))
+-- >>> general ("a" ~> "b") (Hinted ?? ())
+-- Schema [Hinted "a" (),Hinted "b" ()] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general ("b" ~> "a")
--- Schema 2 (Scope (Var (B 0) :-> Var (B 1)))
+-- >>> general ("b" ~> "a") (Hinted ?? ())
+-- Schema [Hinted "b" (),Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general (star ~> star)
--- Schema 0 (Scope (HardKind Star :-> HardKind Star))
+-- >>> general (star ~> star) (Hinted ?? ())
+-- Schema [] (Scope (HardKind Star :-> HardKind Star))
 general :: Ord k => Kind k -> (k -> Hint) -> Schema a
 general k0 h = Schema (reverse hs) (Scope r) where
  ((_, hs, _), r) = mapAccumL go (Map.empty, [], 0) k0
