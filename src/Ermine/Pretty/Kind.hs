@@ -48,15 +48,16 @@ prettyKind_ k = runIdentity $ prettyKind k False $ const . Identity . pretty
 --
 -- You should have already removed any free variables from the variable set.
 prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f Doc) -> f Doc
-prettySchema (Schema hs b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
+prettySchema (Schema hl b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
   B i -> pure $! bnames !! i
   F a -> k a p
  where
- hs' = [ h | Hinted h _ <- hs ]
+ hs' = [ h | Hinted h _ <- hl ]
  -- if we can't hint safely, just rename everything
  bnames
-  | nub hs' == hs' = pickNames hs xs
-  | otherwise      = zipWith (const . text) xs hs
+  | nub hs' == hs' = pickNames hl $ filter (`notElem` hs') xs
+  | otherwise      = zipWith (const . text) xs hl
  pickNames [               ] _      = []
  pickNames (Unhinted _ : hs) (v:vs) = text v : pickNames hs vs
+ pickNames (Unhinted _ : _)  [    ] = error "PANIC: prettySchema: Ran out of names."
  pickNames (Hinted h _ : hs) vs     = text h : pickNames hs vs
