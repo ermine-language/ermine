@@ -1,6 +1,11 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2012

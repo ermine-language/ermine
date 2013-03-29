@@ -56,6 +56,7 @@ import Data.Traversable
 import Data.Map as Map
 import GHC.Generics
 import Ermine.Syntax
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
 import Prelude.Extras
 
@@ -224,7 +225,7 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 ------------------------------------------------------------------------------
 
 -- | Kind schemas
-data Schema a = Schema !Int !(Scope Int Kind a)
+data Schema a = Schema [Hinted ()] !(Scope Int Kind a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
 
 instance Hashable a => Hashable (Schema a)
@@ -233,15 +234,21 @@ instance Hashable1 Schema
 instance Fun (Schema a) where
   fun = prism hither yon
     where
-    hither (Schema n (Scope s), Schema m t) = Schema (n + m) $
-      let Scope t' = mapBound (+n) t
+    hither (Schema nml (Scope s), Schema nmr t) = Schema (nml ++ nmr) $
+      let n = length nml
+          Scope t' = mapBound (+n) t
       in Scope (s :-> t')
-    yon t@(Schema n s) = case fromScope s of
+    yon t@(Schema nms s) = case fromScope s of
       l :-> r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
-        (Nothing, Nothing)              -> Right (Schema 0 (toScope l), Schema 0 (toScope r))
-        (Nothing, Just 0)               -> Right (Schema 0 (toScope l), Schema n (toScope r))
-        (Just m, Nothing)  | n == m + 1 -> Right (Schema n (toScope l), Schema 0 (toScope r))
-        (Just m, Just o)   | m == o - 1 -> Right (Schema (m + 1) (toScope l), Schema (n - o) (toScope (r & mapped.bound -~ o)))
+        (Nothing, Nothing)              ->
+          Right (Schema [] (toScope l), Schema [] (toScope r))
+        (Nothing, Just 0)               ->
+          Right (Schema [] (toScope l), Schema nms (toScope r))
+        (Just m, Nothing)  | length nms == m + 1 ->
+          Right (Schema nms (toScope l), Schema [] (toScope r))
+        (Just m, Just o)   | m == o - 1 ->
+          let (nml, nmr) = splitAt o nms
+           in Right (Schema nml (toScope l), Schema nmr (toScope (r & mapped.bound -~ o)))
         _                               -> Left t
       _                                 -> Left t
 
@@ -255,7 +262,7 @@ instance Variable Schema where
 -- >>> schema (star ~> star)
 -- Schema 0 (Scope (Var (F (HardKind Star :-> HardKind Star))))
 schema :: Kind a -> Schema a
-schema k = Schema 0 (lift k)
+schema k = Schema [] (lift k)
 
 -- | Construct a schema from a kind, generalizing all free variables.
 --
@@ -276,12 +283,12 @@ schema k = Schema 0 (lift k)
 --
 -- >>> general (star ~> star)
 -- Schema 0 (Scope (HardKind Star :-> HardKind Star))
-general :: Ord k => Kind k -> Schema a
-general k0 = Schema (snd mnl) (Scope r) where
- (mnl, r) = mapAccumL go (Map.empty, 0) k0
- go mn@(m, n) k = case m^.at k of
-   Just b  -> (mn, B b)
-   Nothing -> let n' = n + 1 in n' `seq` ((m & at k ?~ n, n'), B n)
+general :: Ord k => Kind k -> (k -> Hint) -> Schema a
+general k0 h = Schema (reverse hs) (Scope r) where
+ ((_, hs, _), r) = mapAccumL go (Map.empty, [], 0) k0
+ go mhn@(m, hl, n) k = case m^.at k of
+   Just b  -> (mhn, B b)
+   Nothing -> let n' = n + 1 in n' `seq` ((m & at k ?~ n, h k : hl, n'), B n)
 
 instance Kindly (Schema a) where
   hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of

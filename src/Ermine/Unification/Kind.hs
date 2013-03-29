@@ -36,6 +36,7 @@ import Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
 import Ermine.Diagnostic
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
@@ -79,7 +80,7 @@ generalize :: MonadMeta s m => KindM s -> m (Schema a)
 generalize k0 = do
   k <- runSharing k0 $ zonk k0
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
-  return $ Schema n (Scope r)
+  return $ Schema (replicate n $ Unhinted ()) (Scope r)
   where
    go Skolem{}   = StateT $ \ _ -> fail "escaped skolem"
    go (Meta _ i _ _ _) = StateT $ \imn@(im, n) -> case im^.at i of

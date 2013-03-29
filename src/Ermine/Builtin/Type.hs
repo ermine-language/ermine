@@ -43,6 +43,7 @@ module Ermine.Builtin.Type
 import Data.ByteString.Char8 hiding (foldl, length, reverse)
 import Ermine.Syntax
 import Ermine.Syntax.Global
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Kind as Kind
 
@@ -63,7 +64,7 @@ class Builtin t where
   builtin :: Ord k => Kind k -> String -> t
 
 instance Builtin HardType where
-  builtin s n = con (builtin s n) (Kind.general s)
+  builtin s n = con (builtin s n) (Kind.general s (const $ Unhinted ()))
 
 instance Builtin Global where
   builtin _ n = glob Idfix (pack "ermine") (pack "Prelude") (pack n)

@@ -36,6 +36,7 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
@@ -113,13 +114,13 @@ commands =
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
   , cmd "ukind"
       & desc .~ "show the internal representation of a kind schema"
-      & body .~ parsing kind (liftIO . print . Kind.general)
+      & body .~ parsing kind (liftIO . print . (Kind.general ?? (Hinted ?? ())))
   , cmd "utype"
       & desc .~ "show the internal representation of a type"
       & body .~ parsing typ (liftIO . print . fst . Type.abstractAll)
   , cmd "pkind"
       & desc .~ "show the pretty printed representation of a kind schema"
-      & body .~ parsing kind (\s -> prettySchema (Kind.general s) names absurd >>= sayLn)
+      & body .~ parsing kind (\s -> prettySchema (Kind.general s (Hinted ?? ())) names absurd >>= sayLn)
   , cmd "ptype"
       & desc .~ "show the pretty printed representation of a type schema"
       & body .~ parsing typ (\s ->

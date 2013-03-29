@@ -47,8 +47,8 @@ matchFunKind (Var kv) = do
   (a, b) <$ runWriterT (unifyKindVar kv (a :-> b))
 
 instantiateSchema :: Schema (MetaK s) -> M s (KindM s)
-instantiateSchema (Schema n s) = do
-  vs <- replicateM n (Var <$> newMeta ())
+instantiateSchema (Schema hs s) = do
+  vs <- forM hs (\_ -> Var <$> newMeta ())
   return $ instantiate (vs!!) s
 {-# INLINE instantiateSchema #-}
 
