@@ -17,13 +17,16 @@ module Ermine.Pretty
   , block
   , say
   , sayLn
+  , chooseNames
   ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Lens
+import Data.Bifunctor
 import Data.Maybe
 import Data.Semigroup
+import Ermine.Syntax.Hint
 import Numeric.Lens
 import System.IO
 import Text.Hyphenation
@@ -68,3 +71,14 @@ say = liftIO . displayIO stdout . renderPretty 0.8 80
 sayLn :: MonadIO m => Doc -> m ()
 sayLn d = say (d <> linebreak)
 
+chooseNames :: (String -> Bool) -> [Hinted v] -> [String] -> ([String], [String])
+chooseNames taken ahs = go ahs . filter (\n -> n `notElem` avoid && not (taken n))
+ where
+ avoid = [ h | Hinted h _ <- ahs ]
+
+ go [] supply = ([], supply)
+ go hints@(Unhinted _ : hs) (n:supply) = (n:) `first` go hs supply
+ go (Hinted h v : hs) supply@(n:ns)
+   | taken h   = (n:) `first` go hs ns
+   | otherwise = (h:) `first` go hs supply
+ go _ _ = error "PANIC: chooseNames: ran out of names"

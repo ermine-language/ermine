@@ -52,6 +52,7 @@ import Bound.Scope
 import Bound.Var
 import Control.Lens
 import Control.Applicative
+import Control.Comonad
 import Control.Monad.Trans
 import Control.Monad.State hiding (put, get)
 import Data.Bifunctor
@@ -79,6 +80,7 @@ import Data.Void
 import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
@@ -216,9 +218,9 @@ data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
   | HardType !HardType
-  | Forall !Int [Scope Int Kind k] (Scope Int (TK k) a) !(Scope Int (TK k) a)
+  | Forall [Hint] [Hinted (Scope Int Kind k)] (Scope Int (TK k) a) !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
-  | Exists !Int [Scope Int Kind k] (Scope Int (TK k) a)
+  | Exists [Hint] [Hinted (Scope Int Kind k)] (Scope Int (TK k) a)
   | And [Type k a]
   deriving (Show, Functor, Foldable, Traversable)
 
@@ -245,6 +247,8 @@ instance (Hashable k, Hashable a) => Hashable (Type k a) where
 -- map of variable ids, abstracts over a variable, choosing a new id in
 -- order if necessary. The map should only contain bindings v -> k where
 -- k is less than the size of the map.
+--
+-- Now augmented to generate hints for the chozen variables.
 abstractM :: (MonadState s m, Ord v) => Lens' s (Map v Int) -> v -> m Int
 abstractM l v = use l >>= \m -> case m ^. at v of
   Just i  -> return i
@@ -260,31 +264,36 @@ unbound (B _)       = error "unbound: B"
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
-forall :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> Type k t -> Type k t -> Type k t
+forall :: (Ord k, Ord t)
+       => (k -> Hint) -> (t -> Hint) -> [k] -> [(t, Kind k)] -> Type k t -> Type k t
+       -> Type k t
 -- This case is fairly inefficient. Also ugly. The former probably won't matter, but it'd
 -- be nice to fix the latter. Not mangling the structure of the terms would, I believe,
 -- be quite complicated, though.
-forall ks tks cs (Forall n tls ds b) =
+forall kh th ks tks cs (Forall n tls ds b) =
   bimap unbound unbound $
-    forall ks' tks' (mergeConstraints cs' $ fromScope ds) (fromScope b)
+    forall kh' th' ks' tks' (mergeConstraints cs' $ fromScope ds) (fromScope b)
  where
+ kh' = unvar (n!!) kh
+ th' = unvar (void . (tls!!)) th
  cs' = bimap F F cs
- ks' = map F ks ++ map B [0 .. n-1]
- tks' = map (bimap F $ fmap F) tks ++ imap (\i l -> (B i, fromScope l)) tls
-forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
+ ks' = map F ks ++ zipWith (const . B) [0..] n
+ tks' = map (bimap F $ fmap F) tks ++ imap (\i l -> (B i, fromScope $ extract l)) tls
+forall kh th ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tvm  <- use _2
   let tvs = vars tvm
-  tks' <- kindVars tkn $ (tm Map.!) <$> tvs
+  tks' <- kindVars tkn $ (\v -> tm Map.! v <$ th v) <$> tvs
   body'' <- kindVars tkn body'
   kvm <- use _1
-  let kn = Map.size kvm
+  let kvs = vars kvm
       cs' = abstract (`Map.lookup` tvm)
           . abstractKinds (`Map.lookup` kvm)
-          $ exists (filter (`Map.notMember` kvm) ks)
+          $ exists kh th
+                   (filter (`Map.notMember` kvm) ks)
                    (filter (flip Map.notMember tvm . fst) tks)
                    cs
-  return $ Forall kn (toScope <$> tks') cs' (Scope body'')
+  return $ Forall (kh <$> kvs) (fmap toScope <$> tks') cs' (Scope body'')
  where
  km = Set.fromList ks
  tm = Map.fromList tks
@@ -300,19 +309,21 @@ forall ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
 -- | Abstracts over the specified variables using existential quantification.
 -- The input type is assumed to meet some invariants (see 'mergeConstraints'),
 -- and those invariants are maintained if so.
-exists :: (Ord k, Ord t) => [k] -> [(t, Kind k)] -> Type k t -> Type k t
-exists ks tks body = case body of
+exists :: (Ord k, Ord t)
+       => (k -> Hint) -> (t -> Hint) -> [k] -> [(t, Kind k)] -> Type k t -> Type k t
+exists kh th ks tks body = case body of
   Exists n ls b -> process n ls (fromScope b)
-  _             -> process 0 [] (bimap F F body)
+  _             -> process [] [] (bimap F F body)
  where
  oks = setOf kindVars body
  ots = setOf typeVars body
 
  ks'  = filter (`Set.member` oks) ks
  (ts', tks') = unzip $ filter (\(t, _) -> t `Set.member` ots) tks
+ htks' = zipWith (<$) tks' (th <$> ts')
 
  ex n l b
-   | n > 0 || not (null l) = Exists n l b
+   | not (null n) || not (null l) = Exists n l b
    | otherwise             =
      instantiateKinds panic $ instantiate panic b
   where
@@ -320,8 +331,8 @@ exists ks tks body = case body of
 
  process kn ls b =
    ex
-     (kn + length ks')
-     (ls ++ map (abstract (`elemIndex` ks')) tks')
+     (kn ++ map kh ks')
+     (ls ++ map (abstract (`elemIndex` ks') <$>) htks')
      (toScope $ bimap kf tf b)
   where
   tn = length ls
@@ -341,10 +352,10 @@ exists ks tks body = case body of
 -- are maintained.
 mergeConstraints :: Type k t -> Type k t -> Type k t
 mergeConstraints (Exists m ks (Scope c)) (Exists n ls (Scope d)) =
-  Exists (m + n) (ks ++ ls') . Scope $ mergeConstraints c d'
+  Exists (m ++ n) (ks ++ ls') . Scope $ mergeConstraints c d'
  where
- bk = first (+m) -- bump kind var
- ls' = Scope . fmap bk . unscope <$> ls
+ bk = first (+ length m) -- bump kind var
+ ls' = fmap (Scope . (fmap bk) . unscope) <$> ls
  d' = bimap bk (bimap (+ length ks) (first bk)) d
 mergeConstraints (Exists m ks (Scope c)) d =
   Exists m ks . Scope $ mergeConstraints c (bimap F (F . pure) d)
@@ -413,9 +424,14 @@ instance Bitraversable Type where
   bitraverse _ g (Var a)            = Var <$> g a
   bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
   bitraverse _ _ (HardType t)       = pure $ HardType t
-  bitraverse f g (Forall n ks cs b) = Forall n <$> traverse (traverse f) ks <*> bitraverseScope (traverse f) g cs <*> bitraverseScope (traverse f) g b
+  bitraverse f g (Forall n ks cs b) =
+    Forall n <$> traverse (traverse (traverse f)) ks
+             <*> bitraverseScope (traverse f) g cs
+             <*> bitraverseScope (traverse f) g b
   bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists n ks cs)   = Exists n <$> traverse (traverse f) ks <*> bitraverseScope (traverse f) g cs
+  bitraverse f g (Exists n ks cs)   =
+    Exists n <$> traverse (traverse (traverse f)) ks
+             <*> bitraverseScope (traverse f) g cs
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
@@ -433,9 +449,13 @@ bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
 bindType _ g (Var a)             = g a
 bindType f g (App l r)           = App (bindType f g l) (bindType f g r)
 bindType _ _ (HardType t)        = HardType t
-bindType f g (Forall n tks cs b) = Forall n (map (>>>= f) tks) (hoistScope (bindTK f) cs >>>= liftTK . g) (hoistScope (bindTK f) b >>>= liftTK . g)
+bindType f g (Forall n tks cs b) =
+  Forall n (fmap (>>>= f) <$> tks)
+           (hoistScope (bindTK f) cs >>>= liftTK . g)
+           (hoistScope (bindTK f) b >>>= liftTK . g)
 bindType f g (Loc r as)          = Loc r (bindType f g as)
-bindType f g (Exists n ks cs)    = Exists n (map (>>>= f) ks) (hoistScope (bindTK f) cs >>>= liftTK . g)
+bindType f g (Exists n ks cs)    =
+  Exists n (fmap (>>>= f) <$> ks) (hoistScope (bindTK f) cs >>>= liftTK . g)
 bindType f g (And cs)            = And $ bindType f g <$> cs
 
 instance Applicative (Type k) where
@@ -542,12 +562,14 @@ prepare unk knd typ =
 -- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
 -- kind variables and verifiably no type variables. Also returned are the number of
 -- unique kind and type variables
-abstractAll :: (Ord k, Ord a) => Type (Maybe k) a -> (Scope Int (TK ()) b, (Int, Int))
-abstractAll = flip runState (0, 0) . fmap Scope . prepare unk kv tv
+abstractAll :: (Ord k, Ord a)
+            => (k -> Hint) -> (a -> Hint)
+            -> Type (Maybe k) a -> (Scope Int (TK ()) b, ([Hint], [Hint]))
+abstractAll kh th = flip runState ([], []) . fmap Scope . prepare unk kv tv
  where
  unk = pure $ F ()
- kv _ = B <$> (_1 <<%= (+1))
- tv _ = B <$> (_2 <<%= (+1))
+ kv s = B . length <$> (_1 <<%= (kh s:))
+ tv s = B . length <$> (_2 <<%= (th s:))
 
 -- | A type annotation
 data Annot k a = Annot [Kind k] !(Scope Int (Type k) a) deriving Show
@@ -686,12 +708,12 @@ instance Serial2 Type where
     putWord8 3 *> serializeWith2 pk pt f *> serializeWith2 pk pt x
   serializeWith2 pk pt (Forall n ks c body) =
     putWord8 4 *> serialize n *>
-    serializeWith (serializeScope serialize pk) ks *>
+    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
     serializeScope3 serialize (serializeTK pk) pt c *>
     serializeScope3 serialize (serializeTK pk) pt body
   serializeWith2 pk pt (Exists n ks body)   =
     putWord8 5 *> serialize n *>
-    serializeWith (serializeScope serialize pk) ks *>
+    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
     serializeScope3 serialize (serializeTK pk) pt body
   serializeWith2 pk pt (And ls)             =
     putWord8 6 *> serializeWith (serializeWith2 pk pt) ls
@@ -702,11 +724,11 @@ instance Serial2 Type where
     2 -> Loc mempty <$> deserializeWith2 gk gt
     3 -> App <$> deserializeWith2 gk gt <*> deserializeWith2 gk gt
     4 -> Forall <$> deserialize
-                <*> deserializeWith (deserializeScope deserialize gk)
+                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
                 <*> deserializeScope3 deserialize (deserializeTK gk) gt
                 <*> deserializeScope3 deserialize (deserializeTK gk) gt
     5 -> Exists <$> deserialize
-                <*> deserializeWith (deserializeScope deserialize gk)
+                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
                 <*> deserializeScope3 deserialize (deserializeTK gk) gt
     6 -> And <$> deserializeWith (deserializeWith2 gk gt)
     _ -> fail $ "deserializeWith2: Unexpected constructor tag: " ++ show b

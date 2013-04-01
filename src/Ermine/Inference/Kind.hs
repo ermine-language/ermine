@@ -20,11 +20,13 @@ module Ermine.Inference.Kind
 
 import Bound
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable
+import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax.Kind as Kind
@@ -72,13 +74,13 @@ inferKind (App f x) = do
   b <$ checkKind x a
 inferKind (And cs) = constraint <$ traverse_ (checkKind ?? constraint) cs
 inferKind (Exists n tks cs) = do
-  sks <- replicateM n $ newSkolem ()
-  let btys = instantiateVars sks <$> tks
+  sks <- for n $ \_ -> newSkolem ()
+  let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks $ instantiateVars btys cs) constraint
   return constraint
 inferKind (Forall n tks cs b) = do
-  sks <- replicateM n $ newSkolem ()
-  let btys = instantiateVars sks <$> tks
+  sks <- for n $ \_ -> newSkolem ()
+  let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks (instantiateVars btys cs)) constraint
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star

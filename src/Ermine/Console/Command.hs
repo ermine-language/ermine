@@ -21,6 +21,7 @@ module Ermine.Console.Command
 import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
+import Data.Bifunctor
 import Data.Char
 import Data.List
 import Data.Set (notMember)
@@ -38,6 +39,7 @@ import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
@@ -105,8 +107,7 @@ kindBody s = do
                   s
     k <- inferKind tm
     generalize k
-  pk <- prettySchema gk names absurd
-  sayLn pk
+  sayLn $ prettySchema (vacuous gk) names
 
 commands :: [Command]
 commands =
@@ -114,19 +115,19 @@ commands =
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
   , cmd "ukind"
       & desc .~ "show the internal representation of a kind schema"
-      & body .~ parsing kind (liftIO . print . (Kind.general ?? (Hinted ?? ())))
+      & body .~ parsing kind (liftIO . print . (Kind.general ?? stringHint))
   , cmd "utype"
       & desc .~ "show the internal representation of a type"
-      & body .~ parsing typ (liftIO . print . fst . Type.abstractAll)
+      & body .~ parsing typ (liftIO . print . fst . Type.abstractAll stringHint stringHint)
   , cmd "pkind"
       & desc .~ "show the pretty printed representation of a kind schema"
-      & body .~ parsing kind (\s -> prettySchema (Kind.general s (Hinted ?? ())) names absurd >>= sayLn)
+      & body .~ parsing kind (\s -> sayLn $ prettySchema (Kind.general s stringHint) names)
   , cmd "ptype"
       & desc .~ "show the pretty printed representation of a type schema"
       & body .~ parsing typ (\s ->
-                  uncurry prettyTypeSchema (abstractAll s) names
-                          (\_ _ -> pure (text "?")) absurd
-                    >>= sayLn)
+                  let (tsch, hs) = abstractAll stringHint stringHint s
+                      stsch = hoistScope (first ("?" <$)) tsch
+                   in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
   , cmd "uterm"

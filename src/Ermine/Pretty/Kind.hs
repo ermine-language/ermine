@@ -13,16 +13,12 @@ module Ermine.Pretty.Kind
   -- * Pretty Printing Kinds
     prettyHardKind
   , prettyKind
-  , prettyKind_
   , prettySchema
   ) where
 
 import Bound
 import Control.Applicative
-import Data.Functor.Identity
-import Data.List (nub)
 import Ermine.Pretty
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind
 
 -- $setup
@@ -34,30 +30,16 @@ prettyHardKind Constraint = "Γ"
 prettyHardKind Rho = "ρ"
 prettyHardKind Phi = "φ"
 
--- | Pretty print a 'Kind', using a helper to print free variables
-prettyKind :: Applicative f => Kind a -> Bool -> (a -> Bool -> f Doc) -> f Doc
-prettyKind (Var a)      b k = k a b
-prettyKind (HardKind h) _ _ = pure $ prettyHardKind h
-prettyKind (l :-> r)    b k = go <$> prettyKind l True k <*> prettyKind r False k where
-  go x y = parensIf b (x <+> "->" <+> y)
+-- | Pretty print a 'Kind'
+prettyKind :: Kind String -> Bool -> Doc
+prettyKind (Var nm)     _ = text nm
+prettyKind (HardKind h) _ = prettyHardKind h
+prettyKind (l :-> r)    b = parensIf b $ prettyKind l True <+> "->" <+> prettyKind r False
 
-prettyKind_ :: Kind String -> Doc
-prettyKind_ k = runIdentity $ prettyKind k False $ const . Identity . pretty
-
--- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
+-- | Pretty print a 'Kind', using a fresh kind variable supply
 --
 -- You should have already removed any free variables from the variable set.
-prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f Doc) -> f Doc
-prettySchema (Schema hl b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
-  B i -> pure $! bnames !! i
-  F a -> k a p
+prettySchema :: Schema String -> [String] -> Doc
+prettySchema (Schema hl b) vs = prettyKind (instantiate (pure . (ns!!)) b) False
  where
- hs' = [ h | Hinted h _ <- hl ]
- -- if we can't hint safely, just rename everything
- bnames
-  | nub hs' == hs' = pickNames hl $ filter (`notElem` hs') xs
-  | otherwise      = zipWith (const . text) xs hl
- pickNames [               ] _      = []
- pickNames (Unhinted _ : hs) (v:vs) = text v : pickNames hs vs
- pickNames (Unhinted _ : _)  [    ] = error "PANIC: prettySchema: Ran out of names."
- pickNames (Hinted h _ : hs) vs     = text h : pickNames hs vs
+ (ns, _) = chooseNames (const False) hl vs

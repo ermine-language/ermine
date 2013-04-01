@@ -15,6 +15,7 @@
 module Ermine.Syntax.Scope
   ( hoistScope
   , bitraverseScope
+  , transverseScope
   , bound
   , free
   , BoundBy(..)
@@ -49,6 +50,12 @@ hoistScope t (Scope b) = Scope $ t (fmap t <$> b)
 bitraverseScope :: (Bitraversable t, Applicative f) => (k -> f k') -> (a -> f a') -> Scope b (t k) a -> f (Scope b (t k') a')
 bitraverseScope f g = fmap Scope . bitraverse f (traverse (bitraverse f g)) . unscope
 {-# INLINE bitraverseScope #-}
+
+-- | This is a higher-order analogue of 'traverse'.
+transverseScope :: (Applicative f, Monad f, Traversable g)
+                => (forall r. g r -> f (h r))
+                -> Scope b g a -> f (Scope b h a)
+transverseScope tau (Scope e) = Scope <$> (tau =<< traverse (traverse tau) e)
 
 -- | This prism acts like a reversible smart constructor for 'B'.
 bound :: Prism (Var a c) (Var b c) a b

@@ -19,6 +19,7 @@ module Ermine.Unification.Type
   ) where
 
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Control.Monad
 import Control.Monad.ST
@@ -55,9 +56,11 @@ typeOccurs depth1 t p = zonkWith t tweak where
           sk = setOf kindVars zt
           mk = IntMap.fromList $ zipWith (\u n -> (u^.metaId, n)) (Set.toList sk) names
           v = mt ^?! ix (st ^?! folded.filtered p.metaId)
-      td <- prettyType zt (drop (Set.size st) names) (-1)
-         (\u _ -> pure $ text $ mk ^?! ix (u^.metaId))
-         (\u _ -> pure $ text $ mt ^?! ix (u^.metaId))
+          td = prettyType
+                 (bimap (\u -> mk ^?! ix (u^.metaId))
+                        (\u -> mt ^?! ix (u^.metaId)) zt)
+                 (drop (Set.size st) names)
+                 (-1)
       r <- view rendering
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
     | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do
@@ -92,9 +95,9 @@ unifyType t1 t2 = do
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
         (_, Any modified) <- listen $ do
-          sks <- replicateM m $ newSkolem ()
-          let nxs = instantiateVars sks <$> xs
-              nys = instantiateVars sks <$> ys
+          sks <- for m $ \_ -> newSkolem ()
+          let nxs = instantiateVars sks <$> fmap extract xs
+              nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind x y
             newSkolem k

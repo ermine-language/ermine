@@ -17,13 +17,17 @@ module Ermine.Syntax.Hint
   ( Hinted(..)
   , Hint
   , hint
+  , stringHint
+  , maybeHint
   ) where
 
 import Control.Comonad
+import Control.Lens
 import Data.Bytes.Serial
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
 import Data.Data
+import Data.Foldable
 import Data.Function
 import Data.Hashable
 import Data.Hashable.Extras
@@ -34,7 +38,7 @@ import Prelude.Extras
 
 data Hinted a = Unhinted a
               | Hinted String a
-  deriving (Show, Read, Functor, Typeable, Data, Generic, Generic1)
+  deriving (Show,Read,Functor,Foldable,Traversable,Typeable,Data,Generic,Generic1)
 
 type Hint = Hinted ()
 
@@ -48,6 +52,12 @@ instance Comonad Hinted where
 hint :: Hinted a -> Maybe String
 hint (Hinted s _) = Just s
 hint _            = Nothing
+
+stringHint :: String -> Hint
+stringHint = Hinted ?? ()
+
+maybeHint :: Maybe String -> Hint
+maybeHint = maybe (Unhinted ()) stringHint
 
 instance Eq1 Hinted
 instance Eq a => Eq (Hinted a) where
@@ -67,5 +77,6 @@ instance Binary a => Binary (Hinted a) where
 instance Serialize a => Serialize (Hinted a) where
   put = serializeWith Serialize.put ; get = deserializeWith Serialize.get
 
-instance Hashable a => Hashable (Hinted a)
+instance Hashable a => Hashable (Hinted a) where
+  hashWithSalt s = hashWithSalt s . extract
 instance Hashable1 Hinted

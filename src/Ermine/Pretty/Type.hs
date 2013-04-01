@@ -17,15 +17,21 @@ module Ermine.Pretty.Type
   ) where
 
 import Bound
+import Bound.Scope
 import Control.Applicative
+import Control.Comonad
+import Control.Lens
+import Data.Set (member, union, Set)
+import Data.Set.Lens
+import Data.Foldable
+import Data.Semigroup
+import qualified Data.ByteString.Char8 as Char8
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Syntax.Global
+import Ermine.Syntax.Hint
+import Ermine.Syntax.Kind (kindVars, Kind)
 import Ermine.Syntax.Type
-import Data.Foldable
-import Data.Semigroup
-import Data.Traversable
-import qualified Data.ByteString.Char8 as Char8
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -41,67 +47,82 @@ prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text
 prettyHardType (Con (Global _ _ _ _ n) _)           = parens (text (Char8.unpack n))
 prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <$> toList xs)))
 
--- | Pretty print a 'Type' using a fresh variable supply, an ambient precedence, and
--- helpers for printing free kind and type variables.
+skvs :: Ord k => [Hinted (Scope b Kind k)] -> Set k
+skvs = setOf (traverse.traverse.traverseScope pure)
+
+tkvs :: Ord k => Scope b (TK k) t -> Set k
+tkvs (Scope e) = setOf (kindVars.traverse) e
+         `union` setOf (traverse.traverse.kindVars.traverse) e
+
+-- | Pretty print a 'Type' using a fresh variable supply and an ambient precedence.
 --
 -- You should have already removed any free variables from the variable set.
-prettyType :: Applicative f => Type k a -> [String] -> Int -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
-prettyType (HardType t) _ _ _ _ = pure $ prettyHardType t
-prettyType (Var a) _ d _ kt = kt a d
-prettyType (App (App (HardType Arrow) x) y) xs d kk kt =
-  combine <$> prettyType x xs 1 kk kt <*> prettyType y xs 0 kk kt
- where combine dx dy = parensIf (d > 0) $ dx <+> text "->" <+> dy
-prettyType (App x y) xs d kk kt = (\dx dy -> parensIf (d > 10) (dx <+> dy)) <$> prettyType x xs 10 kk kt <*> prettyType y xs 11 kk kt -- TODO: group this better
-prettyType (Loc _ r) xs d kk kt = prettyType r xs d kk kt
-prettyType (And cs) xs _ kk kt = go <$> traverse (\c -> prettyType c xs 0 kk kt) cs
-  where go [d] = d
-        go ds  = parens . fillSep $ punctuate "," ds
-prettyType (Exists n ks cs) xs d kk kt = go
-    <$> traverse (\k -> prettyKind (fromScope k) False kkk) ks
-    <*> prettyType (unscope cs) rvs 0 kkk tkk
-  where
-    (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
-    kkk (B b) _ = pure $ text (kvs !! b)
-    kkk (F f) p = kk f p
-    tkk (B b) _ = pure $ text (tvs !! b)
-    tkk (F f) p = prettyType f rvs p kkk kt
-    go tks ds = parensIf (d > 0) $ quantified ds
-      where
-        consKinds zs
-          | n /= 0    = braces (fillSep (text <$> kvs)) : zs
-          | otherwise = zs
-        quantified zs
-          | null ks = zs
-          | otherwise = hsep ("exists" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
-prettyType (Forall n ks cs bdy) xs d kk kt = go
-    <$> traverse (\k -> prettyKind (fromScope k) False kkk) ks
-    <*> prettyType (unscope cs) rvs 0 kkk tkk
-    <*> prettyType (unscope bdy) rvs 0 kkk tkk
-  where
-    (kvs, (tvs, rvs)) = splitAt (length ks) <$> splitAt n xs
-    kkk (B b) _ = pure $ text (kvs !! b)
-    kkk (F f) p = kk f p
-    tkk (B b) _ = pure $ text (tvs !! b)
-    tkk (F f) p = prettyType f rvs p kkk kt
-    go tks ds t = parensIf (d > 0) $ quantified $ constrained t
-      where
-        consKinds zs
-          | n /= 0 = braces (fillSep (text <$> kvs)) : zs
-          | otherwise = zs
-        quantified zs
-          | n == 0 && null ks = zs
-          | otherwise = hsep ("forall" : consKinds (zipWith (\tv tk -> parens (text tv <+> ":" <+> tk)) tvs tks)) <> "." <+> zs
-        constrained zs
-          | isTrivialConstraint . fromScope $ cs = zs
-          | otherwise                            = ds <+> "=>" <+> zs
-
-prettyTypeSchema :: Applicative f
-                 => Scope Int (TK k) a -> (Int, Int)
-                 -> [String] -> (k -> Bool -> f Doc) -> (a -> Int -> f Doc) -> f Doc
-prettyTypeSchema (Scope s) (kn, tn) vs kk kt = prettyType s vs' 0 kk' kt'
+prettyType :: Type String String -> [String] -> Int -> Doc
+prettyType (HardType t) _  _ = prettyHardType t
+prettyType (Var nm)     _  _ = text nm
+prettyType (Loc _ r)    vs d = prettyType r vs d
+prettyType (App (App (HardType Arrow) x) y) vs d =
+  parensIf (d > 0) $ prettyType x vs 1 <+> text "->" <+> prettyType y vs 0
+prettyType (App f x)    vs d =
+  parensIf (d > 10) $ prettyType f vs 10 <+> prettyType x vs 11
+prettyType (And cs)     vs d = case cs of
+  [c] -> prettyType c vs d
+  _   -> tupled $ map (prettyType ?? vs ?? 0) cs
+prettyType (Exists n ks cs) vs d =
+  parensIf (d > 0) $ quantified (prettyType (inst cs) rvs 0)
  where
- (kvs, (tvs, vs')) = splitAt tn <$> splitAt kn vs
- kk' (B i) _ = pure . text $ kvs !! i
- kk' (F k) b = kk k b
- kt' (B i) _ = pure . text $ tvs !! i
- kt' (F t) p = prettyType t vs' p kk' kt
+ kAvoid = member ?? skvs ks `union` tkvs cs
+ tAvoid = member ?? setOf (traverseScope pure) cs
+ (kvs, (tvs, rvs)) = chooseNames tAvoid ks <$> chooseNames kAvoid n vs
+
+ tks = map (\k -> prettyKind (instantiate (pure . (kvs!!)) $ extract k) False) ks
+
+ inst = instantiateKindVars kvs . instantiate (pure . (tvs!!))
+
+ consKinds | null kvs  = id
+           | otherwise = (braces (fillSep (text <$> kvs)) :)
+
+ quantified zs
+   | null tvs  = zs
+   | otherwise =
+      hsep ("exists" :
+              consKinds (zipWith (\tv tk -> parens (text tv <+> colon <+> tk))
+                                 tvs tks)) <> dot
+        <+> zs
+prettyType (Forall n ks cs bdy) vs d =
+  parensIf (d > 0) . quantified . constrained $ prettyType (inst bdy) rvs 0
+ where
+ kAvoid = member ?? skvs ks
+            `union` tkvs cs
+            `union` tkvs bdy
+ tAvoid = member ?? setOf (traverseScope pure) cs `union` setOf (traverseScope pure) bdy
+
+ (kvs, (tvs, rvs)) = chooseNames tAvoid ks <$> chooseNames kAvoid n vs
+
+ tks = map (\k -> prettyKind (instantiate (pure . (kvs!!)) $ extract k) False) ks
+
+ inst = instantiateKindVars kvs . instantiate (pure . (tvs!!))
+
+ consKinds | null kvs  = id
+           | otherwise = (braces (fillSep (text <$> kvs)) :)
+
+ quantified zs
+   | null tvs && null kvs = zs
+   | otherwise =
+      hsep ("forall" :
+              consKinds (zipWith (\tv tk -> parens (text tv <+> colon <+> tk))
+                                 tvs tks)) <> dot
+        <+> zs
+ constrained zs
+   | isTrivialConstraint . fromScope $ cs = zs
+   | otherwise                            = prettyType (inst cs) rvs 0 <+> "=>" <+> zs
+
+prettyTypeSchema :: Scope Int (TK String) String -> ([Hint], [Hint])
+                 -> [String] -> Doc
+prettyTypeSchema s (kn, tn) vs = prettyType (inst s) vs' 0
+ where
+ kAvoid = member ?? tkvs s
+ tAvoid = member ?? setOf (traverseScope pure) s
+
+ (kvs, (tvs, vs')) = chooseNames tAvoid tn <$> chooseNames kAvoid kn vs
+ inst = instantiateKindVars kvs . instantiate (pure . (tvs!!))

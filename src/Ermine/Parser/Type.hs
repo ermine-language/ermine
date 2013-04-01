@@ -23,6 +23,7 @@ import Data.Maybe
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind hiding (Var, constraint)
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
@@ -102,7 +103,8 @@ constraint =
   <|> parens constraints
   -- Single constraints
   <|> Var <$> ident typeIdent
- where buildE (kvs, tvks) = exists (Just <$> kvs) tvks
+ where buildE (kvs, tvks) =
+         exists maybeHint stringHint (Just <$> kvs) tvks
 
 -- | Parses an optional constraint context, followed by an arrow if necessary.
 --   constraint ::= constraint =>
@@ -113,14 +115,14 @@ constrained = optional constraint >>= \mcs -> case mcs of
   Nothing -> return $ And []
 
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 = forall [] [] <$> try constrained <*> typ4
+typ3 = forall maybeHint stringHint [] [] <$> try constrained <*> typ4
     <|> typ2
 
 typ4 :: (Applicative m, Monad m, TokenParsing m) => m Typ
 typ4 =  build <$ symbol "forall" <*> quantBindings <* dot <*> typ4
     <|> typ3
  where
- build (kvs, tvks) = forall (Just <$> kvs) tvks (And [])
+ build (kvs, tvks) = forall maybeHint stringHint (Just <$> kvs) tvks (And [])
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
