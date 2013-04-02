@@ -72,13 +72,13 @@ sayLn :: MonadIO m => Doc -> m ()
 sayLn d = say (d <> linebreak)
 
 chooseNames :: (String -> Bool) -> [Hinted v] -> [String] -> ([String], [String])
-chooseNames taken ahs = go ahs . filter (\n -> n `notElem` avoid && not (taken n))
+chooseNames p ahs = go p ahs . filter (\n -> n `notElem` avoid && not (p n))
  where
  avoid = [ h | Hinted h _ <- ahs ]
 
- go [] supply = ([], supply)
- go hints@(Unhinted _ : hs) (n:supply) = (n:) `first` go hs supply
- go (Hinted h v : hs) supply@(n:ns)
-   | taken h   = (n:) `first` go hs ns
-   | otherwise = (h:) `first` go hs supply
- go _ _ = error "PANIC: chooseNames: ran out of names"
+ go _     [] supply = ([], supply)
+ go taken hints@(Unhinted _ : hs) (n:supply) = (n:) `first` go taken hs supply
+ go taken (Hinted h v : hs) supply@(n:ns)
+   | taken h   = (n:) `first` go taken hs ns
+   | otherwise = (h:) `first` go (\x -> x == h || taken x) hs supply
+ go _ _ _ = error "PANIC: chooseNames: ran out of names"
