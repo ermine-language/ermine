@@ -153,7 +153,7 @@ data Term t a
   | Lam [Pattern t] !(Scope Int (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Int (Term t) a)
-  | Loc !Rendering !(Term t a) -- ^ informational link to where the term came from
+  | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from
   | Remember !Int !(Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)
 
