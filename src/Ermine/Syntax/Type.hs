@@ -1,9 +1,10 @@
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -51,8 +52,10 @@ import Bound
 import Bound.Scope
 import Bound.Var
 import Control.Lens
+import Control.Lens.Internal.Review
 import Control.Applicative
 import Control.Comonad
+import Control.Monad.Identity
 import Control.Monad.Trans
 import Control.Monad.State hiding (put, get)
 import Data.Bifunctor
@@ -162,16 +165,10 @@ instance App (Type k t) where
 
 infixl 9 `App`
 
-instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Type k t) where
-  tupled = prism hither yon
-   where
-   hither l = apps (HardType . Tuple $ length l) l
-   yon original = go [] original
-    where go stk (App f x) = go (x:stk) f
-          go stk (HardType (Tuple n))
-            | length stk == n = Right stk
-          go _   _ = Left original
-
+instance (p ~ Reviewed, f ~ Identity) => Tup p f (Type k t) where
+  tupled = unto hither
+   where hither [x] = x
+         hither l = apps (HardType . Tuple $ length l) l
 
 -- | Ermine types, parameterized by their free kind variables and free type variables
 --
@@ -354,6 +351,7 @@ mergeConstraints :: Type k t -> Type k t -> Type k t
 mergeConstraints (Exists m ks (Scope c)) (Exists n ls (Scope d)) =
   Exists (m ++ n) (ks ++ ls') . Scope $ mergeConstraints c d'
  where
+ bk :: Var Int a -> Var Int a -- mono local binds
  bk = first (+ length m) -- bump kind var
  ls' = fmap (Scope . (fmap bk) . unscope) <$> ls
  d' = bimap bk (bimap (+ length ks) (first bk)) d
