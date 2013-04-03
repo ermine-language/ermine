@@ -79,7 +79,7 @@
 <a name="line-70"></a><a name="HardTerm"></a><span class='hs-comment'>-- | Simple terms that can be compared with structural equality.</span>
 <a name="line-71"></a><a name="HardTerm"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>HardTerm</span>
 <a name="line-72"></a>  <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Lit</span> <span class='hs-conid'>Literal</span>
-<a name="line-73"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>DataCon</span> <span class='hs-varop'>!</span><span class='hs-conid'>Global</span>
+<a name="line-73"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>DataCon</span> <span class='hs-varop'>!</span><span class='hs-conid'>Global</span> <span class='hs-comment'>-- TODO: add TypeSchema</span>
 <a name="line-74"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Tuple</span> <span class='hs-varop'>!</span><span class='hs-conid'>Int</span>      <span class='hs-comment'>-- (,,)</span>
 <a name="line-75"></a>  <span class='hs-keyglyph'>|</span> <span class='hs-conid'>Hole</span>            <span class='hs-comment'>-- ^ A placeholder that can take any type. Easy to 'Remember'.</span>
 <a name="line-76"></a>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span> <span class='hs-conid'>Show</span><span class='hs-layout'>,</span> <span class='hs-conid'>Generic</span><span class='hs-layout'>)</span>
