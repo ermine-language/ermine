@@ -21,8 +21,11 @@ module Ermine.Syntax.Hint
   , maybeHint
   ) where
 
+import Control.Applicative
 import Control.Comonad
 import Control.Lens
+import Data.Bytes.Get
+import Data.Bytes.Put
 import Data.Bytes.Serial
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
@@ -38,7 +41,7 @@ import Prelude.Extras
 
 data Hinted a = Unhinted a
               | Hinted String a
-  deriving (Show,Read,Functor,Foldable,Traversable,Typeable,Data,Generic,Generic1)
+  deriving (Show,Read,Functor,Foldable,Traversable,Typeable,Data,Generic)
 
 type Hint = Hinted ()
 
@@ -67,9 +70,18 @@ instance Ord1 Hinted
 instance Ord a => Ord (Hinted a) where
   compare = compare `on` extract
 
-instance Serial1 Hinted
+instance Serial1 Hinted where
+  serializeWith f (Unhinted a) = putWord8 0 >> f a
+  serializeWith f (Hinted s a) = putWord8 1 >> serialize s >> f a
+
+  deserializeWith m = getWord8 >>= \a -> case a of
+    0 -> Unhinted <$> m
+    1 -> Hinted <$> deserialize <*> m
+    _ -> fail "Hinted.deserialize: unexpected case"
+
 instance Serial a => Serial (Hinted a) where
-  serialize = serialize1 ; deserialize = deserialize1
+  serialize = serialize1
+  deserialize = deserialize1
 
 instance Binary a => Binary (Hinted a) where
   put = serializeWith Binary.put ; get = deserializeWith Binary.get

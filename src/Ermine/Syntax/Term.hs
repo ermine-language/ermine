@@ -92,7 +92,7 @@ instance Terminal HardTerm where
 data BindingType t
   = Explicit t
   | Implicit
-  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, Generic1)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
 
 -- | Bound variables in a declaration are rather complicated. One can refer
 -- to any of the following:
@@ -292,7 +292,13 @@ instance Serial DeclBound
 instance Binary DeclBound where put = serialize ; get = deserialize
 instance Serialize DeclBound where put = serialize ; get = deserialize
 
-instance Serial1 BindingType
+instance Serial1 BindingType where
+  serializeWith f (Explicit a) = putWord8 0 >> f a
+  serializeWith _ Implicit     = putWord8 1
+  deserializeWith m = getWord8 >>= \a -> case a of
+    0 -> Explicit <$> m
+    1 -> return Implicit
+    _ -> fail "BindingType.deserializeWith: unexpected case"
 
 instance Serial t => Serial (BindingType t) where
   serialize = serialize1 ; deserialize = deserialize1
