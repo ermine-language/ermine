@@ -764,3 +764,6 @@ instance (Binary k, Binary t) => Binary (Annot k t) where
   put = serializeWith2   Binary.put Binary.put
   get = deserializeWith2 Binary.get Binary.get
 
+instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
+  typeVars = traverse.typeVars
+
