@@ -70,7 +70,7 @@ import Prelude.Extras
 -- | Simple terms that can be compared with structural equality.
 data HardTerm
   = Lit Literal
-  | DataCon !Global
+  | DataCon !Global -- TODO: add TypeSchema
   | Tuple !Int      -- (,,)
   | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show, Generic)

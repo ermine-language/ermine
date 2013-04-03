@@ -29,7 +29,7 @@ import GHC.Generics
 -- | Primitive literal values used by patterns, terms and core.
 data Literal
   = Int     !Int
-  | Int64   !Int64
+  | Long    !Int64
   | Byte    !Int8
   | Short   !Int16
   | String  String
@@ -42,7 +42,7 @@ instance Hashable Literal
 
 instance Serial Literal where
   serialize (Int    i) = putWord8 0 >> serialize i
-  serialize (Int64  i) = putWord8 1 >> serialize i
+  serialize (Long   i) = putWord8 1 >> serialize i
   serialize (Byte   i) = putWord8 2 >> serialize i
   serialize (Short  i) = putWord8 3 >> serialize i
   serialize (String i) = putWord8 4 >> serialize i
@@ -52,7 +52,7 @@ instance Serial Literal where
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Int    deserialize
-    1 -> liftM Int64  deserialize
+    1 -> liftM Long   deserialize
     2 -> liftM Byte   deserialize
     3 -> liftM Short  deserialize
     4 -> liftM String deserialize

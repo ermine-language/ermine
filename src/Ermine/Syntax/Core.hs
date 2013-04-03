@@ -87,7 +87,7 @@ class Lit a where
   lits :: [a] -> Core b
   lits = Prelude.foldr (Lens.cons . lit) nil
 
-instance Lit Int64 where lit l = HardCore . Lit $ Int64 l
+instance Lit Int64 where lit l = HardCore . Lit $ Long l
 instance Lit Int where lit i = HardCore . Lit $ Int i
 instance Lit Char where
   lit c = HardCore . Lit $ Char c

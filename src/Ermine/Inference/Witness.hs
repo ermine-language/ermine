@@ -38,19 +38,19 @@ import GHC.Generics
 import Prelude.Extras
 
 data Witness k a = Witness
-  { _witnessType :: !(Type k a)
-  , _witnessConstraints :: [Type k a]
+  { _witnessConstraints :: [Type k a]
   , _witnessRowConstraints :: [Type k a]
+  , _witnessType :: !(Type k a)
   , _witnessCore :: !(Core (Var Int Id))
   } deriving (Show, Eq, Functor, Foldable, Traversable, Typeable, Generic)
 
 makeClassy ''Witness
 
 witnessTypes :: Traversal (Witness k a) (Witness k' b) (Type k a) (Type k' b)
-witnessTypes f (Witness t cs rcs c) =
-  Witness <$> f t
-          <*> traverse f cs
+witnessTypes f (Witness cs rcs t c) =
+  Witness <$> traverse f cs
           <*> traverse f rcs
+          <*> f t
           <*> pure c
 
 instance HasTypeVars (Witness k a) (Witness k b) a b where

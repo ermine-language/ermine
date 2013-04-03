@@ -16,7 +16,7 @@ import Ermine.Syntax.Literal
 
 prettyLiteral :: Literal -> Doc
 prettyLiteral (Int i)    = text $ show i
-prettyLiteral (Int64 l)  = text $ show l ++ "L"
+prettyLiteral (Long l)   = text $ show l ++ "L"
 prettyLiteral (Byte b)   = text $ show b ++ "B"
 prettyLiteral (Short s)  = text $ show s ++ "S"
 prettyLiteral (String s) = text $ show s
