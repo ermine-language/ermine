@@ -80,6 +80,7 @@ library
     Ermine.Builtin.Type
     Ermine.Diagnostic
     Ermine.Inference.Kind
+    Ermine.Inference.Type
     Ermine.Inference.Witness
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
