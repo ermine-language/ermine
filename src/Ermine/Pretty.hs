@@ -77,8 +77,8 @@ chooseNames p ahs = go p ahs . filter (\n -> n `notElem` avoid && not (p n))
  avoid = [ h | Hinted h _ <- ahs ]
 
  go _     [] supply = ([], supply)
- go taken hints@(Unhinted _ : hs) (n:supply) = (n:) `first` go taken hs supply
- go taken (Hinted h v : hs) supply@(n:ns)
+ go taken (Unhinted _ : hs) (n:supply) = (n:) `first` go taken hs supply
+ go taken (Hinted h _ : hs) supply@(n:ns)
    | taken h   = (n:) `first` go taken hs ns
    | otherwise = (h:) `first` go (\x -> x == h || taken x) hs supply
  go _ _ _ = error "PANIC: chooseNames: ran out of names"
