@@ -24,10 +24,10 @@ import Ermine.Pretty.Pattern
 import Ermine.Syntax.Term
 
 prettyHardTerm :: HardTerm -> Doc
-prettyHardTerm (Lit l)     = prettyLiteral l
-prettyHardTerm (DataCon g) = prettyGlobal g
-prettyHardTerm (Tuple n)   = parens . text $ replicate (n-1) ','
-prettyHardTerm Hole        = text "?{}"
+prettyHardTerm (Lit l)       = prettyLiteral l
+prettyHardTerm (DataCon g _) = prettyGlobal g
+prettyHardTerm (Tuple n)     = parens . text $ replicate (n-1) ','
+prettyHardTerm Hole          = text "?{}"
 
 prettyTerm :: Applicative f
            => Term t v -> [String] -> Int

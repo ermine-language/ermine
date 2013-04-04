@@ -55,6 +55,7 @@ import Data.Monoid
 import Data.String
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
+import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -70,7 +71,7 @@ import Prelude.Extras
 -- | Simple terms that can be compared with structural equality.
 data HardTerm
   = Lit Literal
-  | DataCon !Global -- TODO: add TypeSchema
+  | DataCon !Global (Type Void Void)
   | Tuple !Int      -- (,,)
   | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show, Generic)

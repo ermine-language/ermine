@@ -28,6 +28,10 @@ module Ermine.Unification.Meta
   -- * Meta variables
     Meta(Meta,Skolem)
   , metaId, metaValue, metaRef
+  -- * Meta Types
+  , MetaT, TypeM
+  -- * Meta Kinds
+  , MetaK, KindM
   -- ** Meta Prisms
   , skolem
   -- ** λ-Depth
@@ -53,6 +57,7 @@ module Ermine.Unification.Meta
   , M, runM, runM_, ioM
   , throwM
   , fresh
+  , remember
   ) where
 import Control.Applicative
 import Control.Exception
@@ -65,24 +70,16 @@ import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
 import Control.Monad.Writer.Class
 import Data.Function (on)
+import Data.IntMap
 import Data.Monoid
 import Data.STRef
 import Data.Traversable
 import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Type
+import Ermine.Syntax.Kind
 import Ermine.Unification.Sharing
-
-------------------------------------------------------------------------------
--- MetaEnv
-------------------------------------------------------------------------------
-
-data MetaEnv s = MetaEnv { _metaRendering :: Rendering, _metaFresh :: {-# UNPACK #-} !(STRef s Int) }
-
-makeClassy ''MetaEnv
-
-instance HasRendering (MetaEnv s) where
-  rendering = metaRendering
 
 ------------------------------------------------------------------------------
 -- Meta
@@ -114,6 +111,37 @@ data Meta s f a
   | Skolem { _metaValue :: a, _metaId :: !Int }
 
 makeLenses ''Meta
+
+------------------------------------------------------------------------------
+-- MetaEnv
+------------------------------------------------------------------------------
+
+-- | A type meta-variable
+type MetaT s = Meta s (Type (MetaK s)) (KindM s)
+
+-- | A type filled with meta-variables
+type TypeM s = Type (MetaK s) (MetaT s)
+
+-- | A kind meta-variable
+type MetaK s = Meta s Kind ()
+
+-- | A kind filled with meta-variables
+type KindM s = Kind (MetaK s)
+
+data MetaEnv s = MetaEnv
+  { _metaRendering :: Rendering
+  , _metaFresh :: {-# UNPACK #-} !(STRef s Int)
+  , _metaMemory :: STRef s (IntMap (TypeM s))
+  }
+
+makeClassy ''MetaEnv
+
+instance HasRendering (MetaEnv s) where
+  rendering = metaRendering
+
+------------------------------------------------------------------------------
+-- More Meta
+------------------------------------------------------------------------------
 
 -- | This 'Prism' matches 'Skolem' variables.
 skolem :: Prism' (Meta s f a) (a, Int)
@@ -281,20 +309,23 @@ throwM d = liftST $ unsafeIOToST (throwIO d)
 runM :: Rendering -> (forall s. M s a) -> Either Diagnostic a
 runM r m = runST $ do
   i <- newSTRef 0
-  catchingST _Diagnostic (Right <$> unM m (MetaEnv r i)) (return . Left)
+  z <- newSTRef mempty
+  catchingST _Diagnostic (Right <$> unM m (MetaEnv r i z)) (return . Left)
 {-# INLINE runM #-}
 
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.
 runM_ :: Rendering -> (forall s. M s a) -> a
 runM_ r m = runST $ do
   i <- newSTRef 0
-  unM m (MetaEnv r i)
+  z <- newSTRef mempty
+  unM m (MetaEnv r i z)
 
 -- | Evaluate an expression in the 'M' 'Monad' with a fresh variable supply, throwing any errors returned.
 ioM :: MonadIO m => Rendering -> (forall s. M s a) -> m a
 ioM r m = liftIO $ stToIO $ do
   i <- newSTRef 0
-  unM m (MetaEnv r i)
+  z <- newSTRef mempty
+  unM m (MetaEnv r i z)
 {-# INLINE ioM #-}
 
 -- | Generate a 'fresh' variable
@@ -306,3 +337,11 @@ fresh = do
     writeSTRef s $! i + 1
     return i
 {-# INLINE fresh #-}
+
+remember :: MonadMeta s m => Int -> TypeM s -> m ()
+remember i t = do
+  s <- view metaMemory
+  liftST $ do
+    m <- readSTRef s
+    writeSTRef s $! m & at i ?~ t
+{-# INLINE remember #-}

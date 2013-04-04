@@ -14,8 +14,7 @@
 --
 --------------------------------------------------------------------
 module Ermine.Unification.Type
-  ( MetaT, TypeM
-  , unifyType
+  ( unifyType
   ) where
 
 import Control.Applicative
@@ -39,12 +38,6 @@ import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
-
--- | A type meta-variable
-type MetaT s = Meta s (Type (MetaK s)) (KindM s)
-
--- | A type filled with meta-variables
-type TypeM s = Type (MetaK s) (MetaT s)
 
 typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Int -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
 typeOccurs depth1 t p = zonkWith t tweak where

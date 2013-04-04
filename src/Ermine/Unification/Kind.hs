@@ -17,8 +17,7 @@
 --
 --------------------------------------------------------------------
 module Ermine.Unification.Kind
-  ( MetaK, KindM
-  , unifyKind
+  ( unifyKind
   , unifyKindVar
   , kindOccurs
   , generalize
@@ -48,12 +47,6 @@ import Ermine.Pretty.Kind
 -- >>> import Ermine.Syntax
 -- >>> import Text.Trifecta.Rendering
 -- >>> let test :: (forall m s. (MonadWriter Any m, MonadMeta s m) => m (KindM s)) -> Schema b; test mk = fst $ runM_ emptyRendering (runWriterT (mk >>= generalize))
-
--- | A kind meta-variable
-type MetaK s = Meta s Kind ()
-
--- | A kind filled with meta-variables
-type KindM s = Kind (MetaK s)
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --

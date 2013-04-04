@@ -40,11 +40,12 @@ import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Witness
-import Ermine.Unification.Kind
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 
 type WitnessM s = Witness (MetaK s) (MetaT s)
+
+type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
 
 matchFunType :: TypeM s -> M s (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
@@ -54,10 +55,20 @@ matchFunType t = do
   y <- pure <$> newMeta star
   (x, y) <$ runWriterT (unifyType t (x ~> y))
 
-inferType :: Term (Annot (MetaK s) (MetaT s)) (TypeM s) -> M s (WitnessM s)
+inferType :: TermM s -> M s (WitnessM s)
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = local (metaRendering .~ r) $ inferType tm
+inferType (Remember i t) = do
+  r <- inferType t
+  remember i (r^.witnessType)
+  return r
+inferType (Sig tm (Annot ks ty)) = do
+  ts <- for ks newMeta
+  checkType tm (instantiateVars ts ty)
 inferType _ = fail "Unimplemented"
+
+checkType :: TermM s -> TypeM s -> M s (WitnessM s)
+checkType _ _ = fail "Check yourself"
 
 inferHardType :: HardTerm -> M s (WitnessM s)
 inferHardType (Term.Lit l) = return $ Witness [] [] (literalType l) (HardCore (Core.Lit l))
@@ -83,8 +94,7 @@ unfurl (Forall ks ts cs bd) co = do
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  -- TODO: revisit code generation
-  pure . Witness rcs tcs (inst bd) . apps co $ zipWith (const . pure . B) [0..] tcs
+  return $ Witness rcs tcs (inst bd) co
 unfurl t co = pure $ Witness [] [] t co
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
