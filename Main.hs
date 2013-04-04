@@ -9,12 +9,13 @@ import Data.ByteString.Lens
 import Data.Char
 import Data.Default
 import Data.Monoid
+import Ermine
 import Ermine.Console.State
 import Ermine.Console.Command
 import Ermine.Console.Completion
 import Ermine.Console.Options
 import Ermine.Console.Unicode
-import Ermine.Version
+-- import Ermine.Version
 import Options.Applicative
 import System.Console.Haskeline
 import System.Exit.Lens
