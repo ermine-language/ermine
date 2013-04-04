@@ -20,17 +20,22 @@ module Ermine.Inference.Type
 
 import Bound
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
+import Data.List (partition)
+import Data.Traversable
 import Ermine.Builtin.Type
 import Ermine.Syntax
+import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
+import Ermine.Syntax.Kind as Kind hiding (Var)
+import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
-import Ermine.Syntax.Type (Type(HardType), HardType(..), Annot(..))
-import Ermine.Syntax.Kind as Kind hiding (Var)
+import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Witness
 import Ermine.Unification.Kind
 import Ermine.Unification.Type
@@ -68,3 +73,25 @@ literalType String{} = string
 literalType Char{}   = char
 literalType Float{}  = float
 literalType Double{} = double
+
+unfurl :: TypeM s -> Core (Var Int Id) -> M s (WitnessM s)
+unfurl (Forall ks ts cs bd) co = do
+  mks <- for ks $ newMeta . extract
+  mts <- for ts $ newMeta . instantiateVars mks . extract
+  let inst = instantiateKindVars mks . instantiateVars mts
+  (rcs, tcs) <- unfurlConstraints . inst $ cs
+  -- TODO: revisit code generation
+  pure . Witness rcs tcs (inst bd) . apps co $ zipWith (const . pure . B) [0..] tcs
+unfurl t co = pure $ Witness [] [] t co
+
+partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
+partConstraints (And l) = partition isRowConstraint l
+partConstraints c | isRowConstraint c = ([c], [])
+                  | otherwise         = ([], [c])
+
+unfurlConstraints :: TypeM s -> M s ([TypeM s], [TypeM s])
+unfurlConstraints (Exists ks ts cs) = do
+  mks <- for ks $ newMeta . extract
+  mts <- for ts $ newMeta . instantiateVars mks . extract
+  pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
+unfurlConstraints c = pure $ partConstraints c

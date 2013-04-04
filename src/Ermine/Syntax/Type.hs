@@ -29,6 +29,7 @@ module Ermine.Syntax.Type
   , allConstraints
   , (~~>)
   , isTrivialConstraint
+  , isRowConstraint
   , FieldName
   -- * Hard Types
   , HardType(..)
@@ -382,6 +383,12 @@ isTrivialConstraint :: Type k a -> Bool
 isTrivialConstraint (And cs)        = all isTrivialConstraint cs
 isTrivialConstraint (Exists _ _ cs) = isTrivialConstraint $ fromScope cs
 isTrivialConstraint _               = False
+
+-- | Determines whether the given type is a row constraint.
+--
+-- As of now, we have no row constraints.
+isRowConstraint :: Type k a -> Bool
+isRowConstraint _ = False
 
 instance IsString a => IsString (Type k a) where
   fromString = Var . fromString
