@@ -20,13 +20,16 @@ module Ermine.Inference.Type
 
 import Bound
 import Control.Applicative
+import Control.Lens
+import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Ermine.Builtin.Type
 import Ermine.Syntax
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Term as Term
-import Ermine.Syntax.Type as Type
+import qualified Ermine.Syntax.Type as Type
+import Ermine.Syntax.Type (Type(HardType), HardType(..), Annot(..))
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Inference.Witness
 import Ermine.Unification.Kind
@@ -45,6 +48,7 @@ matchFunType t = do
 
 inferType :: Term (Annot (MetaK s) (MetaT s)) (TypeM s) -> M s (WitnessM s)
 inferType (HardTerm t) = inferHardType t
+inferType (Loc r tm)   = local (metaRendering .~ r) $ inferType tm
 inferType _ = fail "Unimplemented"
 
 inferHardType :: HardTerm -> M s (WitnessM s)
