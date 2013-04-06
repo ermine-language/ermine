@@ -28,4 +28,7 @@ map <F2> :exec ":!hasktags -x -c --ignore src"<CR><CR>
 " au BufWritePre *.hs,*.markdown silent! cal StripTrailingWhitespace()
 
 " rebuild hasktags after saving
-au BufWritePost *.hs silent! :exec ":!hasktags -x -c --ignore src"
+augroup hasktags
+  au!
+  au BufWritePost *.hs silent! :exec ":!hasktags -x -c --ignore src"
+augroup END
