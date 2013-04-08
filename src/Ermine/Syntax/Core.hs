@@ -25,6 +25,7 @@ module Ermine.Syntax.Core
   -- * Smart constructors
   , lam
   , let_
+  , dataCon
   -- * Common built-in terms
   , cons
   , nil
@@ -282,6 +283,11 @@ let_ :: Eq a => [(a, Core a)] -> Core a -> Core a
 let_ bs b = Let (abstr . snd <$> bs) (abstr b)
   where vs  = fst <$> bs
         abstr = abstract (`List.elemIndex` vs)
+
+-- | Builds an n-ary data constructor
+dataCon :: Int -> Int -> Core a
+dataCon 0     tg = Data tg []
+dataCon arity tg = Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
 
 {-
 letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a

@@ -74,8 +74,7 @@ inferHardType :: HardTerm -> M s (WitnessM s)
 inferHardType (Term.Lit l) = return $ Witness [] [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
   vars <- replicateM n $ pure <$> newMeta star
-  return $ Witness [] [] (foldr (~>) (tup vars) vars) $
-             Core.Lam n (Scope $ Core.Data 0 $ pure . B <$> [0..n-1])
+  return $ Witness [] [] (foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
