@@ -47,6 +47,9 @@ module Ermine.Syntax.Type
   -- * Type Annotations
   , Annot(..)
   , annot
+  -- * Serialization
+  , serializeTK
+  , deserializeTK
   ) where
 
 import Bound

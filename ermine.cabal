@@ -97,6 +97,7 @@ library
     Ermine.Pretty.Type
     Ermine.Syntax
     Ermine.Syntax.Core
+    Ermine.Syntax.DataType
     Ermine.Syntax.Digest
     Ermine.Syntax.Exposed
     Ermine.Syntax.Global
