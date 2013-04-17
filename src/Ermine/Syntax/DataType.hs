@@ -79,7 +79,7 @@ data DataType k t =
            , tparams :: [Hinted (Scope Int Kind k)]
            , constrs :: [Constructor (Var Int k) (Var Int t)]
            }
-  deriving (Show, Eq, Typeable, Generic)
+  deriving (Show, Eq, Foldable, Traversable, Functor, Typeable, Generic)
 
 instance Show k => Show1 (DataType k)
 instance Show2 DataType
