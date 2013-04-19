@@ -14,12 +14,19 @@ module Ermine.Parser.Style
   , typeIdent
   , kindIdent
   , op
+  , termCon
+  , typeCon
   ) where
 
+import Control.Applicative
 import Control.Lens hiding (op)
+import Data.HashSet as HashSet
 import Ermine.Parser.Keywords
+import Text.Parser.Char
 import Text.Parser.Token
+import Text.Parser.Token.Highlight
 import Text.Parser.Token.Style
+
 
 baseIdent, termIdent, typeIdent, kindIdent :: TokenParsing m => IdentifierStyle m
 
@@ -43,4 +50,16 @@ kindIdent = baseIdent & styleName .~ "kind variable"
 op :: TokenParsing m => IdentifierStyle m
 op = haskellOps
 
+capital :: TokenParsing m => IdentifierStyle m
+capital = IdentifierStyle
+        { _styleName = "capital"
+        , _styleStart = upper
+        , _styleLetter = alphaNum <|> oneOf "_'"
+        , _styleReserved = HashSet.empty
+        , _styleHighlight = Constructor
+        , _styleReservedHighlight = ReservedConstructor
+        }
 
+termCon, typeCon :: TokenParsing m => IdentifierStyle m
+termCon = capital & styleName .~ "term constructor"
+typeCon = capital & styleName .~ "type constructor"
