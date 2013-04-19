@@ -82,6 +82,7 @@ library
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
+    Ermine.Parser.DataType
     Ermine.Parser.Global
     Ermine.Parser.Keywords
     Ermine.Parser.Kind

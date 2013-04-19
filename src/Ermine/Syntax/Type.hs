@@ -36,6 +36,7 @@ module Ermine.Syntax.Type
   , Typical(..)
   -- * Binding
   , TK
+  , abstractKinds
   , instantiateKinds
   , instantiateKindVars
   , bindType

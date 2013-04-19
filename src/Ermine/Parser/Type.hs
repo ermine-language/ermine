@@ -14,6 +14,11 @@ module Ermine.Parser.Type
   , anyType
   , typ
   , annotation
+  , typVarBinding
+  , typVarBindings
+  , someTypVarBindings
+  , quantifier
+  , quantBindings
   ) where
 
 import Bound
@@ -69,20 +74,33 @@ typVarBinding = flip (,) unk <$> some (ident typeIdent)
 -- | Parses a series of type var bindings, processing the result to a more
 -- usable format.
 --
---   typVarBindings ::= typVarBinding typVarBindings0
---   typVarBindings0 ::= emtpy | typVarBinding typVarBindings0
+--   typVarBindings ::= emtpy | someTypVarBindings
 typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
-typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
+typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> many typVarBinding
+
+-- | Parses a series of type var bindings, processing the result to a more
+-- usable format.
+--
+--   someTypVarBindings ::= typVarBinding typVarBindings
+someTypVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
+someTypVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
 
 -- | Parses the bound variables for a quantifier.
 --
 --   quantBindings ::= {kindVars}
---                   | typVarBindings
+--                   | someTypVarBindings
 --                   | {kindVars} typVarBindings
 quantBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
 quantBindings = optional (braces (some (ident typeIdent))) >>= \mks -> case mks of
-  Just ks -> (,) ks . fromMaybe [] <$> optional typVarBindings
-  Nothing -> (,) [] <$> typVarBindings
+  Just ks -> (,) ks <$> typVarBindings
+  Nothing -> (,) [] <$> someTypVarBindings
+
+-- | Parses a quantifier.
+--
+--   quantifier ::= Q quantBindings .
+quantifier :: (Monad m, TokenParsing m)
+           => String -> m ([String], [(String, Kind (Maybe String))])
+quantifier q = symbol q *> quantBindings <* dot
 
 -- | Parser for a context that expects 0 or more constraints, together
 --
@@ -133,7 +151,7 @@ anyTyp :: (Monad m, TokenParsing m) => m Typ
 anyTyp = typ
 
 annotation :: (Monad m, TokenParsing m) => m Ann
-annotation = build <$> optional (symbol "some" *> typVarBindings <* dot) <*> typ
+annotation = build <$> optional (symbol "some" *> someTypVarBindings <* dot) <*> typ
  where
  build Nothing    t = annot t
  build (Just vks) t = Annot ks (abstract (`elemIndex` vs) t)
