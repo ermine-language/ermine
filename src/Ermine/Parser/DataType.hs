@@ -35,7 +35,7 @@ constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe String) String)
 constr = build . fromMaybe ([], [])
      <$> optional (quantifier "forall")
      <*> globalIdent termCon
-     <*> many typ
+     <*> many typ0
  where
  build (ks, ts) g as = Constructor g (map stringHint ks) ts' as'
   where
@@ -47,7 +47,7 @@ dataType = build <$ symbol "data"
        <*> globalIdent typeCon
        <*> (fmap (fromMaybe []) . optional . braces . some $ ident kindIdent)
        <*> typVarBindings
-       <*> sepBy constr (symbolic '|')
+       <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
  build nm ks ts cs = DataType nm (map stringHint ks) ts' cs'
   where

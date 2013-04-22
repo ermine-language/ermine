@@ -13,6 +13,7 @@ module Ermine.Parser.Type
   , Typ
   , anyType
   , typ
+  , typ0
   , annotation
   , typVarBinding
   , typVarBindings
