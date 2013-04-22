@@ -544,9 +544,9 @@ memoizing f = fmap ((,) True) . f
 -- | A version of bitraverse that allows the functions used to specify whether
 -- their results at each value should be remembered, so that the action is not
 -- performed additional times at that value.
-memoverse :: (Applicative f, Monad f, Ord k, Ord a)
+memoverse :: (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
           => (k -> f (Bool, l)) -> (a -> f (Bool, b))
-          -> Type k a -> f (Type l b)
+          -> t k a -> f (t l b)
 memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed _1 knd) (memoed _2 typ)
  where
  memoed :: (Ord v, Monad f) => Lens' s (Map v u) -> (v -> f (Bool, u)) -> v -> StateT s f u
@@ -561,9 +561,9 @@ memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed 
 -- 't' will only be performed once for each unique value, then memoized and the
 -- result re-used. The default action for 'Nothing' kinds will be used at every
 -- occurrence, however.
-prepare :: forall f k a l b. (Applicative f, Monad f, Ord k, Ord a)
+prepare :: forall t f k a l b. (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
         => f l -> (k -> f l) -> (a -> f b)
-        -> Type (Maybe k) a -> f (Type l b)
+        -> t (Maybe k) a -> f (t l b)
 prepare unk knd typ =
   memoverse (maybe ((,) False <$> unk) (memoizing knd)) (memoizing typ)
 
