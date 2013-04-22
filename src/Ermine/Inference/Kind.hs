@@ -16,9 +16,12 @@
 module Ermine.Inference.Kind
   ( inferKind
   , checkKind
+  , checkDataTypeKind
+  , checkConstructorKind
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
@@ -29,6 +32,7 @@ import Data.Foldable
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
+import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
 import qualified Ermine.Syntax.Type as Type
@@ -84,3 +88,18 @@ inferKind (Forall n tks cs b) = do
   checkKind (instantiateKindVars sks (instantiateVars btys cs)) constraint
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star
+
+-- | Checks that the types in a data declaration have sensible kinds.
+checkDataTypeKind :: DataType (MetaK s) (KindM s) -> M s ()
+checkDataTypeKind (DataType _ ks ts cs) = do
+  sks <- for ks $ \_ -> newSkolem ()
+  let btys = instantiateVars sks . extract <$> ts
+  for_ cs $ \c -> checkConstructorKind
+                    (bimap (unvar (sks!!) id) (unvar (btys !!) id) c)
+
+-- | Checks that the types in a data constructor have sensible kinds.
+checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
+checkConstructorKind (Constructor _ ks ts fields) = do
+  sks <- for ks $ \_ -> newSkolem ()
+  let btys = instantiateVars sks . extract <$> ts
+  for_ fields $ \fld -> checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
