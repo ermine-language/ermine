@@ -30,6 +30,7 @@ import Data.Semigroup
 import Data.Void
 import Ermine.Console.State
 import Ermine.Inference.Kind
+import Ermine.Parser.DataType
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
@@ -37,6 +38,7 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
+import Ermine.Syntax.DataType (DataType)
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -109,6 +111,13 @@ kindBody s = do
     generalize k
   sayLn $ prettySchema (vacuous gk) names
 
+dkindBody :: DataType (Maybe String) String -> Console ()
+dkindBody dt = do
+  ioM mempty $ do
+    dt' <- prepare (newMeta ()) (const $ newMeta ()) (const $ pure <$> newMeta ()) dt
+    checkDataTypeKind dt'
+  sayLn . text $ "Ok."
+
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
@@ -130,6 +139,9 @@ commands =
                    in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
+  , cmd "dkind"
+      & desc .~ "check that a data type is well-kinded"
+      & body .~ parsing dataType dkindBody
   , cmd "uterm"
       & desc .~ "show the internal representation of a term"
       & body .~ parsing term (liftIO . print)
@@ -139,6 +151,9 @@ commands =
                   let names' = filter (`notMember` setOf traverse tm) names in
                   prettyTerm tm names' (-1) (error "TODO: prettyAnn") (pure . pure . text)
                     >>= sayLn)
+  , cmd "udata"
+      & desc .~ "show the internal representation of a data declaration"
+      & body .~ parsing dataType (liftIO . print)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
 
   ]
