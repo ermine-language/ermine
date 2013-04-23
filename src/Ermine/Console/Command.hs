@@ -22,6 +22,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Bifunctor
+import qualified Data.ByteString.Char8 as SB
 import Data.Char
 import Data.List
 import Data.Set (notMember)
@@ -38,7 +39,9 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
+import qualified Ermine.Syntax.DataType as DataType
 import Ermine.Syntax.DataType (DataType)
+import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -113,10 +116,15 @@ kindBody s = do
 
 dkindBody :: DataType (Maybe String) String -> Console ()
 dkindBody dt = do
-  ioM mempty $ do
-    dt' <- prepare (newMeta ()) (const $ newMeta ()) (const $ pure <$> newMeta ()) dt
-    checkDataTypeKind dt'
-  sayLn . text $ "Ok."
+  let nm = SB.unpack $ dt ^. DataType.name . globalName
+  s <- ioM mempty $ do
+    self <- newMeta ()
+    dt' <- prepare (newMeta ())
+                   (const $ newMeta ())
+                   (\t -> if t == nm then pure $ pure self else pure <$> newMeta ())
+                   dt
+    checkDataTypeKind (pure self) dt'
+  sayLn $ prettySchema s names
 
 commands :: [Command]
 commands =

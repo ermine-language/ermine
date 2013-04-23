@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -18,19 +19,22 @@
 
 module Ermine.Syntax.DataType
   ( Constructor(..)
-  , DataType(..)
+  , DataType(DataType)
+  , name
+  , kparams
+  , tparams
+  , constrs
   ) where
 
 import Bound
 import Bound.Scope
 import Control.Applicative
+import Control.Lens
 import Data.Bifoldable
-import Data.Bifunctor
 import Data.Bitraversable
 import Data.Binary as Binary
 import Data.Bytes.Serial
 import Data.Foldable
-import Data.Traversable
 import Data.Serialize as Serialize
 import Data.Typeable
 import Ermine.Syntax.Hint
@@ -74,12 +78,14 @@ instance HasTypeVars (Constructor k t) (Constructor k t') t t' where
   typeVars = traverse
 
 data DataType k t =
-  DataType { name    :: Global
-           , kparams :: [Hint]
-           , tparams :: [Hinted (Scope Int Kind k)]
-           , constrs :: [Constructor (Var Int k) (Var Int t)]
+  DataType { _name    :: Global
+           , _kparams :: [Hint]
+           , _tparams :: [Hinted (Scope Int Kind k)]
+           , _constrs :: [Constructor (Var Int k) (Var Int t)]
            }
   deriving (Show, Eq, Foldable, Traversable, Functor, Typeable, Generic)
+
+makeLenses ''DataType
 
 instance Show k => Show1 (DataType k)
 instance Show2 DataType

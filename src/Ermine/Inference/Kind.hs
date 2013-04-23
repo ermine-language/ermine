@@ -29,9 +29,11 @@ import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable
+import Data.IntSet.Lens
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
+import Ermine.Syntax
 import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -90,12 +92,14 @@ inferKind (Forall n tks cs b) = do
   return star
 
 -- | Checks that the types in a data declaration have sensible kinds.
-checkDataTypeKind :: DataType (MetaK s) (KindM s) -> M s ()
-checkDataTypeKind (DataType _ ks ts cs) = do
+checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
+checkDataTypeKind self (DataType nm ks ts cs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
   for_ cs $ \c -> checkConstructorKind
                     (bimap (unvar (sks!!) id) (unvar (btys !!) id) c)
+  checkKind (apps (pure self) $ pure <$> btys) star
+  generalizeOver (setOf (traverse.metaId) sks) self
 
 -- | Checks that the types in a data constructor have sensible kinds.
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()

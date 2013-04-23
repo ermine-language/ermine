@@ -21,6 +21,7 @@ module Ermine.Unification.Kind
   , unifyKindVar
   , kindOccurs
   , generalize
+  , generalizeOver
   ) where
 
 import Bound
@@ -30,6 +31,7 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
+import Data.IntSet as IntSet
 import Data.IntMap as IntMap
 import Data.Set as Set
 import Data.Set.Lens
@@ -70,15 +72,20 @@ kindOccurs k p = occurs k p $ do
 
 -- | Generalize a 'Kind', checking for escaped Skolems.
 generalize :: MonadMeta s m => KindM s -> m (Schema a)
-generalize k0 = do
+generalize = generalizeOver IntSet.empty
+
+generalizeOver :: MonadMeta s m => IntSet -> KindM s -> m (Schema a)
+generalizeOver sks k0 = do
   k <- runSharing k0 $ zonk k0
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
   return $ Schema (replicate n $ Unhinted ()) (Scope r)
   where
-   go Skolem{}   = StateT $ \ _ -> fail "escaped skolem"
-   go (Meta _ i _ _ _) = StateT $ \imn@(im, n) -> case im^.at i of
+   go s@Skolem{}
+     | not $ sks^.contains (s^.metaId) = StateT $ \ _ -> fail "escaped skolem"
+   go m = StateT $ \imn@(im, n) -> case im^.at i of
      Just b  -> return (B b, imn)
      Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
+    where i = m ^. metaId
 
 -- | Returns the a unified form if different from the left argument.
 --
