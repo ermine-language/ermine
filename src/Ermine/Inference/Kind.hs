@@ -93,7 +93,7 @@ inferKind (Forall n tks cs b) = do
 
 -- | Checks that the types in a data declaration have sensible kinds.
 checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
-checkDataTypeKind self (DataType nm ks ts cs) = do
+checkDataTypeKind self (DataType _ ks ts cs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
   for_ cs $ \c -> checkConstructorKind
