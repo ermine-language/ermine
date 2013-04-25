@@ -25,7 +25,6 @@ module Ermine.Parser.Type
 import Bound
 import Control.Applicative
 import Data.List (elemIndex)
-import Data.Maybe
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax
