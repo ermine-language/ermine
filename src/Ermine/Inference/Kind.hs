@@ -1,5 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -30,10 +33,12 @@ import Control.Monad.Reader.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable
 import Data.IntSet.Lens
+import qualified Data.Map as Map
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Global
 import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -91,8 +96,29 @@ inferKind (Forall n tks cs b) = do
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star
 
+checkDataTypeKinds :: MonadMeta s m
+                   => [DataType (Maybe String) String] -> m [DataType Void Void]
+checkDataTypeKinds dts = undefined
+ where
+ graph = map (\dt -> (dt, dt^.globalName, toListOf typeVars dt)) dts
+
+checkDataTypeGroup :: MonadMeta s m
+                   => [DataType (Maybe String) String] -> m [DataType Void Void]
+checkDataTypeGroup dts = do
+  ks <- for dts $ \dt -> newMeta ()
+  let m = Map.fromList $ zip names ks
+  for_ dts $ \dt -> do
+    dt' <- prepare (newMeta ()) (const $ newMeta ())
+                   (\t -> maybe (newMeta ()) return $ Map.lookup t m)
+                   dt
+    checkDataTypeKind (m Map.! (dt'^.globalName)) dt'
+  undefined
+ where
+ names = (^.globalName) <$> dts
+
 -- | Checks that the types in a data declaration have sensible kinds.
-checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
+checkDataTypeKind :: MonadMeta s m
+                  => KindM s -> DataType (MetaK s) (KindM s) -> m (Schema a)
 checkDataTypeKind self (DataType nm ks ts cs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
@@ -102,8 +128,11 @@ checkDataTypeKind self (DataType nm ks ts cs) = do
   generalizeOver (setOf (traverse.metaId) sks) self
 
 -- | Checks that the types in a data constructor have sensible kinds.
-checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
-checkConstructorKind (Constructor _ ks ts fields) = do
+checkConstructorKind :: MonadMeta s m
+                     => Constructor (MetaK s) (KindM s)
+                     -> m ()
+checkConstructorKind (Constructor tg ks ts fields) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
-  for_ fields $ \fld -> checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
+  for_ fields $ \fld ->
+    checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
