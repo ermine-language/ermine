@@ -102,23 +102,25 @@ checkDataTypeKinds dts = undefined
  where
  graph = map (\dt -> (dt, dt^.globalName, toListOf typeVars dt)) dts
 
-checkDataTypeGroup :: MonadMeta s m
-                   => [DataType (Maybe String) String] -> m [DataType Void Void]
+-- checkDataTypeGroup :: MonadMeta s m
+--                    => [DataType (Maybe String) String] -> m [DataType Void Void]
+checkDataTypeGroup :: [DataType (Maybe String) String] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  ks <- for dts $ \dt -> newMeta ()
+  ks <- for dts $ \_ -> newMeta ()
   let m = Map.fromList $ zip names ks
-  for_ dts $ \dt -> do
+  for_ (ks `zip` dts) $ \(km, dt) -> do
     dt' <- prepare (newMeta ()) (const $ newMeta ())
-                   (\t -> maybe (newMeta ()) return $ Map.lookup t m)
+                   (\t -> maybe (pure <$> newMeta ()) (return.pure) $ Map.lookup t m)
                    dt
-    checkDataTypeKind (m Map.! (dt'^.globalName)) dt'
+    checkDataTypeKind (pure km) dt'
   undefined
  where
  names = (^.globalName) <$> dts
 
 -- | Checks that the types in a data declaration have sensible kinds.
-checkDataTypeKind :: MonadMeta s m
-                  => KindM s -> DataType (MetaK s) (KindM s) -> m (Schema a)
+-- checkDataTypeKind :: MonadMeta s m
+--                   => KindM s -> DataType (MetaK s) (KindM s) -> m (Schema a)
+checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
 checkDataTypeKind self (DataType nm ks ts cs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
@@ -128,9 +130,10 @@ checkDataTypeKind self (DataType nm ks ts cs) = do
   generalizeOver (setOf (traverse.metaId) sks) self
 
 -- | Checks that the types in a data constructor have sensible kinds.
-checkConstructorKind :: MonadMeta s m
-                     => Constructor (MetaK s) (KindM s)
-                     -> m ()
+-- checkConstructorKind :: MonadMeta s m
+--                      => Constructor (MetaK s) (KindM s)
+--                      -> m ()
+checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
 checkConstructorKind (Constructor tg ks ts fields) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
