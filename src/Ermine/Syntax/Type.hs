@@ -84,6 +84,7 @@ import Data.Set.Lens as Set
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.String
+import Data.Text (Text)
 import Data.Void
 import Data.Word
 import Ermine.Diagnostic
@@ -98,7 +99,7 @@ import Prelude.Extras
 -- mport Text.Trifecta.Diagnostic.Rendering.Prim
 
 -- | A placeholder for a more complicated database fieldname.
-type FieldName = String
+type FieldName = Text
 
 -- | A 'Type' that can be compared with mere structural equality.
 data HardType

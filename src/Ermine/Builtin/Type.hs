@@ -40,7 +40,7 @@ module Ermine.Builtin.Type
   , functor
   ) where
 
-import Data.ByteString.Char8 hiding (foldl, length, reverse)
+import Data.Text (pack)
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Hint

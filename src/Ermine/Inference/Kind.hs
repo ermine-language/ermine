@@ -19,6 +19,8 @@
 module Ermine.Inference.Kind
   ( inferKind
   , checkKind
+  , checkDataTypeKinds
+  , checkDataTypeGroup
   , checkDataTypeKind
   , checkConstructorKind
   ) where
@@ -34,6 +36,7 @@ import Control.Monad.Writer.Strict
 import Data.Foldable
 import Data.IntSet.Lens
 import qualified Data.Map as Map
+import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
@@ -97,14 +100,14 @@ inferKind (Forall n tks cs b) = do
   return star
 
 checkDataTypeKinds :: MonadMeta s m
-                   => [DataType (Maybe String) String] -> m [DataType Void Void]
-checkDataTypeKinds dts = undefined
- where
- graph = map (\dt -> (dt, dt^.globalName, toListOf typeVars dt)) dts
+                   => [DataType (Maybe Text) Text] -> m [DataType Void Void]
+checkDataTypeKinds _ = undefined
+ -- where
+ -- graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) dts
 
 -- checkDataTypeGroup :: MonadMeta s m
---                    => [DataType (Maybe String) String] -> m [DataType Void Void]
-checkDataTypeGroup :: [DataType (Maybe String) String] -> M s [DataType Void Void]
+--                    => [DataType (Maybe Text) Text] -> m [DataType Void Void]
+checkDataTypeGroup :: [DataType (Maybe Text) Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
   ks <- for dts $ \_ -> newMeta ()
   let m = Map.fromList $ zip names ks
@@ -115,13 +118,13 @@ checkDataTypeGroup dts = do
     checkDataTypeKind (pure km) dt'
   undefined
  where
- names = (^.globalName) <$> dts
+ names = (^.name) <$> dts
 
 -- | Checks that the types in a data declaration have sensible kinds.
 -- checkDataTypeKind :: MonadMeta s m
 --                   => KindM s -> DataType (MetaK s) (KindM s) -> m (Schema a)
 checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
-checkDataTypeKind self (DataType nm ks ts cs) = do
+checkDataTypeKind self (DataType _ ks ts cs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
   for_ cs $ \c -> checkConstructorKind
@@ -134,8 +137,8 @@ checkDataTypeKind self (DataType nm ks ts cs) = do
 --                      => Constructor (MetaK s) (KindM s)
 --                      -> m ()
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
-checkConstructorKind (Constructor tg ks ts fields) = do
+checkConstructorKind (Constructor _ ks ts fs) = do
   sks <- for ks $ \_ -> newSkolem ()
   let btys = instantiateVars sks . extract <$> ts
-  for_ fields $ \fld ->
+  for_ fs $ \fld ->
     checkKind (instantiateKindVars sks $ instantiateVars btys fld) star

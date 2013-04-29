@@ -19,7 +19,7 @@ module Ermine.Parser.Global
   ) where
 
 import Control.Applicative
-import Data.ByteString.Char8
+import Data.Text
 import Ermine.Syntax.Global
 import Text.Parser.Token
 

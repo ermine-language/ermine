@@ -24,7 +24,9 @@ import Data.Binary.Builder
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.ByteString.UTF8 as UTF8
-
+import qualified Data.Text as SText
+import qualified Data.Text.Encoding as SText
+import qualified Data.Text.Lazy as LText
 
 --------------------------------------------------------------------
 -- MD5List
@@ -43,6 +45,11 @@ instance DigestableList Strict.ByteString where
 instance DigestableList Char where
   digestList c xs = updateCtx c (UTF8.fromString xs)
 
+instance DigestableList SText.Text where
+  digestList =
+    Prelude.foldr (\tx c ->
+      updateCtx (updateCtx c (SText.encodeUtf8 tx)) nullBS)
+
 --------------------------------------------------------------------
 -- MD5
 --------------------------------------------------------------------
@@ -59,11 +66,18 @@ instance DigestableList t => Digestable [t] where
 instance Digestable Lazy.ByteString where
   digest c = Prelude.foldr (flip updateCtx) c . Lazy.toChunks
 
+instance Digestable LText.Text where
+  digest c = Prelude.foldr (flip updateCtx . SText.encodeUtf8) c
+           . LText.toChunks
+
 instance Digestable () where
   digest c _ = c
 
 instance Digestable Strict.ByteString where
   digest = updateCtx
+
+instance Digestable SText.Text where
+  digest c = updateCtx c . SText.encodeUtf8
 
 instance Digestable Builder where
   digest c = digest c . toLazyByteString

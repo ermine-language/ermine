@@ -26,6 +26,7 @@ import Control.Lens
 import Data.Bifunctor
 import Data.Maybe
 import Data.Semigroup
+import Data.Text (unpack)
 import Ermine.Syntax.Hint
 import Numeric.Lens
 import System.IO
@@ -74,11 +75,12 @@ sayLn d = say (d <> linebreak)
 chooseNames :: (String -> Bool) -> [Hinted v] -> [String] -> ([String], [String])
 chooseNames p ahs = go p ahs . filter (\n -> n `notElem` avoid && not (p n))
  where
- avoid = [ h | Hinted h _ <- ahs ]
+ avoid = [ unpack h | Hinted h _ <- ahs ]
 
  go _     [] supply = ([], supply)
  go taken (Unhinted _ : hs) (n:supply) = (n:) `first` go taken hs supply
  go taken (Hinted h _ : hs) supply@(n:ns)
-   | taken h   = (n:) `first` go taken hs ns
-   | otherwise = (h:) `first` go (\x -> x == h || taken x) hs supply
+   | taken h'  = (n:) `first` go taken hs ns
+   | otherwise = (h':) `first` go (\x -> x == h' || taken x) hs supply
+  where h' = unpack h
  go _ _ _ = error "PANIC: chooseNames: ran out of names"

@@ -13,13 +13,14 @@ module Ermine.Parser.Kind
   ) where
 
 import Control.Applicative
+import Data.Text (Text, pack)
 import Ermine.Parser.Style
 import Ermine.Syntax.Kind
 import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parse an atomic kind (everything but arrows)
-kind0 :: (Monad m, TokenParsing m) => m (Kind String)
+kind0 :: (Monad m, TokenParsing m) => m (Kind Text)
 kind0 = parens kind
     <|> star <$ symbol "*"
     <|> rho <$ reserve kindIdent "rho"
@@ -28,8 +29,8 @@ kind0 = parens kind
     <|> phi <$ reserve kindIdent "φ"
     <|> constraint <$ reserve kindIdent "constraint"
     <|> constraint <$ reserve kindIdent "Γ"
-    <|> Var <$> ident kindIdent
+    <|> Var . pack <$> ident kindIdent
 
 -- | Parse a 'Kind'.
-kind :: (Monad m, TokenParsing m) => m (Kind String)
+kind :: (Monad m, TokenParsing m) => m (Kind Text)
 kind = chainr1 kind0 ((:->) <$ symbol "->")

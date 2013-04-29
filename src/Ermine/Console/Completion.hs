@@ -24,7 +24,7 @@ import System.Console.Haskeline
 
 startingKeywordSet, keywordSet :: Set String
 startingKeywordSet = setOf folded startingKeywords
-                  <> setOf (folded.name.to (':':)) commands
+                  <> setOf (folded.cmdName.to (':':)) commands
 keywordSet         = setOf folded keywords
 
 loading :: String -> Bool

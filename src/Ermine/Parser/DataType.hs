@@ -19,6 +19,7 @@ import Control.Applicative
 import Data.Bifunctor
 import Data.List
 import Data.Maybe
+import Data.Text (Text)
 import Ermine.Parser.Global
 import Ermine.Parser.Style
 import Ermine.Parser.Type
@@ -31,7 +32,7 @@ import Text.Parser.Token
 abstractSimple :: Eq v => [v] -> v -> Var Int v
 abstractSimple l v = maybe (F v) B $ elemIndex v l
 
-constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe String) String)
+constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe Text) Text)
 constr = build . fromMaybe ([], [])
      <$> optional (quantifier "forall")
      <*> globalIdent termCon
@@ -42,10 +43,10 @@ constr = build . fromMaybe ([], [])
   ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ stringHint tn) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
-dataType :: (Monad m, TokenParsing m) => m (DataType (Maybe String) String)
+dataType :: (Monad m, TokenParsing m) => m (DataType (Maybe Text) Text)
 dataType = build <$ symbol "data"
        <*> globalIdent typeCon
-       <*> (fmap (fromMaybe []) . optional . braces . some $ ident kindIdent)
+       <*> (fmap (fromMaybe []) . optional . braces . some $ kindIdentifier)
        <*> typVarBindings
        <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
