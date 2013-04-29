@@ -137,6 +137,7 @@ data HardCore
   = Super   !Int
   | Slot    !Int
   | Lit     !Literal
+  | Error   !String
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 instance Hashable HardCore
@@ -145,11 +146,13 @@ instance Serial HardCore where
   serialize (Super i) = putWord8 0 >> serialize i
   serialize (Slot g)  = putWord8 1 >> serialize g
   serialize (Lit i)   = putWord8 2 >> serialize i
+  serialize (Error s) = putWord8 3 >> serialize s
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Super deserialize
     1 -> liftM Slot deserialize
     2 -> liftM Lit deserialize
+    3 -> liftM Error deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
