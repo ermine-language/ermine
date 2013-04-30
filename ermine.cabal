@@ -154,7 +154,7 @@ library
     mtl                       >= 2.1.1   && < 2.2,
     monad-st                  >= 0.2.2   && < 1,
     optparse-applicative      >= 0.5.2.1 && < 0.6,
-    parsers                   >= 0.5     && < 1,
+    parsers                   >= 0.8     && < 1,
     prelude-extras            >= 0.3     && < 1,
     random                    >= 1.0.0.3 && < 1.1,
     semigroupoids             >= 3.0.2   && < 4,

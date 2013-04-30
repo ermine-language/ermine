@@ -25,7 +25,7 @@ module Ermine.Parser.Style
 import Control.Applicative
 import Control.Lens hiding (op)
 import Data.HashSet as HashSet
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import Ermine.Parser.Keywords
 import Text.Parser.Char
 import Text.Parser.Token
@@ -51,15 +51,15 @@ kindIdent = baseIdent & styleName .~ "kind variable"
 
 -- | Parse a term identifier.
 termIdentifier :: (Monad m, TokenParsing m) => m Text
-termIdentifier = pack <$> ident termIdent
+termIdentifier = ident termIdent
 
 -- | Parse a type identifier
 typeIdentifier :: (Monad m, TokenParsing m) => m Text
-typeIdentifier = pack <$> ident typeIdent
+typeIdentifier = ident typeIdent
 
 -- | Parse a kind identifier
 kindIdentifier :: (Monad m, TokenParsing m) => m Text
-kindIdentifier = pack <$> ident kindIdent
+kindIdentifier = ident kindIdent
 
 -- | The identifier style for operators.
 --
@@ -69,7 +69,7 @@ op = haskellOps
 
 -- | Parse an operator.
 operator :: (Monad m, TokenParsing m) => m Text
-operator = pack <$> ident op
+operator = ident op
 
 capital :: TokenParsing m => IdentifierStyle m
 capital = IdentifierStyle

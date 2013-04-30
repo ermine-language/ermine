@@ -13,7 +13,7 @@ module Ermine.Parser.Kind
   ) where
 
 import Control.Applicative
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import Ermine.Parser.Style
 import Ermine.Syntax.Kind
 import Text.Parser.Combinators
@@ -29,7 +29,7 @@ kind0 = parens kind
     <|> phi <$ reserve kindIdent "φ"
     <|> constraint <$ reserve kindIdent "constraint"
     <|> constraint <$ reserve kindIdent "Γ"
-    <|> Var . pack <$> ident kindIdent
+    <|> Var <$> kindIdentifier
 
 -- | Parse a 'Kind'.
 kind :: (Monad m, TokenParsing m) => m (Kind Text)
