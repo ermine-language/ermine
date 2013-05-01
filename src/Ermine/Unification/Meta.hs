@@ -49,6 +49,8 @@ module Ermine.Unification.Meta
   , zonk
   , zonk_
   , zonkWith
+  , zonkScope
+  , zonkScope_
   -- * MetaEnv
   , MetaEnv
   , HasMetaEnv(..)
@@ -59,6 +61,8 @@ module Ermine.Unification.Meta
   , fresh
   , remember
   ) where
+
+import Bound
 import Control.Applicative
 import Control.Exception
 import Control.Lens
@@ -235,6 +239,14 @@ zonkWith fs0 tweak = go fs0 where
         r <- go fmf
         r <$ writeMeta m r
 {-# INLINE zonkWith #-}
+
+zonkScope :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f)
+          => Scope b f (Meta s f a) -> m (Scope b f (Meta s f a))
+zonkScope (Scope e) = Scope <$> (traverse.traverse) zonk e
+
+zonkScope_ :: (MonadMeta s m, Traversable f, Monad f)
+           => Scope b f (Meta s f a) -> m (Scope b f (Meta s f a))
+zonkScope_ (Scope e) = Scope <$> (traverse.traverse) zonk_ e
 
 ------------------------------------------------------------------------------
 -- Result
