@@ -34,12 +34,16 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
+import Control.Monad.State
 import Control.Monad.Writer.Strict
 import Data.Bifunctor
-import Data.Foldable
+import Data.Foldable hiding (concat)
+import Data.Graph (stronglyConnComp, flattenSCC)
 import Data.IntSet.Lens
 import Data.List (nub, elemIndex)
 import qualified Data.Map as Map
+import Data.Map (Map)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
@@ -105,11 +109,21 @@ inferKind (Forall n tks cs b) = do
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   return star
 
-checkDataTypeKinds :: MonadMeta s m
-                   => [DataType (Maybe Text) Text] -> m [DataType Void Void]
-checkDataTypeKinds _ = undefined
- -- where
- -- graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) dts
+fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
+fixCons m f dt = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m) dt
+
+-- checkDataTypeKinds :: MonadMeta s m
+--                    => [DataType () Text] -> m [DataType Void Void]
+checkDataTypeKinds :: [DataType () Text] -> M s [DataType Void Void]
+checkDataTypeKinds dts = flip evalStateT Map.empty
+                       . fmap concat . traverse (ck.flattenSCC) $ stronglyConnComp graph
+ where
+ graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) dts
+ conMap = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) (dataTypeSchema dt)))
+ ck scc = StateT $ \m -> do
+   let scc' = map (fixCons m pure) scc
+   cscc <- checkDataTypeGroup scc'
+   return (cscc, m `Map.union` conMap cscc)
 
 -- checkDataTypeGroup :: MonadMeta s m
 --                    => [DataType (Maybe Text) Text] -> m [DataType Void Void]
@@ -117,7 +131,7 @@ checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
   dkss <- for dts $ \dt -> (\dt' -> (dt', dataTypeSchema dt')) <$> kindVars newMeta dt
   let m = Map.fromList $ first (^.name) <$> dkss
-  wat <- for dkss $ \(dt, Schema _ s) -> do
+  checked <- for dkss $ \(dt, Schema _ s) -> do
     sks <- for (dt^.kparams) $ \_ -> newSkolem ()
     let selfKind = instantiateVars sks s
     dt' <- for dt $ \t ->
@@ -127,11 +141,9 @@ checkDataTypeGroup dts = do
                  Just sc -> refresh sc
                  Nothing -> fail "unknown reference"
     (dt,sks,) <$> checkDataTypeKind selfKind dt'
-  let sm = Map.fromList $ (\(dt, _, sch) -> (dt^.name, (dt^.global,sch))) <$> wat
-      sdts = wat <&> \(dt, sks, _) ->
-        let f t | Just (g, sch) <- Map.lookup t sm = con g sch
-                | otherwise                        = error "checkDataTypeGroup: IMPOSSIBLE"
-         in (sks, boundBy f dt)
+  let sm = Map.fromList $ (\(dt, _, sch) -> (dt^.name, con (dt^.global) sch)) <$> checked
+      sdts = checked <&> \(dt, sks, _) ->
+               (sks, fixCons sm (\_ -> error "checkDataTypeGroup: IMPOSSIBLE") dt)
   traverse closeKinds sdts
  where
  refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
