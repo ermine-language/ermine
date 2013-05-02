@@ -23,7 +23,6 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Bifunctor
-import Data.Bitraversable
 import Data.Char
 import Data.List as List
 import Data.Set (notMember)
@@ -41,8 +40,7 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
-import Ermine.Syntax.DataType (DataType)
-import Ermine.Syntax.Global as Global
+import Ermine.Syntax.DataType (DataType, dataTypeSchema)
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -118,14 +116,8 @@ kindBody s = do
 
 dkindBody :: DataType () Text -> Console ()
 dkindBody dt = do
-  let nm = dt ^. Global.name
-  s <- ioM mempty $ do
-    self <- newMeta ()
-    dt' <- bitraverse (const $ newMeta ())
-                      (\t -> if t == nm then pure $ pure self else fail "unknown reference")
-                      dt
-    checkDataTypeKind (pure self) dt'
-  sayLn $ prettySchema s names
+  [ckdt] <- ioM mempty $ checkDataTypeKinds [dt]
+  sayLn $ prettySchema (vacuous $ dataTypeSchema ckdt) names
 
 commands :: [Command]
 commands =
