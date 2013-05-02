@@ -17,7 +17,6 @@ module Ermine.Parser.DataType
 import Bound
 import Control.Applicative
 import Control.Lens
-import Data.Bifunctor
 import Data.List
 import Data.Maybe
 import Data.Text (Text)
