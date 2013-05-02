@@ -22,6 +22,7 @@ module Ermine.Console.Command
 import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
+import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
 import Data.List as List

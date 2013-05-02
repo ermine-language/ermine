@@ -113,6 +113,7 @@ library
     Ermine.Syntax.Scope
     Ermine.Syntax.Term
     Ermine.Syntax.Type
+    Ermine.Unification.DataType
     Ermine.Unification.Kind
     Ermine.Unification.Meta
     Ermine.Unification.Sharing

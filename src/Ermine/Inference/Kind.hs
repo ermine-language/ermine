@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -33,20 +35,24 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.Writer.Strict
+import Data.Bifunctor
 import Data.Foldable
 import Data.IntSet.Lens
+import Data.List (nub, elemIndex)
 import qualified Data.Map as Map
 import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
-import Ermine.Syntax.Global
 import Ermine.Syntax.DataType as Data
+import Ermine.Syntax.Global
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var)
+import Ermine.Unification.DataType
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 
@@ -107,18 +113,40 @@ checkDataTypeKinds _ = undefined
 
 -- checkDataTypeGroup :: MonadMeta s m
 --                    => [DataType (Maybe Text) Text] -> m [DataType Void Void]
-checkDataTypeGroup :: [DataType (Maybe Text) Text] -> M s [DataType Void Void]
+checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  ks <- for dts $ \_ -> newMeta ()
-  let m = Map.fromList $ zip names ks
-  for_ (ks `zip` dts) $ \(km, dt) -> do
-    dt' <- prepare (newMeta ()) (const $ newMeta ())
-                   (\t -> maybe (pure <$> newMeta ()) (return.pure) $ Map.lookup t m)
-                   dt
-    checkDataTypeKind (pure km) dt'
-  undefined
+  dkss <- for dts $ \dt -> (\dt' -> (dt', dataTypeSchema dt')) <$> kindVars newMeta dt
+  let m = Map.fromList $ first (^.name) <$> dkss
+  wat <- for dkss $ \(dt, Schema _ s) -> do
+    sks <- for (dt^.kparams) $ \_ -> newSkolem ()
+    let selfKind = instantiateVars sks s
+    dt' <- for dt $ \t ->
+             if t == dt^.name
+               then pure selfKind
+               else case Map.lookup t m of
+                 Just sc -> refresh sc
+                 Nothing -> fail "unknown reference"
+    (dt,sks,) <$> checkDataTypeKind selfKind dt'
+  let sm = Map.fromList $ (\(dt, _, sch) -> (dt^.name, (dt^.global,sch))) <$> wat
+      sdts = wat <&> \(dt, sks, _) ->
+        let f t | Just (g, sch) <- Map.lookup t sm = con g sch
+                | otherwise                        = error "checkDataTypeGroup: IMPOSSIBLE"
+         in (sks, boundBy f dt)
+  traverse closeKinds sdts
  where
- names = (^.name) <$> dts
+ refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
+ closeKinds (sks, dt) = do
+   dt' <- zonkDataType dt
+   let fvs = nub . toListOf (kindVars . filtered (isn't skolem)) $ dt'
+       offset = length sks
+       f (F m) | Just i <- m `elemIndex` fvs = pure . B $ i + offset
+               | Just i <- m `elemIndex` sks = pure . B $ i + offset
+               | otherwise                   = fail "escaped skolem"
+       f (B i)                               = pure $ B i
+       reabstr = fmap toScope . traverse f . fromScope
+   ts' <- (traverse . traverse) reabstr $ dt'^.tparams
+   cs' <- (traverse . kindVars) f $ dt'^.constrs
+   return $ DataType (dt^.global) (dt^.kparams ++ (Unhinted () <$ fvs)) ts' cs'
 
 -- | Checks that the types in a data declaration have sensible kinds.
 -- checkDataTypeKind :: MonadMeta s m
