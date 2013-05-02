@@ -22,7 +22,7 @@ module Ermine.Console.Command
 import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
-import Data.Bifunctor
+import Data.Bitraversable
 import Data.Char
 import Data.List as List
 import Data.Set (notMember)
@@ -115,15 +115,14 @@ kindBody s = do
     generalize k
   sayLn $ prettySchema (vacuous gk) names
 
-dkindBody :: DataType (Maybe Text) Text -> Console ()
+dkindBody :: DataType () Text -> Console ()
 dkindBody dt = do
   let nm = dt ^. Global.name
   s <- ioM mempty $ do
     self <- newMeta ()
-    dt' <- prepare (newMeta ())
-                   (const $ newMeta ())
-                   (\t -> if t == nm then pure $ pure self else pure <$> newMeta ())
-                   dt
+    dt' <- bitraverse (const $ newMeta ())
+                      (\t -> if t == nm then pure $ pure self else fail "unknown reference")
+                      dt
     checkDataTypeKind (pure self) dt'
   sayLn $ prettySchema s names
 

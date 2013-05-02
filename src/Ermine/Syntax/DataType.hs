@@ -25,6 +25,7 @@ module Ermine.Syntax.DataType
   , DataType(DataType)
   , kparams
   , tparams
+  , typeParameters
   , constrs
   , constructors
   , dataTypeSchema
@@ -111,6 +112,9 @@ kparams = lens _kparams (\dt ks -> dt { _kparams = ks })
 
 tparams :: Lens' (DataType k t) [Hinted (Scope Int Kind k)]
 tparams = lens _tparams (\dt ks -> dt { _tparams = ks })
+
+typeParameters :: Traversal' (DataType k t) (Hinted (Scope Int Kind k))
+typeParameters = tparams.traverse
 
 constrs :: Lens' (DataType k t) [Constructor (Var Int k) (Var Int t)]
 constrs = lens _constrs (\dt ks -> dt { _constrs = ks })

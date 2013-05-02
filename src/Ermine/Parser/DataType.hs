@@ -16,6 +16,7 @@ module Ermine.Parser.DataType
 
 import Bound
 import Control.Applicative
+import Control.Lens
 import Data.Bifunctor
 import Data.List
 import Data.Maybe
@@ -25,6 +26,7 @@ import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.DataType
 import Ermine.Syntax.Hint
+import Ermine.Syntax.Kind (HasKindVars(..))
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -43,16 +45,18 @@ constr = build . fromMaybe ([], [])
   ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ stringHint tn) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
-dataType :: (Monad m, TokenParsing m) => m (DataType (Maybe Text) Text)
+dataType :: (Monad m, TokenParsing m) => m (DataType () Text)
 dataType = build <$ symbol "data"
        <*> globalIdent typeCon
-       <*> (fmap (fromMaybe []) . optional . braces . some $ kindIdentifier)
        <*> typVarBindings
        <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
- build nm ks ts cs = DataType nm (map stringHint ks) ts' cs'
+ build nm ts cs = over kindVars semiClosed $ DataType nm (map stringHint ks) ts' cs'
   where
-  jks = map Just ks
+  ks  = nub . catMaybes $ toListOf (beside kindVars kindVars) (snd <$> ts, cs)
+  jks = Just <$> ks
   ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ stringHint tn) ts
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
+  semiClosed (Just _) = error "dataType: Impossible"
+  semiClosed Nothing  = ()
 
