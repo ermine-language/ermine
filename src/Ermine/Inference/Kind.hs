@@ -36,7 +36,6 @@ import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.State
 import Control.Monad.Writer.Strict
-import Data.Bifunctor
 import Data.Foldable hiding (concat)
 import Data.Graph (stronglyConnComp, flattenSCC)
 import Data.IntSet.Lens
@@ -48,7 +47,6 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
-import Ermine.Syntax
 import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
@@ -129,24 +127,14 @@ checkDataTypeKinds dts = flip evalStateT Map.empty
 --                    => [DataType (Maybe Text) Text] -> m [DataType Void Void]
 checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  dkss <- for dts $ \dt -> (\dt' -> (dt', dataTypeSchema dt')) <$> kindVars newMeta dt
-  let m = Map.fromList $ first (^.name) <$> dkss
-  checked <- for dkss $ \(dt, Schema _ s) -> do
-    sks <- for (dt^.kparams) $ \_ -> newSkolem ()
-    let selfKind = instantiateVars sks s
-    dt' <- for dt $ \t ->
-             if t == dt^.name
-               then pure selfKind
-               else case Map.lookup t m of
-                 Just sc -> refresh sc
-                 Nothing -> fail "unknown reference"
-    (dt,sks,) <$> checkDataTypeKind selfKind dt'
-  let sm = Map.fromList $ (\(dt, _, sch) -> (dt^.name, con (dt^.global) sch)) <$> checked
-      sdts = checked <&> \(dt, sks, _) ->
+  dts' <- traverse (kindVars newMeta) dts
+  let m = Map.fromList $ map (\dt -> (dt^.name, dt)) dts'
+  checked <- for dts' $ \dt -> (dt,) <$> checkDataTypeKind m dt
+  let sm = Map.fromList $ (\(dt, (_, sch)) -> (dt^.name, con (dt^.global) sch)) <$> checked
+      sdts = checked <&> \(dt, (sks, _)) ->
                (sks, fixCons sm (\_ -> error "checkDataTypeGroup: IMPOSSIBLE") dt)
   traverse closeKinds sdts
  where
- refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
  closeKinds (sks, dt) = do
    dt' <- zonkDataType dt
    let fvs = nub . toListOf (kindVars . filtered (isn't skolem)) $ dt'
@@ -161,16 +149,24 @@ checkDataTypeGroup dts = do
    return $ DataType (dt^.global) (dt^.kparams ++ (Unhinted () <$ fvs)) ts' cs'
 
 -- | Checks that the types in a data declaration have sensible kinds.
--- checkDataTypeKind :: MonadMeta s m
---                   => KindM s -> DataType (MetaK s) (KindM s) -> m (Schema a)
-checkDataTypeKind :: KindM s -> DataType (MetaK s) (KindM s) -> M s (Schema a)
-checkDataTypeKind self (DataType _ ks ts cs) = do
-  sks <- for ks $ \_ -> newSkolem ()
-  let btys = instantiateVars sks . extract <$> ts
-  for_ cs $ \c -> checkConstructorKind
-                    (bimap (unvar (sks!!) id) (unvar (btys !!) id) c)
-  checkKind (apps (pure self) $ pure <$> btys) star
-  generalizeOver (setOf (traverse.metaId) sks) self
+checkDataTypeKind :: Map Text (DataType (MetaK s) a) -> DataType (MetaK s) Text
+                  -> M s ([MetaK s], Schema v)
+checkDataTypeKind m dt = do
+  sks <- for (dt^.kparams) $ \_ -> newSkolem ()
+  let Schema _ s = dataTypeSchema dt
+      selfKind = instantiateVars sks s
+  dt' <- for dt $ \t ->
+           if t == dt^.name
+             then pure selfKind
+             else case Map.lookup t m of
+               Just sc -> refresh (dataTypeSchema sc)
+               Nothing -> fail "unknown reference"
+  let btys = instantiateVars sks . extract <$> (dt^.tparams)
+  for_ (dt'^.constrs) $ \c ->
+    checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
+  (sks,) <$> generalizeOver (setOf (traverse.metaId) sks) selfKind
+ where
+ refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
 
 -- | Checks that the types in a data constructor have sensible kinds.
 -- checkConstructorKind :: MonadMeta s m
