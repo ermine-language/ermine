@@ -32,11 +32,13 @@ module Ermine.Syntax.DataType
   ) where
 
 import Bound
+import Bound.Var
 import Bound.Scope
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Data.Bifoldable
+import Data.Bifunctor
 import Data.Bitraversable
 import Data.Binary as Binary
 import Data.Bytes.Serial
@@ -96,6 +98,9 @@ instance HasKindVars (Constructor k t) (Constructor k' t) k k' where
 instance HasTypeVars (Constructor k t) (Constructor k t') t t' where
   typeVars = traverse
 
+instance BoundBy (Constructor k) (Type k) where
+  boundBy f (Constructor tg ks ts fs) = Constructor tg ks ts $ map (>>>= first F . f) fs
+
 data DataType k t =
   DataType { _dtname  :: Global
            , _kparams :: [Hint]
@@ -116,15 +121,24 @@ tparams = lens _tparams (\dt ks -> dt { _tparams = ks })
 typeParameters :: Traversal' (DataType k t) (Hinted (Scope Int Kind k))
 typeParameters = tparams.traverse
 
-constrs :: Lens' (DataType k t) [Constructor (Var Int k) (Var Int t)]
+constrs :: Lens (DataType k t)
+                (DataType k u)
+                [Constructor (Var Int k) (Var Int t)]
+                [Constructor (Var Int k) (Var Int u)]
 constrs = lens _constrs (\dt ks -> dt { _constrs = ks })
 
-constructors :: Traversal' (DataType k t) (Constructor (Var Int k) (Var Int t))
+constructors :: Traversal (DataType k t)
+                          (DataType k u)
+                          (Constructor (Var Int k) (Var Int t))
+                          (Constructor (Var Int k) (Var Int u))
 constructors = constrs.traverse
 
 dataTypeSchema :: DataType k t -> Schema k
 dataTypeSchema dt =
   Schema (dt^.kparams) (Scope . foldr (~>) star $ unscope . extract <$> dt^.tparams)
+
+instance BoundBy (DataType k) (Type k) where
+  boundBy f = over constructors . boundBy $ unvar (pure . B) (bimap F F . f)
 
 instance Show k => Show1 (DataType k)
 instance Show2 DataType
