@@ -40,6 +40,7 @@ module Ermine.Syntax.Type
   , instantiateKinds
   , instantiateKindVars
   , bindType
+  , bindTK
   , memoverse
   , prepare
   , abstractAll
