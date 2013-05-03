@@ -112,6 +112,26 @@ fixCons m f dt = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m) dt
 
 -- checkDataTypeKinds :: MonadMeta s m
 --                    => [DataType () Text] -> m [DataType Void Void]
+
+-- | Checks a list of data types for well-kindedness. The unit in the kind
+-- variables is interpreted as an unknown, which must be determined by the
+-- algorithm. The string variables may refer to other data types in the
+-- group. During the process, all unknowns will be solved or generalized,
+-- and all type variables will be replaced by the respective constructor
+-- with the appropriate schematic type. These are returned from the
+-- procedure.
+--
+-- TODO: Currently, the following example fails with a skolem escape:
+--
+--   data Foo (a : k) = Foo (Bar a)
+--   data Bar a = Bar (Foo a)
+--
+-- This is because Foo and Bar must be checked as a group, k is skolemized
+-- for the checking of Foo, but its type leaks to Bar's unknown kind.
+-- Resolving this may be complicated, as it requires a similar
+-- explicit/implicit divide as checking lets, but partial annotations are
+-- possible. One solution may be to infer first and then check against
+-- annotations. Kind checking is Hindley-Milner, so this is viable.
 checkDataTypeKinds :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeKinds dts = flip evalStateT Map.empty
                        . fmap concat . traverse (ck.flattenSCC) $ stronglyConnComp graph
