@@ -29,6 +29,7 @@ import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
 import Data.Text (Text, unpack, pack)
+import Data.Foldable (for_)
 import Data.Void
 import Ermine.Console.State
 import Ermine.Inference.Kind
@@ -41,6 +42,7 @@ import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax.DataType (DataType, dataTypeSchema)
+import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -49,6 +51,7 @@ import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import System.Console.Haskeline
 import System.Exit
+import Text.Parser.Token (semiSep1)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
 
@@ -114,10 +117,13 @@ kindBody s = do
     generalize k
   sayLn $ prettySchema (vacuous gk) names
 
-dkindBody :: DataType () Text -> Console ()
-dkindBody dt = do
-  [ckdt] <- ioM mempty $ checkDataTypeKinds [dt]
-  sayLn $ prettySchema (vacuous $ dataTypeSchema ckdt) names
+dkindsBody :: [DataType () Text] -> Console ()
+dkindsBody dts = do
+  ckdts <- ioM mempty (checkDataTypeKinds dts)
+  for_ ckdts $ \ckdt ->
+    sayLn $ text (unpack $ ckdt^.name)
+        <+> colon
+        <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
 commands :: [Command]
 commands =
@@ -140,9 +146,9 @@ commands =
                    in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
-  , cmd "dkind"
-      & desc .~ "check that a data type is well-kinded"
-      & body .~ parsing dataType dkindBody
+  , cmd "dkinds"
+      & desc .~ "determine the kinds of a series of data types"
+      & body .~ parsing (semiSep1 dataType) dkindsBody
   , cmd "uterm"
       & desc .~ "show the internal representation of a term"
       & body .~ parsing term (liftIO . print)
