@@ -27,8 +27,8 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
-import Data.Bifunctor (first)
-import Data.List (partition)
+import Data.IntMap as IntMap
+import Data.List as List (partition)
 import Data.Traversable
 import Ermine.Builtin.Type as Builtin
 import Ermine.Syntax
@@ -74,26 +74,25 @@ inferType (Term.App f x) = do
   Witness fcs frcs ft fc <- inferType f
   (i, o) <- matchFunType ft
   Witness xcs xrcs _ xc <- checkType x i
-  let nfcs = length fcs
-  simplifiedWitness (fcs ++ xcs) (frcs ++ xrcs) o $ Core.App fc $ first (nfcs+) <$> xc
+  simplifiedWitness (IntMap.union fcs xcs) (frcs ++ xrcs) o $ Core.App fc xc
 inferType _ = fail "Unimplemented"
 
 -- TODO: write this
-simplifiedWitness :: [TypeM s] -> [TypeM s] -> TypeM s -> Core (Var Int Id) -> M s (WitnessM s)
+simplifiedWitness :: IntMap (TypeM s) -> [TypeM s] -> TypeM s -> Core (Var Int Id) -> M s (WitnessM s)
 simplifiedWitness cs rcs t c = return $ Witness cs rcs t c
 
 checkType :: TermM s -> TypeM s -> M s (WitnessM s)
 checkType _ _ = fail "Check yourself"
 
 inferHardType :: HardTerm -> M s (WitnessM s)
-inferHardType (Term.Lit l) = return $ Witness [] [] (literalType l) (HardCore (Core.Lit l))
+inferHardType (Term.Lit l) = return $ Witness mempty [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
   vars <- replicateM n $ pure <$> newMeta star
-  return $ Witness [] [] (foldr (~>) (tup vars) vars) $ dataCon n 0
+  return $ Witness mempty [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
   r <- view metaRendering
-  return $ Witness [] [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
+  return $ Witness mempty [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -112,11 +111,12 @@ unfurl (Forall ks ts cs bd) co = do
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  return $ Witness rcs tcs (inst bd) co
-unfurl t co = pure $ Witness [] [] t co
+  rcm <- for rcs $ \x -> do i <- fresh; return (i, x)
+  return $ Witness (IntMap.fromList rcm) tcs (inst bd) co
+unfurl t co = pure $ Witness mempty [] t co
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
-partConstraints (And l) = partition isRowConstraint l
+partConstraints (And l) = List.partition isRowConstraint l
 partConstraints c | isRowConstraint c = ([c], [])
                   | otherwise         = ([], [c])
 

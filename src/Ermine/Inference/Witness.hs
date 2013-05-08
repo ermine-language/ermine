@@ -27,8 +27,9 @@ import Control.Lens
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
-import Data.Hashable
-import Data.Hashable.Extras
+-- import Data.Hashable
+-- import Data.Hashable.Extras
+import Data.IntMap
 import Data.Typeable
 import Ermine.Syntax.Core
 import Ermine.Syntax.Id
@@ -38,7 +39,7 @@ import GHC.Generics
 import Prelude.Extras
 
 data Witness k a = Witness
-  { _witnessConstraints :: [Type k a]
+  { _witnessConstraints :: IntMap (Type k a)
   , _witnessRowConstraints :: [Type k a]
   , _witnessType :: !(Type k a)
   , _witnessCore :: !(Core (Var Int Id))
@@ -65,9 +66,9 @@ instance Eq k => Eq1 (Witness k)
 instance Show2 Witness
 instance Show k => Show1 (Witness k)
 
-instance Hashable2 Witness
-instance Hashable k => Hashable1 (Witness k)
-instance (Hashable k, Hashable a) => Hashable (Witness k a)
+-- instance Hashable2 Witness
+-- instance Hashable k => Hashable1 (Witness k)
+-- instance (Hashable k, Hashable a) => Hashable (Witness k a)
 
 instance Bifunctor Witness where
   bimap = bimapDefault
