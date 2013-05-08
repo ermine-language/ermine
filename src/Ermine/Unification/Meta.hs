@@ -5,7 +5,9 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -54,7 +56,8 @@ module Ermine.Unification.Meta
   -- * MetaEnv
   , MetaEnv
   , HasMetaEnv(..)
-  , MonadMeta
+  , MonadMeta(..)
+  , viewMeta
   -- * The unification monad
   , M, runM, runM_, ioM
   , throwM
@@ -68,10 +71,12 @@ import Control.Exception
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Reader.Class
 import Control.Monad.ST (ST, runST, stToIO)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
+import Control.Monad.Trans
+import Control.Monad.State.Lazy as Lazy
+import Control.Monad.State.Strict as Strict
 import Control.Monad.Writer.Class
 import Data.Function (on)
 import Data.IntMap
@@ -263,12 +268,32 @@ instance Functor Result where
   {-# INLINE fmap #-}
 
 ------------------------------------------------------------------------------
--- M
+-- MonadMeta
 ------------------------------------------------------------------------------
 
-#ifndef HLINT
-type MonadMeta s m = (Applicative m, MonadST m, MonadReader (MetaEnv (World m)) m, World m ~ s)
-#endif
+class (Applicative m, MonadST m, s ~ World m) => MonadMeta s m | m -> s where
+  askMeta :: m (MetaEnv s)
+  default askMeta :: (m ~ t n, MonadTrans t, MonadMeta s n) => m (MetaEnv s)
+  askMeta = lift askMeta
+
+  localMeta :: (MetaEnv s -> MetaEnv s) -> m a -> m a
+
+viewMeta :: MonadMeta s m => Getting a (MetaEnv s) a -> m a
+viewMeta l = view l <$> askMeta
+
+instance MonadMeta s m => MonadMeta s (Lazy.StateT t m) where
+  localMeta f (Lazy.StateT m) = Lazy.StateT (localMeta f . m)
+
+instance MonadMeta s m => MonadMeta s (Strict.StateT t m) where
+  localMeta f (Strict.StateT m) = Strict.StateT (localMeta f . m)
+
+instance MonadMeta s m => MonadMeta s (SharingT m) where
+  localMeta f (SharingT m) = SharingT (localMeta f m)
+  {-# INLINE localMeta #-}
+
+------------------------------------------------------------------------------
+-- M
+------------------------------------------------------------------------------
 
 -- | The unification monad provides a 'fresh' variable supply and tracks a current
 -- 'Rendering' to blame for any unification errors.
@@ -298,11 +323,11 @@ instance MonadST (M s) where
   liftST m = M $ const m
   {-# INLINE liftST #-}
 
-instance MonadReader (MetaEnv s) (M s) where
-  ask = M $ \e -> return e
-  {-# INLINE ask #-}
-  local f (M m) = M (m . f)
-  {-# INLINE local #-}
+instance MonadMeta s (M s) where
+  askMeta = M $ \e -> return e
+  {-# INLINE askMeta #-}
+  localMeta f (M m) = M (m . f)
+  {-# INLINE localMeta #-}
 
 instance Monoid m => Monoid (M s m) where
   mempty  = pure mempty
@@ -313,7 +338,7 @@ catchingST l m h = unsafeIOToST $ catchJust (preview l) (unsafeSTToIO m) (unsafe
 {-# INLINE catchingST #-}
 
 -- | Throw a 'Diagnostic' error.
-throwM :: MonadMeta s m => Diagnostic -> m a
+throwM :: MonadST m => Diagnostic -> m a
 throwM d = liftST $ unsafeIOToST (throwIO d)
 {-# INLINE throwM #-}
 
@@ -343,7 +368,7 @@ ioM r m = liftIO $ stToIO $ do
 -- | Generate a 'fresh' variable
 fresh :: MonadMeta s m => m Int
 fresh = do
-  s <- view metaFresh
+  s <- viewMeta metaFresh
   liftST $ do
     i <- readSTRef s
     writeSTRef s $! i + 1
@@ -352,7 +377,7 @@ fresh = do
 
 remember :: MonadMeta s m => Int -> TypeM s -> m ()
 remember i t = do
-  s <- view metaMemory
+  s <- viewMeta metaMemory
   liftST $ do
     m <- readSTRef s
     writeSTRef s $! m & at i ?~ t

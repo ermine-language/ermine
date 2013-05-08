@@ -66,7 +66,7 @@ kindOccurs k p = occurs k p $ do
       m = IntMap.fromList $ zipWith (\u n -> (u^.metaId, n)) (Set.toList s) names
       v = m ^?! ix (s ^?! folded.filtered p.metaId)
       kd = prettyKind (fmap (\u -> m ^?! ix (u^.metaId)) zk) False
-  r <- view rendering
+  r <- viewMeta rendering
   throwM $ die r "infinite kind detected" & footnotes .~ [text "cyclic kind:" <+> hang 4 (group (pretty v </> char '=' </> kd))]
 {-# INLINE kindOccurs #-}
 

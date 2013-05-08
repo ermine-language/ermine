@@ -54,7 +54,7 @@ typeOccurs depth1 t p = zonkWith t tweak where
                         (\u -> mt ^?! ix (u^.metaId)) zt)
                  (drop (Set.size st) names)
                  (-1)
-      r <- view rendering
+      r <- viewMeta rendering
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
     | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do
         depth2 <- readSTRef d

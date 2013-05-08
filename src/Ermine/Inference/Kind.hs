@@ -33,9 +33,7 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad
-import Control.Monad.Reader.Class
 import Control.Monad.State
-import Control.Monad.Writer.Strict
 import Data.Foldable hiding (concat)
 import Data.Graph (stronglyConnComp, flattenSCC)
 import Data.IntSet.Lens
@@ -57,34 +55,35 @@ import Ermine.Syntax.Type hiding (Var)
 import Ermine.Unification.DataType
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
+import Ermine.Unification.Sharing
 
 productKind :: Int -> Kind k
 productKind 0 = star
 productKind n = star :-> productKind (n - 1)
 
-matchFunKind :: KindM s -> M s (KindM s, KindM s)
+matchFunKind :: MonadMeta s m => KindM s -> m (KindM s, KindM s)
 matchFunKind (a :-> b)    = return (a, b)
 matchFunKind (HardKind _) = fail "not a fun kind"
 matchFunKind (Var kv) = do
   a <- Var <$> newMeta ()
   b <- Var <$> newMeta ()
-  (a, b) <$ runWriterT (unifyKindVar kv (a :-> b))
+  (a, b) <$ unsharingT (unifyKindVar kv (a :-> b))
 
-instantiateSchema :: Schema (MetaK s) -> M s (KindM s)
+instantiateSchema :: MonadMeta s m => Schema (MetaK s) -> m (KindM s)
 instantiateSchema (Schema hs s) = do
   vs <- forM hs (\_ -> Var <$> newMeta ())
   return $ instantiate (vs!!) s
 {-# INLINE instantiateSchema #-}
 
 -- | Check that the 'Kind' of a given 'Type' can unify with the specified kind.
-checkKind :: Type (MetaK s) (KindM s) -> KindM s -> M s ()
+checkKind :: MonadMeta s m => Type (MetaK s) (KindM s) -> KindM s -> m ()
 checkKind t k = do
   k' <- inferKind t
-  () <$ runWriterT (unifyKind k k')
+  () <$ unsharingT (unifyKind k k')
 
 -- | Infer a kind for a given type.
-inferKind :: Type (MetaK s) (KindM s) -> M s (KindM s)
-inferKind (Loc l t)                = local (set rendering l) $ inferKind t
+inferKind :: MonadMeta s m => Type (MetaK s) (KindM s) -> m (KindM s)
+inferKind (Loc l t)                = set rendering l `localMeta` inferKind t
 inferKind (Type.Var tk)            = return tk
 inferKind (HardType Arrow)         = return $ star :-> star :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)

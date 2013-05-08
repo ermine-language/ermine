@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -43,6 +45,7 @@ import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
+import Ermine.Unification.Sharing
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import Text.Trifecta.Result
 
@@ -50,19 +53,19 @@ type WitnessM s = Witness (MetaK s) (MetaT s)
 
 type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
 
-matchFunType :: TypeM s -> M s (TypeM s, TypeM s)
+matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
 matchFunType (HardType _) = fail "not a fun type"
 matchFunType t = do
   x <- pure <$> newMeta star
   y <- pure <$> newMeta star
-  (x, y) <$ runWriterT (unifyType t (x ~> y))
+  (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
-inferType :: TermM s -> M s (WitnessM s)
+inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
 inferType (HardTerm t) = inferHardType t
-inferType (Loc r tm)   = local (metaRendering .~ r) $ inferType tm
+inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
 inferType (Remember i t) = do
   r <- inferType t
   remember i (r^.witnessType)
@@ -78,20 +81,20 @@ inferType (Term.App f x) = do
 inferType _ = fail "Unimplemented"
 
 -- TODO: write this
-simplifiedWitness :: IntMap (TypeM s) -> [TypeM s] -> TypeM s -> Core (Var Int Id) -> M s (WitnessM s)
+simplifiedWitness :: MonadMeta s m => IntMap (TypeM s) -> [TypeM s] -> TypeM s -> Core (Var Int Id) -> m (WitnessM s)
 simplifiedWitness cs rcs t c = return $ Witness cs rcs t c
 
-checkType :: TermM s -> TypeM s -> M s (WitnessM s)
+checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s)
 checkType _ _ = fail "Check yourself"
 
-inferHardType :: HardTerm -> M s (WitnessM s)
+inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s)
 inferHardType (Term.Lit l) = return $ Witness mempty [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
   vars <- replicateM n $ pure <$> newMeta star
   return $ Witness mempty [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
-  r <- view metaRendering
+  r <- viewMeta metaRendering
   return $ Witness mempty [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
 inferHardType _ = fail "Unimplemented"
 
@@ -105,7 +108,7 @@ literalType Char{}   = Builtin.char
 literalType Float{}  = Builtin.float
 literalType Double{} = Builtin.double
 
-unfurl :: TypeM s -> Core (Var Int Id) -> M s (WitnessM s)
+unfurl :: MonadMeta s m => TypeM s -> Core (Var Int Id) -> m (WitnessM s)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
@@ -120,7 +123,7 @@ partConstraints (And l) = List.partition isRowConstraint l
 partConstraints c | isRowConstraint c = ([c], [])
                   | otherwise         = ([], [c])
 
-unfurlConstraints :: TypeM s -> M s ([TypeM s], [TypeM s])
+unfurlConstraints :: MonadMeta s m => TypeM s -> m ([TypeM s], [TypeM s])
 unfurlConstraints (Exists ks ts cs) = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
