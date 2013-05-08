@@ -113,6 +113,7 @@ library
     Ermine.Syntax.Scope
     Ermine.Syntax.Term
     Ermine.Syntax.Type
+    Ermine.Unification.DataType
     Ermine.Unification.Kind
     Ermine.Unification.Meta
     Ermine.Unification.Sharing
@@ -134,7 +135,7 @@ library
     bifunctors                == 3.*,
     binary                    == 0.5.*,
     bound                     >= 0.8     && < 1,
-    bytes                     >= 0.6     && < 1,
+    bytes                     >= 0.7     && < 1,
     bytestring                >= 0.9     && < 0.11,
     cereal                    >= 0.3.5.2 && < 0.4,
     crypto-api                >= 0.10.2  && < 0.11,
@@ -160,6 +161,7 @@ library
     semigroupoids             >= 3.0.2   && < 4,
     semigroups                >= 0.9     && < 1,
     split                     >= 0.2.1.1 && < 0.3,
+    text                      >= 0.11.2  && < 1,
     time                      == 1.4.*,
     transformers              >= 0.2     && < 0.4,
     trifecta                  == 1.*,

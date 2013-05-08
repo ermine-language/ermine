@@ -11,7 +11,7 @@ module Ermine.Pretty.Global
   ( prettyGlobal
   ) where
 
-import Data.ByteString.Char8 (unpack)
+import Data.Text (unpack)
 import Ermine.Pretty
 import Ermine.Syntax.Global
 

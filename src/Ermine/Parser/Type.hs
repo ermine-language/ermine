@@ -25,6 +25,7 @@ module Ermine.Parser.Type
 import Bound
 import Control.Applicative
 import Data.List (elemIndex)
+import Data.Text (Text)
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax
@@ -34,8 +35,8 @@ import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type Ann = Annot (Maybe String) String
-type Typ = Type (Maybe String) String
+type Ann = Annot (Maybe Text) Text
+type Typ = Type (Maybe Text) Text
 
 anyType :: Ann
 anyType = Annot [star] . Scope . Var $ B 0
@@ -45,9 +46,9 @@ banana p = reserve op "(|" *> p <* reserve op "|)"
 
 -- | Parse an atomic type
 typ0 :: (Monad m, TokenParsing m) => m Typ
-typ0 = Var <$> ident typeIdent
-   <|> banana ( Var <$ reserve op ".." <*> ident typeIdent
-            <|> concreteRho <$> commaSep (ident typeIdent)
+typ0 = Var <$> typeIdentifier
+   <|> banana ( Var <$ reserve op ".." <*> typeIdentifier
+            <|> concreteRho <$> commaSep typeIdentifier
               )
    <|> parens ( arrow <$ reserve op "->"
             <|> tuple . (+1) . length <$> some comma
@@ -65,9 +66,9 @@ typ2 = chainr1 typ1 ((~~>) <$ symbol "->")
 --
 --   typVarBinding ::= ( ident : kind )
 --                   | ident
-typVarBinding :: (Monad m, TokenParsing m) => m ([String], Kind (Maybe String))
-typVarBinding = flip (,) unk <$> some (ident typeIdent)
-            <|> parens ((,) <$> some (ident typeIdent) <* colon <*> (fmap Just <$> kind))
+typVarBinding :: (Monad m, TokenParsing m) => m ([Text], Kind (Maybe Text))
+typVarBinding = flip (,) unk <$> some typeIdentifier
+            <|> parens ((,) <$> some typeIdentifier <* colon <*> (fmap Just <$> kind))
  where
  unk = pure Nothing
 
@@ -75,14 +76,14 @@ typVarBinding = flip (,) unk <$> some (ident typeIdent)
 -- usable format.
 --
 --   typVarBindings ::= emtpy | someTypVarBindings
-typVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
+typVarBindings :: (Monad m, TokenParsing m) => m [(Text, Kind (Maybe Text))]
 typVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> many typVarBinding
 
 -- | Parses a series of type var bindings, processing the result to a more
 -- usable format.
 --
 --   someTypVarBindings ::= typVarBinding typVarBindings
-someTypVarBindings :: (Monad m, TokenParsing m) => m [(String, Kind (Maybe String))]
+someTypVarBindings :: (Monad m, TokenParsing m) => m [(Text, Kind (Maybe Text))]
 someTypVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBinding
 
 -- | Parses the bound variables for a quantifier.
@@ -90,8 +91,8 @@ someTypVarBindings = concatMap (\(vs, k) -> flip (,) k <$> vs) <$> some typVarBi
 --   quantBindings ::= {kindVars}
 --                   | someTypVarBindings
 --                   | {kindVars} typVarBindings
-quantBindings :: (Monad m, TokenParsing m) => m ([String], [(String, Kind (Maybe String))])
-quantBindings = optional (braces (some (ident typeIdent))) >>= \mks -> case mks of
+quantBindings :: (Monad m, TokenParsing m) => m ([Text], [(Text, Kind (Maybe Text))])
+quantBindings = optional (braces $ some typeIdentifier) >>= \mks -> case mks of
   Just ks -> (,) ks <$> typVarBindings
   Nothing -> (,) [] <$> someTypVarBindings
 
@@ -99,7 +100,7 @@ quantBindings = optional (braces (some (ident typeIdent))) >>= \mks -> case mks 
 --
 --   quantifier ::= Q quantBindings .
 quantifier :: (Monad m, TokenParsing m)
-           => String -> m ([String], [(String, Kind (Maybe String))])
+           => String -> m ([Text], [(Text, Kind (Maybe Text))])
 quantifier q = symbol q *> quantBindings <* dot
 
 -- | Parser for a context that expects 0 or more constraints, together
@@ -120,7 +121,7 @@ constraint =
       buildE <$ symbol "exists" <*> quantBindings <* dot <*> constraint
   <|> parens constraints
   -- Single constraints
-  <|> Var <$> ident typeIdent
+  <|> Var <$> typeIdentifier
  where buildE (kvs, tvks) =
          exists maybeHint stringHint (Just <$> kvs) tvks
 

@@ -34,13 +34,14 @@ import Data.Foldable
 import Data.Function
 import Data.Hashable
 import Data.Hashable.Extras
+import Data.Text (Text)
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import GHC.Generics
 import Prelude.Extras
 
 data Hinted a = Unhinted a
-              | Hinted String a
+              | Hinted Text a
   deriving (Show,Read,Functor,Foldable,Traversable,Typeable,Data,Generic)
 
 type Hint = Hinted ()
@@ -52,14 +53,14 @@ instance Comonad Hinted where
   extend f h@(Unhinted _) = Unhinted (f h)
   extend f h@(Hinted s _) = Hinted s (f h)
 
-hint :: Hinted a -> Maybe String
+hint :: Hinted a -> Maybe Text
 hint (Hinted s _) = Just s
 hint _            = Nothing
 
-stringHint :: String -> Hint
+stringHint :: Text -> Hint
 stringHint = Hinted ?? ()
 
-maybeHint :: Maybe String -> Hint
+maybeHint :: Maybe Text -> Hint
 maybeHint = maybe (Unhinted ()) stringHint
 
 instance Eq1 Hinted

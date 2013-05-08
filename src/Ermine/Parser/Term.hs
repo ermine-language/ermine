@@ -27,6 +27,7 @@ import Data.Either (partitionEithers)
 import Data.List (groupBy, find)
 import Data.Set as Set hiding (map)
 import Data.Foldable (foldrM)
+import Data.Text (Text, unpack)
 import Data.Traversable hiding (mapM)
 import Ermine.Builtin.Pattern
 import Ermine.Builtin.Term
@@ -40,11 +41,11 @@ import Ermine.Syntax.Term
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type Tm = Term Ann String
+type Tm = Term Ann Text
 
 -- | Parse an atomic term
 term0 :: (Monad m, TokenParsing m) => m Tm
-term0 = Var <$> ident termIdent
+term0 = Var <$> termIdentifier
    <|> literal
    <|> parens (tup <$> terms)
 
@@ -55,11 +56,12 @@ term1 = match
 sig :: (Monad m, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
 
-branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) String)
+branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) Text)
 branch = do pp <- pattern
             reserve op "->"
             b <- term
-            validate pp $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
+            validate pp $ \n ->
+                unexpected $ "duplicate bindings in pattern for: " ++ unpack n
             return $ alt pp b
 
 match :: (Monad m, TokenParsing m) => m Tm
@@ -68,9 +70,10 @@ match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep branch
 term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lambda <|> sig
 
-patterns :: (Monad m, TokenParsing m) => m (Binder String [Pattern Ann])
+patterns :: (Monad m, TokenParsing m) => m (Binder Text [Pattern Ann])
 patterns = do pps <- sequenceA <$> some pattern
-              validate pps $ \n -> unexpected $ "duplicate bindings in pattern for: " ++ n
+              validate pps $ \n ->
+                  unexpected $ "duplicate bindings in pattern for: " ++ unpack n
               return pps
 
 lambda :: (Monad m, TokenParsing m) => m Tm
@@ -92,17 +95,17 @@ terms :: (Monad m, TokenParsing m) => m [Tm]
 terms = commaSep term
 
 typeDecl :: (Monad m, TokenParsing m) => m TyDecl
-typeDecl = (,) <$> try (ident termIdent <* colon) <*> annotation
+typeDecl = (,) <$> try (termIdentifier <* colon) <*> annotation
 
 termDeclClause :: (Monad m, TokenParsing m)
-               => m (String, PBody)
+               => m (Text, PBody)
 termDeclClause =
-    (,) <$> ident termIdent
+    (,) <$> termIdentifier
         <*> (PreBody <$> pattern0s <*> guarded <*> whereClause)
  where
  pattern0s = do ps <- sequenceA <$> many pattern0
                 ps <$ validate ps
-                        (\n -> unexpected $ "duplicate bindings in pattern for: " ++ n)
+                        (\n -> unexpected $ "duplicate bindings in pattern for: " ++ unpack n)
 
 guard :: (Monad m, TokenParsing m) => m (Tm, Tm)
 guard = (,) <$ reserve op "|" <*> term <* reserve op "=" <*> term
@@ -111,17 +114,17 @@ guarded :: (Monad m, TokenParsing m) => m (Guarded Tm)
 guarded = Guarded <$> some guard
       <|> Unguarded <$ reserve op "=" <*> term
 
-type PBody = PreBody Ann String
-type Where = Binder String [Binding Ann String]
+type PBody = PreBody Ann Text
+type Where = Binder Text [Binding Ann Text]
 
 whereClause :: (Monad m, TokenParsing m) => m Where
 whereClause = symbol "where" *> braces declarations <|> pure (pure [])
 
-declClauses :: (Monad m, TokenParsing m) => m [Either TyDecl (String, PBody)]
+declClauses :: (Monad m, TokenParsing m) => m [Either TyDecl (Text, PBody)]
 declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause)
 
-type TyDecl = (String, Ann)
-type TmDecl = (String, [PBody])
+type TyDecl = (Text, Ann)
+type TmDecl = (Text, [PBody])
 
 decls :: (Monad m, TokenParsing m) => m ([TyDecl], [TmDecl])
 decls = do (ts, cs) <- partitionEithers <$> declClauses
@@ -130,22 +133,22 @@ decls = do (ts, cs) <- partitionEithers <$> declClauses
  validateShape l = let (name:_, pbs) = unzip l in
    if shapely pbs
      then return (name, pbs)
-     else fail $ "Equations for `" ++ name ++ "' have differing numbers of arguments."
+     else fail $ "Equations for `" ++ unpack name ++ "' have differing numbers of arguments."
 
 validateDecls :: (Monad m, TokenParsing m) => [TyDecl] -> [TmDecl] -> m ()
 validateDecls tys tms
   | Just n <- findDuplicate tyns =
-    fail $ "Duplicate type declarations for `" ++ n ++ "'."
+    fail $ "Duplicate type declarations for `" ++ unpack n ++ "'."
   | Just n <- findDuplicate tmns =
-    fail $ "Duplicate definitions for `" ++ n ++ "'."
+    fail $ "Duplicate definitions for `" ++ unpack n ++ "'."
   | Just n <- uncovered tmns tyns =
-    fail $ "No definition for declared value `" ++ n ++ "'."
+    fail $ "No definition for declared value `" ++ unpack n ++ "'."
   | otherwise = return ()
  where
  tyns = map fst tys
  tmns = map fst tms
 
-declarations :: (Monad m, TokenParsing m) => m (Binder String [Binding Ann String])
+declarations :: (Monad m, TokenParsing m) => m (Binder Text [Binding Ann Text])
 declarations = do
   (tys, tms) <- decls
   let -- TODO: Rendering

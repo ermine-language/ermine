@@ -25,7 +25,7 @@ import Data.Set (member, union, Set)
 import Data.Set.Lens
 import Data.Foldable
 import Data.Semigroup
-import qualified Data.ByteString.Char8 as Char8
+import Data.Text (unpack)
 import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Syntax.Global
@@ -41,11 +41,11 @@ bananas xs = text "(|" <> xs <> text "|)"
 prettyHardType :: HardType -> Doc
 prettyHardType (Tuple i) = parens (text (replicate (i-1) ','))
 prettyHardType Arrow     = parens "->"
-prettyHardType (Con (Global _ Idfix _ _ n) _)       = text (Char8.unpack n)
-prettyHardType (Con (Global _ (Prefix _) _ _ n) _)  = parens ("prefix" <+> text (Char8.unpack n))
-prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text (Char8.unpack n))
-prettyHardType (Con (Global _ _ _ _ n) _)           = parens (text (Char8.unpack n))
-prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text <$> toList xs)))
+prettyHardType (Con (Global _ Idfix _ _ n) _)       = text (unpack n)
+prettyHardType (Con (Global _ (Prefix _) _ _ n) _)  = parens ("prefix" <+> text (unpack n))
+prettyHardType (Con (Global _ (Postfix _) _ _ n) _) = parens ("postfix" <+> text (unpack n))
+prettyHardType (Con (Global _ _ _ _ n) _)           = parens (text (unpack n))
+prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text . unpack <$> toList xs)))
 
 skvs :: Ord k => [Hinted (Scope b Kind k)] -> Set k
 skvs = setOf (traverse.traverse.traverseScope pure)

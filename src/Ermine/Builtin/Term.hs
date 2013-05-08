@@ -29,7 +29,7 @@ module Ermine.Builtin.Term
 import Bound
 import Control.Applicative
 import Control.Comonad
-import Data.ByteString.Char8 hiding (elemIndex, unzip, all, length)
+import Data.Text (pack)
 import Data.List as List
 import Data.Monoid
 import Data.Void

@@ -16,14 +16,16 @@ module Ermine.Parser.DataType
 
 import Bound
 import Control.Applicative
-import Data.Bifunctor
+import Control.Lens
 import Data.List
 import Data.Maybe
+import Data.Text (Text)
 import Ermine.Parser.Global
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.DataType
 import Ermine.Syntax.Hint
+import Ermine.Syntax.Kind (HasKindVars(..))
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -31,7 +33,7 @@ import Text.Parser.Token
 abstractSimple :: Eq v => [v] -> v -> Var Int v
 abstractSimple l v = maybe (F v) B $ elemIndex v l
 
-constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe String) String)
+constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe Text) Text)
 constr = build . fromMaybe ([], [])
      <$> optional (quantifier "forall")
      <*> globalIdent termCon
@@ -42,16 +44,18 @@ constr = build . fromMaybe ([], [])
   ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ stringHint tn) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
-dataType :: (Monad m, TokenParsing m) => m (DataType (Maybe String) String)
+dataType :: (Monad m, TokenParsing m) => m (DataType () Text)
 dataType = build <$ symbol "data"
        <*> globalIdent typeCon
-       <*> (fmap (fromMaybe []) . optional . braces . some $ ident kindIdent)
        <*> typVarBindings
        <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
- build nm ks ts cs = DataType nm (map stringHint ks) ts' cs'
+ build nm ts cs = over kindVars semiClosed $ DataType nm (map stringHint ks) ts' cs'
   where
-  jks = map Just ks
+  ks  = nub . catMaybes $ toListOf (beside kindVars kindVars) (snd <$> ts, cs)
+  jks = Just <$> ks
   ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ stringHint tn) ts
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
+  semiClosed (Just _) = error "dataType: Impossible"
+  semiClosed Nothing  = ()
 

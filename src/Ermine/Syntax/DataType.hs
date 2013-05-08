@@ -18,25 +18,34 @@
 --------------------------------------------------------------------
 
 module Ermine.Syntax.DataType
-  ( Constructor(..)
+  ( Constructor(Constructor)
+  , ekinds
+  , etypes
+  , fields
   , DataType(DataType)
-  , name
   , kparams
   , tparams
+  , typeParameters
   , constrs
+  , constructors
+  , dataTypeSchema
   ) where
 
 import Bound
+import Bound.Var
 import Bound.Scope
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Data.Bifoldable
+import Data.Bifunctor
 import Data.Bitraversable
 import Data.Binary as Binary
 import Data.Bytes.Serial
-import Data.Foldable
+import Data.Foldable (Foldable)
 import Data.Serialize as Serialize
 import Data.Typeable
+import Ermine.Syntax
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as Kind
@@ -46,12 +55,24 @@ import GHC.Generics hiding (Constructor)
 import Prelude.Extras
 
 data Constructor k t =
-  Constructor { tag    :: Global
-              , ekinds :: [Hint]
-              , etypes :: [Hinted (Scope Int Kind k)]
-              , args   :: [Scope Int (TK k) t]
+  Constructor { _cname  :: Global
+              , _ekinds :: [Hint]
+              , _etypes :: [Hinted (Scope Int Kind k)]
+              , _fields :: [Scope Int (TK k) t]
               }
  deriving (Show, Eq, Functor, Foldable, Traversable, Typeable, Generic)
+
+instance HasGlobal (Constructor k t) where
+  global = lens _cname (\c t -> c { _cname = t })
+
+ekinds :: Lens' (Constructor k t) [Hint]
+ekinds = lens _ekinds (\c ks -> c { _ekinds = ks })
+
+etypes :: Lens' (Constructor k t) [Hinted (Scope Int Kind k)]
+etypes = lens _etypes (\c ts -> c { _etypes = ts })
+
+fields :: Lens' (Constructor k t) [Scope Int (TK k) t]
+fields = lens _fields (\c fs -> c { _fields = fs })
 
 instance Show k => Show1 (Constructor k)
 instance Show2 Constructor
@@ -77,15 +98,47 @@ instance HasKindVars (Constructor k t) (Constructor k' t) k k' where
 instance HasTypeVars (Constructor k t) (Constructor k t') t t' where
   typeVars = traverse
 
+instance BoundBy (Constructor k) (Type k) where
+  boundBy f (Constructor tg ks ts fs) = Constructor tg ks ts $ map (>>>= first F . f) fs
+
 data DataType k t =
-  DataType { _name    :: Global
+  DataType { _dtname  :: Global
            , _kparams :: [Hint]
            , _tparams :: [Hinted (Scope Int Kind k)]
            , _constrs :: [Constructor (Var Int k) (Var Int t)]
            }
   deriving (Show, Eq, Foldable, Traversable, Functor, Typeable, Generic)
 
-makeLenses ''DataType
+instance HasGlobal (DataType k t) where
+  global = lens _dtname (\dt g -> dt { _dtname = g })
+
+kparams :: Lens' (DataType k t) [Hint]
+kparams = lens _kparams (\dt ks -> dt { _kparams = ks })
+
+tparams :: Lens' (DataType k t) [Hinted (Scope Int Kind k)]
+tparams = lens _tparams (\dt ks -> dt { _tparams = ks })
+
+typeParameters :: Traversal' (DataType k t) (Hinted (Scope Int Kind k))
+typeParameters = tparams.traverse
+
+constrs :: Lens (DataType k t)
+                (DataType k u)
+                [Constructor (Var Int k) (Var Int t)]
+                [Constructor (Var Int k) (Var Int u)]
+constrs = lens _constrs (\dt ks -> dt { _constrs = ks })
+
+constructors :: Traversal (DataType k t)
+                          (DataType k u)
+                          (Constructor (Var Int k) (Var Int t))
+                          (Constructor (Var Int k) (Var Int u))
+constructors = constrs.traverse
+
+dataTypeSchema :: DataType k t -> Schema k
+dataTypeSchema dt =
+  Schema (dt^.kparams) (Scope . foldr (~>) star $ unscope . extract <$> dt^.tparams)
+
+instance BoundBy (DataType k) (Type k) where
+  boundBy f = over constructors . boundBy $ unvar (pure . B) (bimap F F . f)
 
 instance Show k => Show1 (DataType k)
 instance Show2 DataType

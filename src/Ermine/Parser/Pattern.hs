@@ -19,6 +19,7 @@ module Ermine.Parser.Pattern
 import Control.Applicative
 import Control.Lens hiding (op)
 import Data.Foldable as Foldable
+import Data.Text (Text)
 import Data.Void
 import qualified Data.Set as Set
 import Ermine.Builtin.Pattern
@@ -34,10 +35,10 @@ validate b e =
                Set.empty
                (vars b)
 
-type PP = P Ann String
+type PP = P Ann Text
 
 varP :: (Monad m, TokenParsing m) => m PP
-varP = ident termIdent <&> sigp ?? anyType
+varP = termIdentifier <&> sigp ?? anyType
 
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0 = varP
@@ -45,7 +46,7 @@ pattern0 = varP
    <|> parens (tup <$> patterns)
 
 sigP :: (Monad m, TokenParsing m) => m PP
-sigP = sigp <$> try (ident termIdent <* colon) <*> annotation
+sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 pattern1 :: (Monad m, TokenParsing m) => m PP
 pattern1 = sigP <|> pattern0

@@ -1,5 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
@@ -22,12 +23,13 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Bifunctor
-import qualified Data.ByteString.Char8 as SB
 import Data.Char
-import Data.List
+import Data.List as List
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
+import Data.Text (Text, unpack, pack)
+import Data.Foldable (for_)
 import Data.Void
 import Ermine.Console.State
 import Ermine.Inference.Kind
@@ -39,9 +41,8 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
-import qualified Ermine.Syntax.DataType as DataType
-import Ermine.Syntax.DataType (DataType)
-import Ermine.Syntax.Global as Global
+import Ermine.Syntax.DataType (DataType, dataTypeSchema)
+import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
@@ -50,6 +51,7 @@ import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import System.Console.Haskeline
 import System.Exit
+import Text.Parser.Token (semiSep1)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
 
@@ -58,12 +60,12 @@ import Text.Trifecta.Result
 ------------------------------------------------------------------------------
 
 data Command = Command
-  { _name   :: String
-  , _alts   :: [String]
-  , _arg    :: Maybe String
-  , _tabbed :: Maybe (CompletionFunc Console)
-  , _desc   :: String
-  , _body   :: String -> Console ()
+  { _cmdName :: String
+  , _alts    :: [String]
+  , _arg     :: Maybe String
+  , _tabbed  :: Maybe (CompletionFunc Console)
+  , _desc    :: String
+  , _body    :: String -> Console ()
   }
 
 makeClassy ''Command
@@ -74,7 +76,8 @@ cmd nm = Command nm [] Nothing Nothing "" $ \_ -> return ()
 getCommand :: String -> Maybe (Command, String)
 getCommand zs = commands ^?
     folded.
-    filtered (\c -> isPrefixOf xs (c^.name) || anyOf (alts.folded) (isPrefixOf xs) c).
+    filtered (\c -> isPrefixOf xs (c^.cmdName)
+                 || anyOf (alts.folded) (isPrefixOf xs) c).
     to (,ys')
   where
     (xs, ys) = break isSpace zs
@@ -91,8 +94,8 @@ showHelp :: String -> Console ()
 showHelp _ = sayLn $ vsep (map format commands) where
   format c = fill 18 (withArg c) <+> hang 18 (fillSep (text <$> words (c^.desc)))
   withArg c = case c^.arg of
-    Nothing -> bold (char ':' <> text (c^.name))
-    Just a  -> bold (char ':' <> text (c^.name)) <+> angles (text a)
+    Nothing -> bold (char ':' <> text (c^.cmdName))
+    Just a  -> bold (char ':' <> text (c^.cmdName)) <+> angles (text a)
 
 ------------------------------------------------------------------------------
 -- commands
@@ -103,7 +106,7 @@ parsing p k s = case parseString p mempty s of
   Success a   -> k a
   Failure doc -> sayLn doc
 
-kindBody :: Type (Maybe String) String -> Console ()
+kindBody :: Type (Maybe Text) Text -> Console ()
 kindBody s = do
   gk <- ioM mempty $ do
     tm <- prepare (newMeta ())
@@ -114,17 +117,13 @@ kindBody s = do
     generalize k
   sayLn $ prettySchema (vacuous gk) names
 
-dkindBody :: DataType (Maybe String) String -> Console ()
-dkindBody dt = do
-  let nm = SB.unpack $ dt ^. DataType.name . globalName
-  s <- ioM mempty $ do
-    self <- newMeta ()
-    dt' <- prepare (newMeta ())
-                   (const $ newMeta ())
-                   (\t -> if t == nm then pure $ pure self else pure <$> newMeta ())
-                   dt
-    checkDataTypeKind (pure self) dt'
-  sayLn $ prettySchema s names
+dkindsBody :: [DataType () Text] -> Console ()
+dkindsBody dts = do
+  ckdts <- ioM mempty (checkDataTypeKinds dts)
+  for_ ckdts $ \ckdt ->
+    sayLn $ text (unpack $ ckdt^.name)
+        <+> colon
+        <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
 commands :: [Command]
 commands =
@@ -147,17 +146,18 @@ commands =
                    in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
-  , cmd "dkind"
-      & desc .~ "check that a data type is well-kinded"
-      & body .~ parsing dataType dkindBody
+  , cmd "dkinds"
+      & desc .~ "determine the kinds of a series of data types"
+      & body .~ parsing (semiSep1 dataType) dkindsBody
   , cmd "uterm"
       & desc .~ "show the internal representation of a term"
       & body .~ parsing term (liftIO . print)
   , cmd "pterm"
       & desc .~ "show the pretty printed representation of a term"
       & body .~ parsing term (\tm ->
-                  let names' = filter (`notMember` setOf traverse tm) names in
-                  prettyTerm tm names' (-1) (error "TODO: prettyAnn") (pure . pure . text)
+                  let names' = filter ((`notMember` setOf traverse tm).pack) names in
+                  prettyTerm tm names' (-1) (error "TODO: prettyAnn")
+                             (pure . pure . text . unpack)
                     >>= sayLn)
   , cmd "udata"
       & desc .~ "show the internal representation of a data declaration"

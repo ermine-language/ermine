@@ -15,7 +15,7 @@ module Ermine.Syntax.Global
   , glob
   , Assoc(..)
   , Fixity(..)
-  , fixity
+  , _Fixity
   -- * Lenses
   , unpackFixity
   , packFixity
@@ -38,6 +38,7 @@ import Data.Function (on)
 import Data.Hashable
 import Data.Serialize (Serialize)
 import qualified Data.Serialize as Serialize
+import Data.Text
 import Data.Word
 import Ermine.Syntax.Digest
 
@@ -89,9 +90,9 @@ unpackFixity w8 =
  where n = fromIntegral $ 0x0F .&. w8
 {-# INLINE unpackFixity #-}
 
-fixity :: Prism' Word8 Fixity
-fixity = prism' packFixity unpackFixity
-{-# INLINE fixity #-}
+_Fixity :: Prism' Word8 Fixity
+_Fixity = prism' packFixity unpackFixity
+{-# INLINE _Fixity #-}
 
 instance Serial Fixity where
   serialize f = putWord8 $ packFixity f
@@ -116,9 +117,9 @@ instance Digestable Fixity
 data Global = Global
   { _globalDigest   :: !ByteString
   , _globalFixity   :: !Fixity
-  , _globalPackage  :: !ByteString
-  , _globalModule   :: !ByteString
-  , _globalName     :: !ByteString
+  , _globalPackage  :: !Text
+  , _globalModule   :: !Text
+  , _globalName     :: !Text
   } deriving (Data, Typeable)
 
 instance Show Global where
@@ -139,13 +140,13 @@ instance Binary Global where
 class HasGlobal t where
   global :: Lens' t Global
   -- | A lens that will read or update the fixity (and compute a new digest)
-  globalFixity :: Lens' t Fixity
-  globalFixity f = global $ \ (Global _ a p m n) -> (\a' -> glob a' p m n) <$> f a
+  fixity :: Lens' t Fixity
+  fixity f = global $ \ (Global _ a p m n) -> (\a' -> glob a' p m n) <$> f a
   -- | A lenses that will read or update part of the Global and compute a new digest as necessary.
-  globalPackage, globalModule, globalName :: Lens' t ByteString
-  globalPackage f = global $ \ (Global _ a p m n) -> (\p' -> glob a p' m n) <$> f p
-  globalModule f = global $ \ (Global _ a p m n) -> (\m' -> glob a p m' n) <$> f m
-  globalName f = global $ \ (Global _ a p m n) -> glob a p m <$> f n
+  packageName, moduleName, name :: Lens' t Text
+  packageName f = global $ \ (Global _ a p m n) -> (\p' -> glob a p' m n) <$> f p
+  moduleName f = global $ \ (Global _ a p m n) -> (\m' -> glob a p m' n) <$> f m
+  name f = global $ \ (Global _ a p m n) -> glob a p m <$> f n
 
 instance HasGlobal Global where
   global = id
@@ -169,6 +170,6 @@ instance AsGlobal Global where
   _Global = id
 
 -- | Construct a 'Global' with a correct digest.
-glob :: AsGlobal t => Fixity -> ByteString -> ByteString -> ByteString -> t
+glob :: AsGlobal t => Fixity -> Text -> Text -> Text -> t
 glob f p m n = _Global # Global d f p m n where
   d = MD5.finalize (digest (digest initialCtx f) [p,m,n])
