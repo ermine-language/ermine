@@ -21,15 +21,12 @@ module Ermine.Inference.Witness
   , HasWitness(..)
   ) where
 
-import Bound.Var
+import Bound
 import Control.Applicative
 import Control.Lens
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
--- import Data.Hashable
--- import Data.Hashable.Extras
-import Data.IntMap
 import Data.Typeable
 import Ermine.Syntax.Core
 import Ermine.Syntax.Id
@@ -39,20 +36,15 @@ import GHC.Generics
 import Prelude.Extras
 
 data Witness k a = Witness
-  { _witnessConstraints :: IntMap (Type k a)
-  , _witnessRowConstraints :: [Type k a]
+  { _witnessRowConstraints :: [Type k a]
   , _witnessType :: !(Type k a)
-  , _witnessCore :: !(Core (Var Int Id))
+  , _witnessCore :: !(Core (Var Id (Type k a)))
   } deriving (Show, Eq, Functor, Foldable, Traversable, Typeable, Generic)
 
 makeClassy ''Witness
 
 witnessTypes :: Traversal (Witness k a) (Witness k' b) (Type k a) (Type k' b)
-witnessTypes f (Witness cs rcs t c) =
-  Witness <$> traverse f cs
-          <*> traverse f rcs
-          <*> f t
-          <*> pure c
+witnessTypes f (Witness rcs t c) = Witness <$> traverse f rcs <*> f t <*> traverse (traverse f) c
 
 instance HasTypeVars (Witness k a) (Witness k b) a b where
   typeVars = witnessTypes.typeVars
@@ -65,10 +57,6 @@ instance Eq k => Eq1 (Witness k)
 
 instance Show2 Witness
 instance Show k => Show1 (Witness k)
-
--- instance Hashable2 Witness
--- instance Hashable k => Hashable1 (Witness k)
--- instance (Hashable k, Hashable a) => Hashable (Witness k a)
 
 instance Bifunctor Witness where
   bimap = bimapDefault

@@ -29,7 +29,7 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
-import Data.IntMap as IntMap
+import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Traversable
 import Ermine.Builtin.Type as Builtin
@@ -74,28 +74,28 @@ inferType (Sig tm (Annot ks ty)) = do
   ts <- for ks newMeta
   checkType tm (instantiateVars ts ty)
 inferType (Term.App f x) = do
-  Witness fcs frcs ft fc <- inferType f
+  Witness frcs ft fc <- inferType f
   (i, o) <- matchFunType ft
-  Witness xcs xrcs _ xc <- checkType x i
-  simplifiedWitness (IntMap.union fcs xcs) (frcs ++ xrcs) o $ Core.App fc xc
+  Witness xrcs _ xc <- checkType x i
+  simplifiedWitness (frcs ++ xrcs) o $ Core.App fc xc
 inferType _ = fail "Unimplemented"
 
 -- TODO: write this
-simplifiedWitness :: MonadMeta s m => IntMap (TypeM s) -> [TypeM s] -> TypeM s -> Core (Var Int Id) -> m (WitnessM s)
-simplifiedWitness cs rcs t c = return $ Witness cs rcs t c
+simplifiedWitness :: MonadMeta s m => [TypeM s] -> TypeM s -> Core (Var Id (TypeM s)) -> m (WitnessM s)
+simplifiedWitness rcs t c = return $ Witness rcs t c
 
 checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s)
 checkType _ _ = fail "Check yourself"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s)
-inferHardType (Term.Lit l) = return $ Witness mempty [] (literalType l) (HardCore (Core.Lit l))
+inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
   vars <- replicateM n $ pure <$> newMeta star
-  return $ Witness mempty [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
+  return $ Witness [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
-  return $ Witness mempty [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
+  return $ Witness [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -108,15 +108,14 @@ literalType Char{}   = Builtin.char
 literalType Float{}  = Builtin.float
 literalType Double{} = Builtin.double
 
-unfurl :: MonadMeta s m => TypeM s -> Core (Var Int Id) -> m (WitnessM s)
+unfurl :: MonadMeta s m => TypeM s -> Core Id -> m (WitnessM s)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  rcm <- for rcs $ \x -> do i <- fresh; return (i, x)
-  return $ Witness (IntMap.fromList rcm) tcs (inst bd) co
-unfurl t co = pure $ Witness mempty [] t co
+  return $ Witness rcs (inst bd) $ Foldable.foldl AppDict (B <$> co) (pure . F <$> tcs)
+unfurl t co = pure $ Witness [] t (B <$> co)
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
 partConstraints (And l) = List.partition isRowConstraint l
