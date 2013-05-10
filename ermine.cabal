@@ -138,7 +138,7 @@ library
     bytes                     >= 0.7     && < 1,
     bytestring                >= 0.9     && < 0.11,
     cereal                    >= 0.3.5.2 && < 0.4,
-    crypto-api                >= 0.10.2  && < 0.11,
+    crypto-api                >= 0.10.2  && < 0.13,
     cryptohash                >= 0.8.3   && < 0.9,
     comonad                   >= 3,
     containers                >= 0.3     && < 0.6,
