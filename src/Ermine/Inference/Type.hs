@@ -19,6 +19,8 @@ module Ermine.Inference.Type
   ( matchFunType
   , inferType
   , unfurl
+  , MonadDischarge(..)
+  , dischargesBySuper
   , partConstraints
   , unfurlConstraints
   ) where
@@ -62,6 +64,21 @@ matchFunType t = do
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
+
+class MonadMeta s m => MonadDischarge s m where
+  superclasses :: Type k t -> m [Type k t]
+
+-- Determines whether the first argument is above the second in the
+-- instance hierarchy. Yields the Core to project out the superclass
+-- dictionary.
+--
+-- c `dischargesBySuper` c'
+dischargesBySuper :: MonadDischarge s m => TypeM s -> TypeM s -> m (Maybe (Core (TypeM s)))
+dischargesBySuper c c'
+  | c == c'   = pure . Just . pure $ c
+  | otherwise = fmap (firstOf (traverse._Just))
+              . itraverse (\i c'' -> fmap (super i) <$> dischargesBySuper c c'')
+            =<< superclasses c'
 
 inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
 inferType (HardTerm t) = inferHardType t

@@ -22,6 +22,8 @@ module Ermine.Syntax.Core
   , Core(..)
   , HardCore(..)
   , Lit(..)
+  , super
+  , slot
   -- * Smart constructors
   , lam
   , let_
@@ -179,6 +181,12 @@ data Core a
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
+
+super :: Int -> Core a -> Core a
+super i = (HardCore (Super i) `AppDict`)
+
+slot :: Int -> Core a -> Core a
+slot i = (HardCore (Slot i) `AppDict`)
 
 instance Serial1 Core where
   -- | Binary serialization of a 'Core', given serializers for its parameter.
