@@ -25,6 +25,7 @@ import Syntax
 main :: IO ()
 main = defaultMain
   [ Binary.tests
+  , Inference.tests
   , Var.tests
   , Syntax.tests
   ]
