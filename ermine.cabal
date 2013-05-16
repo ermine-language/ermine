@@ -214,6 +214,7 @@ test-suite properties
   other-modules:
     Arbitrary
     Binary
+    Inference
     Syntax
     Var
 
@@ -227,6 +228,7 @@ test-suite properties
       bytestring,
       ermine,
       lens,
+      monad-st,
       prelude-extras,
       QuickCheck                 >= 2.4,
       quickcheck-instances       >= 0.3.1,

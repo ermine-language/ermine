@@ -15,6 +15,7 @@ import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
 import Binary
+import Inference
 import Var
 import Syntax
 
