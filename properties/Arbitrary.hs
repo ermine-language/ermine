@@ -78,6 +78,9 @@ instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
      ,Exists   <$> arbitrary <*> arbitrary <*> arbitrary
      ,And      <$> arbitrary ]
 
+-- | Combinator for decreasing the size of a generator. Should be used when
+-- generating tree structures, as relying on probability to terminate them
+-- can lead to excessive memory consumption.
 smaller :: Gen a -> Gen a
 smaller g = sized $ \n -> resize (n`div`3) g
 
@@ -85,16 +88,30 @@ maybeGen :: Applicative f => Maybe (Gen a) -> [Gen (f a)]
 maybeGen Nothing  = []
 maybeGen (Just g) = [ pure <$> g ]
 
+-- | Generates kinds with optional delegation to a variable generator. If the
+-- argument is Nothing, the generated Kinds will (necessarily) be closed.
 genKind :: Maybe (Gen k) -> Gen (Kind k)
-genKind mgk = oneof $ maybeGen mgk ++
-                [ (:->) <$> smaller (genKind mgk) <*> smaller (genKind mgk)
+genKind mgk = smaller . oneof $ maybeGen mgk ++
+                [ (:->) <$> genKind mgk <*> genKind mgk
                 , HardKind <$> arbitrary
                 ]
 
+-- | Given a definite generator for bound varibles, and an optional one for
+-- free variables, definitely generates Vars.
 genVar :: Gen b -> Maybe (Gen a) -> Gen (Var b a)
-genVar gb Nothing = B <$> gb
+genVar gb Nothing   = B <$> gb
 genVar gb (Just ga) = oneof [ B <$> gb , F <$> ga ]
 
+-- | As genVar, but allows for the possibility that bound variables cannot
+-- be generated, either. Potentially useful for generating well-scoped
+-- terms.
+genVar' :: Maybe (Gen b) -> Maybe (Gen a) -> Maybe (Gen (Var b a))
+genVar' (Jusg gb) mga       = Just $ genVar gb mga
+genVar' Nothing   (Just ga) = Just (F <$> ga)
+genVar' Nothing   Nothing   = Nothing
+
+-- | Given possible generators for kind and type variables, generates
+-- a type. This allows for the possibility of closed type generation.
 genType :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (Type k t)
 genType mgk mgt = sized go
  where
@@ -112,12 +129,20 @@ genType mgk mgt = sized go
                    , And <$> (listOf (genType mgk mgt))
                    ]
 
+-- | A simple combinator to generate TKs, as Types.
 genTK :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (TK k t)
 genTK mgk = genType (Just $ genVar arbitrary mgk)
 
+-- | Generates scopes with a definite supply of bound variables. The
+-- higher-order generator must be able to handle a lack of free variables.
 genScope :: Gen b -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
          -> Gen (Scope b f a)
 genScope gb gf mga = Scope <$> gf (Just . genVar gb . Just $ gf mga)
+
+-- | As genScope, but with the possibility of no bound variables.
+genScope' :: Maybe (Gen b) -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
+          -> Gen (Scope b f a)
+genScope' mgb gf mga = Scope <$> gf (genVar' gb . Just $ gf mga)
 
 instance Arbitrary Literal where
   arbitrary = oneof [
