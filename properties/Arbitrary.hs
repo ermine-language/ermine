@@ -27,10 +27,7 @@ instance Arbitrary a => Arbitrary (Hinted a) where
   arbitrary = oneof [ Unhinted <$> arbitrary, Hinted <$> arbitrary <*> arbitrary ]
 
 instance Arbitrary a => Arbitrary (Kind a) where
-  arbitrary = oneof [
-    Kind.Var <$> arbitrary,
-    (:->)    <$> arbitrary <*> arbitrary,
-    HardKind <$> arbitrary ]
+  arbitrary = genKind $ Just arbitrary
 
 instance Arbitrary Assoc where
   arbitrary = Test.QuickCheck.elements [L, R, N]
@@ -66,17 +63,7 @@ instance Arbitrary Type.HardType where
     Type.ConcreteRho <$> arbitrary ]
 
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
-  arbitrary = sized type' where
-    type' 0       = oneof [ Type.Var <$> arbitrary, HardType <$> arbitrary ]
-    type' n | n>0 = smaller $ oneof [
-      Type.Var    <$> arbitrary
-     ,Type.App      <$> arbitrary <*> arbitrary
-     ,HardType <$> arbitrary
-     ,Forall   <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-     -- | Loc !Rendering !(Type k a)
-     --,Loc something something
-     ,Exists   <$> arbitrary <*> arbitrary <*> arbitrary
-     ,And      <$> arbitrary ]
+  arbitrary = genType (Just arbitrary) (Just arbitrary)
 
 -- | Combinator for decreasing the size of a generator. Should be used when
 -- generating tree structures, as relying on probability to terminate them
@@ -106,7 +93,7 @@ genVar gb (Just ga) = oneof [ B <$> gb , F <$> ga ]
 -- be generated, either. Potentially useful for generating well-scoped
 -- terms.
 genVar' :: Maybe (Gen b) -> Maybe (Gen a) -> Maybe (Gen (Var b a))
-genVar' (Jusg gb) mga       = Just $ genVar gb mga
+genVar' (Just gb) mga       = Just $ genVar gb mga
 genVar' Nothing   (Just ga) = Just (F <$> ga)
 genVar' Nothing   Nothing   = Nothing
 
@@ -142,7 +129,7 @@ genScope gb gf mga = Scope <$> gf (Just . genVar gb . Just $ gf mga)
 -- | As genScope, but with the possibility of no bound variables.
 genScope' :: Maybe (Gen b) -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
           -> Gen (Scope b f a)
-genScope' mgb gf mga = Scope <$> gf (genVar' gb . Just $ gf mga)
+genScope' mgb gf mga = Scope <$> gf (genVar' mgb . Just $ gf mga)
 
 instance Arbitrary Literal where
   arbitrary = oneof [
