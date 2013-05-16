@@ -21,11 +21,16 @@ module Ermine.Inference.Type
   , unfurl
   , MonadDischarge(..)
   , dischargesBySuper
+  , dischargesBySupers
+  , dischargesByInstance
+  , entails
+  , simplifyVia
   , partConstraints
   , unfurlConstraints
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
@@ -48,12 +53,14 @@ import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
 type WitnessM s = Witness (MetaK s) (MetaT s)
 
 type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
+
+type CoreM s = Core (Var Id (TypeM s))
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
@@ -68,17 +75,42 @@ matchFunType t = do
 class MonadMeta s m => MonadDischarge s m where
   superclasses :: Type k t -> m [Type k t]
 
+coreBind :: (a -> Core (Var b c)) -> Core (Var b a) -> Core (Var b c)
+coreBind f c = c >>= unvar (pure . B) f
+
+coreMangle :: Applicative f =>  (a -> f (Core (Var b c))) -> Core (Var b a) -> f (Core (Var b c))
+coreMangle f c = coreBind id <$> traverse (traverse f) c
+
 -- Determines whether the first argument is above the second in the
 -- instance hierarchy. Yields the Core to project out the superclass
 -- dictionary.
 --
+-- We expect here that both arguments have been reduced by instance before
+-- they arrive here.
+--
 -- c `dischargesBySuper` c'
-dischargesBySuper :: MonadDischarge s m => TypeM s -> TypeM s -> m (Maybe (Core (TypeM s)))
-dischargesBySuper c c'
-  | c == c'   = pure . Just . pure $ c
-  | otherwise = fmap (firstOf (traverse._Just))
-              . itraverse (\i c'' -> fmap (super i) <$> dischargesBySuper c c'')
-            =<< superclasses c'
+dischargesBySuper :: (Alternative m, MonadDischarge s m)
+                  => TypeM s -> TypeM s -> m (CoreM s)
+dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
+ where
+ go ps c'
+   | c == c'   = pure $ ps
+   | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [1..]
+
+-- As dischargesBySuper.
+dischargesBySupers :: (Alternative m, MonadDischarge s m)
+                   => TypeM s -> [TypeM s] -> m (CoreM s)
+dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
+                      >>= coreMangle (`dischargesBySupers` cs)
+
+dischargesByInstance :: (Alternative m, MonadDischarge s m) => TypeM s -> m (CoreM s)
+dischargesByInstance _ = empty
+
+entails :: (Alternative m, MonadDischarge s m) => [TypeM s] -> TypeM s -> m (CoreM s)
+entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
+
+simplifyVia :: (Alternative m, MonadDischarge s m) => [TypeM s] -> CoreM s -> m (CoreM s)
+simplifyVia cs = coreMangle (\c -> entails cs c <|> pure (pure $ F c))
 
 inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
 inferType (HardTerm t) = inferHardType t
