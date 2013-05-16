@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Arbitrary where
 
@@ -64,28 +65,64 @@ instance Arbitrary Type.HardType where
     --Type.Con    <$> arbitrary <*> arbitrary,
     Type.ConcreteRho <$> arbitrary ]
 
--- used in Type arbitrary. 
--- i couldn't seem to put it in a where clause. -JC 3/22/13
-resizearb :: Arbitrary a => Int -> Gen a
-resizearb n = resize (n `div` 2) arbitrary
-
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
   arbitrary = sized type' where
-    type' 0 = oneof [ Type.Var <$> arbitrary, HardType <$> arbitrary ]
-    type' n | n>0 = oneof [
+    type' 0       = oneof [ Type.Var <$> arbitrary, HardType <$> arbitrary ]
+    type' n | n>0 = smaller $ oneof [
       Type.Var    <$> arbitrary
-     ,Type.App      <$> resizearb n <*> resizearb n
+     ,Type.App      <$> arbitrary <*> arbitrary
      ,HardType <$> arbitrary
-     ,Forall   <$> arbitrary <*> resizearb n <*> resizearb n <*> resizearb n
+     ,Forall   <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
      -- | Loc !Rendering !(Type k a)
      --,Loc something something
-     ,Exists   <$> arbitrary <*> resizearb n <*> resizearb n
-     ,And      <$> resizearb n ]
+     ,Exists   <$> arbitrary <*> arbitrary <*> arbitrary
+     ,And      <$> arbitrary ]
+
+smaller :: Gen a -> Gen a
+smaller g = sized $ \n -> resize (n`div`3) g
+
+maybeGen :: Applicative f => Maybe (Gen a) -> [Gen (f a)]
+maybeGen Nothing  = []
+maybeGen (Just g) = [ pure <$> g ]
+
+genKind :: Maybe (Gen k) -> Gen (Kind k)
+genKind mgk = oneof $ maybeGen mgk ++
+                [ (:->) <$> smaller (genKind mgk) <*> smaller (genKind mgk)
+                , HardKind <$> arbitrary
+                ]
+
+genVar :: Gen b -> Maybe (Gen a) -> Gen (Var b a)
+genVar gb Nothing = B <$> gb
+genVar gb (Just ga) = oneof [ B <$> gb , F <$> ga ]
+
+genType :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (Type k t)
+genType mgk mgt = sized go
+ where
+ go n | n <= 0 = HardType <$> arbitrary
+      | n > 0  = smaller . oneof $ maybeGen mgt ++
+                   [ HardType <$> arbitrary
+                   , Type.App <$> (genType mgk mgt) <*> (genType mgk mgt)
+                   , Forall <$> arbitrary
+                            <*> (listOf (Unhinted <$> genScope arbitrary genKind mgk))
+                            <*> (genScope arbitrary (genTK mgk) mgt)
+                            <*> (genScope arbitrary (genTK mgk) mgt)
+                   , Exists <$> arbitrary
+                            <*> (listOf (Unhinted <$> genScope arbitrary genKind mgk))
+                            <*> (genScope arbitrary (genTK mgk) mgt)
+                   , And <$> (listOf (genType mgk mgt))
+                   ]
+
+genTK :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (TK k t)
+genTK mgk = genType (Just $ genVar arbitrary mgk)
+
+genScope :: Gen b -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
+         -> Gen (Scope b f a)
+genScope gb gf mga = Scope <$> gf (Just . genVar gb . Just $ gf mga)
 
 instance Arbitrary Literal where
   arbitrary = oneof [
     Int     <$> arbitrary,
-    Int64   <$> arbitrary,
+    Long    <$> arbitrary,
     Byte    <$> arbitrary,
     Short   <$> arbitrary,
     String  <$> arbitrary,
@@ -96,15 +133,15 @@ instance Arbitrary Literal where
 instance Arbitrary t => Arbitrary (Pattern t) where
   arbitrary = sized tree' where
     tree' 0 =  oneof [ SigP <$> arbitrary, return WildcardP, LitP <$> arbitrary ]
-    tree' n = oneof [
+    tree' n = smaller $ oneof [
       SigP    <$> arbitrary,
       return WildcardP,
-      AsP     <$> resizearb n,
-      StrictP <$> resizearb n,
-      LazyP   <$> resizearb n,
+      AsP     <$> arbitrary,
+      StrictP <$> arbitrary,
+      LazyP   <$> arbitrary,
       LitP    <$> arbitrary,
-      ConP    <$> arbitrary <*> resizearb n,
-      TupP    <$> resizearb n ]
+      ConP    <$> arbitrary <*> arbitrary,
+      TupP    <$> arbitrary ]
 
 instance (Arbitrary t,Arbitrary1 f,Arbitrary a,Functor f) => Arbitrary (Alt t f a) where
   arbitrary = Alt <$> arbitrary <*> arbitrary
@@ -120,34 +157,34 @@ instance Arbitrary tm => Arbitrary (Guarded tm) where
 
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Body t a) where
   arbitrary = sized body' where
-    body' 0 = Body <$> return [] <*> resizearb 0 <*> return []
-    body' n = Body <$> arbitrary <*> resizearb n <*> resizearb n
+    body' 0 = Body <$> return [] <*> arbitrary <*> return []
+    body' n = smaller $ Body <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Binding t a) where
   arbitrary = sized binding' where
     binding' 0 = Binding <$> return mempty <*> arbitrary <*> return []
-    binding' n = Binding <$> return mempty <*> arbitrary <*> resizearb n
+    binding' n = smaller $ Binding <$> return mempty <*> arbitrary <*> arbitrary
 
 instance Arbitrary HardTerm where
   arbitrary = oneof [
     Term.Lit     <$> arbitrary,
-    DataCon      <$> arbitrary,
+    DataCon      <$> arbitrary <*> genType Nothing Nothing,
     Term.Tuple   <$> arbitrary,
     return Hole ]
 
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
   arbitrary = sized term' where
     term' 0 = oneof [ Term.Var <$> arbitrary, HardTerm <$> arbitrary ]
-    term' n = oneof [
+    term' n = smaller $ oneof [
       Term.Var  <$> arbitrary,
-      Term.App  <$> resizearb n <*> resizearb n,
+      Term.App  <$> arbitrary <*> arbitrary,
       HardTerm  <$> arbitrary,
-      Term.Sig  <$> resizearb n <*> arbitrary,
-      Term.Lam  <$> arbitrary <*> resizearb n,
-      Term.Case <$> resizearb n <*> resizearb n,
-      Term.Let  <$> resizearb n <*> resizearb n,
-      Term.Loc  <$> return mempty <*> resizearb n,
-      Term.Remember <$> arbitrary <*> resizearb n ]
+      Term.Sig  <$> arbitrary <*> arbitrary,
+      Term.Lam  <$> arbitrary <*> arbitrary,
+      Term.Case <$> arbitrary <*> arbitrary,
+      Term.Let  <$> arbitrary <*> arbitrary,
+      Term.Loc  <$> return mempty <*> arbitrary,
+      Term.Remember <$> arbitrary <*> arbitrary ]
 
 instance Arbitrary a => Arbitrary (Branch a) where
   arbitrary = oneof [ Labeled <$> arbitrary <*> arbitrary, Default <$> arbitrary ]
@@ -158,16 +195,16 @@ instance Arbitrary HardCore where
 instance Arbitrary a => Arbitrary (Core a) where
   arbitrary = sized core' where
     core' 0 = oneof [ Core.Var <$> arbitrary, HardCore <$> arbitrary ]
-    core' n = oneof [
+    core' n = smaller $ oneof [
       Core.Var  <$> arbitrary,
       HardCore  <$> arbitrary,
-      Core.App  <$> resizearb n <*> resizearb n,
-      Core.Lam  <$> arbitrary   <*> resizearb n,
-      Core.Let  <$> resizearb n <*> resizearb n,
-      Core.Case <$> resizearb n <*> resizearb n,
-      Core.Dict <$> resizearb n <*> resizearb n,
-      Core.LamDict <$> resizearb n,
-      Core.AppDict <$> resizearb n <*> resizearb n ]
+      Core.App  <$> arbitrary <*> arbitrary,
+      Core.Lam  <$> arbitrary <*> arbitrary,
+      Core.Let  <$> arbitrary <*> arbitrary,
+      Core.Case <$> arbitrary <*> arbitrary,
+      Core.Dict <$> arbitrary <*> arbitrary,
+      Core.LamDict <$> arbitrary,
+      Core.AppDict <$> arbitrary <*> arbitrary ]
 
 -- Higher-order arbitrary
 class Arbitrary1 f where
