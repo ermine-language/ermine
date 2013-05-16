@@ -37,7 +37,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
-import Data.List as List (partition)
+import Data.List as List (partition, delete)
 import Data.Traversable
 import Ermine.Builtin.Type as Builtin
 import Ermine.Syntax
@@ -101,7 +101,7 @@ dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
 dischargesBySupers :: (Alternative m, MonadDischarge s m)
                    => TypeM s -> [TypeM s] -> m (CoreM s)
 dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
-                      >>= coreMangle (`dischargesBySupers` cs)
+                      >>= coreMangle (\d -> d `dischargesBySupers` delete d cs)
 
 dischargesByInstance :: (Alternative m, MonadDischarge s m) => TypeM s -> m (CoreM s)
 dischargesByInstance _ = empty
