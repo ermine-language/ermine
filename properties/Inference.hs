@@ -76,7 +76,7 @@ instance MonadDischarge s (DumbDischarge s) where
 runDD :: (forall s. DumbDischarge s a) -> Maybe a
 runDD dd = either (\_ -> Nothing) id $ runM mempty (unDD dd)
 
-prop_discharge_optimal = let v = pure () in 
+prop_discharge_optimal = let v = pure () in
   forAll (oneof [ pure [App barCon v, App bazCon v]
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
