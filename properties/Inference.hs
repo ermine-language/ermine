@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Inference where
@@ -20,6 +21,7 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Inference.Type
+import Test.QuickCheck
 import Test.QuickCheck.Property
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
@@ -74,14 +76,12 @@ instance MonadDischarge s (DumbDischarge s) where
 runDD :: (forall s. DumbDischarge s a) -> Maybe a
 runDD dd = either (\_ -> Nothing) id $ runM mempty (unDD dd)
 
-prop_discharge_optimal = expectFailure . fromMaybe (label "no result" failed) $ runDD $ do
-  m <- newMeta star
-  let x = pure m
-  c <- App fooCon x `dischargesBySupers` [App barCon x, App bazCon x]
-  d <- App fooCon x `dischargesBySupers` [App bazCon x, App barCon x]
-  pure . conjoin $
-    [ label "bar baz" $ c == super 0 (super 0 . pure . F $ App bazCon x)
-    , label "baz bar" $ d == super 0 (super 0 . pure . F $ App bazCon x)
-    ]
+prop_discharge_optimal = let v = pure () in 
+  forAll (oneof [ pure [App barCon v, App bazCon v]
+                , pure [App bazCon v, App barCon v]
+                ]) $ \sups ->
+    fromMaybe False $ runDD $ do
+      c :: Core (Var () (Type () ())) <- App fooCon v `dischargesBySupers` sups
+      return $ c == super 1 (super 1 . pure . F $ App bazCon v)
 
 tests = $testGroupGenerator
