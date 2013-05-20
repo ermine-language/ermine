@@ -89,8 +89,8 @@ coreMangle f c = coreBind id <$> traverse (traverse f) c
 -- they arrive here.
 --
 -- c `dischargesBySuper` c'
-dischargesBySuper :: (Alternative m, MonadDischarge s m)
-                  => TypeM s -> TypeM s -> m (CoreM s)
+dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+                  => Type k t -> Type k t -> m (Core (Var b (Type k t)))
 dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
  where
  go ps c'
@@ -98,8 +98,8 @@ dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
    | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [1..]
 
 -- As dischargesBySuper.
-dischargesBySupers :: (Alternative m, MonadDischarge s m)
-                   => TypeM s -> [TypeM s] -> m (CoreM s)
+dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+                   => Type k t -> [Type k t] -> m (Core (Var b (Type k t)))
 dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
                       >>= coreMangle (\d -> d `dischargesBySupers` delete d cs)
 
