@@ -101,7 +101,9 @@ dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
 dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
                    => Type k t -> [Type k t] -> m (Core (Var b (Type k t)))
 dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
-                      >>= coreMangle (\d -> d `dischargesBySupers` delete d cs)
+                      >>= coreMangle (\d ->
+                              d `dischargesBySupers` delete d cs <|>
+                              pure (pure $ pure d))
 
 dischargesByInstance :: (Alternative m, MonadDischarge s m) => TypeM s -> m (CoreM s)
 dischargesByInstance _ = empty
