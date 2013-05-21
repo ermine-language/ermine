@@ -105,13 +105,16 @@ dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
                               d `dischargesBySupers` delete d cs <|>
                               pure (pure $ pure d))
 
-dischargesByInstance :: (Alternative m, MonadDischarge s m) => TypeM s -> m (CoreM s)
+dischargesByInstance :: (Alternative m, MonadDischarge s m)
+                     => Type k t -> m (Core (Var Id (Type k t)))
 dischargesByInstance _ = empty
 
-entails :: (Alternative m, MonadDischarge s m) => [TypeM s] -> TypeM s -> m (CoreM s)
+entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+        => [Type k t] -> Type k t -> m (Core (Var Id (Type k t)))
 entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
 
-simplifyVia :: (Alternative m, MonadDischarge s m) => [TypeM s] -> CoreM s -> m (CoreM s)
+simplifyVia :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+            => [Type k t] -> Core (Var Id (Type k t)) -> m (Core (Var Id (Type k t)))
 simplifyVia cs = coreMangle (\c -> entails cs c <|> pure (pure $ F c))
 
 inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
