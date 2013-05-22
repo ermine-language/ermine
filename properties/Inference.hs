@@ -14,6 +14,8 @@ import Control.Monad
 import Control.Monad.ST.Class
 import Data.Maybe
 import Data.Monoid
+import Data.Map as Map
+import Ermine.Inference.Discharge
 import Ermine.Unification.Meta
 import Ermine.Syntax
 import Ermine.Syntax.Core hiding (App)
@@ -68,11 +70,18 @@ instance Alternative (DumbDischarge s) where
     Nothing -> unDD dd
     _       -> pure ma
 
+dumbDischargeEnv = DischargeEnv
+                 { _supers = Map.fromList
+                           [ (foo, [])
+                           , (baz, [barCon `App` pure 0])
+                           , (bar, [fooCon `App` pure 0])
+                           ]
+                 , _instances = Map.empty
+                 }
+
 instance MonadDischarge s (DumbDischarge s) where
-  superclasses (App (HardType (Con b _)) v)
-    | b == baz  = pure $ [barCon `App` v]
-    | b == bar  = pure $ [fooCon `App` v]
-    | otherwise = empty
+  askDischarge = return dumbDischargeEnv
+  localDischarge _ m = m
 
 runDD :: (forall s. DumbDischarge s a) -> Maybe a
 runDD dd = either (\_ -> Nothing) id $ runM mempty (unDD dd)

@@ -79,6 +79,7 @@ library
     Ermine.Builtin.Term
     Ermine.Builtin.Type
     Ermine.Diagnostic
+    Ermine.Inference.Discharge
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
@@ -226,6 +227,7 @@ test-suite properties
       binary,
       bound,
       bytestring,
+      containers,
       ermine,
       lens,
       monad-st,

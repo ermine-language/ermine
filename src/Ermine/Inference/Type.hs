@@ -49,6 +49,7 @@ import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
+import Ermine.Inference.Discharge
 import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
@@ -71,9 +72,6 @@ matchFunType t = do
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
-
-class MonadMeta s m => MonadDischarge s m where
-  superclasses :: Type k t -> m [Type k t]
 
 coreBind :: (a -> Core (Var b c)) -> Core (Var b a) -> Core (Var b c)
 coreBind f c = c >>= unvar (pure . B) f

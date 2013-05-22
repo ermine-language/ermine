@@ -31,6 +31,7 @@ import Control.Exception.Lens
 import Control.Lens
 import Data.Monoid
 import Data.Set
+import Data.Text
 import Data.Typeable
 import Text.PrettyPrint.ANSI.Leijen
 import Text.Trifecta.Rendering
@@ -41,8 +42,8 @@ data Diagnostic = Diagnostic !Rendering (Maybe Doc) [Doc] (Set String)
   deriving Typeable
 
 -- | Construct a diagnostic
-die :: HasRendering r => r -> String -> Diagnostic
-die r s = Diagnostic (r^.rendering) (Just (pretty s)) [] mempty
+die :: HasRendering r => r -> Text -> Diagnostic
+die r s = Diagnostic (r^.rendering) (Just (pretty $ unpack s)) [] mempty
 
 -- | This provides the '_Diagnostic' prism that can be used when matching against 'SomeException'
 -- or in a custom 'Error' type.

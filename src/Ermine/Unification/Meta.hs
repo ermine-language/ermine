@@ -82,6 +82,7 @@ import Data.Function (on)
 import Data.IntMap
 import Data.Monoid
 import Data.STRef
+import Data.Text (pack)
 import Data.Traversable
 import Data.Word
 import Ermine.Diagnostic
@@ -316,7 +317,7 @@ instance Monad (M s) where
     a <- m e
     unM (k a) e
   {-# INLINE (>>=) #-}
-  fail s = M $ \e -> unsafeIOToST $ throwIO $! die e s
+  fail s = M $ \e -> unsafeIOToST $ throwIO $! die e (pack s)
 
 instance MonadST (M s) where
   type World (M s) = s
