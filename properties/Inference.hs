@@ -18,6 +18,7 @@ import Ermine.Unification.Meta
 import Ermine.Syntax
 import Ermine.Syntax.Core hiding (App)
 import Ermine.Syntax.Global
+import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Inference.Type
@@ -82,6 +83,14 @@ prop_discharge_optimal = let v = pure () in
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
       c :: Core (Var () (Type () ())) <- App fooCon v `dischargesBySupers` sups
+      return $ c == super 1 (super 1 . pure . F $ App bazCon v)
+
+prop_entails_optimal = let v = pure () in
+  forAll (oneof [ pure [App barCon v, App bazCon v]
+                , pure [App bazCon v, App barCon v]
+                ]) $ \sups ->
+    fromMaybe False $ runDD $ do
+      c :: Core (Var Id (Type () ())) <- sups `entails` App fooCon v
       return $ c == super 1 (super 1 . pure . F $ App bazCon v)
 
 tests = $testGroupGenerator
