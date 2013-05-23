@@ -18,8 +18,10 @@ import Data.Map as Map
 import Ermine.Inference.Discharge
 import Ermine.Unification.Meta
 import Ermine.Syntax
+import Ermine.Syntax.Class
 import Ermine.Syntax.Core hiding (App)
 import Ermine.Syntax.Global
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
@@ -71,10 +73,10 @@ instance Alternative (DumbDischarge s) where
     _       -> pure ma
 
 dumbDischargeEnv = DischargeEnv
-                 { _supers = Map.fromList
-                           [ (foo, [])
-                           , (baz, [barCon `App` pure 0])
-                           , (bar, [fooCon `App` pure 0])
+                 { _classes = Map.fromList
+                           [ (foo, Class [] [Unhinted $ Scope $ star] [])
+                           , (baz, Class [] [Unhinted $ Scope $ star] [barCon `App` pure 0])
+                           , (bar, Class [] [Unhinted $ Scope $ star] [fooCon `App` pure 0])
                            ]
                  , _instances = Map.empty
                  }

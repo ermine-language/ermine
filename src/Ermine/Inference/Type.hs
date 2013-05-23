@@ -19,25 +19,18 @@ module Ermine.Inference.Type
   ( matchFunType
   , inferType
   , unfurl
-  , MonadDischarge(..)
-  , dischargesBySuper
-  , dischargesBySupers
-  , dischargesByInstance
-  , entails
-  , simplifyVia
   , partConstraints
   , unfurlConstraints
   ) where
 
 import Bound
-import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
-import Data.List as List (partition, delete)
+import Data.List as List (partition)
 import Data.Traversable
 import Ermine.Builtin.Type as Builtin
 import Ermine.Syntax
@@ -72,48 +65,6 @@ matchFunType t = do
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
-
-coreBind :: (a -> Core (Var b c)) -> Core (Var b a) -> Core (Var b c)
-coreBind f c = c >>= unvar (pure . B) f
-
-coreMangle :: Applicative f =>  (a -> f (Core (Var b c))) -> Core (Var b a) -> f (Core (Var b c))
-coreMangle f c = coreBind id <$> traverse (traverse f) c
-
--- Determines whether the first argument is above the second in the
--- instance hierarchy. Yields the Core to project out the superclass
--- dictionary.
---
--- We expect here that both arguments have been reduced by instance before
--- they arrive here.
---
--- c `dischargesBySuper` c'
-dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-                  => Type k t -> Type k t -> m (Core (Var b (Type k t)))
-dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
- where
- go ps c'
-   | c == c'   = pure $ ps
-   | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [1..]
-
--- As dischargesBySuper.
-dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-                   => Type k t -> [Type k t] -> m (Core (Var b (Type k t)))
-dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
-                      >>= coreMangle (\d ->
-                              d `dischargesBySupers` delete d cs <|>
-                              pure (pure $ pure d))
-
-dischargesByInstance :: (Alternative m, MonadDischarge s m)
-                     => Type k t -> m (Core (Var Id (Type k t)))
-dischargesByInstance _ = empty
-
-entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-        => [Type k t] -> Type k t -> m (Core (Var Id (Type k t)))
-entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
-
-simplifyVia :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-            => [Type k t] -> Core (Var Id (Type k t)) -> m (Core (Var Id (Type k t)))
-simplifyVia cs = coreMangle (\c -> entails cs c <|> pure (pure $ F c))
 
 inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
 inferType (HardTerm t) = inferHardType t
