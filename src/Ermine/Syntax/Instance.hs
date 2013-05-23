@@ -20,6 +20,7 @@ module Ermine.Syntax.Instance
 import Control.Lens
 import Data.Hashable
 import Data.Typeable
+import Data.Void
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
 import Ermine.Syntax.Id
@@ -37,7 +38,7 @@ import GHC.Generics
 -- Instance [] (Head category 0 [] [constraint] [con ":-" ...]) (Dict [] ...)
 
 data Instance = Instance
-  { _instanceContext :: [Type Int Int]
+  { _instanceContext :: [Type Void Int]
   , _instanceHead :: Head
   , _instanceBody :: Core Id
   } deriving (Eq, Typeable, Generic)

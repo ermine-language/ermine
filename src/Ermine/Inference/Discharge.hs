@@ -26,13 +26,16 @@ import Control.Lens
 import Control.Monad
 import Data.Bitraversable
 import Data.List (delete)
-import Data.Foldable
+import Data.Foldable hiding (all)
 import Data.Map as Map hiding (map, empty, delete)
+import Data.Maybe (catMaybes)
 import Data.Text (unpack)
 import Data.Void
+import Ermine.Syntax
 import Ermine.Syntax.Class
-import Ermine.Syntax.Core as Core hiding (App)
+import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
+import Ermine.Syntax.Head
 import Ermine.Syntax.Id
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Type as Type
@@ -93,9 +96,44 @@ dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
                               d `dischargesBySupers` delete d cs <|>
                               pure (pure $ pure d))
 
-dischargesByInstance :: (Alternative m, MonadDischarge s m)
+-- Checks if a series of type arguments would match against the type
+-- type 'patterns' of an instance head. Returns a mapping from the
+-- variables bound in the instance to the types they would correspond to
+-- after the match.
+--
+-- Basic equality is used, as no unification should be caused by this
+-- action. This means that the types should be fully zonked when passed in,
+-- or the results will be erroneous.
+matchHead :: (Eq k, Eq t) => [Type k t] -> Head -> Maybe (Map Int (Type k t))
+matchHead ts h = join . fmap (traverse check . fromListWith (++) . join)
+               . sequence $ zipWith matchArg (h^.headTypeArgs) ts
+ where
+ check [x]        = Just x
+ check (x:xs)
+   | all (x==) xs = Just x
+ check _          = Nothing
+
+ matchArg (Var i)      t             = Just [(i, [t])]
+ matchArg (App f x)    (App g y)     = (++) <$> matchArg f g <*> matchArg x y
+ matchArg (HardType h) (HardType h') = if h == h' then Just [] else Nothing
+ matchArg _            _             = error "PANIC: matchHead encountered invalid Head or constraint."
+
+dischargesByInstance :: (Eq k, Eq t, Alternative m, MonadDischarge s m)
                      => Type k t -> m (Core (Var Id (Type k t)))
-dischargesByInstance _ = empty
+dischargesByInstance c = peel [] c
+ where
+ peel stk (App f x) = peel (x:stk) f
+ peel stk (HardType (Con g _)) = viewDischarge (instances . at g) >>= \case
+   Nothing -> empty
+   Just [] -> empty
+   Just is -> case catMaybes $ tryDischarge stk <$> is of
+                [] -> empty
+                [x] -> pure x
+                _   -> fail "Ambiguous class discharge"
+
+ tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
+   apps (fmap B $ i^.instanceBody) $
+     fmap (pure . F . join . bimap absurd (m!)) $ i^.instanceContext
 
 entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
         => [Type k t] -> Type k t -> m (Core (Var Id (Type k t)))
