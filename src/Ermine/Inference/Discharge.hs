@@ -92,7 +92,7 @@ dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
  where
  go ps c'
    | c == c'   = pure $ ps
-   | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [1..]
+   | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [0..]
 
 -- As dischargesBySuper.
 dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)

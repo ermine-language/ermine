@@ -94,7 +94,7 @@ prop_discharge_optimal = let v = pure () in
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
       c :: Core (Var () (Type () ())) <- App fooCon v `dischargesBySupers` sups
-      return $ c == super 1 (super 1 . pure . F $ App bazCon v)
+      return $ c == super 0 (super 0 . pure . F $ App bazCon v)
 
 prop_entails_optimal = let v = pure () in
   forAll (oneof [ pure [App barCon v, App bazCon v]
@@ -102,6 +102,6 @@ prop_entails_optimal = let v = pure () in
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
       c :: Core (Var Id (Type () ())) <- sups `entails` App fooCon v
-      return $ c == super 1 (super 1 . pure . F $ App bazCon v)
+      return $ c == super 0 (super 0 . pure . F $ App bazCon v)
 
 tests = $testGroupGenerator
