@@ -630,7 +630,7 @@ instance Fun (Annot k t) where
       in Scope (s ~> t')
     yon t@(Annot ks s) = case fromScope s of
       App (App (HardType Arrow) l) r ->
-        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+        case (maximumOf (traverse._B) l, minimumOf (traverse._B) r) of
           (Nothing, Nothing) ->
             Right (Annot [] (toScope l), Annot [] (toScope r))
           (Nothing, Just 0)  ->
@@ -639,7 +639,7 @@ instance Fun (Annot k t) where
             Right (Annot ks (toScope l), Annot [] (toScope r))
           (Just m, Just o)   | m == o - 1 ->
             let (ls, rs) = splitAt o ks in
-            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped._B -~ o)))
           _                               -> Left t
       _                                 -> Left t
 
@@ -651,7 +651,7 @@ instance App (Annot k t) where
       in Scope (App s t')
     yon t@(Annot ks s) = case fromScope s of
       App l r ->
-        case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+        case (maximumOf (traverse._B) l, minimumOf (traverse._B) r) of
           (Nothing, Nothing) ->
             Right (Annot [] (toScope l), Annot [] (toScope r))
           (Nothing, Just 0) ->
@@ -660,7 +660,7 @@ instance App (Annot k t) where
             Right (Annot ks (toScope l), Annot [] (toScope r))
           (Just m, Just o) | m == o - 1 ->
             let (ls, rs) = splitAt o ks in
-            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped.bound -~ o)))
+            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped._B -~ o)))
           _                               -> Left t
       _                                 -> Left t
 

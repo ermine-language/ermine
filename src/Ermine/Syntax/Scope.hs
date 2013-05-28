@@ -16,8 +16,8 @@ module Ermine.Syntax.Scope
   ( hoistScope
   , bitraverseScope
   , transverseScope
-  , bound
-  , free
+  , _B
+  , _F
   , BoundBy(..)
   , instantiateVars
   -- , putVar , getVar , putScope, getScope
@@ -58,18 +58,18 @@ transverseScope :: (Applicative f, Monad f, Traversable g)
 transverseScope tau (Scope e) = Scope <$> (tau =<< traverse (traverse tau) e)
 
 -- | This prism acts like a reversible smart constructor for 'B'.
-bound :: Prism (Var a c) (Var b c) a b
-bound = prism B $ \ t -> case t of
+_B :: Prism (Var a c) (Var b c) a b
+_B = prism B $ \ t -> case t of
   B b -> Right b
   F c -> Left (F c)
-{-# INLINE bound #-}
+{-# INLINE _B #-}
 
 -- | This prism acts like a reversible smart constructor for 'F'.
-free :: Prism (Var c a) (Var c b) a b
-free = prism F $ \ t -> case t of
+_F :: Prism (Var c a) (Var c b) a b
+_F = prism F $ \ t -> case t of
   B c -> Left (B c)
   F b -> Right b
-{-# INLINE free #-}
+{-# INLINE _F #-}
 
 -- | instantiate bound variables using a list of new variables
 instantiateVars :: Monad t => [a] -> Scope Int t a -> t a

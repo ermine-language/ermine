@@ -242,7 +242,7 @@ instance Fun (Schema a) where
           Scope t' = mapBound (+n) t
       in Scope (s :-> t')
     yon t@(Schema nms s) = case fromScope s of
-      l :-> r -> case (maximumOf (traverse.bound) l, minimumOf (traverse.bound) r) of
+      l :-> r -> case (maximumOf (traverse._B) l, minimumOf (traverse._B) r) of
         (Nothing, Nothing)              ->
           Right (Schema [] (toScope l), Schema [] (toScope r))
         (Nothing, Just 0)               ->
@@ -251,7 +251,7 @@ instance Fun (Schema a) where
           Right (Schema nms (toScope l), Schema [] (toScope r))
         (Just m, Just o)   | m == o - 1 ->
           let (nml, nmr) = splitAt o nms
-           in Right (Schema nml (toScope l), Schema nmr (toScope (r & mapped.bound -~ o)))
+           in Right (Schema nml (toScope l), Schema nmr (toScope (r & mapped._B -~ o)))
         _                               -> Left t
       _                                 -> Left t
 
