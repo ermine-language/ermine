@@ -15,6 +15,7 @@ module Ermine.Syntax.Head
   ( Head(..)
   , HasHead(..)
   , AsHead(..)
+  , mkHead
   ) where
 
 import Control.Lens

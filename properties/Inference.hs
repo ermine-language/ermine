@@ -10,19 +10,23 @@ module Inference where
 
 import Bound
 import Control.Applicative
+import Control.Lens
 import Control.Monad
 import Control.Monad.ST.Class
 import Data.Maybe
 import Data.Monoid
 import Data.Map as Map
+import Ermine.Builtin.Type
 import Ermine.Inference.Discharge
 import Ermine.Unification.Meta
 import Ermine.Syntax
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core hiding (App)
 import Ermine.Syntax.Global
+import Ermine.Syntax.Head
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Id
+import Ermine.Syntax.Instance
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 import Ermine.Inference.Type
@@ -72,13 +76,21 @@ instance Alternative (DumbDischarge s) where
     Nothing -> unDD dd
     _       -> pure ma
 
+fooInstance = Instance [] (mkHead foo 0 [] [] [int]) (Dict [] [])
+barInstance = Instance [] (mkHead bar 0 [] [] [int]) (Dict [fooInstance^.instanceBody] [])
+bazInstance = Instance [] (mkHead baz 0 [] [] [int]) (Dict [barInstance^.instanceBody] [])
+
 dumbDischargeEnv = DischargeEnv
                  { _classes = Map.fromList
                            [ (foo, Class [] [Unhinted $ Scope $ star] [])
                            , (baz, Class [] [Unhinted $ Scope $ star] [barCon `App` pure 0])
                            , (bar, Class [] [Unhinted $ Scope $ star] [fooCon `App` pure 0])
                            ]
-                 , _instances = Map.empty
+                 , _instances = Map.fromList
+                     [ (foo, [fooInstance])
+                     , (bar, [barInstance])
+                     , (baz, [bazInstance])
+                     ]
                  }
 
 instance MonadDischarge s (DumbDischarge s) where
