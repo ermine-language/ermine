@@ -66,7 +66,7 @@ matchFunType t = do
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
-inferType :: MonadMeta s m => TermM s -> m (WitnessM s)
+inferType :: MonadDischarge s m => TermM s -> m (WitnessM s)
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
 inferType (Remember i t) = do
@@ -84,8 +84,8 @@ inferType (Term.App f x) = do
 inferType _ = fail "Unimplemented"
 
 -- TODO: write this
-simplifiedWitness :: MonadMeta s m => [TypeM s] -> TypeM s -> Core (Var Id (TypeM s)) -> m (WitnessM s)
-simplifiedWitness rcs t c = return $ Witness rcs t c
+simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> Core (Var Id (TypeM s)) -> m (WitnessM s)
+simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toListOf (traverse . _F) c) c
 
 checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s)
 checkType _ _ = fail "Check yourself"

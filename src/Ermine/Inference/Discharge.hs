@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -24,11 +25,12 @@ import Bound.Var
 import Control.Applicative
 import Control.Lens
 import Control.Monad
+import Control.Monad.Trans.Maybe
 import Data.Bitraversable
 import Data.List (delete)
 import Data.Foldable hiding (all)
 import Data.Map as Map hiding (map, empty, delete)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (unpack)
 import Data.Void
 import Ermine.Syntax
@@ -51,6 +53,10 @@ makeLenses ''DischargeEnv
 class MonadMeta s m => MonadDischarge s m where
   askDischarge :: m DischargeEnv
   localDischarge :: (DischargeEnv -> DischargeEnv) -> m a -> m a
+
+instance MonadDischarge s m => MonadDischarge s (MaybeT m) where
+  askDischarge     = MaybeT $ fmap Just askDischarge
+  localDischarge f = MaybeT . localDischarge f . runMaybeT
 
 coreBind :: (a -> Core (Var b c)) -> Core (Var b a) -> Core (Var b c)
 coreBind f c = c >>= unvar (pure . B) f
@@ -105,8 +111,8 @@ dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
 -- action. This means that the types should be fully zonked when passed in,
 -- or the results will be erroneous.
 matchHead :: (Eq k, Eq t) => [Type k t] -> Head -> Maybe (Map Int (Type k t))
-matchHead ts h = join . fmap (traverse check . fromListWith (++) . join)
-               . sequence $ zipWith matchArg (h^.headTypeArgs) ts
+matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
+                . sequence $ zipWith matchArg (he^.headTypeArgs) ts
  where
  check [x]        = Just x
  check (x:xs)
@@ -130,6 +136,7 @@ dischargesByInstance c = peel [] c
                 [] -> empty
                 [x] -> pure x
                 _   -> fail "Ambiguous class discharge"
+ peel _   _ = error "PANIC: Malformed class head"
 
  tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
    apps (fmap B $ i^.instanceBody) $
@@ -139,7 +146,8 @@ entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
         => [Type k t] -> Type k t -> m (Core (Var Id (Type k t)))
 entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
 
-simplifyVia :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+simplifyVia :: (MonadDischarge s m, Eq k, Eq t)
             => [Type k t] -> Core (Var Id (Type k t)) -> m (Core (Var Id (Type k t)))
-simplifyVia cs = coreMangle (\c -> entails cs c <|> pure (pure $ F c))
+simplifyVia cs = coreMangle $ \c ->
+  fmap (fromMaybe . pure $ F c) . runMaybeT $ entails cs c
 

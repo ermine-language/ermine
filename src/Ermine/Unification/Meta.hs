@@ -71,6 +71,7 @@ import Control.Exception
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe
 import Control.Monad.ST (ST, runST, stToIO)
 import Control.Monad.ST.Class
 import Control.Monad.ST.Unsafe
@@ -329,6 +330,10 @@ instance MonadMeta s (M s) where
   {-# INLINE askMeta #-}
   localMeta f (M m) = M (m . f)
   {-# INLINE localMeta #-}
+
+instance MonadMeta s m => MonadMeta s (MaybeT m) where
+  askMeta = MaybeT $ Just <$> askMeta
+  localMeta f = MaybeT . localMeta f . runMaybeT
 
 instance Monoid m => Monoid (M s m) where
   mempty  = pure mempty
