@@ -33,7 +33,6 @@ import Data.Map as Map hiding (map, empty, delete)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (unpack)
 import Data.Void
-import Ermine.Syntax
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
@@ -139,7 +138,7 @@ dischargesByInstance c = peel [] c
  peel _   _ = error "PANIC: Malformed class head"
 
  tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
-   apps (fmap B $ i^.instanceBody) $
+   Prelude.foldl AppDict (fmap B $ i^.instanceBody) $
      fmap (pure . F . join . bimap absurd (m!)) $ i^.instanceContext
 
 entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
