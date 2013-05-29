@@ -116,4 +116,7 @@ prop_entails_optimal = let v = pure () in
       c :: Core (Var Id (Type () ())) <- sups `entails` App fooCon v
       return $ c == super 0 (super 0 . pure . F $ App bazCon v)
 
+prop_instance_discharge = maybe False (const True) $ runDD $ do
+  dischargesByInstance (App fooCon int :: Type () ())
+
 tests = $testGroupGenerator
