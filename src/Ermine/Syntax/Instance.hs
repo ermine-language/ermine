@@ -41,7 +41,7 @@ data Instance = Instance
   { _instanceContext :: [Type Void Int]
   , _instanceHead :: Head
   , _instanceBody :: Core Id
-  } deriving (Eq, Typeable, Generic)
+  } deriving (Eq, Typeable, Generic, Show)
 
 makeLensesWith ?? ''Instance $ classyRules & lensClass .~ \_ -> Just ("HasInstance","instance_")
 
