@@ -67,6 +67,7 @@ matchFunType t = do
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
 inferType :: MonadDischarge s m => TermM s -> m (WitnessM s)
+inferType (Term.Var _) = fail "unimplemented"
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
 inferType (Remember i t) = do
@@ -81,7 +82,9 @@ inferType (Term.App f x) = do
   (i, o) <- matchFunType ft
   Witness xrcs _ xc <- checkType x i
   simplifiedWitness (frcs ++ xrcs) o $ Core.App fc xc
-inferType _ = fail "Unimplemented"
+inferType (Term.Lam _ _)  = fail "unimplemented"
+inferType (Term.Case _ _) = fail "unimplemented"
+inferType (Term.Let _ _)  = fail "unimplemented"
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> Core (Var Id (TypeM s)) -> m (WitnessM s)
