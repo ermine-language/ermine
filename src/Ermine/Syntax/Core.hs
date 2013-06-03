@@ -157,10 +157,6 @@ super i = (HardCore (Super i) `AppDict`)
 slot :: Int -> Core a -> Core a
 slot i = (HardCore (Slot i) `AppDict`)
 
-instance Serial a => Serial1 (Map a) where
-  serializeWith pa = (serializeWith (serializeWith pa)) . Data.Map.toAscList
-  deserializeWith ga = Data.Map.fromDistinctAscList <$> (deserializeWith (deserializeWith ga))
-
 instance (Hashable a, Hashable b) => Hashable (Map a b) where
   hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
 
