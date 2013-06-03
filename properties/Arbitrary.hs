@@ -198,9 +198,6 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
       Term.Loc  <$> return mempty <*> arbitrary,
       Term.Remember <$> arbitrary <*> arbitrary ]
 
-instance Arbitrary a => Arbitrary (Branch a) where
-  arbitrary = oneof [ Labeled <$> arbitrary <*> arbitrary, Default <$> arbitrary ]
-
 instance Arbitrary HardCore where
   arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary ]
 
@@ -213,7 +210,7 @@ instance Arbitrary a => Arbitrary (Core a) where
       Core.App  <$> arbitrary <*> arbitrary,
       Core.Lam  <$> arbitrary <*> arbitrary,
       Core.Let  <$> arbitrary <*> arbitrary,
-      Core.Case <$> arbitrary <*> arbitrary,
+      Core.Case <$> arbitrary <*> arbitrary <*> arbitrary,
       Core.Dict <$> arbitrary <*> arbitrary,
       Core.LamDict <$> arbitrary,
       Core.AppDict <$> arbitrary <*> arbitrary ]
