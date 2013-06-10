@@ -111,6 +111,7 @@ library
     Ermine.Syntax.Instance
     Ermine.Syntax.Kind
     Ermine.Syntax.Pattern
+    Ermine.Syntax.Pattern.Compiler
     Ermine.Syntax.Literal
     Ermine.Syntax.Scope
     Ermine.Syntax.Term

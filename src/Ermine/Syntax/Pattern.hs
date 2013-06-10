@@ -17,6 +17,7 @@ module Ermine.Syntax.Pattern
   ( Pattern(..)
   , Alt(..)
   , bitraverseAlt
+  , matchesTrivially
   -- , getAlt, putAlt, getPat, putPat
   , serializeAlt3
   , deserializeAlt3
@@ -65,6 +66,12 @@ instance Monad f => BoundBy (Alt t f) f where
 -- | Helper function for traversing both sides of an 'Alt'.
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
 bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
+
+matchesTrivially :: Pattern t -> Bool
+matchesTrivially (SigP _)  = True
+matchesTrivially WildcardP = True
+matchesTrivially (LazyP _) = True
+matchesTrivially _         = False
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
