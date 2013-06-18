@@ -184,6 +184,7 @@ instance Arbitrary HardTerm where
     Term.Tuple   <$> arbitrary,
     return Hole ]
 
+-- TODO: generate PatPaths that actually make sense.
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
   arbitrary = sized term' where
     term' 0 = oneof [ Term.Var <$> arbitrary, HardTerm <$> arbitrary ]
@@ -197,6 +198,13 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
       Term.Let  <$> arbitrary <*> arbitrary,
       Term.Loc  <$> return mempty <*> arbitrary,
       Term.Remember <$> arbitrary <*> arbitrary ]
+
+instance Arbitrary PatPath where
+  arbitrary = oneof [ pure LeafPP
+                    , InPP <$> arbitrary
+                    , FieldPP <$> arbitrary <*> arbitrary
+                    , ArgPP <$> arbitrary <*> arbitrary
+                    ]
 
 instance Arbitrary HardCore where
   arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary ]

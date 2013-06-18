@@ -18,14 +18,16 @@ import Bound
 import Control.Applicative hiding (empty)
 import Control.Lens
 import Control.Monad.State
-import Data.Bifunctor
+import Data.HashMap.Lazy (HashMap)
+import qualified Data.HashMap.Lazy as HM
+import Data.Maybe (fromMaybe)
 import Data.Semigroup
 import Ermine.Pretty
 import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
 import Ermine.Syntax.Pattern
 
-newtype PP f a = PP { unPP :: State [String] (Sum Int, f a) }
+newtype PP f a = PP { unPP :: State [String] (HashMap PatPath String, f a) }
 
 instance Functor f => Functor (PP f) where
   fmap f = PP . (fmap . fmap . fmap $ f) .  unPP
@@ -34,57 +36,53 @@ instance Applicative f => Applicative (PP f) where
   pure = PP . pure . pure . pure
   PP f <*> PP x = PP $ liftA2 (liftA2 (<*>)) f x
 
--- liftPP :: f a -> PP f a
--- liftPP = PP . pure . pure
+varPP :: Applicative f => PatPath -> PP f Doc
+varPP p = PP . state $ \(v:vars) -> ((HM.singleton p v, pure $ text v), vars)
 
-tellPP :: Applicative f => Int -> PP f ()
-tellPP i = PP $ pure (Sum i, pure ())
-
-statePP :: Applicative f => ([String] -> (a, [String])) -> PP f a
-statePP = PP . fmap (pure . pure) . state
-
-varPP :: Applicative f => PP f Doc
-varPP = tellPP 1 *> statePP (\(v:vars) -> (text v, vars))
-
-runPP :: PP f a -> [String] -> (Int, f a)
-runPP pp = first getSum . evalState (unPP pp)
+runPP :: PP f a -> [String] -> (HashMap PatPath String, f a)
+runPP pp = evalState (unPP pp)
 
 prettyPat' :: Applicative f
-           => Pattern t -> Int -> (t -> Int -> f Doc) -> PP f Doc
-prettyPat' (SigP _t)   _    _  = varPP
-prettyPat' WildcardP   _    _  = pure $ text "_"
-prettyPat' (AsP p)     prec kt = h <$> varPP <*> prettyPat' p 12 kt
+           => PatPaths -> Pattern t -> Int -> (t -> Int -> f Doc) -> PP f Doc
+prettyPat' path (SigP _t)   _    _  = varPP $ leafPP path
+prettyPat' _    WildcardP   _    _  = pure $ text "_"
+prettyPat' path (AsP p)     prec kt = h <$> varPP (leafPP path)
+                                        <*> prettyPat' (path <> inPP) p 12 kt
  where h l r = parensIf (prec > 12) $ l <> text "@" <> r
-prettyPat' (StrictP p) prec kt = h <$> prettyPat' p 13 kt
+prettyPat' path (StrictP p) prec kt = h <$> prettyPat' (path <> inPP) p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
-prettyPat' (LazyP p)   prec kt = h <$> prettyPat' p 13 kt
+prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' (path <> inPP) p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
-prettyPat' (LitP l)    _    _  = pure $ prettyLiteral l
-prettyPat' (ConP g ps) prec kt = h <$> traverse (prettyPat' ?? 11 ?? kt) ps
+prettyPat' _    (LitP l)    _    _  = pure $ prettyLiteral l
+prettyPat' path (ConP g ps) prec kt =
+  h <$> itraverse (\i -> prettyPat' (path <> fieldPP i) ?? 11 ?? kt) ps
  where h l = parensIf (prec > 10) $ prettyGlobal g <+> hsep l
-prettyPat' (TupP ps)   _    kt = tupled <$> traverse (prettyPat' ?? 0 ?? kt) ps
+prettyPat' path (TupP ps)   _    kt =
+  tupled <$> itraverse (\i -> prettyPat' (path <> fieldPP i) ?? 0 ?? kt) ps
 
 prettyPattern :: Applicative f
               => Pattern t -> [String] -> Int
-              -> (t -> Int -> f Doc) -> (Int, f Doc)
-prettyPattern p vs prec tk = runPP (prettyPat' p prec tk) vs
+              -> (t -> Int -> f Doc) -> (HashMap PatPath String, f Doc)
+prettyPattern p vs prec tk = runPP (prettyPat' mempty p prec tk) vs
 
 lambdaPatterns :: Applicative f
-               => [Pattern t] -> [String] -> (t -> Int -> f Doc) -> (Int, f Doc)
+               => [Pattern t] -> [String] -> (t -> Int -> f Doc)
+               -> (HashMap PatPath String, f Doc)
 lambdaPatterns ps vs tk =
-  runPP (lsep <$> traverse (prettyPat' ?? 1000 ?? tk) ps) vs
+  runPP (lsep <$> itraverse (\i -> prettyPat' (argPP i) ?? 1000 ?? tk) ps) vs
  where lsep [] = empty ; lsep l = space <> hsep l
 
 prettyAlt :: Applicative f
           => [String]
           -> (forall r. g r -> [String] -> Int -> (r -> Int -> f Doc) -> f Doc)
           -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> Alt t g v -> f Doc
-prettyAlt vs kg kt kv (Alt p (Scope e)) = h <$> fpd <*> kg e rest (-1) kv'
+prettyAlt vs kg kt kv (Alt pat (Scope e)) = h <$> fpd <*> kg e rest (-1) kv'
  where
- (n, fpd) = prettyPattern p vs (-1) kt
- (bnd, rest) = splitAt n vs
+ (bnd, fpd) = prettyPattern pat vs (-1) kt
+ rest = drop (HM.size bnd) vs
 
- kv' (B i) _    = pure . text $ bnd !! i
+ kv' (B p) _    = fromMaybe (error "PANIC: prettyAlt: Bad pattern variable reference") $
+                    pure . text <$> HM.lookup p bnd
  kv' (F g) prec = kg g rest prec kv
 
  h pd ed = pd <+> text "->" <+> ed

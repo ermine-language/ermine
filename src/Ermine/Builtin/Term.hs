@@ -41,7 +41,7 @@ import Ermine.Syntax.Term
 import Ermine.Syntax.Type as Type
 
 lam :: Eq v => Binder v [Pattern t] -> Term t v -> Term t v
-lam (Binder vs ps) = Lam ps . abstract (`List.elemIndex` vs)
+lam (Binder vs ps) = Lam ps . abstract (`List.lookup` zip vs (manyPaths ps))
 
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
 dataCon :: Fixity -> String -> String -> Type Void Void -> Term t v
@@ -84,9 +84,10 @@ finalizeBody :: Eq v => [v] -> PreBody t v -> Body t v
 finalizeBody ns (PreBody (Binder vs ps) gs (Binder ws wh)) =
   Body ps (abstract f <$> gs) (fmap av <$> wh)
  where
- av x | Just i <- elemIndex x vs = B i
-      | otherwise                = F x
+ vp = zip vs $ manyPaths ps
+ av x | Just p <- lookup x vp = B p
+      | otherwise             = F x
  f x | Just i <- elemIndex x ws = Just (W i)
-     | Just i <- elemIndex x vs = Just (P i)
+     | Just p <- lookup    x vp = Just (P p)
      | Just i <- elemIndex x ns = Just (D i)
      | otherwise                = Nothing

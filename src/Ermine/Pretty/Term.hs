@@ -17,6 +17,8 @@ import Control.Applicative
 import Control.Lens
 import Data.Semigroup
 import Data.Bifunctor
+import qualified Data.HashMap.Lazy as HM
+import Data.Maybe (fromMaybe)
 import Ermine.Pretty
 import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
@@ -48,10 +50,11 @@ prettyTerm (Sig tm ty) vars prec kt kv =
 prettyTerm (Lam ps (Scope e)) vars prec kt kv =
   h <$> fpd <*> prettyTerm e vars' (-1) kt kv'
  where
- (n, fpd) = lambdaPatterns ps vars kt
- (used, vars') = splitAt n vars
+ (bnd, fpd) = lambdaPatterns ps vars kt
+ (used, vars') = splitAt (HM.size bnd) vars
  h pd bd = parensIf (prec >= 0) $ pd <+> text "->" <+> bd
- kv' (B i) _ = pure . text $ used !! i
+ kv' (B b) _ = fromMaybe (error "PANIC: prettyTerm: invlaid pattern variable reference") $
+                 pure . text <$> HM.lookup b bnd
  kv' (F t) p = prettyTerm t vars' p kt kv
 prettyTerm (Case d alts)  vars prec kt kv =
   h <$> prettyTerm d vars (-1) kt kv
@@ -100,18 +103,20 @@ prettyBody nm (Body ps gs wh) dvs vs kt kv =
  wl = length wh
  wrd | wl == 0   = pure Nothing
      | otherwise = Just <$> prettyBindings (zip wvs wh) wvs rest kt kw
- (n, fpd) = lambdaPatterns ps vs kt
- (pvs, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt n vs
+ (bnd, fpd) = lambdaPatterns ps vs kt
+ (pvs, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt (HM.size bnd) vs
 
  h pd gd Nothing   = align $ nm <> pd <> nest 2 (softline <> gd)
  h pd gd (Just wd) = align $ nm <> pd <> nest 2 (softline <> gd)
                   <> nest 1 (line <> text "where" </> align wd)
 
  kv' (B (D i)) _  = pure $ dvs !! i
- kv' (B (P i)) _  = pure . text $ pvs !! i
+ kv' (B (P p)) _  = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
+                  $ pure . text <$> HM.lookup p bnd
  kv' (B (W i)) _  = pure $ wvs !! i
  kv' (F tm)    pr = prettyTerm tm rest pr kt kv
 
- kw (B i) = const . pure . text $ pvs !! i
+ kw (B p) = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
+          $ const . pure . text <$> HM.lookup p bnd
  kw (F v) = kv v
 

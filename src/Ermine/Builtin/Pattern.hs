@@ -33,7 +33,6 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Lens.Internal.Review
-import Data.List as List
 import Data.Foldable
 import Data.Functor.Identity
 import Data.Traversable
@@ -89,4 +88,4 @@ litp = pure . LitP
 
 -- | smart alt constructor
 alt :: (Monad f, Eq v) => P t v -> f v -> Alt t f v
-alt (Binder vs p) = Alt p . abstract (`List.elemIndex` vs)
+alt (Binder vs p) = Alt p . abstract (`lookup` zip vs (paths p))

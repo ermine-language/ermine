@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -15,8 +16,17 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Pattern
   ( Pattern(..)
+  , PatPath(..)
+  , PatPaths
+  , inPP
+  , fieldPP
+  , argPP
+  , leafPP
+  , paths
+  , manyPaths
   , Alt(..)
   , bitraverseAlt
+  , patternHead
   , matchesTrivially
   -- , getAlt, putAlt, getPat, putPat
   , serializeAlt3
@@ -34,12 +44,15 @@ import Data.Bytes.Serial
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Foldable
+import Data.Hashable
+import Data.Monoid
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
+import GHC.Generics
 
 -- | Patterns used by 'Term'
 data Pattern t
@@ -53,8 +66,64 @@ data Pattern t
   | TupP [Pattern t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | Paths into a pattern tree. These will be used as the bound variables
+-- for scopes that have patterns in their binder. No effort has been made
+-- to enforce statically that pattern paths used in a given scope
+-- correspond only to well-formed paths into the particular tree; it will
+-- merely have to be an invariant maintained in the compiler.
+--
+-- PLeaf represents a reference to the variable at a node that binds
+-- a variable. For instance, LeafPP is a valid path into SigP. It is also
+-- valid for AsP p for all p, because AsP binds a variable. It is invalid
+-- for ConP, however.
+data PatPath = LeafPP -- ^ refer to a variable
+             | InPP PatPath -- ^ refer to the contents of a pattern with one subpattern
+             | FieldPP Int PatPath -- ^ refer to the n-th subpattern of a constructor
+             | ArgPP Int PatPath -- ^ refer to the n-th pattern of many top-level patterns
+  deriving (Eq, Ord, Show, Read, Generic)
+
+type PatPaths = Endo PatPath
+
+inPP :: PatPaths
+inPP = Endo InPP
+
+fieldPP :: Int -> PatPaths
+fieldPP = Endo . FieldPP
+
+argPP :: Int -> PatPaths
+argPP = Endo . ArgPP
+
+leafPP :: PatPaths -> PatPath
+leafPP = flip appEndo LeafPP
+
+-- | Returns all the paths pointing to variables in the given pattern, in
+-- order from left to right.
+paths :: Pattern t -> [PatPath]
+paths = go mempty
+ where
+ go pp (SigP    _) = [leafPP pp]
+ go pp (AsP     p) = leafPP pp : go (pp <> inPP) p
+ go pp (StrictP p) = go (pp <> inPP) p
+ go pp (LazyP   p) = go (pp <> inPP) p
+ go pp (ConP _ ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
+ go pp (TupP   ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
+ go _  _           = []
+
+-- | Returns all the paths pointing to variables in a series of patterns.
+-- The list is assumed to contain patterns in left-to-right order, and the
+-- resulting list will be in the same order.
+manyPaths :: [Pattern t] -> [PatPath]
+manyPaths = join . imap (\i -> map (ArgPP i) . paths)
+
+instance Hashable PatPath
+
+patternHead :: Traversal' (Pattern t) Global
+patternHead f (ConP g ps) = f g <&> \g' -> ConP g' ps
+patternHead f (AsP p)     = AsP <$> patternHead f p
+patternHead _ p           = pure p
+
 -- | One alternative of a core expression
-data Alt t f a = Alt !(Pattern t) !(Scope Int f a)
+data Alt t f a = Alt !(Pattern t) !(Scope PatPath f a)
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Bound (Alt t) where
@@ -129,3 +198,7 @@ instance Binary t => Binary (Pattern t) where
 instance Serialize t => Serialize (Pattern t) where
   put = serializeWith Serialize.put
   get = deserializeWith Serialize.get
+
+instance Serial PatPath where
+instance Binary PatPath where put = serialize ; get = deserialize
+instance Serialize PatPath where put = serialize ; get = deserialize

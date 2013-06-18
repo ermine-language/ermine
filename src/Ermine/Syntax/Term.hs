@@ -101,13 +101,15 @@ data BindingType t
 --   2. Variables bound in a pattern
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
-data DeclBound = D Int | P Int | W Int deriving (Eq,Ord,Show,Read,Generic)
+data DeclBound = D Int | P PatPath | W Int deriving (Eq,Ord,Show,Read,Generic)
 
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
 -- guards can refer.
-data Body t a = Body [Pattern t] (Guarded (Scope DeclBound (Term t) a)) [Binding t (Var Int a)]
+data Body t a = Body [Pattern t]
+                     (Guarded (Scope DeclBound (Term t) a))
+                     [Binding t (Var PatPath a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- | A datatype for representing potentially guarded cases of a function
@@ -151,7 +153,7 @@ data Term t a
   | App !(Term t a) !(Term t a)
   | HardTerm !HardTerm
   | Sig !(Term t a) t
-  | Lam [Pattern t] !(Scope Int (Term t) a)
+  | Lam [Pattern t] !(Scope PatPath (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Int (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from
