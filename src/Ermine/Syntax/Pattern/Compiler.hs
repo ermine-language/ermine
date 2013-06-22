@@ -85,6 +85,13 @@ expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
           (pl ++ map (\j -> p <> fieldPP j) [0..n-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
+instantiation :: CompileInfo a -> PatPath -> Core a
+instantiation (CInfo pm cc cp) pp = case HM.lookup pp pm' of
+  Nothing -> error "PANIC: instantiation: unknown pattern reference"
+  Just c  -> c
+ where
+ pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
+
 -- | Pattern matrices for compilation. The matrix is represented as a list
 -- of columns. There is also an extra column representing the guards.
 data PMatrix t a = PMatrix { _cols     :: [[Pattern t]]
@@ -135,7 +142,7 @@ compile :: MonadPComp m => CompileInfo a -> PMatrix t a -> m (Core a)
 compile _  (PMatrix _  [] _)  = pure . HardCore $ Error "non-exhaustive pattern match."
 compile ci pm@(PMatrix ps gs bs)
   | all (matchesTrivially . head) ps && has _Trivial (head gs) =
-    pure . instantiate ((ci^.pathMap) HM.!) $ head bs
+    pure . instantiate (instantiation ci) $ head bs
   | Just i <- selectCol ps = let
       col = ps !! i
       heads = patternHeads col
