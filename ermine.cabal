@@ -92,6 +92,7 @@ library
     Ermine.Parser.Type
     Ermine.Parser.Term
     Ermine.Pretty
+    Ermine.Pretty.Core
     Ermine.Pretty.Global
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
