@@ -18,6 +18,7 @@ import Binary
 import Inference
 import Var
 import Syntax
+import PatCompiler
 
 -- | /NB:/ when adding a test suite here, make sure you add it to
 -- the @other-modules:@ block under @test-suite properties@ in

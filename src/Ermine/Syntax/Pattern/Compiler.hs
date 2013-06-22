@@ -17,6 +17,11 @@
 module Ermine.Syntax.Pattern.Compiler
   ( Guard(..)
   , PMatrix(..)
+  , MonadPComp(..)
+  , CompileInfo(..)
+  , pathMap
+  , colCores
+  , colPaths
   , cols
   , guards
   , bodies
