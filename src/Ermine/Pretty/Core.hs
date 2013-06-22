@@ -60,9 +60,10 @@ prettyCore (v:vs) prec k (Case e m d) =
  l (F c) p = prettyCore vs p k c
  dv = text v
  branches = for (itoList m) $ \(t, Scope b) ->
-   let n = maybe 0 succ $ maximumOf (traverse._B) b
+   let n = maybe 0 id $ maximumOf (traverse._B) b
        (ws,rest) = first (fmap text) $ splitAt n vs
-       k' (B i) _ = pure $ ws !! i
+       k' (B 0) _ = pure dv
+       k' (B i) _ = pure $ ws !! (i-1)
        k' (F c) p = prettyCore rest p k c
     in (\bd -> nest 2 $ coreData t ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b

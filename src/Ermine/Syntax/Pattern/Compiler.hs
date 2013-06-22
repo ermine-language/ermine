@@ -79,15 +79,16 @@ remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
 
 expand :: Int -> Int -> CompileInfo a -> CompileInfo (Var Int (Core a))
 expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
-  ((cl, c:cr), (pl, p:pr)) ->
-    CInfo (HM.insert (leafPP p) (pure $ F c) $ fmap (pure . F) m)
-          (map (pure . F) cl ++ map (\j -> pure $ B j) [0..n-1] ++ map (pure . F) cr)
+  ((cl, _:cr), (pl, p:pr)) ->
+    CInfo (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
+          (map (pure . F) cl ++ map (\j -> pure $ B j) [1..n] ++ map (pure . F) cr)
           (pl ++ map (\j -> p <> fieldPP j) [0..n-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
 instantiation :: CompileInfo a -> PatPath -> Core a
 instantiation (CInfo pm cc cp) pp = case HM.lookup pp pm' of
-  Nothing -> error "PANIC: instantiation: unknown pattern reference"
+  Nothing ->
+    error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp
   Just c  -> c
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
@@ -112,13 +113,18 @@ defaultOn i (PMatrix ps gs cs)
     in PMatrix (map select $ ls ++ rs) (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
-splitConOn :: Int -> Global -> PMatrix t a -> PMatrix t (Var Int (Core a))
-splitConOn i g (PMatrix ps gs cs)
+splitConOn :: Int -> Int -> Global -> PMatrix t a
+           -> PMatrix t (Var Int (Core a))
+splitConOn i arity g (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
       p (ConP g' _, _) = g == g'
-      p _              = False
+      p (pat,       _) = matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
-      newcs = transpose [ ps' | ConP g' ps' <- c, g == g' ]
+      newcs = transpose $ c >>= \pat ->
+        case pat of
+          ConP g' ps' | g == g'    -> [ps']
+          _ | matchesTrivially pat -> [replicate arity WildcardP]
+          _                        -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: splitConOn: bad column reference"
@@ -151,7 +157,7 @@ compile ci pm@(PMatrix ps gs bs)
           sms <- for (toListOf folded heads) $ \h -> do
                    n <- constructorArity h
                    (,) <$> constructorTag h
-                       <*> (Scope <$> compile (expand i n ci) (splitConOn i h pm))
+                       <*> (Scope <$> compile (expand i n ci) (splitConOn i n h pm))
           Case ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
