@@ -43,7 +43,7 @@ prettyCore vs _    k (Data t fs) =
   coreData t <$> traverse (prettyCore vs (-1) k) fs
 prettyCore vs prec k (App f x) =
   (\df dx -> parensIf (prec>10) $ df <+> dx)
-    <$> prettyCore vs 11 k f <*> prettyCore vs 10 k x
+    <$> prettyCore vs 10 k f <*> prettyCore vs 11 k x
 prettyCore vs prec k (Lam n (Scope e)) =
   coreLam prec ws <$> prettyCore rest (-1) k' e
  where
