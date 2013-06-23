@@ -201,7 +201,6 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
 
 instance Arbitrary PatPath where
   arbitrary = oneof [ pure LeafPP
-                    , InPP <$> arbitrary
                     , FieldPP <$> arbitrary <*> arbitrary
                     , ArgPP <$> arbitrary <*> arbitrary
                     ]

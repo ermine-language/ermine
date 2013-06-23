@@ -49,10 +49,13 @@ sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 pattern1 :: (Monad m, TokenParsing m) => m PP
-pattern1 = sigP <|> pattern0
+pattern1 = asp <$> try (termIdentifier <* symbol "@") <*> pattern1 <|> pattern0
+
+pattern2 :: (Monad m, TokenParsing m) => m PP
+pattern2 = sigP <|> pattern0
 
 patterns :: (Monad m, TokenParsing m) => m [PP]
-patterns = commaSep pattern
+patterns = commaSep pattern2
 
 pattern :: (Monad m, TokenParsing m) => m PP
 pattern = pattern1

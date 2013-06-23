@@ -18,7 +18,6 @@ module Ermine.Syntax.Pattern
   ( Pattern(..)
   , PatPath(..)
   , PatPaths
-  , inPP
   , fieldPP
   , argPP
   , leafPP
@@ -72,20 +71,26 @@ data Pattern t
 -- correspond only to well-formed paths into the particular tree; it will
 -- merely have to be an invariant maintained in the compiler.
 --
--- PLeaf represents a reference to the variable at a node that binds
+-- LeafPP represents a reference to the variable at a node that binds
 -- a variable. For instance, LeafPP is a valid path into SigP. It is also
 -- valid for AsP p for all p, because AsP binds a variable. It is invalid
 -- for ConP, however.
+--
+-- No effort is made to represent paths with no decision points. This is
+-- primarily because it is detrimental to the compilation strategy. AsP,
+-- StrictP and LazyP can be thought of as annotations that are not
+-- full-fledged patterns in themselves. AsP signals that it is valid to
+-- make reference to an entire piece of substructure, while StrictP and
+-- LazyP inform the pattern compilation process. But it is unnecessary to
+-- distinguish between pointing at an AsP---which is always valid---and
+-- pointing at the right portion of an AsP---which is invalid unless the
+-- pattern contains redundancies.
 data PatPath = LeafPP -- ^ refer to a variable
-             | InPP PatPath -- ^ refer to the contents of a pattern with one subpattern
              | FieldPP Int PatPath -- ^ refer to the n-th subpattern of a constructor
              | ArgPP Int PatPath -- ^ refer to the n-th pattern of many top-level patterns
   deriving (Eq, Ord, Show, Read, Generic)
 
 type PatPaths = Endo PatPath
-
-inPP :: PatPaths
-inPP = Endo InPP
 
 fieldPP :: Int -> PatPaths
 fieldPP = Endo . FieldPP
@@ -102,9 +107,9 @@ paths :: Pattern t -> [PatPath]
 paths = go mempty
  where
  go pp (SigP    _) = [leafPP pp]
- go pp (AsP     p) = leafPP pp : go (pp <> inPP) p
- go pp (StrictP p) = go (pp <> inPP) p
- go pp (LazyP   p) = go (pp <> inPP) p
+ go pp (AsP     p) = leafPP pp : go pp p
+ go pp (StrictP p) = go pp p
+ go pp (LazyP   p) = go pp p
  go pp (ConP _ ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
  go pp (TupP   ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
  go _  _           = []

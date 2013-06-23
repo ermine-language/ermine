@@ -47,11 +47,11 @@ prettyPat' :: Applicative f
 prettyPat' path (SigP _t)   _    _  = varPP $ leafPP path
 prettyPat' _    WildcardP   _    _  = pure $ text "_"
 prettyPat' path (AsP p)     prec kt = h <$> varPP (leafPP path)
-                                        <*> prettyPat' (path <> inPP) p 12 kt
+                                        <*> prettyPat' path p 12 kt
  where h l r = parensIf (prec > 12) $ l <> text "@" <> r
-prettyPat' path (StrictP p) prec kt = h <$> prettyPat' (path <> inPP) p 13 kt
+prettyPat' path (StrictP p) prec kt = h <$> prettyPat' path p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
-prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' (path <> inPP) p 13 kt
+prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' path p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
 prettyPat' _    (LitP l)    _    _  = pure $ prettyLiteral l
 prettyPat' path (ConP g ps) prec kt =
@@ -69,7 +69,7 @@ lambdaPatterns :: Applicative f
                => [Pattern t] -> [String] -> (t -> Int -> f Doc)
                -> (HashMap PatPath String, f Doc)
 lambdaPatterns ps vs tk =
-  runPP (lsep <$> itraverse (\i -> prettyPat' (argPP i) ?? 1000 ?? tk) ps) vs
+  runPP (lsep <$> itraverse (\i -> prettyPat' (argPP i) ?? 12 ?? tk) ps) vs
  where lsep [] = empty ; lsep l = space <> hsep l
 
 prettyAlt :: Applicative f
