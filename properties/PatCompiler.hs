@@ -6,7 +6,9 @@
 
 module PatCompiler where
 
+import Prelude hiding (any)
 import Bound
+import Control.Lens
 import Control.Applicative
 import Data.Foldable hiding (notElem)
 import qualified Data.HashMap.Lazy as HM
@@ -41,15 +43,13 @@ consg :: Global
 consg = glob Idfix "ermine" "Data.List" "Cons"
 
 instance MonadPComp DumbPComp where
-  isSignature gs = DPC $ gs == fromList [nilg, consg]
-  constructorTag g
+  isSignature gs = DPC $ gs == fromList [ConH 0 nilg, ConH 2 consg] || tupleSig
+   where tupleSig = any (has _TupH) gs
+  constructorTag (ConH _ g)
     | g == nilg  = pure 0
     | g == consg = pure 1
     | otherwise  = error "tag: Unknown constructor"
-  constructorArity g
-    | g == nilg  = pure 0
-    | g == consg = pure 2
-    | otherwise  = error "arity: Unknown constructor"
+  constructorTag (TupH _) = pure 0
 
 
 zipWithCases1 :: [[Pattern ()]]
@@ -89,3 +89,25 @@ zipWithK (F s) _ = pure . text $ s
 zipWithCompPretty = runDPC $ prettyCore nms (-1) zipWithK =<<
                       compile zipWithInfo1 zipWithMatrix1
  where nms = filter (`notElem` ["f","l1","l2"]) names
+
+fooCases = [ [ ConP nilg [], TupP [WildcardP,  SigP ()] ]
+           , [ ConP consg [WildcardP, SigP ()], WildcardP ]
+           ]
+
+fooMatrix = PMatrix (transpose fooCases) [Trivial, Trivial]
+  [ Scope . pure . B $ ArgPP 1 (FieldPP 1 LeafPP)
+  , Scope . pure . B $ ArgPP 0 (FieldPP 1 LeafPP)
+  ]
+
+fooInfo = CInfo (HM.fromList [ (ArgPP 0 LeafPP, pure . B $ 0)
+                             , (ArgPP 1 LeafPP, pure . B $ 1)
+                             ])
+                (fmap (pure . B) [0,1])
+                (fmap argPP [0,1])
+
+fooK (B 0) _ = pure . text $ "l"
+fooK (B 1) _ = pure . text $ "p"
+fooK (F s) _ = pure . text $ s
+
+fooCompPretty = runDPC $ prettyCore nms (-1) fooK =<< compile fooInfo fooMatrix
+ where nms = filter (`notElem` ["l","p"]) names
