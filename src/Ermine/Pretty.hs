@@ -14,6 +14,7 @@ module Ermine.Pretty
   , parensIf
   , hyph
   , prePunctuate
+  , prePunctuate'
   , block
   , say
   , sayLn
@@ -61,6 +62,10 @@ hyph t = column $ \k -> columns $ \mn ->
 prePunctuate :: Doc -> [Doc] -> [Doc]
 prePunctuate _ [    ] = []
 prePunctuate p (d:ds) = d : map (p <+>) ds
+
+prePunctuate' :: Doc -> Doc -> [Doc] -> [Doc]
+prePunctuate' _  _ [    ] = []
+prePunctuate' fp p (d:ds) = (fp <+> d) : map (p <+>) ds
 
 block :: [Doc] -> Doc
 block [    ] = text "{}"

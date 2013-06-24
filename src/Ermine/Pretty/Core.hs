@@ -86,10 +86,15 @@ coreLam prec ws e = parensIf (prec>=0) $
   text "\\" <> encloseSep lbrace rbrace comma ws <> text "->" <> e
 
 coreData :: Int -> [Doc] -> Doc
-coreData t fds = angles (int t) <> list fds
+coreData t fds = angles $
+  int t <> align (cat $ prePunctuate' (text "|") (text ",") fds)
 
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCase dv prec de dbs mdd = parensIf (prec>=0) $
-  nest 2 $ text "case" <+> de <+> text "of" <+> dv <$$> block dbs'
+  nest 2 $ text "case" <+> de <+> text "of" <+> dv <$$> coreBlock dbs'
  where dbs' | Just dd <- mdd = text "__DEFAULT__ ->" <+> dd : dbs
             | otherwise      = dbs
+
+coreBlock :: [Doc] -> Doc
+coreBlock [    ] = text "{}"
+coreBlock (d:ds) = vsep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
