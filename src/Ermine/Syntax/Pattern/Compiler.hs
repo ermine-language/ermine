@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TupleSections #-}
@@ -26,7 +28,7 @@ module Ermine.Syntax.Pattern.Compiler
   , guards
   , bodies
   , defaultOn
-  , splitConOn
+  , splitOn
   , compile
   ) where
 
@@ -113,33 +115,32 @@ defaultOn i (PMatrix ps gs cs)
     in PMatrix (map select $ ls ++ rs) (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
-splitConOn :: Int -> Int -> Global -> PMatrix t a
-           -> PMatrix t (Var Int (Core a))
-splitConOn i arity g (PMatrix ps gs cs)
+splitOn :: Int -> Int -> Prism' (Pattern t) [Pattern t] -> PMatrix t a
+        -> PMatrix t (Var Int (Core a))
+splitOn i arity con (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
-      p (ConP g' _, _) = g == g'
-      p (pat,       _) = matchesTrivially pat
+      p (pat, _) = has con pat || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat ->
-        case pat of
-          ConP g' ps' | g == g'    -> [ps']
-          _ | matchesTrivially pat -> [replicate arity WildcardP]
-          _                        -> []
+        if | Just ps' <- preview con pat -> [ps']
+           | matchesTrivially pat        -> [replicate arity WildcardP]
+           | otherwise                   -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select gs) (promote $ select cs)
-  | otherwise = error "PANIC: splitConOn: bad column reference"
+  | otherwise = error "PANIC: splitOn: bad column reference"
 
 patternHeads :: [Pattern t] -> Set Global
 patternHeads = setOf (traverse.patternHead)
 
 -- | Uses a heuristic to select a column from a pattern matrix.
 --
--- The current heuristic is longest constructor-headed column.
+-- The current heuristic selects a column with the longest initial segment
+-- of patterns that force evaluation.
 selectCol :: [[Pattern t]] -> Maybe Int
 selectCol = fmap fst
           . maximumByOf folded (comparing snd)
           . zip [0..]
-          . map (length . takeWhile (has patternHead))
+          . map (length . takeWhile forces)
 
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
@@ -157,7 +158,7 @@ compile ci pm@(PMatrix ps gs bs)
           sms <- for (toListOf folded heads) $ \h -> do
                    n <- constructorArity h
                    (,) <$> constructorTag h
-                       <*> (Scope <$> compile (expand i n ci) (splitConOn i n h pm))
+                       <*> (Scope <$> compile (expand i n ci) (splitOn i n (_ConP' h) pm))
           Case ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
