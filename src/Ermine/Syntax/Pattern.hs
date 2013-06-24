@@ -27,6 +27,12 @@ module Ermine.Syntax.Pattern
   , _ConP
   , _TupP
   , _ConP'
+  , PatHead(..)
+  , _TupH
+  , _ConH
+  , arity
+  , headName
+  , traverseHead
   , PatPath(..)
   , PatPaths
   , fieldPP
@@ -139,10 +145,28 @@ manyPaths = join . imap (\i -> map (ArgPP i) . paths)
 
 instance Hashable PatPath
 
-patternHead :: Traversal' (Pattern t) Global
-patternHead f (ConP g ps) = f g <&> \g' -> ConP g' ps
-patternHead f (AsP p)     = AsP <$> patternHead f p
-patternHead _ p           = pure p
+data PatHead = TupH { _arity :: Int }
+             | ConH { _arity :: Int, _name :: Global }
+  deriving (Eq, Ord, Show)
+
+makePrisms ''PatHead
+
+arity :: Lens' PatHead Int
+arity f h = f (_arity h) <&> \y -> h { _arity = y }
+
+headName :: Traversal' PatHead Global
+headName f (ConH a g) = ConH a <$> f g
+headName _ h          = pure h
+
+patternHead :: Fold (Pattern t) PatHead
+patternHead f p@(ConP g ps) = p <$ f (ConH (length ps) g)
+patternHead f p@(TupP ps)   = p <$ f (TupH $ length ps)
+patternHead f (AsP p)       = patternHead f p
+patternHead _ p             = pure p
+
+traverseHead :: PatHead -> Traversal' (Pattern t) [Pattern t]
+traverseHead (ConH _ g) = _ConP' g
+traverseHead (TupH _)   = _TupP
 
 forces :: Pattern t -> Bool
 forces ConP{}    = True

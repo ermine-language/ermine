@@ -52,9 +52,8 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 
 class (Applicative m, Monad m) => MonadPComp m where
-  isSignature      :: Set Global -> m Bool
-  constructorTag   :: Global -> m Int
-  constructorArity :: Global -> m Int
+  isSignature      :: Set PatHead -> m Bool
+  constructorTag   :: PatHead -> m Int
 
 -- | Guard representation. Every row of a pattern matrix must have an
 -- assocated guard, but if no guard was specified, then it will simply be
@@ -115,21 +114,21 @@ defaultOn i (PMatrix ps gs cs)
     in PMatrix (map select $ ls ++ rs) (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
-splitOn :: Int -> Int -> Prism' (Pattern t) [Pattern t] -> PMatrix t a
-        -> PMatrix t (Var Int (Core a))
-splitOn i arity con (PMatrix ps gs cs)
+splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Int (Core a))
+splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
+      con p = traverseHead hd p
       p (pat, _) = has con pat || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat ->
         if | Just ps' <- preview con pat -> [ps']
-           | matchesTrivially pat        -> [replicate arity WildcardP]
+           | matchesTrivially pat        -> [replicate (hd^.arity) WildcardP]
            | otherwise                   -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
-patternHeads :: [Pattern t] -> Set Global
+patternHeads :: [Pattern t] -> Set PatHead
 patternHeads = setOf (traverse.patternHead)
 
 -- | Uses a heuristic to select a column from a pattern matrix.
@@ -156,9 +155,8 @@ compile ci pm@(PMatrix ps gs bs)
       dm = defaultOn i pm
     in do sig <- isSignature heads
           sms <- for (toListOf folded heads) $ \h -> do
-                   n <- constructorArity h
                    (,) <$> constructorTag h
-                       <*> (Scope <$> compile (expand i n ci) (splitOn i n (_ConP' h) pm))
+                       <*> (Scope <$> compile (expand i (h^.arity) ci) (splitOn i h pm))
           Case ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
