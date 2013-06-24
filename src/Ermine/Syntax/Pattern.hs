@@ -1,7 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -16,6 +18,15 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Pattern
   ( Pattern(..)
+  , _SigP
+  , _WildcardP
+  , _AsP
+  , _StrictP
+  , _LazyP
+  , _LitP
+  , _ConP
+  , _TupP
+  , _ConP'
   , PatPath(..)
   , PatPaths
   , fieldPP
@@ -26,6 +37,7 @@ module Ermine.Syntax.Pattern
   , Alt(..)
   , bitraverseAlt
   , patternHead
+  , forces
   , matchesTrivially
   -- , getAlt, putAlt, getPat, putPat
   , serializeAlt3
@@ -64,6 +76,11 @@ data Pattern t
   | ConP Global [Pattern t]
   | TupP [Pattern t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+makePrisms ''Pattern
+
+_ConP' :: Global -> Prism' (Pattern t) [Pattern t]
+_ConP' g = prism (ConP g) $ \case ConP g' ps | g == g' -> Right ps ; p -> Left p
 
 -- | Paths into a pattern tree. These will be used as the bound variables
 -- for scopes that have patterns in their binder. No effort has been made
@@ -126,6 +143,13 @@ patternHead :: Traversal' (Pattern t) Global
 patternHead f (ConP g ps) = f g <&> \g' -> ConP g' ps
 patternHead f (AsP p)     = AsP <$> patternHead f p
 patternHead _ p           = pure p
+
+forces :: Pattern t -> Bool
+forces ConP{}    = True
+forces TupP{}    = True
+forces StrictP{} = True
+forces (AsP p)   = forces p
+forces _         = False
 
 -- | One alternative of a core expression
 data Alt t f a = Alt !(Pattern t) !(Scope PatPath f a)
