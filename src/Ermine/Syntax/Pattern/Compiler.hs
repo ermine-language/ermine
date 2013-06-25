@@ -155,8 +155,9 @@ compile ci pm@(PMatrix ps gs bs)
       dm = defaultOn i pm
     in do sig <- isSignature heads
           sms <- for (toListOf folded heads) $ \h -> do
+                   let n = h^.arity
                    (,) <$> constructorTag h
-                       <*> (Scope <$> compile (expand i (h^.arity) ci) (splitOn i h pm))
+                       <*> ((,) n . Scope <$> compile (expand i n ci) (splitOn i h pm))
           Case ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."

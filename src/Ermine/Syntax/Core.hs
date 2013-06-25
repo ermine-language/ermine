@@ -145,7 +145,7 @@ data Core a
   | App !(Core a) !(Core a)
   | Lam !Int !(Scope Int Core a)
   | Let [Scope Int Core a] !(Scope Int Core a)
-  | Case !(Core a) (Map Int (Scope Int Core a)) (Maybe (Scope () Core a))
+  | Case !(Core a) (Map Int (Int, Scope Int Core a)) (Maybe (Scope () Core a))
   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
@@ -168,7 +168,7 @@ instance Serial1 Core where
   serializeWith pa (App c1 c2)      = putWord8 3 >> serializeWith pa c1 >> serializeWith pa c2
   serializeWith pa (Lam i s)        = putWord8 4 >> serialize i >> serializeWith pa s
   serializeWith pa (Let ss s)       = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
-  serializeWith pa (Case c bs d)    = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
+  serializeWith pa (Case c bs d)    = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith $ serializeWith pa) bs >> serializeWith (serializeWith pa) d
   serializeWith pa (Dict sups slts) = putWord8 7 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
   serializeWith pa (LamDict s)      = putWord8 8 >> serializeWith pa s
   serializeWith pa (AppDict c1 c2)  = putWord8 9 >> serializeWith pa c1 >> serializeWith pa c2
@@ -180,7 +180,7 @@ instance Serial1 Core where
     3 -> liftM2 App (deserializeWith ga) (deserializeWith ga)
     4 -> liftM2 Lam deserialize (deserializeWith ga)
     5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
-    6 -> liftM3 Case (deserializeWith ga) (deserializeWith (deserializeWith ga)) (deserializeWith (deserializeWith ga))
+    6 -> liftM3 Case (deserializeWith ga) (deserializeWith (deserializeWith $ deserializeWith ga)) (deserializeWith (deserializeWith ga))
     7 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith (deserializeWith ga))
     8 -> liftM LamDict (deserializeWith ga)
     9 -> liftM2 AppDict (deserializeWith ga) (deserializeWith ga)
@@ -248,7 +248,7 @@ instance Monad Core where
   App x y     >>= f = App (x >>= f) (y >>= f)
   Lam n e     >>= f = Lam n (boundBy f e)
   Let bs e    >>= f = Let (boundBy f <$> bs) (boundBy f e)
-  Case e as d >>= f = Case (e >>= f) (boundBy f <$> as) ((>>>= f) <$> d)
+  Case e as d >>= f = Case (e >>= f) (fmap (boundBy f) <$> as) ((>>>= f) <$> d)
   Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   LamDict e   >>= f = LamDict (e >>>= f)
   AppDict x y >>= f = AppDict (x >>= f) (y >>= f)

@@ -91,7 +91,7 @@ zipWithCompPretty = runDPC $ prettyCore nms (-1) zipWithK =<<
  where nms = filter (`notElem` ["f","l1","l2"]) names
 
 fooCases = [ [ ConP nilg [], TupP [WildcardP,  SigP ()] ]
-           , [ ConP consg [WildcardP, SigP ()], WildcardP ]
+           , [ ConP consg [SigP (), WildcardP], WildcardP ]
            ]
 
 fooMatrix = PMatrix (transpose fooCases) [Trivial, Trivial]
