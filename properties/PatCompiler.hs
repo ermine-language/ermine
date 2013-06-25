@@ -23,7 +23,7 @@ import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Pattern.Compiler
-import Ermine.Syntax.Term as Term
+import Ermine.Syntax.Term as Term hiding (Explicit)
 
 newtype DumbPComp a = DPC { runDPC :: a }
   deriving (Show, Eq, Ord, Functor, Traversable, Foldable)
@@ -110,4 +110,38 @@ fooK (B 1) _ = pure . text $ "p"
 fooK (F s) _ = pure . text $ s
 
 fooCompPretty = runDPC $ prettyCore nms (-1) fooK =<< compile fooInfo fooMatrix
+ where nms = filter (`notElem` ["l","p"]) names
+
+filterCases =
+  [ [ SigP (),   ConP consg [SigP (), SigP ()] ]
+  , [ WildcardP, ConP consg [SigP (), SigP ()] ]
+  , [ WildcardP, ConP nilg [] ]
+  ]
+
+filterMatrix :: PMatrix () (Var Int String)
+filterMatrix = PMatrix (transpose filterCases) [g, Trivial, Trivial]
+  [ Scope $ Data 1 [x, apps fltr [p, xs]]
+  , Scope $ apps fltr [p, xs]
+  , Scope $ Data 0 []
+  ]
+ where
+ g  = Explicit . Scope $ apps p [x]
+ p  = pure . B $ ArgPP 0 LeafPP
+ x  = pure . B . ArgPP 1 $ FieldPP 0 LeafPP
+ xs = pure . B . ArgPP 1 $ FieldPP 1 LeafPP
+ fltr = pure . F . pure . F $ "filter"
+
+filterInfo :: CompileInfo (Var Int String)
+filterInfo = CInfo (HM.fromList [ (ArgPP 0 LeafPP, pure . B $ 0)
+                                , (ArgPP 1 LeafPP, pure . B $ 1)
+                                ])
+                   (fmap (pure . B) [0,1])
+                   (fmap argPP [0,1])
+
+filterK (B 0) _ = pure . text $ "p"
+filterK (B 1) _ = pure . text $ "l"
+filterK (F s) _ = pure . text $ s
+
+filterCompPretty = runDPC $ prettyCore nms (-1) filterK
+                              =<< compile filterInfo filterMatrix
  where nms = filter (`notElem` ["l","p"]) names

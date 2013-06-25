@@ -107,6 +107,9 @@ makeLenses ''PMatrix
 promote :: (Functor f, Functor g) => f (g a) -> f (g (Var b (Core a)))
 promote = fmap . fmap $ F . pure
 
+bump :: CompileInfo a -> CompileInfo (Var Int (Core a))
+bump (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
+
 defaultOn :: Int -> PMatrix t a -> PMatrix t (Var () (Core a))
 defaultOn i (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
@@ -128,6 +131,11 @@ splitOn i hd (PMatrix ps gs cs)
                (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
+peel :: PMatrix t a -> PMatrix t (Var Int (Core a))
+peel (PMatrix ps (_:gs) (_:bs)) =
+  PMatrix (map (drop 1) ps) (promote gs) (promote bs)
+peel _ = error "PANIC: peel: malformed pattern matrix."
+
 patternHeads :: [Pattern t] -> Set PatHead
 patternHeads = setOf (traverse.patternHead)
 
@@ -147,8 +155,17 @@ selectCol = fmap fst
 compile :: MonadPComp m => CompileInfo a -> PMatrix t a -> m (Core a)
 compile _  (PMatrix _  [] _)  = pure . HardCore $ Error "non-exhaustive pattern match."
 compile ci pm@(PMatrix ps gs bs)
-  | all (matchesTrivially . head) ps && has _Trivial (head gs) =
-    pure . instantiate (instantiation ci) $ head bs
+  | all (matchesTrivially . head) ps = case head gs of
+    Trivial -> pure . instantiate (instantiation ci) $ head bs
+    Explicit e -> mk <$> compile (bump ci) (peel pm)
+     where
+     mk f = Case (instantiate (instantiation ci) e) ?? Nothing $
+              M.fromList
+                [(1, (0, Scope . fmap (F . pure) $
+                           instantiate (instantiation ci) $ head bs))
+                ,(0, (0, Scope $ f))
+                ]
+
   | Just i <- selectCol ps = let
       col = ps !! i
       heads = patternHeads col
