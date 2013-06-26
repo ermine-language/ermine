@@ -75,6 +75,7 @@ library
 
   exposed-modules:
     Ermine
+    Ermine.Builtin.Core
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type
