@@ -18,6 +18,7 @@
 module Ermine.Builtin.Pattern
   ( Binder(..)
   , P
+  , varp
   , sigp
   , _p
   , strictp
@@ -38,8 +39,10 @@ import Data.Functor.Identity
 import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
+import Ermine.Syntax.Kind
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
+import Ermine.Syntax.Type
 
 data Binder v a = Binder { vars :: [v], item :: a }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
@@ -57,6 +60,10 @@ instance (p ~ Reviewed, f ~ Identity, Tup Reviewed Identity t) => Tup p f (Binde
 
 -- | Smart pattern
 type P t v = Binder v (Pattern t)
+
+-- | A pattern that binds a variable with (effectively) no type annotation.
+varp :: v -> P (Annot k t) v
+varp v = sigp v (Annot [star] . Scope . pure . B $ 0)
 
 -- | A pattern that binds a variable with a type annotation.
 sigp :: v -> t -> P t v
