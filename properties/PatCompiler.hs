@@ -25,32 +25,16 @@ import Ermine.Syntax.Pattern
 import Ermine.Syntax.Pattern.Compiler
 import Ermine.Syntax.Term as Term hiding (Explicit)
 
-newtype DumbPComp a = DPC { runDPC :: a }
-  deriving (Show, Eq, Ord, Functor, Traversable, Foldable)
-
-instance Applicative DumbPComp where
-  pure = DPC
-  DPC f <*> DPC x = DPC $ f x
-
-instance Monad DumbPComp where
-  return = DPC
-  DPC x >>= g = g x
-
 nilg :: Global
 nilg = glob Idfix "ermine" "Data.List" "Nil"
 
 consg :: Global
 consg = glob Idfix "ermine" "Data.List" "Cons"
 
-instance MonadPComp DumbPComp where
-  isSignature gs = DPC $ gs == fromList [ConH 0 nilg, ConH 2 consg] || tupleSig
-   where tupleSig = any (has _TupH) gs
-  constructorTag (ConH _ g)
-    | g == nilg  = pure 0
-    | g == consg = pure 1
-    | otherwise  = error "tag: Unknown constructor"
-  constructorTag (TupH _) = pure 0
-
+simpleEnv :: PCompEnv
+simpleEnv = PCompEnv $ lst <$ lst
+ where
+ lst = HM.fromList [(nilg, 0), (consg, 1)]
 
 zipWithCases1 :: [[Pattern ()]]
 zipWithCases1 = [ [ SigP (),   ConP consg [SigP (), SigP ()], ConP consg [SigP (), SigP ()] ]
@@ -86,8 +70,9 @@ zipWithK (B 2) _ = pure . text $ "l2"
 zipWithK (B _) _ = error "zipWithK: bad bound reference"
 zipWithK (F s) _ = pure . text $ s
 
-zipWithCompPretty = runDPC $ prettyCore nms (-1) zipWithK =<<
-                      compile zipWithInfo1 zipWithMatrix1
+zipWithCompPretty = simpleEnv & do
+                      c <- compile zipWithInfo1 zipWithMatrix1
+                      prettyCore nms (-1) zipWithK c
  where nms = filter (`notElem` ["f","l1","l2"]) names
 
 fooCases = [ [ ConP nilg [], TupP [WildcardP,  SigP ()] ]
@@ -109,7 +94,7 @@ fooK (B 0) _ = pure . text $ "l"
 fooK (B 1) _ = pure . text $ "p"
 fooK (F s) _ = pure . text $ s
 
-fooCompPretty = runDPC $ prettyCore nms (-1) fooK =<< compile fooInfo fooMatrix
+fooCompPretty = simpleEnv & do c <- compile fooInfo fooMatrix ; prettyCore nms (-1) fooK c
  where nms = filter (`notElem` ["l","p"]) names
 
 filterCases =
@@ -142,6 +127,7 @@ filterK (B 0) _ = pure . text $ "p"
 filterK (B 1) _ = pure . text $ "l"
 filterK (F s) _ = pure . text $ s
 
-filterCompPretty = runDPC $ prettyCore nms (-1) filterK
-                              =<< compile filterInfo filterMatrix
+filterCompPretty = simpleEnv & do
+                     c <- compile filterInfo filterMatrix
+                     prettyCore nms (-1) filterK c
  where nms = filter (`notElem` ["l","p"]) names

@@ -6,6 +6,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 --------------------------------------------------------------------
 -- |
@@ -19,6 +20,7 @@
 module Ermine.Syntax.Pattern.Compiler
   ( Guard(..)
   , PMatrix(..)
+  , PCompEnv(..)
   , MonadPComp(..)
   , CompileInfo(..)
   , pathMap
@@ -45,15 +47,36 @@ import Data.List (transpose)
 import Data.Monoid
 import Data.Ord
 import Data.Set (Set)
+import qualified Data.Set as S
 import Data.Set.Lens
 import Data.Traversable
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 
+newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Int) }
+  deriving (Eq, Show)
+
 class (Applicative m, Monad m) => MonadPComp m where
-  isSignature      :: Set PatHead -> m Bool
-  constructorTag   :: PatHead -> m Int
+  askPComp :: m PCompEnv
+
+instance MonadPComp ((->) PCompEnv) where
+  askPComp = id
+
+isSignature :: MonadPComp m => Set PatHead -> m Bool
+isSignature ps = case preview folded ps of
+  Nothing         -> pure False
+  Just (TupH _)   -> pure True
+  Just (ConH _ g) -> askPComp <&> \env -> case HM.lookup g $ signatures env of
+    Nothing -> error $ "PANIC: isSignature: unknown constructor"
+    Just hm -> iall (\g' i -> S.member (ConH i g') ps) hm
+
+constructorTag :: MonadPComp m => PatHead -> m Int
+constructorTag (TupH _) = pure 0
+constructorTag (ConH _ g) = askPComp <&> \env ->
+  case HM.lookup g (signatures env) >>= HM.lookup g of
+    Nothing -> error $ "PANIC: constructorTag: unknown constructor"
+    Just i  -> i
 
 -- | Guard representation. Every row of a pattern matrix must have an
 -- assocated guard, but if no guard was specified, then it will simply be
