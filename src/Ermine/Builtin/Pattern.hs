@@ -36,6 +36,7 @@ import Control.Lens
 import Control.Lens.Internal.Review
 import Data.Foldable
 import Data.Functor.Identity
+import Data.String
 import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -60,6 +61,9 @@ instance (p ~ Reviewed, f ~ Identity, Tup Reviewed Identity t) => Tup p f (Binde
 
 -- | Smart pattern
 type P t v = Binder v (Pattern t)
+
+instance IsString s => IsString (P (Annot k t) s) where
+  fromString = varp . fromString
 
 -- | A pattern that binds a variable with (effectively) no type annotation.
 varp :: v -> P (Annot k t) v
