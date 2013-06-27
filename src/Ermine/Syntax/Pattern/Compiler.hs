@@ -71,7 +71,7 @@ isSignature ps = case preview folded ps of
   Just (TupH _)   -> pure True
   Just (ConH _ g) -> askPComp <&> \env -> case HM.lookup g $ signatures env of
     Nothing -> error $ "PANIC: isSignature: unknown constructor"
-    Just hm -> iall (\g' i -> S.member g' ns) hm
+    Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
 
 constructorTag :: MonadPComp m => PatHead -> m Int
@@ -146,7 +146,7 @@ defaultOn i (PMatrix ps gs cs)
 splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Int (Core a))
 splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
-      con p = traverseHead hd p
+      con pat = traverseHead hd pat
       p (pat, _) = has con pat || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat ->

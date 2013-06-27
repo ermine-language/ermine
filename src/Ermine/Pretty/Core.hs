@@ -23,7 +23,6 @@ import Data.Monoid
 import Data.Traversable
 import Ermine.Pretty
 import Ermine.Pretty.Literal
-import Ermine.Syntax.Scope
 import Ermine.Syntax.Core
 
 prettyHardCore :: Int -> HardCore -> Doc

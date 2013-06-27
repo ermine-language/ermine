@@ -51,7 +51,7 @@ prettyTerm (Lam ps (Scope e)) vars prec kt kv =
   h <$> fpd <*> prettyTerm e vars' (-1) kt kv'
  where
  (bnd, fpd) = lambdaPatterns ps vars kt
- (used, vars') = splitAt (HM.size bnd) vars
+ (_, vars') = splitAt (HM.size bnd) vars
  h pd bd = parensIf (prec >= 0) $ pd <+> text "->" <+> bd
  kv' (B b) _ = fromMaybe (error "PANIC: prettyTerm: invlaid pattern variable reference") $
                  pure . text <$> HM.lookup b bnd
@@ -104,7 +104,7 @@ prettyBody nm (Body ps gs wh) dvs vs kt kv =
  wrd | wl == 0   = pure Nothing
      | otherwise = Just <$> prettyBindings (zip wvs wh) wvs rest kt kw
  (bnd, fpd) = lambdaPatterns ps vs kt
- (pvs, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt (HM.size bnd) vs
+ (_, (wvs, rest)) = first (map text) . splitAt wl <$> splitAt (HM.size bnd) vs
 
  h pd gd Nothing   = align $ nm <> pd <> nest 2 (softline <> gd)
  h pd gd (Just wd) = align $ nm <> pd <> nest 2 (softline <> gd)
