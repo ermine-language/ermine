@@ -82,7 +82,7 @@ prettyCore _ _ _ _ = pure $ text "unimplemented"
 
 coreLam :: Int -> [Doc] -> Doc -> Doc
 coreLam prec ws e = parensIf (prec>=0) $
-  text "\\" <> encloseSep lbrace rbrace comma ws <> text "->" <> e
+  text "\\" <> encloseSep lbrace rbrace comma ws <+> text "->" <+> e
 
 coreData :: Int -> [Doc] -> Doc
 coreData t fds = angles $
