@@ -16,6 +16,8 @@ import Data.List (transpose)
 import Data.Set as Set hiding (notElem, filter)
 import Data.Traversable
 
+import Ermine.Builtin.Pattern
+import Ermine.Builtin.Core
 import Ermine.Pretty
 import Ermine.Pretty.Core
 import Ermine.Syntax
@@ -24,6 +26,7 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Pattern.Compiler
 import Ermine.Syntax.Term as Term hiding (Explicit)
+import Ermine.Syntax.Type as Type
 
 nilg = glob Idfix "ermine" "Data.List" "Nil"
 consg = glob Idfix "ermine" "Data.List" "Cons"
@@ -48,98 +51,36 @@ simpleEnv = PCompEnv $ (listSig <$ listSig)
             `HM.union` (eitherSig <$ eitherSig)
             `HM.union` (whichSig <$ whichSig)
 
-zipWithCases1 :: [[Pattern ()]]
-zipWithCases1 = [ [ SigP (),   ConP consg [SigP (), SigP ()], ConP consg [SigP (), SigP ()] ]
-                , [ WildcardP, WildcardP,                      WildcardP ]
-                ]
-
-zipWithMatrix1 :: PMatrix () (Var Int String)
-zipWithMatrix1 = PMatrix (transpose zipWithCases1) [Trivial, Trivial]
-  [ Scope $
-    Data 1 [ apps (pure . B $ ArgPP 0 LeafPP)
-              [pure . B $ ArgPP 1 (FieldPP 0 LeafPP), pure . B $ ArgPP 2 (FieldPP 0 LeafPP)]
-           , apps (pure . F . pure . F $ "zipWith")
-               [ pure . B $ ArgPP 0 LeafPP
-               , pure . B $ ArgPP 1 (FieldPP 1 LeafPP)
-               , pure . B $ ArgPP 2 (FieldPP 1 LeafPP)
-               ]
-           ]
-  , Scope $ Data 0 []
+zipWithDef :: [([P (Annot k t) String], [(Maybe (Core String), Core String)])]
+zipWithDef =
+  [ (["f", conp consg ["x","xs"], conp consg ["y","ys"]],
+      [(Nothing, Data 1 [apps "f" ["x","y"], apps "zipWith" ["f", "xs", "ys"]])])
+  , ([_p, _p, _p],[(Nothing, Data 0 [])])
   ]
-
-zipWithInfo1 :: CompileInfo (Var Int String)
-zipWithInfo1 = CInfo (HM.fromList [(ArgPP 0 LeafPP, pure . B $ 0)
-                                  ,(ArgPP 1 LeafPP, pure . B $ 1)
-                                  ,(ArgPP 2 LeafPP, pure . B $ 2)
-                                  ])
-                     (fmap (pure . B) [0..2])
-                     (fmap argPP [0..2])
-
-zipWithK :: Applicative f => Var Int String -> Int -> f Doc
-zipWithK (B 0) _ = pure . text $ "f"
-zipWithK (B 1) _ = pure . text $ "l1"
-zipWithK (B 2) _ = pure . text $ "l2"
-zipWithK (B _) _ = error "zipWithK: bad bound reference"
-zipWithK (F s) _ = pure . text $ s
 
 zipWithCompPretty = simpleEnv & do
-                      c <- compile zipWithInfo1 zipWithMatrix1
-                      prettyCore nms (-1) zipWithK c
- where nms = filter (`notElem` ["f","l1","l2"]) names
+                      c <- plamBranch zipWithDef
+                      prettyCore names (-1) (const . pure . text) c
 
-fooCases = [ [ ConP nilg [], TupP [WildcardP,  SigP ()] ]
-           , [ ConP consg [SigP (), WildcardP], WildcardP ]
-           ]
-
-fooMatrix = PMatrix (transpose fooCases) [Trivial, Trivial]
-  [ Scope . pure . B $ ArgPP 1 (FieldPP 1 LeafPP)
-  , Scope . pure . B $ ArgPP 0 (FieldPP 1 LeafPP)
+fooDef :: [([P (Annot k t) String], [(Maybe (Core String), Core String)])]
+fooDef =
+  [ ([conp nilg [], tup [_p, "x"]], [(Nothing, "x")])
+  , ([conp consg ["x", _p], _p], [(Nothing, "x")])
   ]
 
-fooInfo = CInfo (HM.fromList [ (ArgPP 0 LeafPP, pure . B $ 0)
-                             , (ArgPP 1 LeafPP, pure . B $ 1)
-                             ])
-                (fmap (pure . B) [0,1])
-                (fmap argPP [0,1])
+fooCompPretty = simpleEnv & do
+                  c <- plamBranch fooDef
+                  prettyCore names (-1) (const . pure . text) c
 
-fooK (B 0) _ = pure . text $ "l"
-fooK (B 1) _ = pure . text $ "p"
-fooK (F s) _ = pure . text $ s
-
-fooCompPretty = simpleEnv & do c <- compile fooInfo fooMatrix ; prettyCore nms (-1) fooK c
- where nms = filter (`notElem` ["l","p"]) names
-
-filterCases =
-  [ [ SigP (),   ConP consg [SigP (), SigP ()] ]
-  , [ WildcardP, ConP consg [SigP (), SigP ()] ]
-  , [ WildcardP, ConP nilg [] ]
+filterDef :: [([P (Annot k t) String], [(Maybe (Core String), Core String)])]
+filterDef =
+  [ (["p", conp consg ["x", "xs"]],
+        [ (Just (apps "p" ["x"]), Data 1 ["x", apps "filter" ["p", "xs"]])
+        , (Nothing, apps "filter" ["p", "xs"])
+        ])
+  , ([_p, _p], [(Nothing, Data 0 [])])
   ]
-
-filterMatrix :: PMatrix () (Var Int String)
-filterMatrix = PMatrix (transpose filterCases) [g, Trivial, Trivial]
-  [ Scope $ Data 1 [x, apps fltr [p, xs]]
-  , Scope $ apps fltr [p, xs]
-  , Scope $ Data 0 []
-  ]
- where
- g  = Explicit . Scope $ apps p [x]
- p  = pure . B $ ArgPP 0 LeafPP
- x  = pure . B . ArgPP 1 $ FieldPP 0 LeafPP
- xs = pure . B . ArgPP 1 $ FieldPP 1 LeafPP
- fltr = pure . F . pure . F $ "filter"
-
-filterInfo :: CompileInfo (Var Int String)
-filterInfo = CInfo (HM.fromList [ (ArgPP 0 LeafPP, pure . B $ 0)
-                                , (ArgPP 1 LeafPP, pure . B $ 1)
-                                ])
-                   (fmap (pure . B) [0,1])
-                   (fmap argPP [0,1])
-
-filterK (B 0) _ = pure . text $ "p"
-filterK (B 1) _ = pure . text $ "l"
-filterK (F s) _ = pure . text $ s
 
 filterCompPretty = simpleEnv & do
-                     c <- compile filterInfo filterMatrix
-                     prettyCore nms (-1) filterK c
- where nms = filter (`notElem` ["l","p"]) names
+                     c <- plamBranch filterDef
+                     prettyCore names (-1) (const . pure . text) c
