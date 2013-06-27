@@ -25,16 +25,28 @@ import Ermine.Syntax.Pattern
 import Ermine.Syntax.Pattern.Compiler
 import Ermine.Syntax.Term as Term hiding (Explicit)
 
-nilg :: Global
 nilg = glob Idfix "ermine" "Data.List" "Nil"
-
-consg :: Global
 consg = glob Idfix "ermine" "Data.List" "Cons"
+listSig = HM.fromList [(nilg, 0), (consg, 1)]
+
+noneg = glob Idfix "ermine" "Data.Maybe" "Nothing"
+someg = glob Idfix "ermine" "Data.Maybe" "Just"
+maySig = HM.fromList [(noneg, 0), (someg, 1)]
+
+leftg = glob Idfix "ermine" "Data.Either" "Left"
+rightg = glob Idfix "ermine" "Data.Either" "Right"
+eitherSig = HM.fromList [(leftg, 0), (rightg, 1)]
+
+thisg = glob Idfix "ermine" "Data.Which" "This"
+thatg = glob Idfix "ermine" "Data.Which" "That"
+theseg = glob Idfix "ermine" "Data.Which" "These"
+whichSig = HM.fromList [(thisg, 0), (thatg, 1), (theseg, 2)]
 
 simpleEnv :: PCompEnv
-simpleEnv = PCompEnv $ lst <$ lst
- where
- lst = HM.fromList [(nilg, 0), (consg, 1)]
+simpleEnv = PCompEnv $ (listSig <$ listSig)
+            `HM.union` (maySig <$ maySig)
+            `HM.union` (eitherSig <$ eitherSig)
+            `HM.union` (whichSig <$ whichSig)
 
 zipWithCases1 :: [[Pattern ()]]
 zipWithCases1 = [ [ SigP (),   ConP consg [SigP (), SigP ()], ConP consg [SigP (), SigP ()] ]
