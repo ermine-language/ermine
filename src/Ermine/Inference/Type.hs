@@ -32,12 +32,14 @@ import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Traversable
-import Ermine.Builtin.Type as Builtin
+import Ermine.Builtin.Pattern as Pattern
+import Ermine.Builtin.Type as Type
 import Ermine.Syntax
 import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
+import Ermine.Syntax.Pattern as Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
@@ -105,14 +107,14 @@ inferHardType Hole = do
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
-literalType Int{}    = Builtin.int
+literalType Int{}    = Type.int
 literalType Long{}   = long
 literalType Byte{}   = byte
 literalType Short{}  = short
-literalType String{} = Builtin.string
-literalType Char{}   = Builtin.char
-literalType Float{}  = Builtin.float
-literalType Double{} = Builtin.double
+literalType String{} = Type.string
+literalType Char{}   = Type.char
+literalType Float{}  = Type.float
+literalType Double{} = Type.double
 
 unfurl :: MonadMeta s m => TypeM s -> Core Id -> m (WitnessM s)
 unfurl (Forall ks ts cs bd) co = do
@@ -134,3 +136,14 @@ unfurlConstraints (Exists ks ts cs) = do
   mts <- for ts $ newMeta . instantiateVars mks . extract
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
+
+inferPatternType :: MonadMeta s m => Pattern (TypeM s) -> m (Binder (TypeM s) (TypeM s))
+inferPatternType (SigP t)    = pure $ noted t
+inferPatternType WildcardP   = noted . pure <$> newMeta star
+inferPatternType (AsP p)     = note <$> inferPatternType p
+inferPatternType (StrictP p) = inferPatternType p
+inferPatternType (LazyP p)   = inferPatternType p
+inferPatternType (TupP ps)   = fmap (apps . tuple $ length ps) . sequenceA
+                           <$> traverse inferPatternType ps
+inferPatternType (LitP l)    = pure . pure $ literalType l
+inferPatternType (ConP _ _ ) = undefined

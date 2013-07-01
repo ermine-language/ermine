@@ -17,6 +17,8 @@
 --------------------------------------------------------------------
 module Ermine.Builtin.Pattern
   ( Binder(..)
+  , note
+  , noted
   , P
   , varp
   , sigp
@@ -47,6 +49,16 @@ import Ermine.Syntax.Type
 
 data Binder v a = Binder { vars :: [v], item :: a }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+-- | If the annotation and item types correspond, we can push the item
+-- onto the annotations
+note :: Binder v v -> Binder v v
+note (Binder vs v) = Binder (v:vs) v
+
+-- | Injects a value into a binder, placing the value in the annotations as
+-- well.
+noted :: v -> Binder v v
+noted = note . pure
 
 instance Applicative (Binder v) where
   pure = Binder []
