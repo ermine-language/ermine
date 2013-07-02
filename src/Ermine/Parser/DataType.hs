@@ -30,9 +30,11 @@ import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
+-- | Abstract from a list of bound variables
 abstractSimple :: Eq v => [v] -> v -> Var Int v
 abstractSimple l v = maybe (F v) B $ elemIndex v l
 
+-- | Parse a data constructor
 constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe Text) Text)
 constr = build . fromMaybe ([], [])
      <$> optional (quantifier "forall")
@@ -44,6 +46,7 @@ constr = build . fromMaybe ([], [])
   ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ stringHint tn) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
+-- | Data a data declaration
 dataType :: (Monad m, TokenParsing m) => m (DataType () Text)
 dataType = build <$ symbol "data"
        <*> globalIdent typeCon

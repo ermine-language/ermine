@@ -1,6 +1,6 @@
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -31,6 +31,6 @@ kind0 = parens kind
     <|> constraint <$ reserve kindIdent "Γ"
     <|> Var <$> kindIdentifier
 
--- | Parse a 'Kind'.
+-- | Parse a 'Kind'
 kind :: (Monad m, TokenParsing m) => m (Kind Text)
 kind = chainr1 kind0 ((:->) <$ symbol "->")
