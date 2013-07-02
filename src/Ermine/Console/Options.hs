@@ -21,13 +21,14 @@ import Data.Data
 import Options.Applicative
 import Paths_ermine
 
--- enable/disable EKG
+-- | Enable/disable EKG
 data MonitorOptions = MonitorOptions
   { _monitorHost    :: String
   , _monitorPort    :: Int
   , _monitorEnabled :: Bool
   } deriving (Eq,Ord,Show,Read,Data,Typeable)
 
+-- | Parse EKG configuration
 parseMonitorOptions :: Parser MonitorOptions
 parseMonitorOptions = MonitorOptions
   <$> strOption (long "ekg-host" <> short 'h' <> help "host for the EKG server" <> metavar "HOST" <> action "hostname" <> value "localhost")
@@ -36,6 +37,7 @@ parseMonitorOptions = MonitorOptions
 
 makeClassy ''MonitorOptions
 
+-- | All command line options.
 data Options = Options
   { _optionsMonitorOptions :: MonitorOptions
   , _libdir :: FilePath
@@ -47,6 +49,7 @@ makeClassy ''Options
 instance HasMonitorOptions Options where
   monitorOptions = optionsMonitorOptions
 
+-- | Generate the command line option parser
 parseOptions :: IO (Parser Options)
 parseOptions = do
   dd <- getDataDir
