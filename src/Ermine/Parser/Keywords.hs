@@ -12,6 +12,7 @@ module Ermine.Parser.Keywords where
 import Data.HashSet
 import Data.Monoid
 
+-- | This is the set of keywords that can only occur at the beginning of the line for auto-completion purposes.
 startingKeywords :: HashSet String
 startingKeywords = fromList
   [ "abstract"
@@ -27,6 +28,7 @@ startingKeywords = fromList
   , "type"
   ]
 
+-- | This is the set of keywords that can occur anywhere on the line for auto-completion purposes.
 otherKeywords :: HashSet String
 otherKeywords = fromList
   [ "case"
@@ -55,5 +57,8 @@ otherKeywords = fromList
   , "φ"
   ]
 
+-- | The set of all keywords.
+--
+-- @'keywords' = 'startingKeywords' '<>' 'otherKeywords'@
 keywords :: HashSet String
 keywords = startingKeywords <> otherKeywords

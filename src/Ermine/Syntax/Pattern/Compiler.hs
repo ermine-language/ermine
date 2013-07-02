@@ -7,6 +7,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 --------------------------------------------------------------------
 -- |
@@ -20,17 +22,13 @@
 module Ermine.Syntax.Pattern.Compiler
   ( Guard(..)
   , PMatrix(..)
+  , HasPMatrix(..)
   , PCompEnv(..)
   , MonadPComp(..)
   , isSignature
   , constructorTag
   , CompileInfo(..)
-  , pathMap
-  , colCores
-  , colPaths
-  , cols
-  , guards
-  , bodies
+  , HasCompileInfo(..)
   , defaultOn
   , splitOn
   , compile
@@ -122,7 +120,7 @@ data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
                            , _colPaths :: [PatPaths]
                            }
 
-makeLenses ''CompileInfo
+makeClassy ''CompileInfo
 
 -- | 'remove i' removes the ith column of the CompileInfo. This is for use
 -- when compiling the default case for a column, and thus the resulting
@@ -162,7 +160,7 @@ data PMatrix t a = PMatrix { _cols     :: [[Pattern t]]
                            }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-makeLenses ''PMatrix
+makeClassy ''PMatrix
 
 -- | A helper function to make a more deeply nested core.
 promote :: (Functor f, Functor g) => f (g a) -> f (g (Var b (Core a)))

@@ -20,10 +20,12 @@ import Data.Default
 import Data.Set as Set
 import Data.Monoid
 
+-- | The monad in which we perform our console interactions
 type Console = StateT ConsoleState IO
 
+-- | The extra state we need in order to perform auto-completion in the console
 newtype ConsoleState = ConsoleState
-  { _consoleIds :: Set String
+  { _consoleIds :: Set String -- ^ The set of extra names that are in scope for auto-completion.
   }
 
 instance Default ConsoleState where

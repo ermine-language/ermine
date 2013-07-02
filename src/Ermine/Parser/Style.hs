@@ -81,6 +81,10 @@ capital = IdentifierStyle
         , _styleReservedHighlight = ReservedConstructor
         }
 
-termCon, typeCon :: TokenParsing m => IdentifierStyle m
+-- | Specifies the data constructor identifier style
+termCon :: TokenParsing m => IdentifierStyle m
 termCon = capital & styleName .~ "term constructor"
+
+-- | Specifies the type constructor identifier style
+typeCon :: TokenParsing m => IdentifierStyle m
 typeCon = capital & styleName .~ "type constructor"
