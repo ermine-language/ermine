@@ -7,6 +7,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 --------------------------------------------------------------------
 -- |
@@ -20,17 +22,13 @@
 module Ermine.Syntax.Pattern.Compiler
   ( Guard(..)
   , PMatrix(..)
+  , HasPMatrix(..)
   , PCompEnv(..)
   , MonadPComp(..)
   , isSignature
   , constructorTag
   , CompileInfo(..)
-  , pathMap
-  , colCores
-  , colPaths
-  , cols
-  , guards
-  , bodies
+  , HasCompileInfo(..)
   , defaultOn
   , splitOn
   , compile
@@ -94,7 +92,7 @@ data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
                            , _colPaths :: [PatPaths]
                            }
 
-makeLenses ''CompileInfo
+makeClassy ''CompileInfo
 
 remove :: Int -> CompileInfo a -> CompileInfo (Var () (Core a))
 remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
@@ -128,7 +126,7 @@ data PMatrix t a = PMatrix { _cols     :: [[Pattern t]]
                            }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-makeLenses ''PMatrix
+makeClassy ''PMatrix
 
 promote :: (Functor f, Functor g) => f (g a) -> f (g (Var b (Core a)))
 promote = fmap . fmap $ F . pure
