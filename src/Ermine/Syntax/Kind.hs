@@ -35,6 +35,7 @@ module Ermine.Syntax.Kind
 
 import Bound
 import Bound.Scope
+import Bound.Var
 import Control.Applicative
 import Control.Lens
 import Control.Monad
