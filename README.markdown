@@ -16,8 +16,8 @@ Ermine
 
 This is an experimental compiler for the Ermine programming language developed at McGraw Hill Financial.
 
-* [Haddocks](http://ekmett.github.com/ermine)
-* [Wiki](http://github.com/ekmett/ermine/wiki)
+* [Haddocks](http://ermine-language.github.com/ermine)
+* [Wiki](http://github.com/ermine-language/ermine/wiki)
 
 Contact Information
 -------------------
