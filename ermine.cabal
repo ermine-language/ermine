@@ -9,7 +9,7 @@ maintainer:    Edward A. Kmett <ekmett@gmail.com>
 stability:     provisional
 homepage:      http://github.com/ekmett/ermine
 bug-reports:   http://github.com/ekmett/ermine/issues
-copyright:     Copyright (C) 2010-2013 S&P Capital IQ
+copyright:     Copyright (C) 2010-2013 McGraw Hill Financial
 synopsis:      Ermine
 description:
     This is a port of the compiler for the Ermine functional programming language from Scala.
@@ -22,7 +22,7 @@ description:
     >         ,/ / ;;  ;;;______;;;  ;;; ::,`    / __/_____ _  ( )__  __
     >         /;; _;;   ;;;       ;       ;     / _//`__/  ' \/ /`_ \/ -)
     >         | :/ / ,;'           ;_ "")/     /___/_/ /_/_/_/_/_//_/\__/ 0.6
-    >         ; ; / /"""=            \;;\\""=  Copyright (C) 2010-13 S&P Capital IQ
+    >         ; ; / /"""=            \;;\\""=  Copyright (C) 2010-13 McGraw Hill Financial
     >      ;"""';\::""""""=            \\"""=
     >      \/"""
     .

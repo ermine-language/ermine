@@ -33,7 +33,7 @@ version = showVersion Paths_ermine.version { versionTags = ["α"] }
 
 -- | Grab the copyright message
 copyright :: String
-copyright = "© 2010-2013 S&P Capital IQ"
+copyright = "© 2010-2013 McGraw Hill Financial"
 
 allrights :: String
 allrights = "All Rights Reserved"
