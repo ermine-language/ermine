@@ -54,15 +54,30 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 
+-- | The environment necessary to perform pattern compilation. We need two
+-- pieces of information:
+--
+--   1) The signatures (full list of constructors) associated with each
+--      particular constructor
+--   2) A mapping from constructors to their Core integer tag
+--
+-- This is accomplished via a map of maps. The outer map should take each
+-- global to its associated signature, and signatures are represented as
+-- maps from globals to integer tags.
 newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Int) }
   deriving (Eq, Show)
 
+-- | Monads that allow us to perform pattern compilation, by providing
+-- a PCompEnv.
 class (Applicative m, Monad m) => MonadPComp m where
   askPComp :: m PCompEnv
 
 instance MonadPComp ((->) PCompEnv) where
   askPComp = id
 
+-- | Determines whether a set of pattern heads constitutes a signature.
+-- This is handled specially for tuples and literals, and relies on the
+-- monad for data type constructors.
 isSignature :: MonadPComp m => Set PatHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
@@ -72,6 +87,8 @@ isSignature ps = case preview folded ps of
     Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
 
+-- | Looks up the constructor tag for a pattern head. For tuples this is
+-- always 0, but constructors must consult the compilation environment.
 constructorTag :: MonadPComp m => PatHead -> m Int
 constructorTag (TupH _) = pure 0
 constructorTag (ConH _ g) = askPComp <&> \env ->
@@ -87,6 +104,17 @@ data Guard a = Trivial | Explicit (Scope PatPath Core a)
 
 makePrisms ''Guard
 
+-- | Additional information needed for pattern compilation that does not
+-- really belong in the pattern matrix.
+--
+-- The pathMap stores information for resolving previous levels of the
+-- pattern to appropriate cores for the current context.
+--
+-- colCores contains core terms that refer to each of the columns of the
+-- matrix in the current context.
+--
+-- colPaths contains the paths into the original pattern that correspond to
+-- each of the current columns.
 data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
                            , _colCores :: [Core a]
                            , _colPaths :: [PatPaths]
@@ -94,6 +122,9 @@ data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
 
 makeClassy ''CompileInfo
 
+-- | 'remove i' removes the ith column of the CompileInfo. This is for use
+-- when compiling the default case for a column, and thus the resulting
+-- CompileInfo is lifted to be used in such a context.
 remove :: Int -> CompileInfo a -> CompileInfo (Var () (Core a))
 remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
@@ -102,6 +133,9 @@ remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
           (pl ++ pr)
   _ -> error "PANIC: remove: bad column reference"
 
+-- | 'expand i n' expands the ith column of a pattern into n columns. This
+-- is for use when compiling a constructor case of a pattern, and thus the
+-- CompileInfo returned is prepared to be used in such a case.
 expand :: Int -> Int -> CompileInfo a -> CompileInfo (Var Int (Core a))
 expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
@@ -128,12 +162,18 @@ data PMatrix t a = PMatrix { _cols     :: [[Pattern t]]
 
 makeClassy ''PMatrix
 
+-- | A helper function to make a more deeply nested core.
 promote :: (Functor f, Functor g) => f (g a) -> f (g (Var b (Core a)))
 promote = fmap . fmap $ F . pure
 
+-- | This lifts a CompileInfo to work under one additional scope. This is
+-- necessary when we compile a guard, which eliminates a row, but leaves
+-- all columns in place.
 bump :: CompileInfo a -> CompileInfo (Var Int (Core a))
 bump (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
 
+-- | Computes the matrix that should be used recursively when defaulting on
+-- the specified column.
 defaultOn :: Int -> PMatrix t a -> PMatrix t (Var () (Core a))
 defaultOn i (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
@@ -141,6 +181,8 @@ defaultOn i (PMatrix ps gs cs)
     in PMatrix (map select $ ls ++ rs) (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
+-- | Computes the matrix that should be used recursively when defaulting on
+-- the specified column, with the given pattern head.
 splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Int (Core a))
 splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
@@ -155,11 +197,14 @@ splitOn i hd (PMatrix ps gs cs)
                (promote $ select gs) (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
+-- | Removes the first row of the pattern matrix, and prepares it to be
+-- used in a context with a guard.
 peel :: PMatrix t a -> PMatrix t (Var Int (Core a))
 peel (PMatrix ps (_:gs) (_:bs)) =
   PMatrix (map (drop 1) ps) (promote gs) (promote bs)
 peel _ = error "PANIC: peel: malformed pattern matrix."
 
+-- | Computes the set of heads of the given patterns.
 patternHeads :: [Pattern t] -> Set PatHead
 patternHeads = setOf (traverse.patternHead)
 
