@@ -24,6 +24,7 @@ module Ermine.Inference.Type
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
