@@ -1,6 +1,7 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -19,7 +20,10 @@ module Ermine.Syntax.Core
   (
   -- * Core Terms
     Core(..)
+  , AsAppDict(..)
+  , appDicts
   , HardCore(..)
+  , AsHardCore(..)
   , Lit(..)
   , super
   , slot
@@ -111,6 +115,26 @@ data HardCore
   | Error   !String
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
+class AsHardCore c where
+  _HardCore :: Prism' c HardCore
+
+  _Lit   :: Prism' c Literal
+  _Lit = _HardCore._Lit
+  _Error :: Prism' c String
+  _Error = _HardCore._Error
+  _Super :: Prism' c Int
+  _Super = _HardCore._Super
+  _Slot  :: Prism' c Int
+  _Slot = _HardCore._Slot
+
+instance AsHardCore HardCore where
+  _HardCore = id
+
+  _Lit = prism Lit $ \case Lit l -> Right l ; hc -> Left hc
+  _Error = prism Error $ \case Error l -> Right l ; hc -> Left hc
+  _Super = prism Super $ \case Super l -> Right l ; hc -> Left hc
+  _Slot = prism Slot $ \case Slot l -> Right l ; hc -> Left hc
+
 instance Hashable HardCore
 
 instance Serial HardCore where
@@ -151,11 +175,25 @@ data Core a
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
 
+instance AsHardCore (Core a) where
+  _HardCore = prism HardCore $ \c -> case c of
+    HardCore hc -> Right hc
+    _           -> Left c
+
 super :: Int -> Core a -> Core a
 super i = (HardCore (Super i) `AppDict`)
 
 slot :: Int -> Core a -> Core a
 slot i = (HardCore (Slot i) `AppDict`)
+
+class AsAppDict c where
+  _AppDict :: Prism' c (c, c)
+
+instance AsAppDict (Core a) where
+  _AppDict = prism (uncurry AppDict) $ \case AppDict f d -> Right (f, d) ; c -> Left c
+
+appDicts :: AsAppDict c => c -> [c] -> c
+appDicts = Prelude.foldl (curry $ review _AppDict)
 
 instance (Hashable a, Hashable b) => Hashable (Map a b) where
   hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
