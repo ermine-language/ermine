@@ -61,6 +61,11 @@ flag optimized
   manual: True
   default: False
 
+-- `cabal install -f-core-echo` disables building the core-echo tool.
+flag core-echo
+  manual: True
+  default: True
+
 -- `cabal install -f-repl` to disable compiling the repl
 flag repl
   manual: True
@@ -184,8 +189,34 @@ library
   if flag(q)
     ghc-options: -v0
 
+executable core-echo
+  hs-source-dirs: echo
+  main-is: Main.hs
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
+
+  if flag(optimized)
+    ghc-options: -funbox-strict-fields -O2
+
+  if !flag(core-echo)
+    buildable: False
+  else
+    build-depends:
+      base < 5,
+      bytestring,
+      containers,
+      data-default,
+      ekg,
+      ermine,
+      filepath,
+      haskeline,
+      lens,
+      MonadCatchIO-transformers,
+      mtl,
+      optparse-applicative,
+      unordered-containers
 
 executable ermine
+  hs-source-dirs: repl
   main-is: Main.hs
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
 
