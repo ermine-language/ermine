@@ -202,6 +202,7 @@ executable core-echo
   else
     build-depends:
       base < 5,
+      binary,
       bytestring,
       containers,
       data-default,
