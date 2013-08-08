@@ -1,12 +1,13 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
@@ -22,34 +23,35 @@ module Ermine.Inference.Witness
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Lens
+import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
 import Data.Typeable
 import Ermine.Syntax.Core
-import Ermine.Syntax.Id
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import GHC.Generics
 import Prelude.Extras
 
-data Witness k a = Witness
-  { _witnessRowConstraints :: [Type k a]
-  , _witnessType :: !(Type k a)
-  , _witnessCore :: !(Core (Var Id (Type k a)))
-  } deriving (Show, Eq, Functor, Foldable, Traversable, Typeable, Generic)
+data Witness t a = Witness
+  { _witnessRowConstraints :: [t]
+  , _witnessType :: !t
+  , _witnessCore :: !(Core (Var a t))
+  } deriving (Show, Eq, Typeable, Generic)
 
 makeClassy ''Witness
 
-witnessTypes :: Traversal (Witness k a) (Witness k' b) (Type k a) (Type k' b)
+witnessTypes :: Traversal (Witness t a) (Witness t' a) t t'
 witnessTypes f (Witness rcs t c) = Witness <$> traverse f rcs <*> f t <*> traverse (traverse f) c
 
-instance HasTypeVars (Witness k a) (Witness k b) a b where
+instance HasTypeVars t t' v v' => HasTypeVars (Witness t a) (Witness t' a) v v' where
   typeVars = witnessTypes.typeVars
 
-instance HasKindVars (Witness k a) (Witness k' a) k k' where
+instance HasKindVars t t' v v' => HasKindVars (Witness t a) (Witness t' a) v v' where
   kindVars = witnessTypes.kindVars
 
 instance Eq2 Witness
@@ -58,6 +60,15 @@ instance Eq k => Eq1 (Witness k)
 instance Show2 Witness
 instance Show k => Show1 (Witness k)
 
+instance Functor (Witness t) where
+  fmap f (Witness ts t cs) = Witness ts t (fmap (first f) cs)
+
+instance Foldable (Witness t) where
+  foldMap f (Witness _ _ cs) = foldMap (foldMapOf _B f) cs
+
+instance Traversable (Witness t) where
+  traverse f (Witness t ts cs) = Witness t ts <$> traverse (_B f) cs
+
 instance Bifunctor Witness where
   bimap = bimapDefault
 
@@ -65,4 +76,4 @@ instance Bifoldable Witness where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Witness where
-  bitraverse f g = witnessTypes (bitraverse f g)
+  bitraverse f g (Witness ts t cs) = Witness <$> traverse f ts <*> f t <*> traverse (bitraverse g f) cs

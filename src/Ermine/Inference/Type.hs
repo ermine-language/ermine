@@ -53,7 +53,7 @@ import Ermine.Unification.Sharing
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
-type WitnessM s = Witness (MetaK s) (MetaT s)
+type WitnessM s = Witness (TypeM s) Id
 
 type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
 
