@@ -90,8 +90,12 @@
 <a name="line-81"></a>        <span class='hs-layout'>,</span> <span class='hs-sel'>_styleReservedHighlight</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>ReservedConstructor</span>
 <a name="line-82"></a>        <span class='hs-layout'>}</span>
 <a name="line-83"></a>
-<a name="line-84"></a><a name="termCon"></a><span class='hs-definition'>termCon</span><span class='hs-layout'>,</span> <span class='hs-varid'>typeCon</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>IdentifierStyle</span> <span class='hs-varid'>m</span>
-<a name="line-85"></a><span class='hs-definition'>termCon</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>capital</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>styleName</span> <span class='hs-varop'>.~</span> <span class='hs-str'>"term constructor"</span>
-<a name="line-86"></a><a name="typeCon"></a><span class='hs-definition'>typeCon</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>capital</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>styleName</span> <span class='hs-varop'>.~</span> <span class='hs-str'>"type constructor"</span>
+<a name="line-84"></a><a name="termCon"></a><span class='hs-comment'>-- | Specifies the data constructor identifier style</span>
+<a name="line-85"></a><span class='hs-definition'>termCon</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>IdentifierStyle</span> <span class='hs-varid'>m</span>
+<a name="line-86"></a><span class='hs-definition'>termCon</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>capital</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>styleName</span> <span class='hs-varop'>.~</span> <span class='hs-str'>"term constructor"</span>
+<a name="line-87"></a>
+<a name="line-88"></a><a name="typeCon"></a><span class='hs-comment'>-- | Specifies the type constructor identifier style</span>
+<a name="line-89"></a><span class='hs-definition'>typeCon</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>IdentifierStyle</span> <span class='hs-varid'>m</span>
+<a name="line-90"></a><span class='hs-definition'>typeCon</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>capital</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>styleName</span> <span class='hs-varop'>.~</span> <span class='hs-str'>"type constructor"</span>
 </pre></body>
 </html>
