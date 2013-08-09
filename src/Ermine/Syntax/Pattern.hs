@@ -110,16 +110,16 @@ _ConP' g = prism (ConP g) $ \case ConP g' ps | g == g' -> Right ps ; p -> Left p
 -- pointing at the right portion of an AsP---which is invalid unless the
 -- pattern contains redundancies.
 data PatPath = LeafPP -- ^ refer to a variable
-             | FieldPP Int PatPath -- ^ refer to the n-th subpattern of a constructor
-             | ArgPP Int PatPath -- ^ refer to the n-th pattern of many top-level patterns
+             | FieldPP Word8 PatPath -- ^ refer to the n-th subpattern of a constructor
+             | ArgPP Word8 PatPath -- ^ refer to the n-th pattern of many top-level patterns
   deriving (Eq, Ord, Show, Read, Generic)
 
 type PatPaths = Endo PatPath
 
-fieldPP :: Int -> PatPaths
+fieldPP :: Word8 -> PatPaths
 fieldPP = Endo . FieldPP
 
-argPP :: Int -> PatPaths
+argPP :: Word8 -> PatPaths
 argPP = Endo . ArgPP
 
 leafPP :: PatPaths -> PatPath
@@ -134,15 +134,15 @@ paths = go mempty
  go pp (AsP     p) = leafPP pp : go pp p
  go pp (StrictP p) = go pp p
  go pp (LazyP   p) = go pp p
- go pp (ConP _ ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
- go pp (TupP   ps) = join $ imap (\i -> go $ pp <> fieldPP i) ps
+ go pp (ConP _ ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
+ go pp (TupP   ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
  go _  _           = []
 
 -- | Returns all the paths pointing to variables in a series of patterns.
 -- The list is assumed to contain patterns in left-to-right order, and the
 -- resulting list will be in the same order.
 manyPaths :: [Pattern t] -> [PatPath]
-manyPaths = join . imap (\i -> map (ArgPP i) . paths)
+manyPaths = join . zipWith (\i -> map (ArgPP i) . paths) [0..]
 
 instance Hashable PatPath
 
