@@ -65,6 +65,7 @@ import Data.Hashable
 import Data.Monoid
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
+import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
@@ -145,13 +146,13 @@ manyPaths = join . imap (\i -> map (ArgPP i) . paths)
 
 instance Hashable PatPath
 
-data PatHead = TupH { _arity :: Int }
-             | ConH { _arity :: Int, _name :: Global }
+data PatHead = TupH { _arity :: Word8 }
+             | ConH { _arity :: Word8, _name :: Global }
   deriving (Eq, Ord, Show)
 
 makePrisms ''PatHead
 
-arity :: Lens' PatHead Int
+arity :: Lens' PatHead Word8
 arity f h = f (_arity h) <&> \y -> h { _arity = y }
 
 headName :: Traversal' PatHead Global
@@ -159,8 +160,8 @@ headName f (ConH a g) = ConH a <$> f g
 headName _ h          = pure h
 
 patternHead :: Fold (Pattern t) PatHead
-patternHead f p@(ConP g ps) = p <$ f (ConH (length ps) g)
-patternHead f p@(TupP ps)   = p <$ f (TupH $ length ps)
+patternHead f p@(ConP g ps) = p <$ f (ConH (fromIntegral $ length ps) g)
+patternHead f p@(TupP ps)   = p <$ f (TupH . fromIntegral $ length ps)
 patternHead f (AsP p)       = patternHead f p
 patternHead _ p             = pure p
 

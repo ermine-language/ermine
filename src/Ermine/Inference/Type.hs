@@ -99,7 +99,7 @@ checkType _ _ = fail "Check yourself"
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
-  vars <- replicateM n $ pure <$> newMeta star
+  vars <- replicateM (fromIntegral n) $ pure <$> newMeta star
   return $ Witness [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star

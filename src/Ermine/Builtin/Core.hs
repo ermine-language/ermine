@@ -30,7 +30,7 @@ import Ermine.Syntax.Pattern.Compiler
 plam :: (Eq v, MonadPComp m) => [P t v] -> Core v -> m (Core v)
 plam ps body = Lam n . Scope <$> compile ci pm
  where
- n = length ps
+ n = fromIntegral $ length ps
  assocs = iconcatMap (\i (Binder vs p) -> zip vs . map (ArgPP i) $ paths p) ps
  pm = PMatrix (map (pure . extract) ps)
               [Trivial]
@@ -42,7 +42,7 @@ plamBranch bs | null bs = pure . HardCore $ Error "Empty lambda branch"
               | any ((/= n) . length) ps = pure . HardCore $ Error "Non-uniform patterns"
               | otherwise = Lam n . Scope <$> compile ci pm
  where (bps, gs, cs) = unzip3 $ bs >>= \(bp, gcs) -> map (uncurry (bp,,)) gcs
-       n  = length $ head ps
+       n  = fromIntegral . length $ head ps
        ps = map (map extract) bps
        is = map (iconcatMap (\i (Binder vs p) -> zip vs . map (ArgPP i) $ paths p)) bps
        mkguard _ Nothing  = Trivial
