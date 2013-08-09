@@ -95,7 +95,7 @@ class Lit a where
   lits = Prelude.foldr (Lens.cons . lit) nil
 
 instance Lit Int64 where lit l = HardCore . Lit $ Long l
-instance Lit Int where lit i = HardCore . Lit $ Int i
+instance Lit Int32 where lit i = HardCore . Lit $ Int i
 instance Lit Char where
   lit c = HardCore . Lit $ Char c
   lits s = HardCore . Lit $ String s
@@ -109,8 +109,8 @@ instance Lit a => Lit (Maybe a) where
   lit = maybe nothing (just . lit)
 
 data HardCore
-  = Super   !Int
-  | Slot    !Int
+  = Super   !Word8
+  | Slot    !Word8
   | Lit     !Literal
   | Error   !String
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
@@ -122,9 +122,9 @@ class AsHardCore c where
   _Lit = _HardCore._Lit
   _Error :: Prism' c String
   _Error = _HardCore._Error
-  _Super :: Prism' c Int
+  _Super :: Prism' c Word8
   _Super = _HardCore._Super
-  _Slot  :: Prism' c Int
+  _Slot  :: Prism' c Word8
   _Slot = _HardCore._Slot
 
 instance AsHardCore HardCore where
@@ -165,12 +165,12 @@ instance Serialize HardCore where
 data Core a
   = Var a
   | HardCore !HardCore
-  | Data !Int [Core a]
+  | Data !Word8 [Core a]
   | App !(Core a) !(Core a)
-  | Lam !Int !(Scope Int Core a)
-  | Let [Scope Int Core a] !(Scope Int Core a)
-  | Case !(Core a) (Map Int (Int, Scope Int Core a)) (Maybe (Scope () Core a))
-  | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
+  | Lam !Word8 !(Scope Word8 Core a)
+  | Let [Scope Word8 Core a] !(Scope Word8 Core a)
+  | Case !(Core a) (Map Word8 (Word8, Scope Word8 Core a)) (Maybe (Scope () Core a))
+  | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)

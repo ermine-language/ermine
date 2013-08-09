@@ -28,7 +28,7 @@ import GHC.Generics
 
 -- | Primitive literal values used by patterns, terms and core.
 data Literal
-  = Int     !Int
+  = Int     !Int32
   | Long    !Int64
   | Byte    !Int8
   | Short   !Int16
