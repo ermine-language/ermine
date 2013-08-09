@@ -24,12 +24,17 @@ import Control.Monad.Reader.Class
 import Control.Monad.State.Class
 import Control.Monad.Trans.Class
 import Control.Monad.IO.Class
+import Control.Comonad
 import Data.Foldable
 import Data.Monoid
 import Data.Traversable
 
 data Shared a = Shared !Bool a
   deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable)
+
+instance Comonad Shared where
+  extract (Shared _ a) = a
+  extend f s@(Shared b _) = Shared b (f s)
 
 -- An efficient strict-in-the-monoid version of WriterT Any@
 newtype SharingT m a = SharingT { unsharingT :: m (Shared a) }
