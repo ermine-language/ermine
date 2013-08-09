@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012,2013
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -19,7 +19,7 @@
 -- *
 --
 -- >>> infer (list list)
--- *** Exception: (interactive):1:1: error: kind mismatch
+-- *** Exception: kind mismatch
 --------------------------------------------------------------------
 module Ermine.Builtin.Type
   (
@@ -51,8 +51,7 @@ import Ermine.Syntax.Kind as Kind
 -- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules
 -- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering Data.Functor.Identity Ermine.Pretty.Kind
 -- >>> import Ermine.Pretty (names, plain, Doc, Pretty(..))
--- >>> let showSchema :: Schema String -> Doc; showSchema s = plain $ runIdentity $ prettySchema s names $ const . Identity . pretty
--- >>> let infer :: (forall k t. Type k t) -> Doc; infer t = showSchema $ runM_ emptyRendering $ generalize =<< inferKind t
+-- >>> let infer :: (forall k t. Type k t) -> Doc; infer t = prettySchema ?? names $ runM_ emptyRendering $ generalize =<< inferKind t
 
 ------------------------------------------------------------------------------
 -- Builtin

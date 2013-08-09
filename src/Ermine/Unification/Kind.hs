@@ -49,7 +49,8 @@ import Ermine.Pretty.Kind
 -- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies
 -- >>> import Ermine.Syntax
 -- >>> import Text.Trifecta.Rendering
--- >>> let test :: (forall m s. (MonadWriter Any m, MonadMeta s m) => m (KindM s)) -> Schema b; test mk = fst $ runM_ emptyRendering (runWriterT (mk >>= generalize))
+-- >>> import Control.Comonad
+-- >>> let test :: (forall m s. (MonadWriter Any m, MonadMeta s m) => m (KindM s)) -> Schema b; test mk = extract $ runM_ emptyRendering (unsharingT (mk >>= generalize))
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
