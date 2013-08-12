@@ -1,4 +1,13 @@
 language: haskell
+
+before_install:
+  # - mkdir -p ~/.cabal && cp travis/config ~/.cabal/config && cabal update
+  - travis/cabal-apt-install --enable-tests --force
+
+script:
+  - cabal install --enable-tests
+  - hlint src --cpp-define HLINT || true # don't fail for hlint
+
 notifications:
   irc:
     channels:
