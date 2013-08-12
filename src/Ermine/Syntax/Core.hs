@@ -56,6 +56,7 @@ import qualified Data.Serialize as Serialize
 import Data.Map
 import Data.Serialize (Serialize)
 import Data.String
+import Data.Text as SText hiding (cons, length)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Literal
@@ -98,7 +99,7 @@ instance Lit Int64 where lit l = HardCore . Lit $ Long l
 instance Lit Int32 where lit i = HardCore . Lit $ Int i
 instance Lit Char where
   lit c = HardCore . Lit $ Char c
-  lits s = HardCore . Lit $ String s
+  lits s = HardCore . Lit $ String (SText.pack s)
 instance Lit Int8 where lit b = HardCore . Lit $ Byte b
 instance Lit Int16 where lit s = HardCore . Lit $ Short s
 instance (Lit a, Lit b) => Lit (a, b) where
@@ -112,7 +113,7 @@ data HardCore
   = Super   !Word8
   | Slot    !Word8
   | Lit     !Literal
-  | Error   !String
+  | Error   !SText.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 class AsHardCore c where
@@ -120,7 +121,7 @@ class AsHardCore c where
 
   _Lit   :: Prism' c Literal
   _Lit = _HardCore._Lit
-  _Error :: Prism' c String
+  _Error :: Prism' c SText.Text
   _Error = _HardCore._Error
   _Super :: Prism' c Word8
   _Super = _HardCore._Super
@@ -130,10 +131,10 @@ class AsHardCore c where
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit = prism Lit $ \case Lit l -> Right l ; hc -> Left hc
+  _Lit   = prism Lit   $ \case Lit l   -> Right l ; hc -> Left hc
   _Error = prism Error $ \case Error l -> Right l ; hc -> Left hc
   _Super = prism Super $ \case Super l -> Right l ; hc -> Left hc
-  _Slot = prism Slot $ \case Slot l -> Right l ; hc -> Left hc
+  _Slot  = prism Slot  $ \case Slot l  -> Right l ; hc -> Left hc
 
 instance Hashable HardCore
 

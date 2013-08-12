@@ -21,6 +21,7 @@ import Control.Lens
 import Control.Comonad
 import Data.List (transpose)
 import qualified Data.HashMap.Lazy as HM
+import Data.Text as SText (pack)
 import Data.Word
 import Ermine.Builtin.Pattern
 import Ermine.Syntax.Core
@@ -39,9 +40,9 @@ plam ps body = Lam n . Scope <$> compile ci pm
  ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
 
 plamBranch :: (Eq v, MonadPComp m) => [([P t v], [(Maybe (Core v), Core v)])] -> m (Core v)
-plamBranch bs | null bs = pure . HardCore $ Error "Empty lambda branch"
+plamBranch bs | null bs = pure . HardCore $ Error $ SText.pack "Empty lambda branch"
               | any ((/= n) . fromIntegral . length) ps =
-                  pure . HardCore $ Error "Non-uniform patterns"
+                  pure . HardCore $ Error $ SText.pack "Non-uniform patterns"
               | otherwise = Lam n . Scope <$> compile ci pm
  where (bps, gs, cs) = unzip3 $ bs >>= \(bp, gcs) -> map (uncurry (bp,,)) gcs
        n  = fromIntegral . length $ head ps :: Word8

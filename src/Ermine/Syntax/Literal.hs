@@ -24,6 +24,7 @@ import Data.Serialize (Serialize)
 import Data.Data hiding (Fixity(..))
 import Data.Hashable
 import Data.Int
+import Data.Text as SText
 import GHC.Generics
 
 -- | Primitive literal values used by patterns, terms and core.
@@ -32,7 +33,7 @@ data Literal
   | Long    !Int64
   | Byte    !Int8
   | Short   !Int16
-  | String  String
+  | String  SText.Text
   | Char    !Char
   | Float   !Float
   | Double  !Double

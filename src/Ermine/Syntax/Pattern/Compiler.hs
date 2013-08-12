@@ -49,6 +49,7 @@ import Data.Ord
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Set.Lens
+import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
 import Ermine.Syntax.Core
@@ -223,7 +224,7 @@ selectCol = fmap fst
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
 compile :: MonadPComp m => CompileInfo a -> PMatrix t a -> m (Core a)
-compile _  (PMatrix _  [] _)  = pure . HardCore $ Error "non-exhaustive pattern match."
+compile _  (PMatrix _  [] _)  = pure . HardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile ci pm@(PMatrix ps gs bs)
   | all (matchesTrivially . head) ps = case head gs of
     Trivial -> pure . instantiate (instantiation ci) $ head bs
