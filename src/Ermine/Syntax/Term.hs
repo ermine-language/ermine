@@ -56,6 +56,7 @@ import Data.String
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.Void
+import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -72,7 +73,7 @@ import Prelude.Extras
 data HardTerm
   = Lit Literal
   | DataCon !Global (Type Void Void)
-  | Tuple !Int      -- (,,)
+  | Tuple !Word8    -- (,,)
   | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show, Generic)
 
@@ -176,7 +177,7 @@ instance App (Term t a) where
 instance (p ~ Reviewed, f ~ Identity) => Tup p f (Term t a) where
   tupled = unto hither
    where hither [x] = x
-         hither l = apps (HardTerm . Tuple $ length l) l
+         hither l = apps (HardTerm . Tuple . fromIntegral $ length l) l
 
 instance Terminal (Term t a) where
   hardTerm = prism HardTerm $ \t -> case t of

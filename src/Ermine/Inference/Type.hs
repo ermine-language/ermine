@@ -32,6 +32,7 @@ import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.List as List (partition)
+import Data.Text as SText (pack)
 import Data.Traversable
 import Ermine.Builtin.Pattern as Pattern
 import Ermine.Builtin.Type as Type
@@ -99,12 +100,12 @@ checkType _ _ = fail "Check yourself"
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
-  vars <- replicateM n $ pure <$> newMeta star
+  vars <- replicateM (fromIntegral n) $ pure <$> newMeta star
   return $ Witness [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
-  return $ Witness [] (Type.Var tv) $ HardCore $ Core.Error $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
+  return $ Witness [] (Type.Var tv) $ HardCore $ Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
