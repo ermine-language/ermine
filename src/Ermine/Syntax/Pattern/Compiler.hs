@@ -49,7 +49,9 @@ import Data.Ord
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Set.Lens
+import Data.Text as SText (pack)
 import Data.Traversable
+import Data.Word
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
@@ -64,7 +66,7 @@ import Ermine.Syntax.Pattern
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
 -- maps from globals to integer tags.
-newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Int) }
+newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Word8) }
   deriving (Eq, Show)
 
 -- | Monads that allow us to perform pattern compilation, by providing
@@ -89,7 +91,7 @@ isSignature ps = case preview folded ps of
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadPComp m => PatHead -> m Int
+constructorTag :: MonadPComp m => PatHead -> m Word8
 constructorTag (TupH _) = pure 0
 constructorTag (ConH _ g) = askPComp <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
@@ -136,12 +138,12 @@ remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
 -- | 'expand i n' expands the ith column of a pattern into n columns. This
 -- is for use when compiling a constructor case of a pattern, and thus the
 -- CompileInfo returned is prepared to be used in such a case.
-expand :: Int -> Int -> CompileInfo a -> CompileInfo (Var Int (Core a))
+expand :: Int -> Word8 -> CompileInfo a -> CompileInfo (Var Word8 (Core a))
 expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     CInfo (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
           (map (pure . F) cl ++ map (\j -> pure $ B j) [1..n] ++ map (pure . F) cr)
-          (pl ++ map (\j -> p <> fieldPP j) [0..n-1] ++ pr)
+          (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
 instantiation :: CompileInfo a -> PatPath -> Core a
@@ -169,7 +171,7 @@ promote = fmap . fmap $ F . pure
 -- | This lifts a CompileInfo to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bump :: CompileInfo a -> CompileInfo (Var Int (Core a))
+bump :: CompileInfo a -> CompileInfo (Var Word8 (Core a))
 bump (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
 
 -- | Computes the matrix that should be used recursively when defaulting on
@@ -183,7 +185,7 @@ defaultOn i (PMatrix ps gs cs)
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
-splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Int (Core a))
+splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Word8 (Core a))
 splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
@@ -191,7 +193,7 @@ splitOn i hd (PMatrix ps gs cs)
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat ->
         if | Just ps' <- preview con pat -> [ps']
-           | matchesTrivially pat        -> [replicate (hd^.arity) WildcardP]
+           | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
            | otherwise                   -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select gs) (promote $ select cs)
@@ -199,7 +201,7 @@ splitOn i hd (PMatrix ps gs cs)
 
 -- | Removes the first row of the pattern matrix, and prepares it to be
 -- used in a context with a guard.
-peel :: PMatrix t a -> PMatrix t (Var Int (Core a))
+peel :: PMatrix t a -> PMatrix t (Var Word8 (Core a))
 peel (PMatrix ps (_:gs) (_:bs)) =
   PMatrix (map (drop 1) ps) (promote gs) (promote bs)
 peel _ = error "PANIC: peel: malformed pattern matrix."
@@ -222,7 +224,7 @@ selectCol = fmap fst
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
 compile :: MonadPComp m => CompileInfo a -> PMatrix t a -> m (Core a)
-compile _  (PMatrix _  [] _)  = pure . HardCore $ Error "non-exhaustive pattern match."
+compile _  (PMatrix _  [] _)  = pure . HardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile ci pm@(PMatrix ps gs bs)
   | all (matchesTrivially . head) ps = case head gs of
     Trivial -> pure . instantiate (instantiation ci) $ head bs

@@ -56,6 +56,7 @@ import qualified Data.Serialize as Serialize
 import Data.Map
 import Data.Serialize (Serialize)
 import Data.String
+import Data.Text as SText hiding (cons, length)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Literal
@@ -95,10 +96,10 @@ class Lit a where
   lits = Prelude.foldr (Lens.cons . lit) nil
 
 instance Lit Int64 where lit l = HardCore . Lit $ Long l
-instance Lit Int where lit i = HardCore . Lit $ Int i
+instance Lit Int32 where lit i = HardCore . Lit $ Int i
 instance Lit Char where
   lit c = HardCore . Lit $ Char c
-  lits s = HardCore . Lit $ String s
+  lits s = HardCore . Lit $ String (SText.pack s)
 instance Lit Int8 where lit b = HardCore . Lit $ Byte b
 instance Lit Int16 where lit s = HardCore . Lit $ Short s
 instance (Lit a, Lit b) => Lit (a, b) where
@@ -109,10 +110,10 @@ instance Lit a => Lit (Maybe a) where
   lit = maybe nothing (just . lit)
 
 data HardCore
-  = Super   !Int
-  | Slot    !Int
+  = Super   !Word8
+  | Slot    !Word8
   | Lit     !Literal
-  | Error   !String
+  | Error   !SText.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 class AsHardCore c where
@@ -120,20 +121,20 @@ class AsHardCore c where
 
   _Lit   :: Prism' c Literal
   _Lit = _HardCore._Lit
-  _Error :: Prism' c String
+  _Error :: Prism' c SText.Text
   _Error = _HardCore._Error
-  _Super :: Prism' c Int
+  _Super :: Prism' c Word8
   _Super = _HardCore._Super
-  _Slot  :: Prism' c Int
+  _Slot  :: Prism' c Word8
   _Slot = _HardCore._Slot
 
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit = prism Lit $ \case Lit l -> Right l ; hc -> Left hc
+  _Lit   = prism Lit   $ \case Lit l   -> Right l ; hc -> Left hc
   _Error = prism Error $ \case Error l -> Right l ; hc -> Left hc
   _Super = prism Super $ \case Super l -> Right l ; hc -> Left hc
-  _Slot = prism Slot $ \case Slot l -> Right l ; hc -> Left hc
+  _Slot  = prism Slot  $ \case Slot l  -> Right l ; hc -> Left hc
 
 instance Hashable HardCore
 
@@ -165,12 +166,12 @@ instance Serialize HardCore where
 data Core a
   = Var a
   | HardCore !HardCore
-  | Data !Int [Core a]
+  | Data !Word8 [Core a]
   | App !(Core a) !(Core a)
-  | Lam !Int !(Scope Int Core a)
-  | Let [Scope Int Core a] !(Scope Int Core a)
-  | Case !(Core a) (Map Int (Int, Scope Int Core a)) (Maybe (Scope () Core a))
-  | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
+  | Lam !Word8 !(Scope Word8 Core a)
+  | Let [Scope Word8 Core a] !(Scope Word8 Core a)
+  | Case !(Core a) (Map Word8 (Word8, Scope Word8 Core a)) (Maybe (Scope () Core a))
+  | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
   deriving (Eq,Show,Read,Functor,Foldable,Traversable)
@@ -180,10 +181,10 @@ instance AsHardCore (Core a) where
     HardCore hc -> Right hc
     _           -> Left c
 
-super :: Int -> Core a -> Core a
+super :: Word8 -> Core a -> Core a
 super i = (HardCore (Super i) `AppDict`)
 
-slot :: Int -> Core a -> Core a
+slot :: Word8 -> Core a -> Core a
 slot i = (HardCore (Slot i) `AppDict`)
 
 class AsAppDict c where
@@ -297,16 +298,17 @@ instance Read1 Core
 
 -- | smart lam constructor
 lam :: Eq a => [a] -> Core a -> Core a
-lam as t = Lam (length as) (abstract (`List.elemIndex` as) t)
+lam as t = Lam (fromIntegral $ length as)
+               (abstract (fmap fromIntegral . flip List.elemIndex as) t)
 
 -- | smart let constructor
 let_ :: Eq a => [(a, Core a)] -> Core a -> Core a
 let_ bs b = Let (abstr . snd <$> bs) (abstr b)
   where vs  = fst <$> bs
-        abstr = abstract (`List.elemIndex` vs)
+        abstr = abstract (fmap fromIntegral . flip List.elemIndex vs)
 
 -- | Builds an n-ary data constructor
-dataCon :: Int -> Int -> Core a
+dataCon :: Word8 -> Word8 -> Core a
 dataCon 0     tg = Data tg []
 dataCon arity tg = Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
 

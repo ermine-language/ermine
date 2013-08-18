@@ -28,7 +28,7 @@ import Ermine.Syntax.Term
 prettyHardTerm :: HardTerm -> Doc
 prettyHardTerm (Lit l)       = prettyLiteral l
 prettyHardTerm (DataCon g _) = prettyGlobal g
-prettyHardTerm (Tuple n)     = parens . text $ replicate (n-1) ','
+prettyHardTerm (Tuple n)     = parens . text $ replicate ((fromIntegral n)-1) ','
 prettyHardTerm Hole          = text "?{}"
 
 prettyTerm :: Applicative f

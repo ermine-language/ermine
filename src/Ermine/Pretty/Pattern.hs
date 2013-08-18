@@ -55,10 +55,10 @@ prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' path p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
 prettyPat' _    (LitP l)    _    _  = pure $ prettyLiteral l
 prettyPat' path (ConP g ps) prec kt =
-  h <$> itraverse (\i -> prettyPat' (path <> fieldPP i) ?? 11 ?? kt) ps
+  h <$> traverse (\(i,o) -> prettyPat' (path <> fieldPP i) ?? 11 ?? kt $ o) (zip [0..] ps)
  where h l = parensIf (prec > 10) $ prettyGlobal g <+> hsep l
 prettyPat' path (TupP ps)   _    kt =
-  tupled <$> itraverse (\i -> prettyPat' (path <> fieldPP i) ?? 0 ?? kt) ps
+  tupled <$> traverse (\(i,o) -> prettyPat' (path <> fieldPP i) ?? 0 ?? kt $ o) (zip [0..] ps)
 
 prettyPattern :: Applicative f
               => Pattern t -> [String] -> Int
@@ -69,7 +69,7 @@ lambdaPatterns :: Applicative f
                => [Pattern t] -> [String] -> (t -> Int -> f Doc)
                -> (HashMap PatPath String, f Doc)
 lambdaPatterns ps vs tk =
-  runPP (lsep <$> itraverse (\i -> prettyPat' (argPP i) ?? 12 ?? tk) ps) vs
+  runPP (lsep <$> traverse (\(i,o) -> prettyPat' (argPP i) ?? 12 ?? tk $ o) (zip [0..] ps)) vs
  where lsep [] = empty ; lsep l = space <> hsep l
 
 prettyAlt :: Applicative f
