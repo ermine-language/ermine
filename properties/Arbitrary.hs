@@ -206,7 +206,7 @@ instance Arbitrary PatPath where
                     ]
 
 instance Arbitrary HardCore where
-  arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary ]
+  arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary, PrimOp <$> arbitrary, Error <$> arbitrary]
 
 instance Arbitrary a => Arbitrary (Core a) where
   arbitrary = sized core' where

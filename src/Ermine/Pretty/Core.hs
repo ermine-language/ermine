@@ -27,10 +27,11 @@ import Ermine.Pretty.Literal
 import Ermine.Syntax.Core
 
 prettyHardCore :: Int -> HardCore -> Doc
-prettyHardCore _ (Super i) = text $ "super{" ++ show i ++ "}"
-prettyHardCore _ (Slot  i) = text $ "slot{" ++ show i ++ "}"
-prettyHardCore _ (Lit   l) = prettyLiteral l
-prettyHardCore n (Error s) = parensIf (n>10) . text $ "error " ++ show s
+prettyHardCore _ (Super  i) = text $ "super{" ++ show i ++ "}"
+prettyHardCore _ (Slot   i) = text $ "slot{"  ++ show i ++ "}"
+prettyHardCore _ (Lit    l) = prettyLiteral l
+prettyHardCore n (PrimOp s) = text $ "primop{" ++ show i ++ "}"
+prettyHardCore n (Error  s) = parensIf (n>10) . text $ "error " ++ show s
 
 --   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
 --   | LamDict !(Scope () Core a)

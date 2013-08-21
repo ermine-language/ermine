@@ -113,6 +113,7 @@ data HardCore
   = Super   !Word8
   | Slot    !Word8
   | Lit     !Literal
+  | PrimOp  !Stext.Text
   | Error   !SText.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
@@ -121,6 +122,8 @@ class AsHardCore c where
 
   _Lit   :: Prism' c Literal
   _Lit = _HardCore._Lit
+  _PrimOp :: Prism' c SText.Text
+  _PrimOp = _HardCore._PrimOp
   _Error :: Prism' c SText.Text
   _Error = _HardCore._Error
   _Super :: Prism' c Word8
@@ -131,24 +134,27 @@ class AsHardCore c where
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit   = prism Lit   $ \case Lit l   -> Right l ; hc -> Left hc
-  _Error = prism Error $ \case Error l -> Right l ; hc -> Left hc
-  _Super = prism Super $ \case Super l -> Right l ; hc -> Left hc
-  _Slot  = prism Slot  $ \case Slot l  -> Right l ; hc -> Left hc
+  _Lit    = prism Lit    $ \case Lit    l -> Right l ; hc -> Left hc
+  _PrimOp = prism PrimOp $ \case PrimOp l -> Right l ; hc -> Left hc
+  _Error  = prism Error  $ \case Error  l -> Right l ; hc -> Left hc
+  _Super  = prism Super  $ \case Super  l -> Right l ; hc -> Left hc
+  _Slot   = prism Slot   $ \case Slot   l -> Right l ; hc -> Left hc
 
 instance Hashable HardCore
 
 instance Serial HardCore where
-  serialize (Super i) = putWord8 0 >> serialize i
-  serialize (Slot g)  = putWord8 1 >> serialize g
-  serialize (Lit i)   = putWord8 2 >> serialize i
-  serialize (Error s) = putWord8 3 >> serialize s
+  serialize (Super i)  = putWord8 0 >> serialize i
+  serialize (Slot g)   = putWord8 1 >> serialize g
+  serialize (Lit i)    = putWord8 2 >> serialize i
+  serialize (PrimOp s) = putWord8 3 >> serialize s
+  serialize (Error s)  = putWord8 4 >> serialize s
 
   deserialize = getWord8 >>= \b -> case b of
-    0 -> liftM Super deserialize
-    1 -> liftM Slot deserialize
-    2 -> liftM Lit deserialize
-    3 -> liftM Error deserialize
+    0 -> liftM Super  deserialize
+    1 -> liftM Slot   deserialize
+    2 -> liftM Lit    deserialize
+    3 -> liftM PrimOp deserialize
+    4 -> liftM Error  deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
