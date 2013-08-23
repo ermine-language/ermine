@@ -30,7 +30,7 @@ prettyHardCore :: Int -> HardCore -> Doc
 prettyHardCore _ (Super  i) = text $ "super{" ++ show i ++ "}"
 prettyHardCore _ (Slot   i) = text $ "slot{"  ++ show i ++ "}"
 prettyHardCore _ (Lit    l) = prettyLiteral l
-prettyHardCore n (PrimOp s) = text $ "primop{" ++ show i ++ "}"
+prettyHardCore _ (PrimOp s) = text $ "primop{" ++ show s ++ "}"
 prettyHardCore n (Error  s) = parensIf (n>10) . text $ "error " ++ show s
 
 --   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }

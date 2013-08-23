@@ -113,7 +113,7 @@ data HardCore
   = Super   !Word8
   | Slot    !Word8
   | Lit     !Literal
-  | PrimOp  !Stext.Text
+  | PrimOp  !SText.Text
   | Error   !SText.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
