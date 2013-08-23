@@ -26,12 +26,22 @@ import Ermine.Pretty
 import Ermine.Pretty.Literal
 import Ermine.Syntax.Core
 
+prettyJavaLike :: JavaLike -> Doc
+prettyJavaLike (Method st cn mn args) = text $ "method{" ++ "}" -- TODO
+prettyJavaLike (Constructor cn args)  = text $ "constructor{" ++ "}" -- TODO
+prettyJavaLike (Value st cn fn)       = text $ "value{" ++ "}" -- TODO
+
+prettyForeign :: Foreign -> Doc
+prettyForeign (JavaLike j) = prettyJavaLike j
+prettyForeign (Unknown s)  = text $ "unknown{" ++ show s ++ "}"
+
 prettyHardCore :: Int -> HardCore -> Doc
-prettyHardCore _ (Super  i) = text $ "super{" ++ show i ++ "}"
-prettyHardCore _ (Slot   i) = text $ "slot{"  ++ show i ++ "}"
-prettyHardCore _ (Lit    l) = prettyLiteral l
-prettyHardCore _ (PrimOp s) = text $ "primop{" ++ show s ++ "}"
-prettyHardCore n (Error  s) = parensIf (n>10) . text $ "error " ++ show s
+prettyHardCore _ (Super   i) = text $ "super{" ++ show i ++ "}"
+prettyHardCore _ (Slot    i) = text $ "slot{"  ++ show i ++ "}"
+prettyHardCore _ (Lit     l) = prettyLiteral l
+prettyHardCore _ (PrimOp  s) = text $ "primop{" ++ show s ++ "}"
+prettyHardCore _ (Foreign f) = prettyForeign f
+prettyHardCore n (Error   s) = parensIf (n>10) . text $ "error " ++ show s
 
 --   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
 --   | LamDict !(Scope () Core a)
