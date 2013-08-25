@@ -56,6 +56,11 @@ flag properties
   manual: True
   default: True
 
+-- `cabal install --enable-tests -f-hlint` to disable properties suite
+flag hlint
+  manual: True
+  default: True
+
 -- `cabal install -foptimized` enables optimizations
 flag optimized
   manual: True
@@ -278,6 +283,19 @@ test-suite properties
       test-framework-th          >= 0.2,
       transformers,
       unordered-containers
+
+test-suite hlint
+  type: exitcode-stdio-1.0
+  main-is: hlint.hs
+  ghc-options: -w -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: tests
+
+  if !flag(hlint)
+    buildable: False
+  else
+    build-depends:
+      base,
+      hlint >= 1.7
 
 -- Verify the results of the examples
 test-suite doctests
