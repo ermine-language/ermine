@@ -22,6 +22,8 @@ module Ermine.Syntax.Core
     Core(..)
   , AsAppDict(..)
   , appDicts
+  , JavaLike(..)
+  , Foreign(..)
   , HardCore(..)
   , AsHardCore(..)
   , Lit(..)
@@ -109,11 +111,51 @@ instance Lit a => Lit [a] where
 instance Lit a => Lit (Maybe a) where
   lit = maybe nothing (just . lit)
 
+data JavaLike
+  -- | Java methods: static, class name, method name, arg class names
+  = Method !Bool !SText.Text !SText.Text [SText.Text]
+  -- | Java constructors: class name, arg class names
+  | Constructor !SText.Text [SText.Text]
+  -- | Java values: static, class name, field name
+  | Value !Bool !SText.Text !SText.Text
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
+
+instance Hashable JavaLike
+
+instance Serial JavaLike where
+  serialize (Method st cn mn args) = putWord8 0 >> serialize st >> serialize cn >> serialize mn >> serialize args
+  serialize (Constructor cn args)  = putWord8 1 >> serialize cn >> serialize args
+  serialize (Value st cn fn)       = putWord8 2 >> serialize st >> serialize cn >> serialize fn
+
+  deserialize = getWord8 >>= \b -> case b of
+    0 -> liftM4 Method deserialize deserialize deserialize deserialize
+    2 -> liftM2 Constructor deserialize deserialize
+    3 -> liftM3 Value deserialize deserialize deserialize
+    _ -> fail $ "get JavaLike: Unexpected constructor code: " ++ show b
+
+data Foreign
+  = JavaLike !JavaLike
+  | Unknown !SText.Text
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
+
+instance Serial Foreign where
+  serialize (JavaLike j) = putWord8 0 >> serialize j
+  serialize (Unknown s)  = putWord8 1 >> serialize s
+
+  deserialize = getWord8 >>= \b -> case b of
+    0 -> liftM JavaLike deserialize
+    1 -> liftM Unknown  deserialize
+    _ -> fail $ "get Foreign: Unexpected constructor code: " ++ show b
+
+
+instance Hashable Foreign
+
 data HardCore
   = Super   !Word8
   | Slot    !Word8
   | Lit     !Literal
   | PrimOp  !SText.Text
+  | Foreign !Foreign
   | Error   !SText.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
@@ -130,31 +172,36 @@ class AsHardCore c where
   _Super = _HardCore._Super
   _Slot  :: Prism' c Word8
   _Slot = _HardCore._Slot
+  _Foreign :: Prism' c Foreign
+  _Foreign = _HardCore._Foreign
 
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit    = prism Lit    $ \case Lit    l -> Right l ; hc -> Left hc
-  _PrimOp = prism PrimOp $ \case PrimOp l -> Right l ; hc -> Left hc
-  _Error  = prism Error  $ \case Error  l -> Right l ; hc -> Left hc
-  _Super  = prism Super  $ \case Super  l -> Right l ; hc -> Left hc
-  _Slot   = prism Slot   $ \case Slot   l -> Right l ; hc -> Left hc
+  _Lit     = prism Lit     $ \case Lit     l -> Right l ; hc -> Left hc
+  _PrimOp  = prism PrimOp  $ \case PrimOp  l -> Right l ; hc -> Left hc
+  _Error   = prism Error   $ \case Error   l -> Right l ; hc -> Left hc
+  _Super   = prism Super   $ \case Super   l -> Right l ; hc -> Left hc
+  _Slot    = prism Slot    $ \case Slot    l -> Right l ; hc -> Left hc
+  _Foreign = prism Foreign $ \case Foreign l -> Right l ; hc -> Left hc
 
 instance Hashable HardCore
 
 instance Serial HardCore where
-  serialize (Super i)  = putWord8 0 >> serialize i
-  serialize (Slot g)   = putWord8 1 >> serialize g
-  serialize (Lit i)    = putWord8 2 >> serialize i
-  serialize (PrimOp s) = putWord8 3 >> serialize s
-  serialize (Error s)  = putWord8 4 >> serialize s
+  serialize (Super i)   = putWord8 0 >> serialize i
+  serialize (Slot g)    = putWord8 1 >> serialize g
+  serialize (Lit i)     = putWord8 2 >> serialize i
+  serialize (PrimOp s)  = putWord8 3 >> serialize s
+  serialize (Foreign f) = putWord8 4 >> serialize f
+  serialize (Error s)   = putWord8 5 >> serialize s
 
   deserialize = getWord8 >>= \b -> case b of
-    0 -> liftM Super  deserialize
-    1 -> liftM Slot   deserialize
-    2 -> liftM Lit    deserialize
-    3 -> liftM PrimOp deserialize
-    4 -> liftM Error  deserialize
+    0 -> liftM Super   deserialize
+    1 -> liftM Slot    deserialize
+    2 -> liftM Lit     deserialize
+    3 -> liftM PrimOp  deserialize
+    4 -> liftM Foreign deserialize
+    5 -> liftM Error   deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
