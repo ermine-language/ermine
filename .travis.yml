@@ -4,10 +4,10 @@ before_install:
   # - mkdir -p ~/.cabal && cp travis/config ~/.cabal/config && cabal update
 
   # The constraint is being used because one of our dependencies wants to force TH to upgrade. Bad, dependency! bad!
-  - travis/cabal-apt-install --enable-tests --force --constraint 'template-haskell < 2.8'
+  - travis/cabal-apt-install --enable-tests --force --constraint 'template-haskell installed'
 
 script:
-  - cabal install --enable-tests --constraint 'template-haskell < 2.8'
+  - cabal install --enable-tests --constraint 'template-haskell installed'
   - hlint src --cpp-define HLINT || true # don't fail for hlint
 
 notifications:
