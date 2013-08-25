@@ -8,7 +8,6 @@ before_install:
 
 script:
   - cabal install --enable-tests --constraint 'template-haskell installed'
-  - hlint src --cpp-define HLINT || true # don't fail for hlint
 
 notifications:
   irc:
