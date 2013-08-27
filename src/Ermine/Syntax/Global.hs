@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011
@@ -41,9 +42,10 @@ import qualified Data.Serialize as Serialize
 import Data.Text
 import Data.Word
 import Ermine.Syntax.Digest
+import GHC.Generics (Generic)
 
 -- | The associativity of an infix identifier
-data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)
+data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable,Generic)
 
 -- | The fixity of an identifier
 data Fixity
@@ -51,7 +53,7 @@ data Fixity
   | Prefix !Int
   | Postfix !Int
   | Idfix
-  deriving (Eq,Ord,Show,Read,Data,Typeable)
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 -- | Pack 'Fixity' into a 'Word8'.
 --
@@ -120,7 +122,7 @@ data Global = Global
   , _globalPackage  :: !Text
   , _globalModule   :: !Text
   , _globalName     :: !Text
-  } deriving (Data, Typeable)
+  } deriving (Data, Typeable, Generic)
 
 instance Show Global where
   showsPrec d (Global _ f p m n) = showParen (d > 10) $

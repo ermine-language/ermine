@@ -57,6 +57,7 @@ import Data.Traversable
 import Data.Map as Map
 import GHC.Generics
 import Ermine.Syntax
+import Ermine.Syntax.Digest
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
 import Prelude.Extras
@@ -80,6 +81,7 @@ data HardKind
 
 instance Hashable HardKind
 instance Serial HardKind
+instance Digestable HardKind
 
 ------------------------------------------------------------------------------
 -- Kindly
@@ -123,6 +125,8 @@ data Kind a
 
 instance Hashable a => Hashable (Kind a)
 instance Hashable1 Kind
+instance Digestable k => Digestable (Kind k)
+instance Digestable1 Kind
 
 instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
@@ -234,6 +238,7 @@ data Schema a = Schema [Hint] !(Scope Int Kind a)
 
 instance Hashable a => Hashable (Schema a)
 instance Hashable1 Schema
+instance Digestable a => Digestable (Schema a)
 
 instance Fun (Schema a) where
   fun = prism hither yon

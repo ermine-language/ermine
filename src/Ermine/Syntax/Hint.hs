@@ -37,6 +37,7 @@ import Data.Hashable.Extras
 import Data.Text (Text)
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
+import Ermine.Syntax.Digest
 import GHC.Generics
 import Prelude.Extras
 
@@ -93,3 +94,7 @@ instance Serialize a => Serialize (Hinted a) where
 instance Hashable a => Hashable (Hinted a) where
   hashWithSalt s = hashWithSalt s . extract
 instance Hashable1 Hinted
+
+instance Digestable a => Digestable (Hinted a) where
+  digest c = digest c . extract
+instance Digestable1 Hinted where
