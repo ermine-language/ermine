@@ -19,8 +19,12 @@ module Ermine.Syntax.Head
   ) where
 
 import Control.Lens
+import Crypto.Classes hiding (hash)
+import Crypto.Hash.MD5 as MD5 hiding (hash)
+import Data.ByteString
 import Data.Data
 import Data.Hashable
+import Ermine.Syntax.Digest
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import Ermine.Syntax.Global
@@ -46,7 +50,8 @@ import GHC.Generics
 -- The above instance head would be represented as something like:
 --
 --   Head ... "Bar" 0 [star] [] [int, list (B 0)]
-data Head = Head { _hash           :: !Int
+data Head = Head { _headDigest     :: ByteString
+                 , _hash           :: !Int
                  , _headClass      :: !Global    -- ^ The class name for which this is an instance
                  , _headBoundKinds :: !Int       -- ^ number of kind variables brought into scope
                  , _headBoundTypes :: [Kind Int] -- ^ kinds of type variables brought into scope
@@ -63,32 +68,38 @@ instance AsHead Head where
   {-# INLINE _Head #-}
 
 instance HasGlobal Head where
-  global f = head_ $ \(Head _ g i tks ks ts) -> f g <&> \g' -> mkHead g' i tks ks ts
+  global f = head_ $ \(Head _ _ g i tks ks ts) -> f g <&> \g' -> mkHead g' i tks ks ts
 
 mkHead :: Global -> Int -> [Kind Int] -> [Kind Int] -> [Type Int Int] -> Head
-mkHead g i tks ks ts = Head (hash g `hashWithSalt` i `hashWithSalt` tks `hashWithSalt` ks `hashWithSalt` ts) g i tks ks ts
+mkHead g i tks ks ts = Head d h g i tks ks ts
+ where
+ d = MD5.finalize $ digest initialCtx g `digest` i `digest` tks `digest` ks `digest` ts
+ h = hash g `hashWithSalt` i `hashWithSalt` tks `hashWithSalt` ks `hashWithSalt` ts
 {-# INLINE mkHead #-}
 
 class HasHead t where
   head_         :: Lens' t Head
 
   headClass     :: Lens' t Global
-  headClass f = head_ $ \(Head _ g i tks ks ts) -> f g <&> \g' -> mkHead g' i tks ks ts
+  headClass f = head_ $ \(Head _ _ g i tks ks ts) -> f g <&> \g' -> mkHead g' i tks ks ts
 
   headBoundKinds :: Lens' t Int
-  headBoundKinds f = head_ $ \(Head _ g i tks ks ts) -> f i <&> \i' -> mkHead g i' tks ks ts
+  headBoundKinds f = head_ $ \(Head _ _ g i tks ks ts) -> f i <&> \i' -> mkHead g i' tks ks ts
 
   headBoundTypes :: Lens' t [Kind Int]
-  headBoundTypes f = head_ $ \(Head _ g i tks ks ts) -> f tks <&> \tks' -> mkHead g i tks' ks ts
+  headBoundTypes f = head_ $ \(Head _ _ g i tks ks ts) -> f tks <&> \tks' -> mkHead g i tks' ks ts
 
   headKindArgs :: Lens' t [Kind Int]
-  headKindArgs f = head_ $ \(Head _ g i tks ks ts) -> f ks <&> \ks' -> mkHead g i tks ks' ts
+  headKindArgs f = head_ $ \(Head _ _ g i tks ks ts) -> f ks <&> \ks' -> mkHead g i tks ks' ts
 
   headTypeArgs :: Lens' t [Type Int Int]
-  headTypeArgs f = head_ $ \(Head _ g i tks ks ts) -> f ts <&> \ts' -> mkHead g i tks ks ts'
+  headTypeArgs f = head_ $ \(Head _ _ g i tks ks ts) -> f ts <&> \ts' -> mkHead g i tks ks ts'
 
 instance HasHead Head where
   head_ = id
 
 instance Hashable Head where
-  hashWithSalt n (Head h _ _ _ _ _) = hashWithSalt n h
+  hashWithSalt n Head{_hash = h} = hashWithSalt n h
+
+instance Digestable Head where
+  digest c Head{_headDigest = d} = updateCtx c d
