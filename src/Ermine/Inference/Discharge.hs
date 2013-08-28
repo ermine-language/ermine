@@ -39,6 +39,7 @@ import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Head
 import Ermine.Syntax.Id
 import Ermine.Syntax.Instance as Instance
+import Ermine.Syntax.Name
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Meta
 

@@ -49,6 +49,7 @@ import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var)

@@ -36,6 +36,7 @@ import Data.Void
 import Ermine.Builtin.Pattern
 import Ermine.Diagnostic
 import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
 import Ermine.Syntax.Type as Type
@@ -45,7 +46,7 @@ lam (Binder vs ps) = Lam ps . abstract (`List.lookup` zip vs (manyPaths ps))
 
 -- | Construct a builtin term 'DataCon' for a given 'global' in the @\"ermine\"@ package
 dataCon :: Fixity -> String -> String -> Type Void Void -> Term t v
-dataCon f m n t = HardTerm (DataCon (glob f (pack "ermine") (pack m) (pack n)) t)
+dataCon f m n t = HardTerm (DataCon (glob f (mkModuleName (pack "ermine") (pack m)) (pack n)) t)
 
 let_ :: Eq v => Binder v [Binding t v] -> Term t v -> Term t v
 let_ (Binder vs ds) b = Let ds $ abstract (`List.elemIndex` vs) b

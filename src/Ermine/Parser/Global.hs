@@ -20,10 +20,11 @@ module Ermine.Parser.Global
 
 import Control.Applicative
 import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Text.Parser.Token
 
 -- | Parse a global identifier with the given style.
 --
 -- TODO: package/module information
 globalIdent :: (Monad m, TokenParsing m) => IdentifierStyle m -> m Global
-globalIdent style = glob Idfix "ermine" "Ermine" <$> ident style
+globalIdent style = glob Idfix (mkModuleName "ermine" "Ermine") <$> ident style

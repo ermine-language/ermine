@@ -18,10 +18,12 @@ module Ermine.Syntax.Head
   , mkHead
   ) where
 
+import Control.Applicative
 import Control.Lens
 import Crypto.Classes hiding (hash)
 import Crypto.Hash.MD5 as MD5 hiding (hash)
 import Data.ByteString
+import Data.Bytes.Serial
 import Data.Data
 import Data.Hashable
 import Ermine.Syntax.Digest
@@ -103,3 +105,15 @@ instance Hashable Head where
 
 instance Digestable Head where
   digest c Head{_headDigest = d} = updateCtx c d
+
+instance Serial Head where
+  serialize h =
+    serialize (_headDigest h)     >>
+    serialize (_hash h)           >>
+    serialize (h^.headClass)      >>
+    serialize (h^.headBoundKinds) >>
+    serialize (h^.headBoundTypes) >>
+    serialize (h^.headKindArgs)   >>
+    serialize (h^.headTypeArgs)
+  deserialize =
+    Head <$> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize
