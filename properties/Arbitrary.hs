@@ -202,23 +202,38 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
 instance Arbitrary PatPath where
   arbitrary = oneof [ pure LeafPP
                     , FieldPP <$> arbitrary <*> arbitrary
-                    , ArgPP <$> arbitrary <*> arbitrary
+                    , ArgPP   <$> arbitrary <*> arbitrary
                     ]
 
+instance Arbitrary JavaLike where
+  arbitrary = oneof [
+    Method      <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary,
+    Constructor <$> arbitrary <*> arbitrary,
+    Value       <$> arbitrary <*> arbitrary <*> arbitrary ]
+
+instance Arbitrary Foreign where
+  arbitrary = oneof [ JavaLike <$> arbitrary , JavaLike <$> arbitrary ]
+
 instance Arbitrary HardCore where
-  arbitrary = oneof [ Super  <$> arbitrary, Slot <$> arbitrary, Core.Lit <$> arbitrary, PrimOp <$> arbitrary, Error <$> arbitrary]
+  arbitrary = oneof [
+    Super    <$> arbitrary,
+    Slot     <$> arbitrary,
+    Core.Lit <$> arbitrary,
+    PrimOp   <$> arbitrary,
+    Foreign  <$> arbitrary,
+    Error    <$> arbitrary ]
 
 instance Arbitrary a => Arbitrary (Core a) where
   arbitrary = sized core' where
     core' 0 = oneof [ Core.Var <$> arbitrary, HardCore <$> arbitrary ]
     core' n = smaller $ oneof [
-      Core.Var  <$> arbitrary,
-      HardCore  <$> arbitrary,
-      Core.App  <$> arbitrary <*> arbitrary,
-      Core.Lam  <$> arbitrary <*> arbitrary,
-      Core.Let  <$> arbitrary <*> arbitrary,
-      Core.Case <$> arbitrary <*> arbitrary <*> arbitrary,
-      Core.Dict <$> arbitrary <*> arbitrary,
+      Core.Var     <$> arbitrary,
+      HardCore     <$> arbitrary,
+      Core.App     <$> arbitrary <*> arbitrary,
+      Core.Lam     <$> arbitrary <*> arbitrary,
+      Core.Let     <$> arbitrary <*> arbitrary,
+      Core.Case    <$> arbitrary <*> arbitrary <*> arbitrary,
+      Core.Dict    <$> arbitrary <*> arbitrary,
       Core.LamDict <$> arbitrary,
       Core.AppDict <$> arbitrary <*> arbitrary ]
 

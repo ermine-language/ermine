@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011
@@ -41,9 +42,12 @@ import qualified Data.Serialize as Serialize
 import Data.Text
 import Data.Word
 import Ermine.Syntax.Digest
+import Ermine.Syntax.ModuleName
+import Ermine.Syntax.Name
+import GHC.Generics (Generic)
 
 -- | The associativity of an infix identifier
-data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable)
+data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable,Generic)
 
 -- | The fixity of an identifier
 data Fixity
@@ -51,7 +55,7 @@ data Fixity
   | Prefix !Int
   | Postfix !Int
   | Idfix
-  deriving (Eq,Ord,Show,Read,Data,Typeable)
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 -- | Pack 'Fixity' into a 'Word8'.
 --
@@ -117,36 +121,43 @@ instance Digestable Fixity
 data Global = Global
   { _globalDigest   :: !ByteString
   , _globalFixity   :: !Fixity
-  , _globalPackage  :: !Text
-  , _globalModule   :: !Text
+  , _globalModule   :: !ModuleName
   , _globalName     :: !Text
-  } deriving (Data, Typeable)
+  } deriving (Data, Typeable, Generic)
 
 instance Show Global where
-  showsPrec d (Global _ f p m n) = showParen (d > 10) $
-    showString "global " . showsPrec 11 f .
-            showChar ' ' . showsPrec 11 p .
+  showsPrec d (Global _ f m n) = showParen (d > 10) $
+    showString "glob " . showsPrec 11 f .
             showChar ' ' . showsPrec 11 m .
             showChar ' ' . showsPrec 11 n
 
+instance Read Global where
+  readsPrec d = readParen (d > 10) $ \r -> do
+    ("glob", r') <- lex r
+    (f, r'') <- readsPrec 11 r'
+    (m, r''')  <- readsPrec 11 r''
+    (n, r'''') <- readsPrec 11 r'''
+    return (glob f m n, r'''')
+
 instance Serial Global where
-  serialize (Global d f p m n) = serialize d >> serialize f >> serialize p >> serialize m >> serialize n
-  deserialize = liftM5 Global deserialize deserialize deserialize deserialize deserialize
+  serialize (Global d f m n) = serialize d >> serialize f >> serialize m >> serialize n
+  deserialize = liftM4 Global deserialize deserialize deserialize deserialize
 
 instance Binary Global where
   put = serialize
   get = deserialize
 
+instance HasModuleName Global where
+  module_ g (Global _ f m n) = g m <&> \m' -> glob f m' n
+
+instance HasName Global where
+  name g (Global _ f m n) = g n <&> \n' -> glob f m n'
+
 class HasGlobal t where
   global :: Lens' t Global
   -- | A lens that will read or update the fixity (and compute a new digest)
   fixity :: Lens' t Fixity
-  fixity f = global $ \ (Global _ a p m n) -> (\a' -> glob a' p m n) <$> f a
-  -- | A lenses that will read or update part of the Global and compute a new digest as necessary.
-  packageName, moduleName, name :: Lens' t Text
-  packageName f = global $ \ (Global _ a p m n) -> (\p' -> glob a p' m n) <$> f p
-  moduleName f = global $ \ (Global _ a p m n) -> (\m' -> glob a p m' n) <$> f m
-  name f = global $ \ (Global _ a p m n) -> glob a p m <$> f n
+  fixity f = global $ \ (Global _ a m n) -> (\a' -> glob a' m n) <$> f a
 
 instance HasGlobal Global where
   global = id
@@ -170,6 +181,6 @@ instance AsGlobal Global where
   _Global = id
 
 -- | Construct a 'Global' with a correct digest.
-glob :: AsGlobal t => Fixity -> Text -> Text -> Text -> t
-glob f p m n = _Global # Global d f p m n where
-  d = MD5.finalize (digest (digest initialCtx f) [p,m,n])
+glob :: AsGlobal t => Fixity -> ModuleName -> Text -> t
+glob f m n = _Global # Global d f m n where
+  d = MD5.finalize $ digest initialCtx f `digest` m `digest` n

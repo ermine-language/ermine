@@ -49,6 +49,7 @@ import Ermine.Syntax
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import GHC.Generics hiding (Constructor)
@@ -111,6 +112,9 @@ data DataType k t =
 
 instance HasGlobal (DataType k t) where
   global = lens _dtname (\dt g -> dt { _dtname = g })
+
+instance HasName (DataType k t) where
+  name = global.name
 
 kparams :: Lens' (DataType k t) [Hint]
 kparams = lens _kparams (\dt ks -> dt { _kparams = ks })

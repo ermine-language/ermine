@@ -34,6 +34,7 @@ import Data.Set
 import Data.Text
 import Data.Typeable
 import Text.PrettyPrint.ANSI.Leijen
+import Text.Read
 import Text.Trifecta.Rendering
 import Text.Trifecta.Result
 
@@ -66,3 +67,8 @@ instance HasErr Diagnostic where
 
 instance HasRendering Diagnostic where
   rendering f (Diagnostic r p a x) = f r <&> \r' -> Diagnostic r' p a x
+
+instance Read Rendering where
+  readPrec = pfail
+
+

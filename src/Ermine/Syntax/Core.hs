@@ -131,9 +131,9 @@ instance Serial JavaLike where
   serialize (Value st cn fn)       = putWord8 2 >> serialize st >> serialize cn >> serialize fn
 
   deserialize = getWord8 >>= \b -> case b of
-    0 -> liftM4 Method deserialize deserialize deserialize deserialize
-    2 -> liftM2 Constructor deserialize deserialize
-    3 -> liftM3 Value deserialize deserialize deserialize
+    0 -> Method      <$> deserialize <*> deserialize <*> deserialize <*> deserialize
+    1 -> Constructor <$> deserialize <*> deserialize
+    2 -> Value       <$> deserialize <*> deserialize <*> deserialize
     _ -> fail $ "get JavaLike: Unexpected constructor code: " ++ show b
 
 data Foreign

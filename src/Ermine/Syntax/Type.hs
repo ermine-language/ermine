@@ -72,6 +72,7 @@ import Data.Bytes.Serial
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bitraversable
+import Data.Data
 import Data.Foldable hiding (all)
 import Data.Hashable
 import Data.Hashable.Extras
@@ -90,6 +91,7 @@ import Data.Void
 import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Digest
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
@@ -108,9 +110,10 @@ data HardType
   | Arrow      -- (->) :: * -> * -> *
   | Con !Global !(Schema Void)
   | ConcreteRho [FieldName]
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
 
 instance Hashable HardType
+instance Digestable HardType
 
 {-
 bananas :: Doc a -> Doc a
@@ -226,10 +229,25 @@ data Type k a
   | Loc !Rendering !(Type k a)
   | Exists [Hint] [Hinted (Scope Int Kind k)] (Scope Int (TK k) a)
   | And [Type k a]
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
+
+instance (Data k, Data a) => Data (Type k a) where
+  gfoldl f z (Var a) = z Var `f` a
+  gfoldl f z (App l r) = z App `f` l `f` r
+  gfoldl f z (HardType t) = z HardType `f` t
+  gfoldl f z (Forall hs ks ts b) = z Forall `f` hs `f` ks `f` ts `f` b
+  gfoldl f z (Loc l r) = z (Loc l) `f` r
+  gfoldl f z (Exists hs ks b) = z Exists `f` hs `f` ks `f` b
+  gfoldl f z (And xs) = z And `f` xs
+  toConstr _   = error "toConstr"
+  gunfold _ _  = error "gunfold"
+  dataTypeOf _ = mkNoRepType "Ermie.Syntax.Type"
+  dataCast1 f = gcast1 f
+  dataCast2 f = gcast2 f
 
 instance Hashable2 Type
 instance Hashable k => Hashable1 (Type k)
+instance Digestable k => Digestable1 (Type k)
 
 distApp, distHardType, distForall, distExists, distAnd :: Word
 distApp      = maxBound `quot` 3
@@ -246,6 +264,15 @@ instance (Hashable k, Hashable a) => Hashable (Type k a) where
   hashWithSalt n (Loc _ ty)          = hashWithSalt n ty
   hashWithSalt n (Exists k tvs cs)   = hashWithSalt n k `hashWithSalt` tvs `hashWithSalt` cs `hashWithSalt` distExists
   hashWithSalt n (And xs)            = hashWithSalt n xs `hashWithSalt` distAnd
+
+instance (Digestable k, Digestable t) => Digestable (Type k t) where
+  digest c (Var a)             = digest c (1 :: Word8) `digest` a
+  digest c (App f x)           = digest c (2 :: Word8) `digest` f `digest` x
+  digest c (HardType h)        = digest c (3 :: Word8) `digest` h
+  digest c (Forall k tvs cs b) = digest c (4 :: Word8) `digest` k `digest` tvs `digest` cs `digest` b
+  digest c (Loc _ ty)          = digest c ty
+  digest c (Exists k tvs cs)   = digest c (5 :: Word8) `digest` k `digest` tvs `digest` cs
+  digest c (And xs)            = digest c (6 :: Word8) `digest` xs
 
 -- A helper function for the forall smart constructor. Given a lens to a
 -- map of variable ids, abstracts over a variable, choosing a new id in
@@ -451,9 +478,11 @@ instance HasKindVars (Type k a) (Type k' a) k k' where
 
 instance Eq k => Eq1 (Type k)
 instance Show k => Show1 (Type k)
+instance Read k => Read1 (Type k)
 
 instance Eq2 Type
 instance Show2 Type
+instance Read2 Type
 
 -- | Perform simultaneous substitution on kinds and types in a 'Type'.
 bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b

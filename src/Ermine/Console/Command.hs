@@ -42,9 +42,9 @@ import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax.DataType (DataType, dataTypeSchema)
-import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Kind
