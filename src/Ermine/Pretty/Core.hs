@@ -36,12 +36,14 @@ prettyForeign (JavaLike j) = prettyJavaLike j
 prettyForeign (Unknown s)  = text $ "unknown{" ++ show s ++ "}"
 
 prettyHardCore :: Int -> HardCore -> Doc
-prettyHardCore _ (Super   i) = text $ "super{" ++ show i ++ "}"
-prettyHardCore _ (Slot    i) = text $ "slot{"  ++ show i ++ "}"
-prettyHardCore _ (Lit     l) = prettyLiteral l
-prettyHardCore _ (PrimOp  s) = text $ "primop{" ++ show s ++ "}"
-prettyHardCore _ (Foreign f) = prettyForeign f
-prettyHardCore n (Error   s) = parensIf (n>10) . text $ "error " ++ show s
+prettyHardCore _ (Super   i)    = text $ "super{" ++ show i ++ "}"
+prettyHardCore _ (Slot    i)    = text $ "slot{"  ++ show i ++ "}"
+prettyHardCore _ (Lit     l)    = prettyLiteral l
+prettyHardCore _ (PrimOp  s)    = text $ "primop{" ++ show s ++ "}"
+prettyHardCore _ (Foreign f)    = prettyForeign f
+prettyHardCore n (Error   s)    = parensIf (n>10) . text $ "error " ++ show s
+prettyHardCore _ (GlobalId g)   = text $ "global{" ++ show g ++ "}"
+prettyHardCore _ (InstanceId i) = text $ "instance{" ++ show i ++ "}"
 
 --   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
 --   | LamDict !(Scope () Core a)

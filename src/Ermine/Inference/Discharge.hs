@@ -33,6 +33,7 @@ import Data.Map as Map hiding (map, empty, delete)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (unpack)
 import Data.Void
+import Ermine.Inference.Witness
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
@@ -57,11 +58,13 @@ instance MonadDischarge s m => MonadDischarge s (MaybeT m) where
   askDischarge     = MaybeT $ fmap Just askDischarge
   localDischarge f = MaybeT . localDischarge f . runMaybeT
 
-coreBind :: (a -> Core (Var b c)) -> Core (Var b a) -> Core (Var b c)
-coreBind f c = c >>= unvar (pure . B) f
+-- coreBind :: (a -> Scope b Core c) -> Scope b Core a -> Scope b Core c
+-- coreBind :: (a -> Core (Res c b)) -> Core (Res a b) -> Core (Res c b)
+-- coreBind f c = c >>= unvar (pure . Resolved) f
 
-coreMangle :: Applicative f =>  (a -> f (Core (Var b c))) -> Core (Var b a) -> f (Core (Var b c))
-coreMangle f c = coreBind id <$> traverse (traverse f) c
+-- coreMangle :: Applicative f =>  (a -> f (Core (Res c b))) -> Core (Res a b) -> f (Core (Res c b))
+mangle :: (Applicative f, Monad t, Traversable t) =>  (a -> f (t c)) -> t a -> f (t c)
+mangle f c = join <$> traverse f c
 
 viewDischarge :: MonadDischarge s m => Getter DischargeEnv a -> m a
 viewDischarge g = view g <$> askDischarge
@@ -86,8 +89,8 @@ superclasses tc = go [] tc
 --
 -- c `dischargesBySuper` c'
 dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-                  => Type k t -> Type k t -> m (Core (Var b (Type k t)))
-dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
+                  => Type k t -> Type k t -> m (Scope b Core (Type k t))
+dischargesBySuper c d = Prelude.foldr ($) (pure $ Unresolved d) <$> go [] d
  where
  go ps c'
    | c == c'   = pure $ ps
@@ -95,9 +98,9 @@ dischargesBySuper c d = Prelude.foldr ($) (pure $ F d) <$> go [] d
 
 -- As dischargesBySuper.
 dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-                   => Type k t -> [Type k t] -> m (Core (Var b (Type k t)))
+                   => Type k t -> [Type k t] -> m (Scope b Core (Type k t))
 dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
-                      >>= coreMangle (\d ->
+                      >>= mangle (\d ->
                               d `dischargesBySupers` delete d cs <|>
                               pure (pure $ pure d))
 
@@ -123,8 +126,7 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
  matchArg (HardType h) (HardType h') = if h == h' then Just [] else Nothing
  matchArg _            _             = error "PANIC: matchHead encountered invalid Head or constraint."
 
-dischargesByInstance :: (Eq k, Eq t, Alternative m, MonadDischarge s m)
-                     => Type k t -> m (Core (Var Id (Type k t)))
+dischargesByInstance :: (Eq k, Eq t, Alternative m, MonadDischarge s m) => Type k t -> m (Scope b Core (Type k t))
 dischargesByInstance c = peel [] c
  where
  peel stk (App f x) = peel (x:stk) f
@@ -138,15 +140,13 @@ dischargesByInstance c = peel [] c
  peel _   _ = error "PANIC: Malformed class head"
 
  tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
-   Prelude.foldl AppDict (fmap B $ i^.instanceBody) $
-     fmap (pure . F . join . bimap absurd (m!)) $ i^.instanceContext
+   Prelude.foldl AppDict (fmap Resolved $ i^.instanceBody) $
+     fmap (pure . Unresolved . join . bimap absurd (m!)) $ i^.instanceContext
 
-entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
-        => [Type k t] -> Type k t -> m (Core (Var Id (Type k t)))
+entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
 entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
 
-simplifyVia :: (MonadDischarge s m, Eq k, Eq t)
-            => [Type k t] -> Core (Var Id (Type k t)) -> m (Core (Var Id (Type k t)))
+simplifyVia :: (MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
 simplifyVia cs = coreMangle $ \c ->
   fmap (fromMaybe . pure $ F c) . runMaybeT $ entails cs c
 

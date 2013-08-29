@@ -18,12 +18,18 @@ module Ermine.Syntax.Head
   , mkHead
   ) where
 
+import Control.Applicative
 import Control.Lens
+import Data.Binary (Binary)
+import qualified Data.Binary as Binary
+import Data.Bytes.Serial
 import Data.Data
 import Data.Hashable
+import Data.Serialize (Serialize)
+import qualified Data.Serialize as Serialize
+import Ermine.Syntax.Global
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
-import Ermine.Syntax.Global
 import GHC.Generics
 
 ------------------------------------------------------------------------------
@@ -46,14 +52,14 @@ import GHC.Generics
 -- The above instance head would be represented as something like:
 --
 --   Head ... "Bar" 0 [star] [] [int, list (B 0)]
-data Head = Head { _hash           :: !Int
-                 , _headClass      :: !Global    -- ^ The class name for which this is an instance
-                 , _headBoundKinds :: !Int       -- ^ number of kind variables brought into scope
-                 , _headBoundTypes :: [Kind Int] -- ^ kinds of type variables brought into scope
-                 , _headKindArgs   :: [Kind Int]
-                 , _headTypeArgs   :: [Type Int Int]
-                 }
-  deriving (Show,Eq,Generic,Typeable)
+data Head = Head
+  { _hash           :: !Int
+  , _headClass      :: !Global    -- ^ The class name for which this is an instance
+  , _headBoundKinds :: !Int       -- ^ number of kind variables brought into scope
+  , _headBoundTypes :: [Kind Int] -- ^ kinds of type variables brought into scope
+  , _headKindArgs   :: [Kind Int]
+  , _headTypeArgs   :: [Type Int Int]
+  } deriving (Show,Ord,Read,Eq,Generic,Typeable)
 
 class AsHead t where
   _Head :: Prism' t Head
@@ -92,3 +98,17 @@ instance HasHead Head where
 
 instance Hashable Head where
   hashWithSalt n (Head h _ _ _ _ _) = hashWithSalt n h
+
+instance Serial Head where
+  serialize (Head a b c d e f)= serialize a >> serialize b >> serialize c >> serialize d >> serialize e >> serialize f
+  deserialize = Head <$> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize
+
+instance Binary Head where
+  put = serialize
+  get = deserialize
+
+instance Serialize Head where
+  put = serialize
+  get = deserialize
+
+

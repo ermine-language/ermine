@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2012
@@ -58,9 +59,11 @@ import qualified Data.Serialize as Serialize
 import Data.Map
 import Data.Serialize (Serialize)
 import Data.String
-import Data.Text as SText hiding (cons, length)
+import Data.Text as Strict hiding (cons, length)
 import Data.Word
 import Ermine.Syntax
+import Ermine.Syntax.Head
+import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics
@@ -101,7 +104,7 @@ instance Lit Int64 where lit l = HardCore . Lit $ Long l
 instance Lit Int32 where lit i = HardCore . Lit $ Int i
 instance Lit Char where
   lit c = HardCore . Lit $ Char c
-  lits s = HardCore . Lit $ String (SText.pack s)
+  lits s = HardCore . Lit $ String (Strict.pack s)
 instance Lit Int8 where lit b = HardCore . Lit $ Byte b
 instance Lit Int16 where lit s = HardCore . Lit $ Short s
 instance (Lit a, Lit b) => Lit (a, b) where
@@ -113,11 +116,11 @@ instance Lit a => Lit (Maybe a) where
 
 data JavaLike
   -- | Java methods: static, class name, method name, arg class names
-  = Method !Bool !SText.Text !SText.Text [SText.Text]
+  = Method !Bool !Strict.Text !Strict.Text [Strict.Text]
   -- | Java constructors: class name, arg class names
-  | Constructor !SText.Text [SText.Text]
+  | Constructor !Strict.Text [Strict.Text]
   -- | Java values: static, class name, field name
-  | Value !Bool !SText.Text !SText.Text
+  | Value !Bool !Strict.Text !Strict.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 instance Hashable JavaLike
@@ -135,7 +138,7 @@ instance Serial JavaLike where
 
 data Foreign
   = JavaLike !JavaLike
-  | Unknown !SText.Text
+  | Unknown !Strict.Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 instance Serial Foreign where
@@ -151,57 +154,76 @@ instance Serial Foreign where
 instance Hashable Foreign
 
 data HardCore
-  = Super   !Word8
-  | Slot    !Word8
-  | Lit     !Literal
-  | PrimOp  !SText.Text
-  | Foreign !Foreign
-  | Error   !SText.Text
+  = Super      !Word8
+  | Slot       !Word8
+  | Lit        !Literal
+  | PrimOp     !Strict.Text
+  | Foreign    !Foreign
+  | Error      !Strict.Text
+  | GlobalId   !Global
+  | InstanceId !Head
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 class AsHardCore c where
   _HardCore :: Prism' c HardCore
 
-  _Lit   :: Prism' c Literal
+  _Lit :: Prism' c Literal
   _Lit = _HardCore._Lit
-  _PrimOp :: Prism' c SText.Text
+
+  _PrimOp :: Prism' c Strict.Text
   _PrimOp = _HardCore._PrimOp
-  _Error :: Prism' c SText.Text
+
+  _Error :: Prism' c Strict.Text
   _Error = _HardCore._Error
+
   _Super :: Prism' c Word8
   _Super = _HardCore._Super
+
   _Slot  :: Prism' c Word8
   _Slot = _HardCore._Slot
+
   _Foreign :: Prism' c Foreign
   _Foreign = _HardCore._Foreign
+
+  _GlobalId :: Prism' c Global
+  _GlobalId = _HardCore._GlobalId
+
+  _InstanceId :: Prism' c Head
+  _InstanceId = _HardCore._InstanceId
 
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit     = prism Lit     $ \case Lit     l -> Right l ; hc -> Left hc
-  _PrimOp  = prism PrimOp  $ \case PrimOp  l -> Right l ; hc -> Left hc
-  _Error   = prism Error   $ \case Error   l -> Right l ; hc -> Left hc
-  _Super   = prism Super   $ \case Super   l -> Right l ; hc -> Left hc
-  _Slot    = prism Slot    $ \case Slot    l -> Right l ; hc -> Left hc
-  _Foreign = prism Foreign $ \case Foreign l -> Right l ; hc -> Left hc
+  _Lit        = prism Lit        $ \case Lit     l -> Right l ; hc -> Left hc
+  _PrimOp     = prism PrimOp     $ \case PrimOp  l -> Right l ; hc -> Left hc
+  _Error      = prism Error      $ \case Error   l -> Right l ; hc -> Left hc
+  _Super      = prism Super      $ \case Super   l -> Right l ; hc -> Left hc
+  _Slot       = prism Slot       $ \case Slot    l -> Right l ; hc -> Left hc
+  _Foreign    = prism Foreign    $ \case Foreign l -> Right l ; hc -> Left hc
+  _GlobalId   = prism GlobalId   $ \case GlobalId l -> Right l; hc -> Left hc
+  _InstanceId = prism InstanceId $ \case InstanceId l -> Right l; hc -> Left hc
 
 instance Hashable HardCore
 
 instance Serial HardCore where
-  serialize (Super i)   = putWord8 0 >> serialize i
-  serialize (Slot g)    = putWord8 1 >> serialize g
-  serialize (Lit i)     = putWord8 2 >> serialize i
-  serialize (PrimOp s)  = putWord8 3 >> serialize s
-  serialize (Foreign f) = putWord8 4 >> serialize f
-  serialize (Error s)   = putWord8 5 >> serialize s
+  serialize (Super i)      = putWord8 0 >> serialize i
+  serialize (Slot g)       = putWord8 1 >> serialize g
+  serialize (Lit i)        = putWord8 2 >> serialize i
+  serialize (PrimOp s)     = putWord8 3 >> serialize s
+  serialize (Foreign f)    = putWord8 4 >> serialize f
+  serialize (Error s)      = putWord8 5 >> serialize s
+  serialize (GlobalId g)   = putWord8 6 >> serialize g
+  serialize (InstanceId i) = putWord8 7 >> serialize i
 
   deserialize = getWord8 >>= \b -> case b of
-    0 -> liftM Super   deserialize
-    1 -> liftM Slot    deserialize
-    2 -> liftM Lit     deserialize
-    3 -> liftM PrimOp  deserialize
-    4 -> liftM Foreign deserialize
-    5 -> liftM Error   deserialize
+    0 -> liftM Super      deserialize
+    1 -> liftM Slot       deserialize
+    2 -> liftM Lit        deserialize
+    3 -> liftM PrimOp     deserialize
+    4 -> liftM Foreign    deserialize
+    5 -> liftM Error      deserialize
+    6 -> liftM GlobalId   deserialize
+    7 -> liftM InstanceId deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
@@ -227,7 +249,7 @@ data Core a
   | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
-  deriving (Eq,Show,Read,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance AsHardCore (Core a) where
   _HardCore = prism HardCore $ \c -> case c of
@@ -347,7 +369,6 @@ instance Monad Core where
 
 instance Eq1 Core
 instance Show1 Core
-instance Read1 Core
 
 -- | smart lam constructor
 lam :: Eq a => [a] -> Core a -> Core a

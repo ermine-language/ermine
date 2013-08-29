@@ -54,11 +54,11 @@ import Ermine.Unification.Sharing
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
-type WitnessM s = Witness (TypeM s) Id
+type WitnessM s a = Witness (TypeM s) a
 
 type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
 
-type CoreM s = Core (Var Id (TypeM s))
+type CoreM s a = Core (Res (TypeM s) a)
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
@@ -70,7 +70,7 @@ matchFunType t = do
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
-inferType :: MonadDischarge s m => TermM s -> m (WitnessM s)
+inferType :: MonadDischarge s m => TermM s -> m (WitnessM s a)
 inferType (Term.Var _) = fail "unimplemented"
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
@@ -91,13 +91,13 @@ inferType (Term.Case _ _) = fail "unimplemented"
 inferType (Term.Let _ _)  = fail "unimplemented"
 
 -- TODO: write this
-simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> Core (Var Id (TypeM s)) -> m (WitnessM s)
+simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toListOf (traverse . _F) c) c
 
-checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s)
+checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s a)
 checkType _ _ = fail "Check yourself"
 
-inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s)
+inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (HardCore (Core.Lit l))
 inferHardType (Term.Tuple n) = do
   vars <- replicateM (fromIntegral n) $ pure <$> newMeta star
@@ -118,7 +118,7 @@ literalType Char{}   = Type.char
 literalType Float{}  = Type.float
 literalType Double{} = Type.double
 
-unfurl :: MonadMeta s m => TypeM s -> Core Id -> m (WitnessM s)
+unfurl :: MonadMeta s m => TypeM s -> Core a -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
