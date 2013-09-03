@@ -5,6 +5,7 @@
 module Ermine.Syntax.ModuleName
   ( ModuleName(ModuleName)
   , mkModuleName
+  , mkModuleName_
   , HasModuleName(..)
   ) where
 
@@ -33,6 +34,9 @@ data ModuleName = ModuleName
 mkModuleName :: Text -> Text -> ModuleName
 mkModuleName p m = ModuleName d p m where
   d = MD5.finalize $ digest initialCtx p `digest` m
+
+mkModuleName_ :: String -> ModuleName
+mkModuleName_ nam = mkModuleName (Data.Text.pack "ermine") (Data.Text.pack nam)
 
 instance Show ModuleName where
   showsPrec d (ModuleName _ p n) = showParen (d > 10) $

@@ -12,6 +12,7 @@ module Ermine.Syntax.Module
 import Control.Applicative
 import Control.Lens
 import Data.Bytes.Serial
+import Data.ByteString
 import Data.Map
 import Data.Void
 import Ermine.Syntax.Core
@@ -26,7 +27,7 @@ data Module = Module {
   _name        :: ModuleName,
   _definitions :: [Core Int],
   _termExports :: Map Global (Either Global Int),
-  _instances   :: Map Head   (Either Module Int),
+  _instances   :: Map ByteString Int,
   _types       :: Map Global (Type Void Void),
   _data        :: [DataType Void Void]
 }
@@ -43,7 +44,7 @@ definitions f (Module n ds ts is tys d) = f ds <&> \ds' -> Module n ds' ts is ty
 termExports :: Lens' Module (Map Global (Either Global Int))
 termExports f (Module n ds ts is tys d) = f ts <&> \ts' -> Module n ds ts' is tys d
 
-instances :: Lens' Module (Map Head (Either Module Int))
+instances :: Lens' Module (Map ByteString Int)
 instances f (Module n ds ts is tys d) = f is <&> \is' -> Module n ds ts is' tys d
 
 types :: Lens' Module (Map Global (Type Void Void))

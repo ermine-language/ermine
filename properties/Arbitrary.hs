@@ -6,14 +6,15 @@ module Arbitrary where
 import Bound
 import Control.Applicative
 import Data.Monoid
-import Ermine.Syntax.Core    as Core
-import Ermine.Syntax.Global  as Global
-import Ermine.Syntax.Hint    as Hint
-import Ermine.Syntax.Kind    as Kind
-import Ermine.Syntax.Literal as Lit
-import Ermine.Syntax.Pattern as Pat
-import Ermine.Syntax.Type    as Type
-import Ermine.Syntax.Term    as Term
+import Ermine.Syntax.Core       as Core
+import Ermine.Syntax.Global     as Global
+import Ermine.Syntax.Hint       as Hint
+import Ermine.Syntax.Kind       as Kind
+import Ermine.Syntax.Literal    as Lit
+import Ermine.Syntax.ModuleName as ModuleName
+import Ermine.Syntax.Pattern    as Pat
+import Ermine.Syntax.Type       as Type
+import Ermine.Syntax.Term       as Term
 import Prelude.Extras
 import Test.QuickCheck
 import Test.QuickCheck.Function
@@ -41,8 +42,11 @@ instance Arbitrary Fixity where
     Postfix <$> genPrecedence,
     return  Idfix ]
 
+instance Arbitrary ModuleName where
+  arbitrary = mkModuleName <$> arbitrary <*> arbitrary
+
 instance Arbitrary Global where
-  arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
   arbitrary = oneof [ B <$> arbitrary, F <$> arbitrary ]

@@ -28,6 +28,7 @@ import Ermine.Syntax.Hint
 import Ermine.Syntax.Id
 import Ermine.Syntax.Instance
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Type as Type
 import Ermine.Inference.Type
 import Test.QuickCheck
@@ -43,9 +44,9 @@ barCon = con bar (schema $ constraint ~> star)
 bazCon = con baz (schema $ constraint ~> star)
 
 foo, bar, baz :: Global
-foo = glob Idfix "ermine" "Ermine" "Foo"
-bar = glob Idfix "ermine" "Ermine" "Bar"
-baz = glob Idfix "ermine" "Ermine" "Baz"
+foo = glob Idfix (mkModuleName_ "Ermine") "Foo"
+bar = glob Idfix (mkModuleName_ "Ermine") "Bar"
+baz = glob Idfix (mkModuleName_ "Ermine") "Baz"
 
 instance MonadST (DumbDischarge s) where
   type World (DumbDischarge s) = s
