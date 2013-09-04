@@ -253,19 +253,19 @@ instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType k t) where
 
 genConstructor :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType.Constructor k t)
 genConstructor mgk mgt =
-  DataType.Constructor <$> arbitrary <*>  arbitrary <*>
+  smaller $ DataType.Constructor <$> arbitrary <*>  arbitrary <*>
     (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
     (listOf (genScope arbitrary (genTK mgk) mgt))
 
 genDataType :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType k t)
 genDataType mgk mgt =
-  DataType <$> arbitrary <*> arbitrary <*>
+  smaller $ DataType <$> arbitrary <*> arbitrary <*>
     (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
     (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
 
 instance Arbitrary Module where
-  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbTypes <*> dataTypes where
-    arbTypes = fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
+  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
+    arbTypes =  fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
     dataTypes = listOf (genDataType Nothing Nothing)
 
 -- Higher-order arbitrary
