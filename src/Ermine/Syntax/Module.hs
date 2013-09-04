@@ -11,9 +11,11 @@ module Ermine.Syntax.Module
 
 import Control.Applicative
 import Control.Lens
+import Data.Binary
 import Data.Bytes.Serial
 import Data.ByteString
 import Data.Map
+import Data.Serialize
 import Data.Void
 import Ermine.Syntax.Core
 import Ermine.Syntax.DataType
@@ -30,7 +32,7 @@ data Module = Module {
   _instances   :: Map ByteString Int,
   _types       :: Map Global (Type Void Void),
   _data        :: [DataType Void Void]
-}
+} deriving (Eq,Show)
 
 instance HasName Module where
   name = module_.name
@@ -63,3 +65,11 @@ instance Serial Module where
     serialize (m^.dataDecls)
   deserialize =
     Module <$> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize
+
+instance Binary Module where
+  put = serialize
+  get = deserialize
+
+instance Serialize Module where
+  put = serialize
+  get = deserialize
