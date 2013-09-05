@@ -169,7 +169,7 @@ instance Variable (Term t) where
     Var a -> Right a
     _     -> Left  t
 
-instance App (Term t a) where
+instance App (Term t) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t

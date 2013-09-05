@@ -353,7 +353,7 @@ instance Hashable a => Hashable (Core a) where
 instance IsString a => IsString (Core a) where
   fromString = Var . fromString
 
-instance App (Core a) where
+instance App Core where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t

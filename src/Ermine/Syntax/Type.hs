@@ -167,7 +167,7 @@ instance Fun (Type k t) where
     _                              -> Left t
   {-# INLINE fun #-}
 
-instance App (Type k t) where
+instance App (Type k) where
   app = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
@@ -672,7 +672,7 @@ instance Fun (Annot k t) where
           _                               -> Left t
       _                                 -> Left t
 
-instance App (Annot k t) where
+instance App (Annot k) where
   app = prism hither yon
     where
     hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
