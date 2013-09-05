@@ -98,12 +98,12 @@ apps = foldl (##)
 
 -- | Discriminable syntactic arrows.
 class Fun t where
-  fun :: Prism' t (t, t)
+  fun :: Prism' (t a) (t a, t a)
 
 infixr 0 ~>
 
 -- | Provide ad hoc overloading of function arrows.
-(~>) :: Fun t => t -> t -> t
+(~>) :: Fun t => t a -> t a -> t a
 (~>) = curry (review fun)
 
 --------------------------------------------------------------------
