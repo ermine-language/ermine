@@ -58,7 +58,7 @@ type WitnessM s a = Witness (TypeM s) a
 
 type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
 
-type CoreM s a = Core (Res (TypeM s) a)
+type CoreM s a = Scope a Core (TypeM s)
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)

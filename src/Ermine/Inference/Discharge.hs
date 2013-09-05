@@ -21,10 +21,9 @@ module Ermine.Inference.Discharge
   ) where
 
 import Bound
-import Bound.Var
 import Control.Applicative
 import Control.Lens
-import Control.Monad
+import Control.Monad hiding (sequence)
 import Control.Monad.Trans.Maybe
 import Data.Bitraversable
 import Data.List (delete)
@@ -32,17 +31,17 @@ import Data.Foldable hiding (all)
 import Data.Map as Map hiding (map, empty, delete)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (unpack)
+import Data.Traversable
 import Data.Void
-import Ermine.Inference.Witness
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Head
-import Ermine.Syntax.Id
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Name
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Meta
+import Prelude hiding (sequence)
 
 data DischargeEnv = DischargeEnv
                   { _classes   :: Map Global Class
@@ -91,7 +90,7 @@ superclasses tc = go [] tc
 -- c `dischargesBySuper` c'
 dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
                   => Type k t -> Type k t -> m (Scope b Core (Type k t))
-dischargesBySuper c d = Prelude.foldr ($) (pure $ Unresolved d) <$> go [] d
+dischargesBySuper c d = Prelude.foldr id (pure d) <$> go [] d
  where
  go ps c'
    | c == c'   = pure $ ps
@@ -103,7 +102,7 @@ dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
 dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
                       >>= mangle (\d ->
                               d `dischargesBySupers` delete d cs <|>
-                              pure (pure $ pure d))
+                              pure (pure d))
 
 -- Checks if a series of type arguments would match against the type
 -- type 'patterns' of an instance head. Returns a mapping from the
@@ -135,19 +134,19 @@ dischargesByInstance c = peel [] c
    Nothing -> empty
    Just [] -> empty
    Just is -> case catMaybes $ tryDischarge stk <$> is of
-                [] -> empty
-                [x] -> pure x
-                _   -> fail "Ambiguous class discharge"
+     []  -> empty
+     [x] -> pure x
+     _   -> fail "Ambiguous class discharge"
  peel _   _ = error "PANIC: Malformed class head"
 
  tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
-   Prelude.foldl AppDict (fmap Resolved $ i^.instanceBody) $
-     fmap (pure . Unresolved . join . bimap absurd (m!)) $ i^.instanceContext
+   Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_InstanceId # (i^.instanceHead)) $ i^.instanceContext
 
 entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
 entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
 
 simplifyVia :: (MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
-simplifyVia cs = coreMangle $ \c ->
-  fmap (fromMaybe . pure $ F c) . runMaybeT $ entails cs c
-
+-- simplifyVia cs = coreMangle $ \c -> fmap (fromMaybe . pure $ F c) . runMaybeT $ entails cs c
+simplifyVia cs s = do
+  x <- for s $ \t -> runMaybeT (entails cs t) <&> fromMaybe (pure t)
+  return $ join x

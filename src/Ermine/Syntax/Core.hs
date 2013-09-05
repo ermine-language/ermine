@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
@@ -191,6 +192,12 @@ class AsHardCore c where
   _InstanceId :: Prism' c Head
   _InstanceId = _HardCore._InstanceId
 
+instance f ~ Core => AsHardCore (Scope b f a) where
+  _HardCore = prism (Scope . HardCore) $ \ t@(Scope b) -> case b of
+    HardCore k           -> Right k
+    Var (F (HardCore k)) -> Right k
+    _                    -> Left t
+
 instance AsHardCore HardCore where
   _HardCore = id
 
@@ -256,17 +263,23 @@ instance AsHardCore (Core a) where
     HardCore hc -> Right hc
     _           -> Left c
 
-super :: Word8 -> Core a -> Core a
-super i = (HardCore (Super i) `AppDict`)
+super :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
+super i c = _AppDict # (_Super # i, c)
 
-slot :: Word8 -> Core a -> Core a
-slot i = (HardCore (Slot i) `AppDict`)
+slot :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
+slot i c = _AppDict # (_Slot # i, c)
 
 class AsAppDict c where
   _AppDict :: Prism' c (c, c)
 
 instance AsAppDict (Core a) where
   _AppDict = prism (uncurry AppDict) $ \case AppDict f d -> Right (f, d) ; c -> Left c
+
+instance f ~ Core => AsAppDict (Scope b f a) where
+  _AppDict = prism (\ (Scope x, Scope y) -> Scope $ AppDict x y) $ \t@(Scope b) -> case b of
+    AppDict x y -> Right (Scope x,Scope y)
+    Var (F (AppDict x y)) -> Right (Scope (Var (F x)), Scope (Var (F y)))
+    _ -> Left t
 
 appDicts :: AsAppDict c => c -> [c] -> c
 appDicts = Prelude.foldl (curry $ review _AppDict)

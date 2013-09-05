@@ -27,9 +27,9 @@ import Ermine.Pretty.Literal
 import Ermine.Syntax.Core
 
 prettyJavaLike :: JavaLike -> Doc
-prettyJavaLike (Method st cn mn args) = text $ "method{" ++ "}" -- TODO
-prettyJavaLike (Constructor cn args)  = text $ "constructor{" ++ "}" -- TODO
-prettyJavaLike (Value st cn fn)       = text $ "value{" ++ "}" -- TODO
+prettyJavaLike (Method _st _cn _mn _args) = text $ "method{" ++ "}" -- TODO
+prettyJavaLike (Constructor _cn _args)  = text $ "constructor{" ++ "}" -- TODO
+prettyJavaLike (Value _st _cn _fn)       = text $ "value{" ++ "}" -- TODO
 
 prettyForeign :: Foreign -> Doc
 prettyForeign (JavaLike j) = prettyJavaLike j

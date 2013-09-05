@@ -17,7 +17,6 @@ module Ermine.Builtin.Core
 
 import Bound
 import Control.Applicative
-import Control.Lens
 import Control.Comonad
 import Data.List (transpose)
 import qualified Data.HashMap.Lazy as HM

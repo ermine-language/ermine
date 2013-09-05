@@ -31,10 +31,8 @@ import Control.Lens
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
-import Data.Monoid
 import Data.Typeable
 import Ermine.Syntax.Core
-import Ermine.Syntax.Id
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import GHC.Generics
