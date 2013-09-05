@@ -5,6 +5,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
@@ -31,6 +32,7 @@ module Ermine.Syntax
   , tup
   ) where
 
+import Bound
 import Control.Lens
 import Control.Lens.Internal.Review
 import Data.Functor.Identity
@@ -70,6 +72,15 @@ instance Variable (Either b) where
 -- matching on 'App'.
 class App t where
   app :: Prism' t (t, t)
+
+instance (Variable t, App (t (Var b (t a))), App (t a)) => App (Scope b t a) where
+  app = prism (\ (Scope x, Scope y) -> Scope $ x ## y) $ \t@(Scope b) -> case b^?app of
+    Just (x,y) -> Right (Scope x, Scope y)
+    _ -> case b^?var of
+      Just (F xy) -> case xy^?app of
+        Just (x,y) -> Right (Scope (var # F x), Scope (var # F y))
+        _ -> Left t
+      _ -> Left t
 
 infixl 9 ##
 

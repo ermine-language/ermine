@@ -85,7 +85,7 @@ inferType (Term.App f x) = do
   Witness frcs ft fc <- inferType f
   (i, o) <- matchFunType ft
   Witness xrcs _ xc <- checkType x i
-  simplifiedWitness (frcs ++ xrcs) o $ Core.App fc xc
+  simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
 inferType (Term.Lam _ _)  = fail "unimplemented"
 inferType (Term.Case _ _) = fail "unimplemented"
 inferType (Term.Let _ _)  = fail "unimplemented"
