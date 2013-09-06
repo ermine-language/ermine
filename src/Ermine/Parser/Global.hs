@@ -27,4 +27,4 @@ import Text.Parser.Token
 --
 -- TODO: package/module information
 globalIdent :: (Monad m, TokenParsing m) => IdentifierStyle m -> m Global
-globalIdent style = glob Idfix (mkModuleName "ermine" "Ermine") <$> ident style
+globalIdent style = glob Idfix (mkModuleName_ "Ermine") <$> ident style

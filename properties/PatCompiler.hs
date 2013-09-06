@@ -23,26 +23,27 @@ import Ermine.Pretty.Core
 import Ermine.Syntax
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Pattern.Compiler
 import Ermine.Syntax.Term as Term hiding (Explicit)
 import Ermine.Syntax.Type as Type
 
-nilg = glob Idfix "ermine" "Data.List" "Nil"
-consg = glob Idfix "ermine" "Data.List" "Cons"
+nilg = glob Idfix (mkModuleName_ "Data.List") "Nil"
+consg = glob Idfix (mkModuleName_ "Data.List") "Cons"
 listSig = HM.fromList [(nilg, 0), (consg, 1)]
 
-noneg = glob Idfix "ermine" "Data.Maybe" "Nothing"
-someg = glob Idfix "ermine" "Data.Maybe" "Just"
+noneg = glob Idfix (mkModuleName_ "Data.Maybe") "Nothing"
+someg = glob Idfix (mkModuleName_ "Data.Maybe") "Just"
 maySig = HM.fromList [(noneg, 0), (someg, 1)]
 
-leftg = glob Idfix "ermine" "Data.Either" "Left"
-rightg = glob Idfix "ermine" "Data.Either" "Right"
+leftg = glob Idfix (mkModuleName_ "Data.Either") "Left"
+rightg = glob Idfix (mkModuleName_ "Data.Either") "Right"
 eitherSig = HM.fromList [(leftg, 0), (rightg, 1)]
 
-thisg = glob Idfix "ermine" "Data.Which" "This"
-thatg = glob Idfix "ermine" "Data.Which" "That"
-theseg = glob Idfix "ermine" "Data.Which" "These"
+thisg = glob Idfix (mkModuleName_ "Data.Which") "This"
+thatg = glob Idfix (mkModuleName_ "Data.Which") "That"
+theseg = glob Idfix (mkModuleName_ "Data.Which") "These"
 whichSig = HM.fromList [(thisg, 0), (thatg, 1), (theseg, 2)]
 
 simpleEnv :: PCompEnv

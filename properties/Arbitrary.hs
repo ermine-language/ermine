@@ -5,15 +5,20 @@ module Arbitrary where
 
 import Bound
 import Control.Applicative
+import Data.Map
 import Data.Monoid
-import Ermine.Syntax.Core    as Core
-import Ermine.Syntax.Global  as Global
-import Ermine.Syntax.Hint    as Hint
-import Ermine.Syntax.Kind    as Kind
-import Ermine.Syntax.Literal as Lit
-import Ermine.Syntax.Pattern as Pat
-import Ermine.Syntax.Type    as Type
-import Ermine.Syntax.Term    as Term
+import Data.Void
+import Ermine.Syntax.Core       as Core
+import Ermine.Syntax.DataType   as DataType
+import Ermine.Syntax.Global     as Global
+import Ermine.Syntax.Hint       as Hint
+import Ermine.Syntax.Kind       as Kind
+import Ermine.Syntax.Literal    as Lit
+import Ermine.Syntax.Module     as Module
+import Ermine.Syntax.ModuleName as ModuleName
+import Ermine.Syntax.Pattern    as Pat
+import Ermine.Syntax.Type       as Type
+import Ermine.Syntax.Term       as Term
 import Prelude.Extras
 import Test.QuickCheck
 import Test.QuickCheck.Function
@@ -41,8 +46,11 @@ instance Arbitrary Fixity where
     Postfix <$> genPrecedence,
     return  Idfix ]
 
+instance Arbitrary ModuleName where
+  arbitrary = mkModuleName <$> arbitrary <*> arbitrary
+
 instance Arbitrary Global where
-  arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
   arbitrary = oneof [ B <$> arbitrary, F <$> arbitrary ]
@@ -207,9 +215,9 @@ instance Arbitrary PatPath where
 
 instance Arbitrary JavaLike where
   arbitrary = oneof [
-    Method      <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary,
-    Constructor <$> arbitrary <*> arbitrary,
-    Value       <$> arbitrary <*> arbitrary <*> arbitrary ]
+    Method           <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary,
+    Core.Constructor <$> arbitrary <*> arbitrary,
+    Value            <$> arbitrary <*> arbitrary <*> arbitrary ]
 
 instance Arbitrary Foreign where
   arbitrary = oneof [ JavaLike <$> arbitrary , JavaLike <$> arbitrary ]
@@ -236,6 +244,29 @@ instance Arbitrary a => Arbitrary (Core a) where
       Core.Dict    <$> arbitrary <*> arbitrary,
       Core.LamDict <$> arbitrary,
       Core.AppDict <$> arbitrary <*> arbitrary ]
+
+instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType.Constructor k t) where
+  arbitrary = DataType.Constructor <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType k t) where
+  arbitrary = DataType <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+genConstructor :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType.Constructor k t)
+genConstructor mgk mgt =
+  smaller $ DataType.Constructor <$> arbitrary <*>  arbitrary <*>
+    (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
+    (listOf (genScope arbitrary (genTK mgk) mgt))
+
+genDataType :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType k t)
+genDataType mgk mgt =
+  smaller $ DataType <$> arbitrary <*> arbitrary <*>
+    (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
+    (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
+
+instance Arbitrary Module where
+  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
+    arbTypes =  fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
+    dataTypes = listOf (genDataType Nothing Nothing)
 
 -- Higher-order arbitrary
 class Arbitrary1 f where

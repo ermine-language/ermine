@@ -25,6 +25,7 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind as K
 import Ermine.Syntax.Literal
+import Ermine.Syntax.Module
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term as Term
 import Ermine.Syntax.Type as Type
@@ -92,6 +93,9 @@ prop_pack_unpack_hardcore = pack_unpack
 
 prop_pack_unpack_core :: Core Int -> Bool
 prop_pack_unpack_core = pack_unpack
+
+prop_pack_unpack_module :: Module -> Bool
+prop_pack_unpack_module = pack_unpack
 
 -- Random choice of Binary test case type. May or may not be worth
 -- keeping this around.

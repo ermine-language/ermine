@@ -285,7 +285,9 @@ test-suite properties
       test-framework-quickcheck2 >= 0.2,
       test-framework-th          >= 0.2,
       transformers,
-      unordered-containers
+      unordered-containers,
+      void                       >= 0.6     && < 1
+
 
 test-suite hlint
   type: exitcode-stdio-1.0

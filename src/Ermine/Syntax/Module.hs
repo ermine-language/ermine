@@ -11,8 +11,11 @@ module Ermine.Syntax.Module
 
 import Control.Applicative
 import Control.Lens
+import Data.Binary
 import Data.Bytes.Serial
+import Data.ByteString
 import Data.Map
+import Data.Serialize
 import Data.Void
 import Ermine.Syntax.Core
 import Ermine.Syntax.DataType
@@ -26,10 +29,10 @@ data Module = Module {
   _name        :: ModuleName,
   _definitions :: [Core Int],
   _termExports :: Map Global (Either Global Int),
-  _instances   :: Map Head   (Either Module Int),
+  _instances   :: Map ByteString Int,
   _types       :: Map Global (Type Void Void),
   _data        :: [DataType Void Void]
-}
+} deriving (Eq,Show)
 
 instance HasName Module where
   name = module_.name
@@ -43,7 +46,7 @@ definitions f (Module n ds ts is tys d) = f ds <&> \ds' -> Module n ds' ts is ty
 termExports :: Lens' Module (Map Global (Either Global Int))
 termExports f (Module n ds ts is tys d) = f ts <&> \ts' -> Module n ds ts' is tys d
 
-instances :: Lens' Module (Map Head (Either Module Int))
+instances :: Lens' Module (Map ByteString Int)
 instances f (Module n ds ts is tys d) = f is <&> \is' -> Module n ds ts is' tys d
 
 types :: Lens' Module (Map Global (Type Void Void))
@@ -62,3 +65,11 @@ instance Serial Module where
     serialize (m^.dataDecls)
   deserialize =
     Module <$> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize
+
+instance Binary Module where
+  put = serialize
+  get = deserialize
+
+instance Serialize Module where
+  put = serialize
+  get = deserialize
