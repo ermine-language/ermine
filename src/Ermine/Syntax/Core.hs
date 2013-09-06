@@ -22,6 +22,7 @@ module Ermine.Syntax.Core
   (
   -- * Core Terms
     Core(..)
+  , Cored(..)
   , AsAppDict(..)
   , appDicts
   , JavaLike(..)
@@ -44,6 +45,7 @@ module Ermine.Syntax.Core
 import Bound
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Trans
 import Control.Lens as Lens
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
@@ -241,6 +243,17 @@ instance Serialize HardCore where
   put = serialize
   get = deserialize
 
+class Monad m => Cored m where
+  core :: Core a -> m a
+
+instance Cored Core where
+  core = id
+  {-# INLINE core #-}
+
+instance Cored m => Cored (Scope b m) where
+  core = lift . core
+  {-# INLINE core #-}
+
 -- | Core values are the output of the compilation process.
 --
 -- They are terms where the dictionary passing has been made explicit
@@ -384,20 +397,20 @@ instance Eq1 Core
 instance Show1 Core
 
 -- | smart lam constructor
-lam :: Eq a => [a] -> Core a -> Core a
-lam as t = Lam (fromIntegral $ length as)
+lam :: (Cored m, Eq a) => [a] -> Core a -> m a
+lam as t = core $ Lam (fromIntegral $ length as)
                (abstract (fmap fromIntegral . flip List.elemIndex as) t)
 
 -- | smart let constructor
-let_ :: Eq a => [(a, Core a)] -> Core a -> Core a
-let_ bs b = Let (abstr . snd <$> bs) (abstr b)
+let_ :: (Cored m, Eq a) => [(a, Core a)] -> Core a -> m a
+let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
   where vs  = fst <$> bs
         abstr = abstract (fmap fromIntegral . flip List.elemIndex vs)
 
 -- | Builds an n-ary data constructor
-dataCon :: Word8 -> Word8 -> Core a
-dataCon 0     tg = Data tg []
-dataCon arity tg = Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
+dataCon :: Cored m => Word8 -> Word8 -> m a
+dataCon 0     tg = core $ Data tg []
+dataCon arity tg = core $ Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
 
 {-
 letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a

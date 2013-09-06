@@ -18,13 +18,13 @@
 module Ermine.Inference.Type
   ( matchFunType
   , inferType
+  , inferPatternType
   , unfurl
   , partConstraints
   , unfurlConstraints
   ) where
 
 import Bound
-import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
@@ -37,7 +37,6 @@ import Data.Traversable
 import Ermine.Builtin.Pattern as Pattern
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
-import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -92,20 +91,20 @@ inferType (Term.Let _ _)  = fail "unimplemented"
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
-simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toListOf (traverse . _F) c) c
+simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 
 checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s a)
 checkType _ _ = fail "Check yourself"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
-inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (HardCore (Core.Lit l))
+inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
 inferHardType (Term.Tuple n) = do
-  vars <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (Prelude.foldr (~>) (tup vars) vars) $ dataCon n 0
+  vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
+  return $ Witness [] (Prelude.foldr (~>) (tup vs) vs) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
-  return $ Witness [] (Type.Var tv) $ HardCore $ Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty
+  return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -124,8 +123,9 @@ unfurl (Forall ks ts cs bd) co = do
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  return $ Witness rcs (inst bd) $ Foldable.foldl AppDict (B <$> co) (pure . F <$> tcs)
-unfurl t co = pure $ Witness [] t (B <$> co)
+  return $ Witness rcs (inst bd) $ appDicts (Scope $ fmap B co) (pure <$> tcs)
+unfurl t co = pure $ Witness [] t (Scope $ fmap B co)
+
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
 partConstraints (And l) = List.partition isRowConstraint l
