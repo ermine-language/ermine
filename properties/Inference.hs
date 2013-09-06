@@ -106,16 +106,16 @@ prop_discharge_optimal = let v = pure () in
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
-      c :: Core (Var () (Type () ())) <- App fooCon v `dischargesBySupers` sups
-      return $ c == super 0 (super 0 . pure . F $ App bazCon v)
+      c :: Scope () Core (Type () ()) <- App fooCon v `dischargesBySupers` sups
+      return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_entails_optimal = let v = pure () in
   forAll (oneof [ pure [App barCon v, App bazCon v]
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
-      c :: Core (Var Id (Type () ())) <- sups `entails` App fooCon v
-      return $ c == super 0 (super 0 . pure . F $ App bazCon v)
+      c :: Scope () Core (Type () ()) <- sups `entails` App fooCon v
+      return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_instance_discharge = maybe False (const True) $ runDD $ do
   dischargesByInstance (App fooCon int :: Type () ())
