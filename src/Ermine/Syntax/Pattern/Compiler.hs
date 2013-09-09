@@ -44,6 +44,7 @@ import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as M
 import Data.List (transpose)
+import Data.Maybe
 import Data.Monoid
 import Data.Ord
 import Data.Set (Set)
@@ -147,10 +148,8 @@ expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   _ -> error "PANIC: expand: bad column reference"
 
 instantiation :: CompileInfo a -> PatPath -> Core a
-instantiation (CInfo pm cc cp) pp = case HM.lookup pp pm' of
-  Nothing ->
-    error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp
-  Just c  -> c
+instantiation (CInfo pm cc cp) pp = fromMaybe
+  (error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp) (HM.lookup pp pm')
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
 
