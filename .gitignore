@@ -17,3 +17,5 @@ tags
 wiki
 wip
 ermine.iml
+.cabal-sandbox
+cabal.sandbox.config
