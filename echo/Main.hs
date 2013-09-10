@@ -10,6 +10,7 @@ import Data.Monoid (mappend, mconcat)
 import Data.Text as SText hiding (intersperse, map)
 import Ermine.Syntax.Core
 import Ermine.Syntax.Literal as Lit
+import Ermine.Syntax.Module
 
 main :: IO ()
 main = do
@@ -19,11 +20,11 @@ main = do
        let r = B.writeFile "core.out" . writeCore $ readCore input
        catch r (writeFile "failure.txt" . mappend "failed: " . (show :: SomeException -> String))
 
-readCore :: B.ByteString -> Core Int32
+readCore :: B.ByteString -> Module
 readCore = Binary.decode
 
 showbytes :: B.ByteString -> String
 showbytes = mconcat . ("Bytes: ":) . intersperse ", " . map show . B.unpack
 
-writeCore :: Core Int32 -> B.ByteString
+writeCore :: Module -> B.ByteString
 writeCore = Binary.encode
