@@ -86,10 +86,11 @@ maybeGen (Just g) = [ pure <$> g ]
 -- | Generates kinds with optional delegation to a variable generator. If the
 -- argument is Nothing, the generated Kinds will (necessarily) be closed.
 genKind :: Maybe (Gen k) -> Gen (Kind k)
-genKind mgk = smaller . oneof $ maybeGen mgk ++
-                [ (:->) <$> genKind mgk <*> genKind mgk
-                , HardKind <$> arbitrary
-                ]
+genKind mgk = sized $ \n ->
+  oneof
+    $  maybeGen mgk
+    ++ (HardKind <$> arbitrary)
+    : if n < 1 then [smaller $ (:->) <$> genKind mgk <*> genKind mgk] else []
 
 -- | Given a definite generator for bound varibles, and an optional one for
 -- free variables, definitely generates Vars.
