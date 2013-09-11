@@ -265,7 +265,7 @@ genDataType mgk mgt =
     (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
 
 instance Arbitrary Module where
-  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
+  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
     arbTypes =  fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
     dataTypes = listOf (genDataType Nothing Nothing)
 
@@ -287,5 +287,3 @@ instance Arbitrary t => Arbitrary1 (Term t)
 
 instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
   arbitrary = Lift1 <$> arbitrary1
-
-
