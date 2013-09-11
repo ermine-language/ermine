@@ -4,12 +4,8 @@ module Main ( main ) where
 import Control.Exception (catch, SomeException)
 import qualified Data.Binary as Binary
 import qualified Data.ByteString.Lazy as B
-import Data.Int
 import Data.List (intersperse)
 import Data.Monoid (mappend, mconcat)
-import Data.Text as SText hiding (intersperse, map)
-import Ermine.Syntax.Core
-import Ermine.Syntax.Literal as Lit
 import Ermine.Syntax.Module
 
 main :: IO ()
