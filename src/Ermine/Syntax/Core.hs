@@ -416,7 +416,7 @@ dataCon arity tg = core $ Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity
 letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a
 letDict supers vslots body = LamDict body' `AppDict` Dict (map snd supers) slots where
   where abstr = abstract (`elemIndex` vs)
-     go a = case 
+     go a = case
      body' = Scope $ body >>= \a -> case elemIndex supers a of
        Just i  -> Prim (Super i) (B ())
        Nothing -> case elemIndex vslots a of

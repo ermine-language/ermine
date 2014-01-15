@@ -31,7 +31,7 @@ data ModuleName = ModuleName
   , _name     :: !Text
   } deriving (Data, Typeable, Generic)
 
-  
+
 
 mkModuleName :: Text -> Text -> ModuleName
 mkModuleName p m = ModuleName d p m where
