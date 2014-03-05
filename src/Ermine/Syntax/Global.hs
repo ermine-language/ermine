@@ -25,7 +25,6 @@ module Ermine.Syntax.Global
 import Control.Applicative
 import Control.Lens
 import Control.Monad
-import Crypto.Classes
 import Crypto.Hash.MD5 as MD5
 import Data.Binary (Binary)
 import qualified Data.Binary as Binary
@@ -183,4 +182,4 @@ instance AsGlobal Global where
 -- | Construct a 'Global' with a correct digest.
 glob :: AsGlobal t => Fixity -> ModuleName -> Text -> t
 glob f m n = _Global # Global d f m n where
-  d = MD5.finalize $ digest initialCtx f `digest` m `digest` n
+  d = MD5.finalize $ digest MD5.init f `digest` m `digest` n

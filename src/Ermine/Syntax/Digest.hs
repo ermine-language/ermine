@@ -22,7 +22,7 @@ module Ermine.Syntax.Digest
   ) where
 
 import Bound
-import Crypto.Classes
+import Crypto.Hash.MD5
 import Data.Binary
 import Data.Binary.Builder
 import Data.Binary.Put
@@ -47,16 +47,16 @@ nullBS = Strict.pack [0]
 
 class Digestable t where
   -- | update a hash. This will default to updating using 'show' if not specified
-  digest :: Hash ctx d => ctx -> t -> ctx
-  default digest :: (Hash ctx d, Generic t, GDigestable (Rep t)) => ctx -> t -> ctx
+  digest :: Ctx -> t -> Ctx
+  default digest :: (Generic t, GDigestable (Rep t)) => Ctx -> t -> Ctx
   digest c = gdigest c . from
 
-  digestList :: Hash ctx d => ctx -> [t] -> ctx
-  digestList = Prelude.foldr (\e c -> updateCtx (digest c e) nullBS)
+  digestList :: Ctx -> [t] -> Ctx
+  digestList = Prelude.foldr (\e c -> update (digest c e) nullBS)
 
 class Digestable1 t where
-  digest1 :: (Hash ctx d, Digestable a) => ctx -> t a -> ctx
-  default digest1 :: (Hash ctx d, Digestable (t a)) => ctx -> t a -> ctx
+  digest1 :: Digestable a => Ctx -> t a -> Ctx
+  default digest1 :: Digestable (t a) => Ctx -> t a -> Ctx
   digest1 = digest
 
 instance (Digestable b, Digestable v) => Digestable (Var b v) where
@@ -71,15 +71,15 @@ instance Digestable t => Digestable [t] where
   digest = digestList
 
 instance Digestable Lazy.ByteString where
-  digest c = Prelude.foldr (flip updateCtx) c . Lazy.toChunks
+  digest c = Prelude.foldr (flip update) c . Lazy.toChunks
 
 instance Digestable LText.Text where
-  digest c = Prelude.foldr (flip updateCtx . SText.encodeUtf8) c
+  digest c = Prelude.foldr (flip update . SText.encodeUtf8) c
            . LText.toChunks
 
-instance Digestable () where
+instance Digestable ()
 
-digestBinary :: Binary b => Hash ctx d => ctx -> b -> ctx
+digestBinary :: Binary b => Ctx -> b -> Ctx
 digestBinary c = digest c . runPut . put
 
 instance Digestable Int where digest = digestBinary
@@ -97,21 +97,21 @@ instance Digestable Double where digest = digestBinary
 instance Digestable Integer where digest = digestBinary
 instance Digestable Char where
   digest = digestBinary
-  digestList c xs = updateCtx c (UTF8.fromString xs)
+  digestList c xs = update c (UTF8.fromString xs)
 
 instance Digestable Strict.ByteString where
-  digest = updateCtx
+  digest = update
 
 instance Digestable SText.Text where
-  digest c = updateCtx c . SText.encodeUtf8
+  digest c = update c . SText.encodeUtf8
 
 instance Digestable Builder where
   digest c = digest c . toLazyByteString
 
-instance Digestable Void where
+instance Digestable Void
 
 class GDigestable f where
-  gdigest :: Hash cxt d => cxt -> f a -> cxt
+  gdigest :: Ctx -> f a -> Ctx
 
 instance GDigestable V1 where
   gdigest _ = error "Digesting void"

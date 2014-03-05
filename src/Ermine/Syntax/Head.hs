@@ -20,7 +20,6 @@ module Ermine.Syntax.Head
 
 import Control.Applicative
 import Control.Lens
-import Crypto.Classes hiding (hash)
 import Crypto.Hash.MD5 as MD5 hiding (hash)
 import Data.Binary (Binary)
 import Data.ByteString
@@ -87,7 +86,7 @@ instance HasGlobal Head where
 mkHead :: Global -> Int -> [Kind Int] -> [Kind Int] -> [Type Int Int] -> Head
 mkHead g i tks ks ts = Head d h g i tks ks ts
  where
- d = MD5.finalize $ digest initialCtx g `digest` i `digest` tks `digest` ks `digest` ts
+ d = MD5.finalize $ digest MD5.init g `digest` i `digest` tks `digest` ks `digest` ts
  h = hash g `hashWithSalt` i `hashWithSalt` tks `hashWithSalt` ks `hashWithSalt` ts
 {-# INLINE mkHead #-}
 
@@ -124,7 +123,7 @@ instance Serialize Head where
   get = deserialize
 
 instance Digestable Head where
-  digest c Head{_headDigest = d} = updateCtx c d
+  digest c Head{_headDigest = d} = update c d
 
 instance Serial Head where
   serialize h =

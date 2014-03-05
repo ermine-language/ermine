@@ -34,8 +34,7 @@ module Ermine.Syntax
 
 import Bound
 import Control.Lens
-import Control.Lens.Internal.Review
-import Data.Functor.Identity
+import Data.Tagged
 
 --------------------------------------------------------------------
 -- Variable
@@ -120,7 +119,7 @@ class Tup' t where
 
 -- | (Possibly) Discriminable tupling.
 class (Reviewable p, Functor f) => Tup p f t where
-  tupled :: Overloaded' p f t [t]
+  tupled :: Optic' p f t [t]
 
-tup :: Tup Reviewed Identity t => [t] -> t
+tup :: Tup Tagged Identity t => [t] -> t
 tup = review tupled

@@ -80,7 +80,7 @@ import Prelude
 --
 -- >>> putStrLn $ groom $ lit (1 :: Int) `cons` nil
 -- Data 1 [HardCore (Lit (Int 1)), Data 0 []]
-instance (Choice p, Applicative f) => Cons p f (Core a) (Core a) (Core a) (Core a) where
+instance Cons (Core a) (Core a) (Core a) (Core a) where
   _Cons = prism (\(a, as) -> Data 1 [a,as]) $ \ s -> case s of
     Data 1 [x,xs] -> Right (x,xs)
     _             -> Left s

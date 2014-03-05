@@ -58,7 +58,6 @@ import Bound
 import Bound.Scope
 import Bound.Var
 import Control.Lens
-import Control.Lens.Internal.Review
 import Control.Applicative
 import Control.Comonad
 import Control.Monad.Identity
@@ -86,6 +85,7 @@ import Data.Set.Lens as Set
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.String
+import Data.Tagged
 import Data.Text (Text)
 import Data.Void
 import Data.Word
@@ -175,7 +175,7 @@ instance App (Type k) where
 
 infixl 9 `App`
 
-instance (p ~ Reviewed, f ~ Identity) => Tup p f (Type k t) where
+instance (p ~ Tagged, f ~ Identity) => Tup p f (Type k t) where
   tupled = unto hither
    where hither [x] = x
          hither l = apps (HardType . Tuple $ length l) l

@@ -35,10 +35,10 @@ import Bound
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
-import Control.Lens.Internal.Review
 import Data.Foldable
 import Data.Functor.Identity
 import Data.String
+import Data.Tagged
 import Data.Traversable
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -68,7 +68,7 @@ instance Comonad (Binder v) where
   extract = item
   extend f b = b { item = f b }
 
-instance (p ~ Reviewed, f ~ Identity, Tup Reviewed Identity t) => Tup p f (Binder v t) where
+instance (p ~ Tagged, f ~ Identity, Tup Tagged Identity t) => Tup p f (Binder v t) where
   tupled = unto (fmap tup . sequenceA)
 
 -- | Smart pattern

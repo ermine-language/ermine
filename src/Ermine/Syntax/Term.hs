@@ -38,7 +38,6 @@ module Ermine.Syntax.Term
 import Bound
 import Bound.Var
 import Control.Lens
-import Control.Lens.Internal.Review
 import Control.Applicative
 import Control.Monad.Identity
 import Data.Bifoldable
@@ -55,6 +54,7 @@ import Data.Monoid
 import Data.String
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
+import Data.Tagged
 import Data.Void
 import Data.Word
 import Ermine.Diagnostic
@@ -174,7 +174,7 @@ instance App (Term t) where
     App l r -> Right (l,r)
     _       -> Left t
 
-instance (p ~ Reviewed, f ~ Identity) => Tup p f (Term t a) where
+instance (p ~ Tagged, f ~ Identity) => Tup p f (Term t a) where
   tupled = unto hither
    where hither [x] = x
          hither l = apps (HardTerm . Tuple . fromIntegral $ length l) l

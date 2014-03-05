@@ -11,7 +11,6 @@ module Ermine.Syntax.ModuleName
 
 import Control.Applicative
 import Control.Lens
-import Crypto.Classes hiding (hash)
 import Crypto.Hash.MD5 as MD5
 import Data.Binary
 import Data.Bytes.Serial
@@ -31,11 +30,9 @@ data ModuleName = ModuleName
   , _name     :: !Text
   } deriving (Data, Typeable, Generic)
 
-
-
 mkModuleName :: Text -> Text -> ModuleName
 mkModuleName p m = ModuleName d p m where
-  d = MD5.finalize $ digest initialCtx p `digest` m
+  d = MD5.finalize $ digest MD5.init p `digest` m
 
 mkModuleName_ :: String -> ModuleName
 mkModuleName_ nam = mkModuleName (Data.Text.pack "ermine") (Data.Text.pack nam)
@@ -73,14 +70,14 @@ class HasModuleName t where
 instance HasModuleName ModuleName where module_ = id
 
 instance Digestable ModuleName where
-  digest c ModuleName{_digest = d} = updateCtx c d
+  digest c ModuleName{_digest = d} = update c d
 
 instance Serial ModuleName where
   serialize mn = serialize (_digest mn) >> serialize (mn^.package) >> serialize (mn^.name)
   deserialize = ModuleName <$> deserialize <*> deserialize <*> deserialize
 
 instance Binary ModuleName where
-  get = deserialize ; put = serialize
+  get = deserialize; put = serialize
 
 instance Serialize ModuleName where
   get = deserialize; put = serialize
