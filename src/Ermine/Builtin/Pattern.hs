@@ -36,7 +36,6 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Data.Foldable
-import Data.Functor.Identity
 import Data.String
 import Data.Tagged
 import Data.Traversable

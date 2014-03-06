@@ -20,7 +20,6 @@ import Data.Void
 import Ermine.Syntax.Core
 import Ermine.Syntax.DataType
 import Ermine.Syntax.Global
-import Ermine.Syntax.Head
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 import Ermine.Syntax.Type

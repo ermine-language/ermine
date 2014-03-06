@@ -27,7 +27,6 @@ import Data.Functor.Extend
 import Data.Hashable
 import Data.Hashable.Extras
 import Data.Semigroup.Foldable
-import Data.Semigroup.Traversable
 import Data.Typeable
 import Data.Void
 import Ermine.Syntax.Type
