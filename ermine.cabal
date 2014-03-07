@@ -248,10 +248,6 @@ executable core-echo
       text,
       unordered-containers
 
-  if flag(ekg)
-    build-depends: ekg
-    ghc-options: -DEKG=1
-
 executable ermine
   hs-source-dirs: repl
   main-is: Main.hs
@@ -264,7 +260,7 @@ executable ermine
 
   if flag(ekg)
     build-depends: ekg
-    ghc-options: -DEKG=1
+    ghc-options: -DEKG=1 -rtsopts -with-rtsopts=-T
 
   if !flag(repl)
     buildable: False
