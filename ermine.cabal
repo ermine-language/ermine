@@ -206,7 +206,7 @@ library
     hs-source-dirs: src-opt/no-ekg
 
   other-modules: Paths_ermine
-  ghc-options: -Wall -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall
 
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
@@ -260,7 +260,7 @@ executable ermine
 
   if flag(ekg)
     build-depends: ekg
-    ghc-options: -DEKG=1 -rtsopts -with-rtsopts=-T
+    ghc-options: -with-rtsopts=-T
 
   if !flag(repl)
     buildable: False
@@ -285,7 +285,6 @@ test-suite properties
   main-is:        properties.hs
   ghc-options:    -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs: . properties
-
 
   if flag(j) && impl(ghc >= 7.8)
     ghc-options: -j3
