@@ -1,6 +1,6 @@
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett and Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -33,7 +33,7 @@ version = showVersion Paths_ermine.version { versionTags = ["α"] }
 
 -- | Grab the copyright message
 copyright :: String
-copyright = "© 2010-2013 McGraw Hill Financial"
+copyright = "© 2010-2014 McGraw Hill Financial"
 
 allrights :: String
 allrights = "All Rights Reserved"
