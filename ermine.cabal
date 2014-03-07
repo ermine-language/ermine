@@ -27,6 +27,8 @@ description:
     >      \/"""
     .
     <<overview.png>>
+    .
+    For more information, you can watch the <https://www.youtube.com/watch?v=o3m2NkusI9k Presentation by Edward Kmett> at CUFP 2013 about the genesis and goals of Ermine.
 
 build-type:    Custom
 extra-source-files:
