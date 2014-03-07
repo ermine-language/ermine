@@ -37,8 +37,6 @@ extra-source-files:
   scripts/overview.sh
   README.markdown
   CHANGELOG.markdown
-
-data-files:
   data/logo.txt
   data/logos.txt
 
