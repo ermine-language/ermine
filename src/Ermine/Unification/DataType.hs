@@ -19,7 +19,6 @@ import Control.Applicative
 import Data.Traversable
 import Data.Void
 import Ermine.Syntax.DataType
-import Ermine.Syntax.Scope
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import Ermine.Unification.Meta
