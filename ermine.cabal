@@ -195,7 +195,6 @@ library
 
   if flag(ekg)
     build-depends: ekg >= 0.3     && < 0.4
-    ghc-options: -DEKG=1
     hs-source-dirs: src-opt/ekg
   else
     hs-source-dirs: src-opt/no-ekg
