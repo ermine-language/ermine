@@ -25,10 +25,10 @@ module Ermine.Monitor
   , Incremental(..)
   , dec
   , sub
--- #ifdef EKG
---   -- * Compatibilty with EKG
---   , withServer
--- #endif
+  -- * Compatibilty with EKG
+  , Server
+  , withServer
+  , forkServer
   ) where
 
 import Control.Exception
@@ -37,6 +37,7 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.Data
 import Data.Text
+import Data.ByteString (ByteString)
 import Options.Applicative
 
 data MonitorOptions = MonitorOptions
@@ -59,8 +60,11 @@ data ShutdownMonitor = ShutdownMonitor deriving (Typeable, Show)
 
 instance Exception ShutdownMonitor
 
+data Server = Server
+
 data Monitor = Monitor
   { __monitorOptions :: MonitorOptions
+  , _monitorServer :: Maybe Server
   }
 
 makeClassy ''Monitor
@@ -68,12 +72,13 @@ makeClassy ''Monitor
 instance HasMonitorOptions Monitor where
   monitorOptions = _monitorOptions
 
--- #ifdef EKG
--- withServer :: HasMonitor t => t -> (Server -> IO ()) -> IO ()
--- withServer t k = case t^.monitorServer of
---   Nothing -> return ()
---   Just s  -> k s
--- #endif
+withServer :: HasMonitor t => t -> (Server -> IO ()) -> IO ()
+withServer t k = case t^.monitorServer of
+  Nothing -> return ()
+  Just s  -> k s
+
+forkServer :: ByteString -> Int -> IO Server
+forkServer _ _ = return Server
 
 class Setting t a | t -> a where
   assign :: MonadIO m => t -> a -> m ()        -- set
@@ -126,4 +131,4 @@ labelM :: (MonadIO m, MonadReader t m, HasMonitor t) => Text -> m Label
 labelM = return . Label
 
 withMonitor :: HasMonitorOptions t => t -> (Monitor -> IO a) -> IO a
-withMonitor t k = k $ Monitor (t^.monitorOptions)
+withMonitor t k = k $ Monitor (t^.monitorOptions) Nothing

@@ -26,7 +26,9 @@ module Ermine.Monitor
   , dec
   , sub
   -- * Compatibilty with EKG
+  , Server
   , withServer
+  , forkServer
   ) where
 
 import Control.Exception

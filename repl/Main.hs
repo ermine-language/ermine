@@ -15,11 +15,11 @@ import Ermine.Console.Command
 import Ermine.Console.Completion
 import Ermine.Console.Options
 import Ermine.Console.Unicode
+import Ermine.Monitor
 -- import Ermine.Version
 import Options.Applicative
 import System.Console.Haskeline
 import System.Exit.Lens
-import System.Remote.Monitoring
 
 main :: IO ()
 main = withUnicode $ do

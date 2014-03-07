@@ -18,24 +18,9 @@ module Ermine.Console.Options
 
 import Control.Lens
 import Data.Data
+import Ermine.Monitor
 import Options.Applicative
 import Paths_ermine
-
--- | Enable/disable EKG
-data MonitorOptions = MonitorOptions
-  { _monitorHost    :: String
-  , _monitorPort    :: Int
-  , _monitorEnabled :: Bool
-  } deriving (Eq,Ord,Show,Read,Data,Typeable)
-
--- | Parse EKG configuration
-parseMonitorOptions :: Parser MonitorOptions
-parseMonitorOptions = MonitorOptions
-  <$> strOption (long "ekg-host" <> short 'h' <> help "host for the EKG server" <> metavar "HOST" <> action "hostname" <> value "localhost")
-  <*> option (long "ekg-port" <> short 'p' <> help "port for the EKG server" <> metavar "PORT" <> value 5616)
-  <*> (not <$> switch (long "no-ekg" <> help "do not start the EKG server" <> value False))
-
-makeClassy ''MonitorOptions
 
 -- | All command line options.
 data Options = Options
