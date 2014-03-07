@@ -60,6 +60,11 @@ flag properties
   manual: True
   default: True
 
+-- `cabal instll -f-j` to disable parallel builds for some reason
+flag j
+  manual: True
+  default: True
+
 -- `cabal install --enable-tests -f-hlint` to disable properties suite
 flag hlint
   manual: True
@@ -80,6 +85,7 @@ flag repl
   manual: True
   default: True
 
+-- `cabal install -fq` to quiet down the build messages
 flag q
   manual: True
   default: False
@@ -200,13 +206,18 @@ library
     hs-source-dirs: src-opt/no-ekg
 
   other-modules: Paths_ermine
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -rtsopts -with-rtsopts=-N
 
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
+  else
+    ghc-options: -O0
 
   if flag(q)
     ghc-options: -v0
+
+  if flag(j) && impl(ghc >= 7.8)
+    ghc-options: -j3
 
 executable core-echo
   hs-source-dirs: echo
@@ -215,6 +226,8 @@ executable core-echo
 
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
+  else
+    ghc-options: -O0
 
   if !flag(core-echo)
     buildable: False
@@ -246,6 +259,8 @@ executable ermine
 
   if flag(optimized)
     ghc-options: -funbox-strict-fields -O2
+  else
+    ghc-options: -O0
 
   if flag(ekg)
     build-depends: ekg
@@ -274,6 +289,11 @@ test-suite properties
   main-is:        properties.hs
   ghc-options:    -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs: . properties
+
+
+  if flag(j) && impl(ghc >= 7.8)
+    ghc-options: -j3
+
   other-modules:
     Arbitrary
     Binary
