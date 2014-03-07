@@ -16,7 +16,6 @@ module Ermine.Version
   ) where
 
 import Control.Applicative
-import Control.Exception.Lens
 import Data.ByteString.Char8 (unpack)
 import Data.FileEmbed
 import Data.List.Split
@@ -28,7 +27,7 @@ import System.IO.Unsafe
 
 -- | Obtain a copy of the Ermine logo.
 logo :: String
-logo = unsafePerformIO $ randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos else rat
+logo = unsafePerformIO $ randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos else return rat
 
 -- | Grab the version number from this project.
 version :: String
@@ -42,7 +41,7 @@ allrights :: String
 allrights = "All Rights Reserved"
 
 logos :: IO String
-logos = handling_ id rat $ do
+logos = do
   let txt = splitOn [""] $ lines $ unpack $ $(embedFile $ "data" </> "logos.txt")
   -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
   -- txt <- splitOn [""] . lines <$> readFile file
@@ -56,8 +55,5 @@ logos = handling_ id rat $ do
     , pad l4 ++ ' ' : allrights
     ] ++ rest
 
-rat :: IO String
-rat = handling_ id (return bad) $ Paths_ermine.getDataFileName ("data" </> "logo.txt") >>= readFile
-
-bad :: String
-bad = "Ermine " ++ version ++ "\nwarning: Missing data/logo.txt"
+rat :: String
+rat = unpack $ $(embedFile $ "data" </> "logo.txt")
