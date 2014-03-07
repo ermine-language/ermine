@@ -2,15 +2,11 @@ language: haskell
 
 env:
   - GHCVER=7.4.2
-  - >
-    GHCVER=7.4.2
-    MODE="-fekg"
   - GHCVER=7.6.3
   - >
     GHCVER=7.6.3
     MODE="-fekg"
   - GHCVER=7.8.1
-  - GHCVER=head
 
 # Ingore 7.4.2 failures for now because of the doctest GHC panic.
 matrix:
