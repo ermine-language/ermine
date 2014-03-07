@@ -42,10 +42,12 @@ import qualified Data.Serialize as Serialize
 
 -- | In the instance declaration:
 --
+-- @
 --   instance Foo a => Bar Int [a] where
 --     ...
+-- @
 --
--- The portion 'Bar Int [a]' is the head of the instance. All instances
+-- The portion @Bar Int [a]@ is the head of the instance. All instances
 -- must have a unique head; type class dispatch does not take the context
 -- of the instance into account. Thus, instances are uniquely identified by
 -- their heads, and we use them for that purpose among others.
@@ -55,7 +57,9 @@ import qualified Data.Serialize as Serialize
 --
 -- The above instance head would be represented as something like:
 --
+-- @
 --   Head ... "Bar" 0 [star] [] [int, list (B 0)]
+-- @
 
 data Head = Head { _headDigest     :: ByteString
                  , _hash           :: !Int
