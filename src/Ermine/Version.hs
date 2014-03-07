@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
@@ -16,6 +17,8 @@ module Ermine.Version
 
 import Control.Applicative
 import Control.Exception.Lens
+import Data.ByteString.Char8 (unpack)
+import Data.FileEmbed
 import Data.List.Split
 import Data.Version
 import qualified Paths_ermine
@@ -40,8 +43,9 @@ allrights = "All Rights Reserved"
 
 logos :: IO String
 logos = handling_ id rat $ do
-  file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
-  txt <- splitOn [""] . lines <$> readFile file
+  let txt = splitOn [""] $ lines $ unpack $ $(embedFile $ "data" </> "logos.txt")
+  -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
+  -- txt <- splitOn [""] . lines <$> readFile file
   nm:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
   let n = maximum (map length xs)
   let pad ys = ys ++ replicate (n - length ys) ' '
