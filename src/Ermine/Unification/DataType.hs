@@ -32,7 +32,7 @@ zonkConstructor :: Constructor (Var Int (MetaK s)) (Var Int Void)
                 -> M s (Constructor (Var Int (MetaK s)) (Var Int Void))
 zonkConstructor (Constructor tg ks ts fs) = do
   ts' <- (traverse . traverse) (\s -> (>>>= id) <$> traverseScope pure zk s) ts
-  fs' <- (traverse . transverseScope) (\tk -> bindTK id <$> kindVars (traverse zk) tk) fs
+  fs' <- traverse (transverseScope (\tk -> bindTK id <$> kindVars (traverse zk) tk)) fs
   pure $ Constructor tg ks ts' fs'
  where
  zk :: Var Int (MetaK s) -> M s (Kind (Var Int (MetaK s)))

@@ -27,13 +27,11 @@ module Ermine.Syntax.Scope
   ) where
 
 import Bound
+import Bound.Scope
 import Control.Applicative
-import Control.Lens
 import Data.Bytes.Serial
 import Data.Bytes.Get
 import Data.Bytes.Put
-import Data.Bitraversable
-import Data.Data
 
 -- | Generalizes 'Bound' to permit binding by another type without taking it as a parameter.
 class Monad m => BoundBy tm m | tm -> m where
