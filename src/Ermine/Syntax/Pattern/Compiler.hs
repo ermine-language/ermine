@@ -62,7 +62,8 @@ import Ermine.Syntax.Pattern
 --
 --   1) The signatures (full list of constructors) associated with each
 --      particular constructor
---   2) A mapping from constructors to their Core integer tag
+--
+--   2) A mapping from constructors to their @Core@ integer tag
 --
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
@@ -110,13 +111,13 @@ makePrisms ''Guard
 -- | Additional information needed for pattern compilation that does not
 -- really belong in the pattern matrix.
 --
--- The pathMap stores information for resolving previous levels of the
+-- The 'pathMap' stores information for resolving previous levels of the
 -- pattern to appropriate cores for the current context.
 --
--- colCores contains core terms that refer to each of the columns of the
+-- 'colCores' contains core terms that refer to each of the columns of the
 -- matrix in the current context.
 --
--- colPaths contains the paths into the original pattern that correspond to
+-- 'colPaths' contains the paths into the original pattern that correspond to
 -- each of the current columns.
 data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
                            , _colCores :: [Core a]
@@ -125,9 +126,9 @@ data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
 
 makeClassy ''CompileInfo
 
--- | 'remove i' removes the ith column of the CompileInfo. This is for use
+-- | @'remove' i@ removes the /i/th column of the 'CompileInfo'. This is for use
 -- when compiling the default case for a column, and thus the resulting
--- CompileInfo is lifted to be used in such a context.
+-- 'CompileInfo' is lifted to be used in such a context.
 remove :: Int -> CompileInfo a -> CompileInfo (Var () (Core a))
 remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
@@ -136,9 +137,9 @@ remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
           (pl ++ pr)
   _ -> error "PANIC: remove: bad column reference"
 
--- | 'expand i n' expands the ith column of a pattern into n columns. This
+-- | @'expand' i n@ expands the /i/th column of a pattern into /n/ columns. This
 -- is for use when compiling a constructor case of a pattern, and thus the
--- CompileInfo returned is prepared to be used in such a case.
+-- 'CompileInfo' returned is prepared to be used in such a case.
 expand :: Int -> Word8 -> CompileInfo a -> CompileInfo (Var Word8 (Core a))
 expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
