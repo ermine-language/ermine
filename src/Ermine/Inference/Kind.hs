@@ -110,9 +110,6 @@ inferKind (Forall n tks cs b) = do
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
 fixCons m f dt = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m) dt
 
--- checkDataTypeKinds :: MonadMeta s m
---                    => [DataType () Text] -> m [DataType Void Void]
-
 -- | Checks a list of data types for well-kindedness. The unit in the kind
 -- variables is interpreted as an unknown, which must be determined by the
 -- algorithm. The string variables may refer to other data types in the
@@ -123,8 +120,10 @@ fixCons m f dt = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m) dt
 --
 -- TODO: Currently, the following example fails with a skolem escape:
 --
+-- @
 --   data Foo (a : k) = Foo (Bar a)
 --   data Bar a = Bar (Foo a)
+-- @
 --
 -- This is because Foo and Bar must be checked as a group, k is skolemized
 -- for the checking of Foo, but its type leaks to Bar's unknown kind.
@@ -143,8 +142,6 @@ checkDataTypeKinds dts = flip evalStateT Map.empty
    cscc <- checkDataTypeGroup scc'
    return (cscc, m `Map.union` conMap cscc)
 
--- checkDataTypeGroup :: MonadMeta s m
---                    => [DataType (Maybe Text) Text] -> m [DataType Void Void]
 checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
   dts' <- traverse (kindVars newMeta) dts
@@ -189,9 +186,6 @@ checkDataTypeKind m dt = do
  refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
 
 -- | Checks that the types in a data constructor have sensible kinds.
--- checkConstructorKind :: MonadMeta s m
---                      => Constructor (MetaK s) (KindM s)
---                      -> m ()
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
 checkConstructorKind (Constructor _ ks ts fs) = do
   sks <- for ks $ \_ -> newSkolem ()
