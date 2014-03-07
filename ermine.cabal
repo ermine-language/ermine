@@ -183,7 +183,7 @@ library
     optparse-applicative      >= 0.7.0.2,
     parsers                   >= 0.8,
     prelude-extras            >= 0.3,
-    process                   >= 1.2,
+    process                   >= 1.1,
     random                    >= 1.0.0.3,
     semigroupoids             >= 4,
     semigroups                >= 0.9,
