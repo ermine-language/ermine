@@ -9,8 +9,7 @@
 module Ermine.Inference.Discharge
   ( MonadDischarge(..)
   , DischargeEnv(..)
-  , classes
-  , instances
+  , HasDischargeEnv(..)
   , viewDischarge
   , superclasses
   , dischargesBySuper
@@ -48,7 +47,7 @@ data DischargeEnv = DischargeEnv
                   , _instances :: Map Global [Instance]
                   }
 
-makeLenses ''DischargeEnv
+makeClassy ''DischargeEnv
 
 class MonadMeta s m => MonadDischarge s m where
   askDischarge :: m DischargeEnv
@@ -58,11 +57,6 @@ instance MonadDischarge s m => MonadDischarge s (MaybeT m) where
   askDischarge     = MaybeT $ fmap Just askDischarge
   localDischarge f = MaybeT . localDischarge f . runMaybeT
 
--- coreBind :: (a -> Scope b Core c) -> Scope b Core a -> Scope b Core c
--- coreBind :: (a -> Core (Res c b)) -> Core (Res a b) -> Core (Res c b)
--- coreBind f c = c >>= unvar (pure . Resolved) f
-
--- coreMangle :: Applicative f =>  (a -> f (Core (Res c b))) -> Core (Res a b) -> f (Core (Res c b))
 mangle :: (Applicative f, Monad t, Traversable t) =>  (a -> f (t c)) -> t a -> f (t c)
 mangle f c = join <$> traverse f c
 
@@ -86,8 +80,6 @@ superclasses tc = go [] tc
 --
 -- We expect here that both arguments have been reduced by instance before
 -- they arrive here.
---
--- c `dischargesBySuper` c'
 dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
                   => Type k t -> Type k t -> m (Scope b Core (Type k t))
 dischargesBySuper c d = Prelude.foldr id (pure d) <$> go [] d
@@ -105,7 +97,7 @@ dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
                               pure (pure d))
 
 -- Checks if a series of type arguments would match against the type
--- type 'patterns' of an instance head. Returns a mapping from the
+-- type \"patterns\" of an instance head. Returns a mapping from the
 -- variables bound in the instance to the types they would correspond to
 -- after the match.
 --
@@ -146,7 +138,6 @@ entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Type
 entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
 
 simplifyVia :: (MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
--- simplifyVia cs = coreMangle $ \c -> fmap (fromMaybe . pure $ F c) . runMaybeT $ entails cs c
 simplifyVia cs s = do
   x <- for s $ \t -> runMaybeT (entails cs t) <&> fromMaybe (pure t)
   return $ join x
