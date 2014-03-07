@@ -78,7 +78,7 @@ import Prelude
 
 -- | The built-in '::' constructor for a list.
 --
--- >>> putStrLn $ groom $ lit (1 :: Int) `cons` nil
+-- >>> putStrLn $ groom $ lit (1 :: Int32) `cons` nil
 -- Data 1 [HardCore (Lit (Int 1)), Data 0 []]
 instance Cons (Core a) (Core a) (Core a) (Core a) where
   _Cons = prism (\(a, as) -> Data 1 [a,as]) $ \ s -> case s of
