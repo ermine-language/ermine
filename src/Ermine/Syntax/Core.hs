@@ -243,16 +243,34 @@ instance Serialize HardCore where
   put = serialize
   get = deserialize
 
-class Monad m => Cored m where
-  core :: Core a -> m a
+class (Applicative c, Monad c) => Cored c where
+  core :: Core a -> c a
+  caze :: c a -> Map Word8 (Word8, Scope Word8 c a) -> Maybe (Scope () c a) -> c a
+  lambda :: Word8 -> Scope Word8 c a -> c a
+  lambdaDict :: Scope () c a -> c a
+  hardCore :: HardCore -> c a
+  hardCore = core . HardCore
+  {-# INLINE hardCore #-}
 
 instance Cored Core where
   core = id
   {-# INLINE core #-}
+  caze = Case
+  lambda = Lam
+  lambdaDict = LamDict
+
+expandScope :: Scope b2 (Scope b1 t) a -> Scope b2 t (Var b1 (t a))
+expandScope = undefined
 
 instance Cored m => Cored (Scope b m) where
   core = lift . core
   {-# INLINE core #-}
+  caze e bs d = Scope $
+    caze (unscope e)
+         (fmap (fmap expandScope) bs)
+         (fmap expandScope d)
+  lambda w e = Scope . lambda w $ expandScope e
+  lambdaDict e = Scope . lambdaDict $ expandScope e
 
 -- | Core values are the output of the compilation process.
 --

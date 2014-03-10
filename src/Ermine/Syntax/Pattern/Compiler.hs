@@ -4,6 +4,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -103,7 +104,7 @@ constructorTag (ConH _ g) = askPComp <&> \env ->
 -- | Guard representation. Every row of a pattern matrix must have an
 -- assocated guard, but if no guard was specified, then it will simply be
 -- the trivial guard which allows everything.
-data Guard a = Trivial | Explicit (Scope PatPath Core a)
+data Guard c a = Trivial | Explicit (Scope PatPath c a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 makePrisms ''Guard
@@ -119,17 +120,17 @@ makePrisms ''Guard
 --
 -- 'colPaths' contains the paths into the original pattern that correspond to
 -- each of the current columns.
-data CompileInfo a = CInfo { _pathMap  :: HashMap PatPath (Core a)
-                           , _colCores :: [Core a]
-                           , _colPaths :: [PatPaths]
-                           }
+data CompileInfo c a = CInfo { _pathMap  :: HashMap PatPath (c a)
+                             , _colCores :: [c a]
+                             , _colPaths :: [PatPaths]
+                             }
 
 makeClassy ''CompileInfo
 
 -- | @'remove' i@ removes the /i/th column of the 'CompileInfo'. This is for use
 -- when compiling the default case for a column, and thus the resulting
 -- 'CompileInfo' is lifted to be used in such a context.
-remove :: Int -> CompileInfo a -> CompileInfo (Var () (Core a))
+remove :: Applicative c => Int -> CompileInfo c a -> CompileInfo c (Var () (c a))
 remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     CInfo (HM.insert (leafPP p) (pure $ B ()) $ fmap (pure . F) m)
@@ -140,7 +141,8 @@ remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
 -- | @'expand' i n@ expands the /i/th column of a pattern into /n/ columns. This
 -- is for use when compiling a constructor case of a pattern, and thus the
 -- 'CompileInfo' returned is prepared to be used in such a case.
-expand :: Int -> Word8 -> CompileInfo a -> CompileInfo (Var Word8 (Core a))
+expand :: Applicative c
+       => Int -> Word8 -> CompileInfo c a -> CompileInfo c (Var Word8 (c a))
 expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     CInfo (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
@@ -148,7 +150,7 @@ expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
           (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
-instantiation :: CompileInfo a -> PatPath -> Core a
+instantiation :: CompileInfo c a -> PatPath -> c a
 instantiation (CInfo pm cc cp) pp = fromMaybe
   (error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp) (HM.lookup pp pm')
  where
@@ -156,27 +158,27 @@ instantiation (CInfo pm cc cp) pp = fromMaybe
 
 -- | Pattern matrices for compilation. The matrix is represented as a list
 -- of columns. There is also an extra column representing the guards.
-data PMatrix t a = PMatrix { _cols     :: [[Pattern t]]
-                           , _guards   :: [Guard a]
-                           , _bodies   :: [Scope PatPath Core a]
-                           }
+data PMatrix t c a = PMatrix { _cols     :: [[Pattern t]]
+                             , _guards   :: [Guard c a]
+                             , _bodies   :: [Scope PatPath c a]
+                             }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 makeClassy ''PMatrix
 
 -- | A helper function to make a more deeply nested core.
-promote :: (Functor f, Functor g) => f (g a) -> f (g (Var b (Core a)))
+promote :: (Functor f, Functor g, Applicative c) => f (g a) -> f (g (Var b (c a)))
 promote = fmap . fmap $ F . pure
 
 -- | This lifts a CompileInfo to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bump :: CompileInfo a -> CompileInfo (Var Word8 (Core a))
+bump :: Applicative c => CompileInfo c a -> CompileInfo c (Var Word8 (c a))
 bump (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column.
-defaultOn :: Int -> PMatrix t a -> PMatrix t (Var () (Core a))
+defaultOn :: Applicative c => Int -> PMatrix t c a -> PMatrix t c (Var () (c a))
 defaultOn i (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
       select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
@@ -185,7 +187,8 @@ defaultOn i (PMatrix ps gs cs)
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
-splitOn :: Int -> PatHead -> PMatrix t a -> PMatrix t (Var Word8 (Core a))
+splitOn :: Applicative c
+        => Int -> PatHead -> PMatrix t c a -> PMatrix t c (Var Word8 (c a))
 splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
@@ -201,7 +204,7 @@ splitOn i hd (PMatrix ps gs cs)
 
 -- | Removes the first row of the pattern matrix, and prepares it to be
 -- used in a context with a guard.
-peel :: PMatrix t a -> PMatrix t (Var Word8 (Core a))
+peel :: Applicative c => PMatrix t c a -> PMatrix t c (Var Word8 (c a))
 peel (PMatrix ps (_:gs) (_:bs)) =
   PMatrix (map (drop 1) ps) (promote gs) (promote bs)
 peel _ = error "PANIC: peel: malformed pattern matrix."
@@ -223,14 +226,14 @@ selectCol = fmap fst
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
-compile :: MonadPComp m => CompileInfo a -> PMatrix t a -> m (Core a)
-compile _  (PMatrix _  [] _)  = pure . HardCore $ Error (SText.pack "non-exhaustive pattern match.")
+compile :: (MonadPComp m, Cored c) => CompileInfo c a -> PMatrix t c a -> m (c a)
+compile _  (PMatrix _  [] _)  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile ci pm@(PMatrix ps gs bs)
   | all (matchesTrivially . head) ps = case head gs of
     Trivial -> pure . instantiate (instantiation ci) $ head bs
     Explicit e -> mk <$> compile (bump ci) (peel pm)
      where
-     mk f = Case (instantiate (instantiation ci) e) ?? Nothing $
+     mk f = caze (instantiate (instantiation ci) e) ?? Nothing $
               M.fromList
                 [(1, (0, Scope . fmap (F . pure) $
                            instantiate (instantiation ci) $ head bs))
@@ -246,7 +249,7 @@ compile ci pm@(PMatrix ps gs bs)
                    let n = h^.arity
                    (,) <$> constructorTag h
                        <*> ((,) n . Scope <$> compile (expand i n ci) (splitOn i h pm))
-          Case ((ci^.colCores) !! i) (M.fromList sms) <$>
+          caze ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
 
