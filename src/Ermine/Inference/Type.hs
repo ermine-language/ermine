@@ -55,7 +55,7 @@ import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
 
-type TermM s = Term (Annot (MetaK s) (MetaT s)) (TypeM s)
+type TermM s a = Term (Annot (MetaK s) (MetaT s)) (a, TypeM s)
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -69,8 +69,8 @@ matchFunType t = do
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
-inferType :: MonadDischarge s m => TermM s -> m (WitnessM s a)
-inferType (Term.Var _) = fail "unimplemented"
+inferType :: MonadDischarge s m => TermM s a -> m (WitnessM s a)
+inferType (Term.Var (x, t)) = unfurl t (pure x)
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
 inferType (Remember i t) = do
@@ -93,7 +93,7 @@ inferType (Term.Let _ _)  = fail "unimplemented"
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 
-checkType :: MonadMeta s m => TermM s -> TypeM s -> m (WitnessM s a)
+checkType :: MonadMeta s m => TermM s a -> TypeM s -> m (WitnessM s a)
 checkType _ _ = fail "Check yourself"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
