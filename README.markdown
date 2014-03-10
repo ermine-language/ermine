@@ -25,7 +25,7 @@ Build Notes
 It is advised when building to use the following flags in your `~/.cabal/config`.
 
 ```
-library-vanilla: False
+library-vanilla: True
 shared: True
 executable-dynamic: True
 ```
