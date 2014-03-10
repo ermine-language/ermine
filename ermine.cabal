@@ -60,10 +60,10 @@ flag properties
   manual: True
   default: True
 
--- `cabal instll -f-j` to disable parallel builds for some reason
+-- `cabal instll -fj` to enable parallel builds. This may trigger open issues in GHC!
 flag j
   manual: True
-  default: True
+  default: False
 
 -- `cabal install --enable-tests -f-hlint` to disable properties suite
 flag hlint
@@ -351,7 +351,7 @@ test-suite doctests
       containers,
       directory >= 1.0,
       doctest >= 0.9.1,
-      ermine,
+      file-embed,
       filepath,
       groom >= 0.1.1 && < 0.2,
       MonadCatchIO-transformers,
