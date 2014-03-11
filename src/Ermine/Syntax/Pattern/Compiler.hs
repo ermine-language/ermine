@@ -33,13 +33,16 @@ module Ermine.Syntax.Pattern.Compiler
   , defaultOn
   , splitOn
   , compile
+  , compileLambda
   ) where
 
 import Prelude hiding (all)
 
 import Bound
+import Bound.Scope
 import Control.Applicative
 import Control.Lens
+import Control.Monad.Trans (lift)
 import Data.Foldable
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
@@ -253,3 +256,11 @@ compile ci pm@(PMatrix ps gs bs)
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
 
+compileLambda :: (MonadPComp m, Cored c)
+              => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
+compileLambda ps body = compile ci pm
+ where
+ pm = PMatrix [ps] [Trivial] [hoistScope lift body]
+ pps = zipWith (const . argPP) [0..] ps
+ cs = zipWith (const . Scope . pure . B) [0..] ps
+ ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
