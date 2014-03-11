@@ -6,6 +6,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -43,6 +44,7 @@ module Ermine.Syntax.Core
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
@@ -259,8 +261,23 @@ instance Cored Core where
   lambda = Lam
   lambdaDict = LamDict
 
-expandScope :: Scope b2 (Scope b1 t) a -> Scope b2 t (Var b1 (t a))
-expandScope = undefined
+expandScope :: forall t b1 b2 a. (Applicative t, Monad t)
+            => Scope b2 (Scope b1 t) a -> Scope b2 t (Var b1 (t a))
+-- Scope b1 t (Var b2 (Scope b1 t a))
+-- t (Var b1 (Var b2 (Scope b1 t a)))
+-- t (Var b2 (Var b1 (Scope b1 t a)))
+-- t (Var b2 (t (Var b1 (t a))))
+expandScope (Scope e) = Scope e'''
+ where
+ twist :: forall c d e. Var c (Var d e) -> Var d (Var c e)
+ twist = unvar (F . B) (unvar B (F . F))
+ e' :: t (Var b1 (Var b2 (Scope b1 t a)))
+ e' = fromScope e
+ e'' :: t (Var b2 (Var b1 (Scope b1 t a)))
+ e'' = fmap twist e'
+ e''' :: t (Var b2 (t (Var b1 (t a))))
+ e''' = (fmap.fmap) (unvar (pure . B) unscope) e''
+
 
 instance Cored m => Cored (Scope b m) where
   core = lift . core

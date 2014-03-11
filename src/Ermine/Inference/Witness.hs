@@ -43,7 +43,7 @@ import Prelude.Extras
 data Witness t a = Witness
   { _witnessRowConstraints :: [t]
   , _witnessType :: !t
-  , _witnessCore :: (Scope a Core t)
+  , _witnessCore :: !(Scope a Core t)
   } deriving (Show, Eq, Typeable, Generic)
 
 makeClassy ''Witness
