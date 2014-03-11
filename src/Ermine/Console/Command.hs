@@ -21,6 +21,7 @@ module Ermine.Console.Command
   , executeCommand
   ) where
 
+import Bound
 import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
@@ -139,16 +140,18 @@ instance MonadDischarge s (M s) where
   localDischarge _ m = m
 
 typeBody :: Term Ann Text -> Console ()
-typeBody syn = do
-  ty <- ioM mempty $ do
-    tm <- bitraverse (prepare (newMeta ())
-                              (const $ newMeta ())
-                              (const $ newMeta () >>= newMeta . pure))
-                      (const . fmap pure $ newMeta () >>= newMeta . pure)
-                      syn
-    Witness _ ty _ <- inferType id tm
-    generalizeType ty
-  sayLn $ prettyType ty names (-1)
+typeBody syn = case closed syn of
+    Just syn' -> do
+      ty <- ioM mempty $ do
+        tm <- bitraverse (prepare (newMeta ())
+                                (const $ newMeta ())
+                                (const $ newMeta () >>= newMeta . pure))
+                       absurd
+                       syn'
+        Witness _ ty _ <- inferType id tm
+        generalizeType ty
+      sayLn $ prettyType ty names (-1)
+    Nothing -> sayLn "Unbound variables detected"
 
 commands :: [Command]
 commands =
