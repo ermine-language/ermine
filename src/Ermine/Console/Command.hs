@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -33,6 +34,7 @@ import qualified Data.Map as Map
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
+import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import Data.Foldable (for_)
 import Data.Void
@@ -46,10 +48,12 @@ import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
 import Ermine.Pretty
+import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax.DataType (DataType, dataTypeSchema)
+import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Name
@@ -139,19 +143,27 @@ instance MonadDischarge s (M s) where
   askDischarge = return $ DischargeEnv Map.empty Map.empty
   localDischarge _ m = m
 
+checkAndCompile :: MonadDischarge s m
+                => Term Ann Text -> m (Maybe (Type t k, Maybe (Core c)))
+checkAndCompile syn = closed syn `for` \syn' -> do
+  tm <- bitraverse (prepare (newMeta ())
+                          (const $ newMeta ())
+                          (const $ newMeta () >>= newMeta . pure))
+                 absurd
+                 syn'
+  Witness _ ty c <- inferType id tm
+  (,closed $ fromScope c) <$> generalizeType ty
+
 typeBody :: Term Ann Text -> Console ()
-typeBody syn = case closed syn of
-    Just syn' -> do
-      ty <- ioM mempty $ do
-        tm <- bitraverse (prepare (newMeta ())
-                                (const $ newMeta ())
-                                (const $ newMeta () >>= newMeta . pure))
-                       absurd
-                       syn'
-        Witness _ ty _ <- inferType id tm
-        generalizeType ty
-      sayLn $ prettyType ty names (-1)
-    Nothing -> sayLn "Unbound variables detected"
+typeBody syn = ioM mempty (checkAndCompile syn) >>= \case
+  Just (ty, _) -> sayLn $ prettyType ty names (-1)
+  Nothing -> sayLn "Unbound variables detected"
+
+coreBody :: Term Ann Text -> Console ()
+coreBody syn = ioM mempty (checkAndCompile syn) >>= \case
+  Just (_, Just  c) -> sayLn . runIdentity $ prettyCore names (-1) const c
+  Just (_, Nothing) -> sayLn "Bad core detected: unresolved classes or globals"
+  Nothing           -> sayLn "Unbound variables detected"
 
 commands :: [Command]
 commands =
@@ -176,6 +188,8 @@ commands =
       & body .~ parsing typ kindBody
   , cmd "type" & desc .~ "infer the type of a term"
       & body .~ parsing term typeBody
+  , cmd "core" & desc .~ "dump the core representation of a term after type checking."
+      & body .~ parsing term coreBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
