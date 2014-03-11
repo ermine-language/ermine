@@ -52,7 +52,7 @@ import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
 
-type TermM s a = Term (Annot (MetaK s) (MetaT s)) (a, TypeM s)
+type TermM s a = Term (Annot (MetaK s) (MetaT s)) (TypeM s, a)
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -67,7 +67,7 @@ matchFunType t = do
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
 inferType :: MonadDischarge s m => TermM s a -> m (WitnessM s a)
-inferType (Term.Var (x, t)) = unfurl t (pure x)
+inferType (Term.Var p) = uncurry unfurl p
 inferType (HardTerm t) = inferHardType t
 inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
 inferType (Remember i t) = do
@@ -114,14 +114,14 @@ literalType Char{}   = Type.char
 literalType Float{}  = Type.float
 literalType Double{} = Type.double
 
-unfurl :: MonadMeta s m => TypeM s -> Core a -> m (WitnessM s a)
+unfurl :: MonadMeta s m => TypeM s -> a -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  return $ Witness rcs (inst bd) $ appDicts (Scope $ fmap B co) (pure <$> tcs)
-unfurl t co = pure $ Witness [] t (Scope $ fmap B co)
+  return $ Witness rcs (inst bd) $ appDicts (Scope . pure $ B co) (pure <$> tcs)
+unfurl t co = pure $ Witness [] t (Scope . pure $ B co)
 
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
