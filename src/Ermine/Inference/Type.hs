@@ -52,7 +52,7 @@ import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
 
-type TermM s a = Term (Annot (MetaK s) (MetaT s)) (TypeM s, a)
+type TermM s a = Term (Annot (MetaK s) (MetaT s)) a
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -66,32 +66,34 @@ matchFunType t = do
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
-inferType :: MonadDischarge s m => TermM s a -> m (WitnessM s a)
-inferType (Term.Var p) = uncurry unfurl p
-inferType (HardTerm t) = inferHardType t
-inferType (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType tm
-inferType (Remember i t) = do
-  r <- inferType t
+inferType :: MonadDischarge s m
+          => (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
+inferType cxt (Term.Var v) = unfurl (cxt v) v
+inferType _   (HardTerm t) = inferHardType t
+inferType cxt (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType cxt tm
+inferType cxt (Remember i t) = do
+  r <- inferType cxt t
   remember i (r^.witnessType)
   return r
-inferType (Sig tm (Annot ks ty)) = do
+inferType cxt (Sig tm (Annot ks ty)) = do
   ts <- for ks newMeta
-  checkType tm (instantiateVars ts ty)
-inferType (Term.App f x) = do
-  Witness frcs ft fc <- inferType f
+  checkType cxt tm (instantiateVars ts ty)
+inferType cxt (Term.App f x) = do
+  Witness frcs ft fc <- inferType cxt f
   (i, o) <- matchFunType ft
-  Witness xrcs _ xc <- checkType x i
+  Witness xrcs _ xc <- checkType cxt x i
   simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
-inferType (Term.Lam _ _)  = fail "unimplemented"
-inferType (Term.Case _ _) = fail "unimplemented"
-inferType (Term.Let _ _)  = fail "unimplemented"
+inferType _   (Term.Lam _ _)  = fail "unimplemented"
+inferType _   (Term.Case _ _) = fail "unimplemented"
+inferType _   (Term.Let _ _)  = fail "unimplemented"
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 
-checkType :: MonadMeta s m => TermM s a -> TypeM s -> m (WitnessM s a)
-checkType _ _ = fail "Check yourself"
+checkType :: MonadMeta s m
+          => (v -> TypeM s) -> TermM s a -> TypeM s -> m (WitnessM s a)
+checkType _   _ _ = fail "Check yourself"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
