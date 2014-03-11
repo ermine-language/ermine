@@ -147,7 +147,7 @@ typeBody syn = do
                       (const . fmap pure $ newMeta () >>= newMeta . pure)
                       syn
     Witness _ ty _ <- inferType id tm
-    return $ bimap (const "_") (const "_") ty
+    generalizeType ty
   sayLn $ prettyType ty names (-1)
 
 commands :: [Command]

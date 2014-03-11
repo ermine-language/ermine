@@ -21,6 +21,7 @@ module Ermine.Inference.Type
   ( matchFunType
   , inferType
   , inferPatternType
+  , generalizeType
   ) where
 
 import Bound
@@ -30,12 +31,19 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
+import Control.Monad.State.Strict
 import Data.Foldable as Foldable
-import Data.List as List (partition)
+import Data.Function (on)
+import Data.List as List (partition, sortBy)
 import Data.Text as SText (pack)
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IntSet
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -113,6 +121,44 @@ simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 checkType :: MonadMeta s m
           => (v -> TypeM s) -> TermM s a -> TypeM s -> m (WitnessM s a)
 checkType _   _ _ = fail "Check yourself"
+
+-- | Generalizes the metavariables in a TypeM, yielding a type with no free
+-- variables. Checks for skolem escapes while doing so.
+--
+-- TODO: constraint contexts
+generalizeType :: MonadMeta s m => TypeM s -> m (Type k t)
+generalizeType = generalizeOverType IntSet.empty
+
+-- TODO: hints
+-- TODO: separate kind vs type skolem sets?
+-- TODO: this code is repetitive; see also Kind.generalize
+generalizeOverType :: MonadMeta s m => IntSet -> TypeM s -> m (Type k t)
+generalizeOverType sks t0 = do
+  t <- runSharing t0 $ zonk t0
+  -- t' :: Type MetaK (Var Int t)
+  (t', (im, tn)) <- runStateT (traverse goT t) (IntMap.empty, 0)
+  let mks = map snd . sortBy (compare `on` fst) $ toListOf traverse im
+  -- tk :: Type (Var Int k) (Var Int t)
+  ((ks, tk), (_, kn)) <-
+    runStateT ((,) <$> (traverse.traverse) goK mks <*> kindVars goK t') (IntMap.empty, 0)
+  pure $ Forall (replicate kn $ Unhinted ())
+                (map (Unhinted . toScope) ks)
+                (Scope $ And [])
+                (Scope tk)
+ where
+ goT s@Skolem{}
+   | not $ sks^.contains (s^.metaId) = StateT $ \_ -> fail "escaped skolem"
+ goT m = StateT $ \imn@(im, n) -> case im^.at i of
+   Just (b,_) -> pure (B b, imn)
+   Nothing -> let n' = n+1 in n' `seq` return (B n, (im & at i ?~ (n,k), n'))
+  where i = m^.metaId
+        k = m^.metaValue
+ goK s@Skolem{}
+   | not $ sks^.contains (s^.metaId) = StateT $ \_ -> fail "escaped skolem"
+ goK m = StateT $ \imn@(im, n) -> case im^.at i of
+   Just b -> pure (B b, imn)
+   Nothing -> let n' = n+1 in n' `seq` return (B n, (im & at i ?~ n, n'))
+  where i = m^.metaId
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
