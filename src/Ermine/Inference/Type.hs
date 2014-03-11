@@ -19,9 +19,6 @@ module Ermine.Inference.Type
   ( matchFunType
   , inferType
   , inferPatternType
-  , unfurl
-  , partConstraints
-  , unfurlConstraints
   ) where
 
 import Bound
