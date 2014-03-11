@@ -158,7 +158,8 @@ unfurlConstraints (Exists ks ts cs) = do
 unfurlConstraints c = pure $ partConstraints c
 
 inferPatternType :: MonadMeta s m =>  PatM s -> m (TypeM s, PatPath -> TypeM s)
-inferPatternType (SigP _)    = error "unimplemented"
+inferPatternType (SigP ann)  = instantiateAnnot ann <&> \ty ->
+  (ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
 inferPatternType WildcardP   =
   pure <$> newMeta star <&> \m ->
     (m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
@@ -176,3 +177,8 @@ inferPatternType (TupP ps)   =
 inferPatternType (LitP l)    =
   pure (literalType l, \_ -> error "panic: bad pattern path")
 inferPatternType (ConP _ _)  = error "unimplemented"
+
+instantiateAnnot :: MonadMeta s m => Annot (MetaK s) (MetaT s) -> m (TypeM s)
+instantiateAnnot (Annot ks sc) = do
+  traverse (fmap pure . newMeta) ks <&> \tvs ->
+    instantiate (tvs !!) sc

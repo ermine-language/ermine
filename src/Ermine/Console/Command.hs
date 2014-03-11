@@ -1,7 +1,9 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
 -- |
@@ -23,8 +25,10 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Bifunctor
+import Data.Bitraversable
 import Data.Char
 import Data.List as List
+import qualified Data.Map as Map
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
@@ -32,7 +36,10 @@ import Data.Text (Text, unpack, pack)
 import Data.Foldable (for_)
 import Data.Void
 import Ermine.Console.State
-import Ermine.Inference.Kind
+import Ermine.Inference.Discharge
+import Ermine.Inference.Kind as Kind
+import Ermine.Inference.Type as Type
+import Ermine.Inference.Witness
 import Ermine.Parser.DataType
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
@@ -47,6 +54,7 @@ import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
+import Ermine.Syntax.Term as Term
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import System.Console.Haskeline
@@ -125,6 +133,23 @@ dkindsBody dts = do
         <+> colon
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
+-- temporary hack
+instance MonadDischarge s (M s) where
+  askDischarge = return $ DischargeEnv Map.empty Map.empty
+  localDischarge _ m = m
+
+typeBody :: Term Ann Text -> Console ()
+typeBody syn = do
+  ty <- ioM mempty $ do
+    tm <- bitraverse (prepare (newMeta ())
+                              (const $ newMeta ())
+                              (const $ newMeta () >>= newMeta . pure))
+                      (const . fmap pure $ newMeta () >>= newMeta . pure)
+                      syn
+    Witness _ ty _ <- inferType id tm
+    return $ bimap (const "_") (const "_") ty
+  sayLn $ prettyType ty names (-1)
+
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
@@ -146,6 +171,8 @@ commands =
                    in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
+  , cmd "type" & desc .~ "infer the type of a term"
+      & body .~ parsing term typeBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
