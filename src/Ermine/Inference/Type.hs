@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -22,6 +24,7 @@ module Ermine.Inference.Type
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
@@ -31,13 +34,13 @@ import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Text as SText (pack)
 import Data.Traversable
-import Ermine.Builtin.Pattern as Pattern
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Pattern as Pattern
+import Ermine.Syntax.Pattern.Compiler as Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
@@ -47,12 +50,15 @@ import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
+import Prelude hiding (foldr)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
 
+type PatM s = Pattern (Annot (MetaK s) (MetaT s))
 type TermM s a = Term (Annot (MetaK s) (MetaT s)) a
+type ScopeM b s a = Scope b (Term (Annot (MetaK s) (MetaT s))) a
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -83,9 +89,22 @@ inferType cxt (Term.App f x) = do
   (i, o) <- matchFunType ft
   Witness xrcs _ xc <- checkType cxt x i
   simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
-inferType _   (Term.Lam _ _)  = fail "unimplemented"
+inferType cxt (Term.Lam ps e) = do
+  (pts, ppts) <- unzip <$> traverse inferPatternType ps
+  let pcxt (ArgPP i pp)
+        | Just f <- ppts ^? ix (fromIntegral i) = f pp
+      pcxt _ = error "panic: bad argument reference in lambda term"
+  Witness rcs t c <- inferTypeInScope pcxt cxt e
+  let cc = Pattern.compileLambda ps (splitScope c) (error "dummy PCompEnv" :: PCompEnv)
+  return $ Witness rcs (foldr (~~>) t pts) (lambda (fromIntegral $ length ps) cc)
+
 inferType _   (Term.Case _ _) = fail "unimplemented"
 inferType _   (Term.Let _ _)  = fail "unimplemented"
+
+inferTypeInScope :: MonadDischarge s m
+                 => (b -> TypeM s) -> (v -> TypeM s)
+                 -> ScopeM b s v -> m (WitnessM s (Var b v))
+inferTypeInScope aug cxt sm = inferType (unvar aug cxt) $ fromScope sm
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
@@ -99,7 +118,7 @@ inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (Prelude.foldr (~>) (tup vs) vs) $ dataCon n 0
+  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon n 0
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
@@ -138,13 +157,22 @@ unfurlConstraints (Exists ks ts cs) = do
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
 
-inferPatternType :: MonadMeta s m => Pattern (TypeM s) -> m (Binder (TypeM s) (TypeM s))
-inferPatternType (SigP t)    = pure $ noted t
-inferPatternType WildcardP   = noted . pure <$> newMeta star
-inferPatternType (AsP p)     = note <$> inferPatternType p
+inferPatternType :: MonadMeta s m =>  PatM s -> m (TypeM s, PatPath -> TypeM s)
+inferPatternType (SigP _)    = error "unimplemented"
+inferPatternType WildcardP   =
+  pure <$> newMeta star <&> \m ->
+    (m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
+inferPatternType (AsP p)     =
+  inferPatternType p <&> \(ty, pcxt) ->
+    (ty, \case LeafPP -> ty ; pp -> pcxt pp)
 inferPatternType (StrictP p) = inferPatternType p
 inferPatternType (LazyP p)   = inferPatternType p
-inferPatternType (TupP ps)   = fmap (apps . tuple $ length ps) . sequenceA
-                           <$> traverse inferPatternType ps
-inferPatternType (LitP l)    = pure . pure $ literalType l
-inferPatternType (ConP _ _ ) = undefined
+inferPatternType (TupP ps)   =
+  unzip <$> traverse inferPatternType ps <&> \(tys, cxts) ->
+    ( apps (tuple $ length ps) tys
+    , \case FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
+            _ -> error "panic: bad pattern path"
+    )
+inferPatternType (LitP l)    =
+  pure (literalType l, \_ -> error "panic: bad pattern path")
+inferPatternType (ConP _ _)  = error "unimplemented"
