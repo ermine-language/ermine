@@ -24,11 +24,13 @@ module Ermine.Syntax.Scope
   -- , putVar , getVar , putScope, getScope
   , serializeScope3
   , deserializeScope3
+  , splitScope
   ) where
 
 import Bound
 import Bound.Scope
 import Control.Applicative
+import Control.Monad.Trans
 import Data.Bytes.Serial
 import Data.Bytes.Get
 import Data.Bytes.Put
@@ -50,3 +52,13 @@ deserializeScope3 :: MonadGet m
                   => m b -> (forall a. m a -> m (f a)) -> m v
                   -> m (Scope b f v)
 deserializeScope3 gb gf gv = Scope <$> gf (deserializeWith2 gb (gf gv))
+
+splitScope :: (Applicative c, Monad c)
+           => Scope (Var b1 b2) c a -> Scope b1 (Scope b2 c) a
+-- c (Var (Var b1 b2) (c a))
+-- Scope b2 c (Var b1 (Scope b2 c a))
+splitScope (Scope e) = Scope . lift $ swizzle <$> e
+ where
+ swizzle (B (B b1)) = B b1
+ swizzle (B (F b2)) = F . Scope . pure . B $ b2
+ swizzle (F a)      = F $ lift a
