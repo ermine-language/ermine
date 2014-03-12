@@ -48,7 +48,11 @@ varP = termIdentifier <&> sigp ?? anyType
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0 = varP
    <|> _p <$ symbol "_"
-   <|> parens (tup <$> patterns)
+   <|> parens (tup' <$> patterns)
+
+tup' :: [PP] -> PP
+tup' [x] = x
+tup' xs = tup xs
 
 sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
