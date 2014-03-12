@@ -23,10 +23,10 @@ import Data.Text (Text)
 import Data.Void
 import qualified Data.Set as Set
 import Ermine.Builtin.Pattern
+import Ermine.Parser.Literal
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax
-import Ermine.Syntax.Literal
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -49,7 +49,7 @@ varP = termIdentifier <&> sigp ?? anyType
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0 = varP
    <|> _p <$ symbol "_"
-   <|> litp . either (Int . fromIntegral) Double <$> naturalOrDouble
+   <|> litp <$> literal
    <|> parens (tup' <$> patterns)
 
 tup' :: [PP] -> PP

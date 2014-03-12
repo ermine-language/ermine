@@ -33,9 +33,9 @@ import Ermine.Builtin.Pattern
 import Ermine.Builtin.Term
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
+import Ermine.Parser.Literal
 import Ermine.Parser.Pattern
 import Ermine.Syntax
-import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
 import Text.Parser.Combinators
@@ -46,7 +46,7 @@ type Tm = Term Ann Text
 -- | Parse an atomic term
 term0 :: (Monad m, TokenParsing m) => m Tm
 term0 = Var <$> termIdentifier
-   <|> literal
+   <|> HardTerm . Lit <$> literal
    <|> parens (tup <$> terms)
 
 term1 :: (Monad m, TokenParsing m) => m Tm
@@ -78,12 +78,6 @@ patterns = do pps <- sequenceA <$> some pattern
 
 lambda :: (Monad m, TokenParsing m) => m Tm
 lambda = lam <$> try (patterns <* reserve op "->") <*> term
-
-literal :: (Monad m, TokenParsing m) => m Tm
-literal = HardTerm . Lit <$>
-  (either (Int . fromIntegral) Double <$> naturalOrDouble
-    <|> String <$> stringLiteral
-    <|> Char <$> charLiteral)
 
 term :: (Monad m, TokenParsing m) => m Tm
 term = letBlock <|> term2

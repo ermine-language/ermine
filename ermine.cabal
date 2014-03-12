@@ -109,6 +109,7 @@ library
     Ermine.Parser.Global
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
+    Ermine.Parser.Literal
     Ermine.Parser.Pattern
     Ermine.Parser.Style
     Ermine.Parser.Type
