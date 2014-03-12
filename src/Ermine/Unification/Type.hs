@@ -26,6 +26,7 @@ import Control.Monad
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
+import Data.Bitraversable
 import Data.Set as Set
 import Data.IntMap as IntMap
 import Data.Set.Lens
@@ -63,13 +64,14 @@ typeOccurs depth1 t p = zonkWith t tweak where
         Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
 
 zonkKinds :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
-zonkKinds fs = fmap (bindType id pure) . forOf kindVars fs $ \m -> do
-  readMeta m >>= \mv -> case mv of
-    Nothing -> return (return m)
-    Just fmf -> do
-      tell $ Any True
-      r <- zonk fmf
-      r <$ writeMeta m r
+zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) where
+  handleKinds m = do
+    readMeta m >>= \mv -> case mv of
+      Nothing -> return (return m)
+      Just fmf -> do
+        tell $ Any True
+        r <- zonk fmf
+        r <$ writeMeta m r
 
 -- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
 unifyType :: (MonadWriter Any m, MonadMeta s m) => TypeM s -> TypeM s -> m (TypeM s)

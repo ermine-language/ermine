@@ -134,7 +134,7 @@ generalizeType = generalizeOverType IntSet.empty
 -- TODO: separate kind vs type skolem sets?
 generalizeOverType :: MonadMeta s m => IntSet -> TypeM s -> m (Type k t)
 generalizeOverType sks t0 = do
-  t <- runSharing t0 $ zonk t0
+  t <- runSharing t0 $ zonk t0 >>= zonkKinds
   let tvks = toListOf typeVars t <&> \v -> (v, v^.metaValue)
       kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
       bad :: Meta s f a -> Bool
@@ -189,8 +189,9 @@ unfurlConstraints (Exists ks ts cs) = do
 unfurlConstraints c = pure $ partConstraints c
 
 inferPatternType :: MonadMeta s m =>  PatM s -> m (TypeM s, PatPath -> TypeM s)
-inferPatternType (SigP ann)  = instantiateAnnot ann <&> \ty ->
-  (ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
+inferPatternType (SigP ann)  = instantiateAnnot ann >>= \ty -> do
+  checkKind (view metaValue <$> ty) star
+  return (ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
 inferPatternType WildcardP   =
   pure <$> newMeta star <&> \m ->
     (m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
