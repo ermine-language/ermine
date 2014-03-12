@@ -16,7 +16,7 @@ module Ermine.Version
   ) where
 
 import Control.Applicative
-import Data.ByteString.Char8 (unpack)
+import Data.ByteString.UTF8 (toString)
 import Data.FileEmbed
 import Data.List.Split
 import Data.Version
@@ -43,7 +43,7 @@ allrights = "All Rights Reserved"
 logos :: IO String
 logos = do
   let txt = filter ((>3).length)
-          . splitOn [""] . lines . unpack $ $(embedFile $ "data" </> "logos.txt")
+          . splitOn [""] . lines . toString $ $(embedFile $ "data" </> "logos.txt")
   -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
   -- txt <- splitOn [""] . lines <$> readFile file
   nm:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
@@ -57,4 +57,4 @@ logos = do
     ] ++ rest
 
 rat :: String
-rat = unpack $ $(embedFile $ "data" </> "logo.txt")
+rat = toString $ $(embedFile $ "data" </> "logo.txt")
