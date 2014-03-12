@@ -42,7 +42,7 @@ allrights = "All Rights Reserved"
 
 logos :: IO String
 logos = do
-  let txt = filter ((<4).length)
+  let txt = filter ((>3).length)
           . splitOn [""] . lines . unpack $ $(embedFile $ "data" </> "logos.txt")
   -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
   -- txt <- splitOn [""] . lines <$> readFile file
