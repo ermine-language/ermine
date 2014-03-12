@@ -64,6 +64,7 @@ import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import System.Console.Haskeline
 import System.Exit
+import Text.Parser.Combinators (eof)
 import Text.Parser.Token (semiSep1)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
@@ -115,7 +116,7 @@ showHelp _ = sayLn $ vsep (map format commands) where
 ------------------------------------------------------------------------------
 
 parsing :: Parser a -> (a -> Console ()) -> String -> Console ()
-parsing p k s = case parseString p mempty s of
+parsing p k s = case parseString (p <* eof) mempty s of
   Success a   -> k a
   Failure doc -> sayLn doc
 
