@@ -41,7 +41,7 @@ module Ermine.Unification.Meta
   -- ** Union-By-Rank
   , Rank, metaRank, bumpRank
   -- ** Working with Meta
-  , newMeta
+  , newMeta, newShallowMeta
   , newSkolem
   , readMeta
   , writeMeta
@@ -188,6 +188,11 @@ instance Ord (Meta s f a) where
 newMeta :: MonadMeta s m => a -> m (Meta s f a)
 newMeta a = Meta a <$> fresh <*> liftST (newSTRef Nothing) <*> liftST (newSTRef depthInf) <*> liftST (newSTRef 0)
 {-# INLINE newMeta #-}
+
+-- | Construct a new meta variable at a given depth
+newShallowMeta :: MonadMeta s m => Depth -> a -> m (Meta s f a)
+newShallowMeta d a = Meta a <$> fresh <*> liftST (newSTRef Nothing) <*> liftST (newSTRef d) <*> liftST (newSTRef 0)
+{-# INLINE newShallowMeta #-}
 
 -- | Construct a new Skolem variable that unifies only with itself.
 newSkolem :: MonadMeta s m => a -> m (Meta s f a)
