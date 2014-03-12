@@ -154,7 +154,7 @@ checkDataTypeGroup dts = do
  where
  closeKinds (sks, dt) = do
    dt' <- zonkDataType dt
-   let fvs = nub . toListOf (kindVars . filtered (isn't skolem)) $ dt'
+   let fvs = nub . toListOf (kindVars . filtered (isn't _Skolem)) $ dt'
        offset = length sks
        f (F m) | Just i <- m `elemIndex` fvs = pure . B $ i + offset
                | Just i <- m `elemIndex` sks = pure . B $ i + offset

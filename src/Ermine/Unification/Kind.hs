@@ -114,7 +114,7 @@ unifyKind k1 k2 = do
     go _ _ = fail "kind mismatch"
 
 -- | We don't need to update depths in the kind variables. We only create
--- meta variables with non-rankInf rank for annotations, and annotations do
+-- meta variables with non-depthInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
 unifyKV :: (MonadMeta s m, MonadWriter Any m) => Bool -> Int -> STRef s (Maybe (KindM s)) -> KindM s -> ST s () -> m (KindM s)
 unifyKV interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of

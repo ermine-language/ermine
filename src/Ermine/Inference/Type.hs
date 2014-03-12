@@ -22,6 +22,7 @@ module Ermine.Inference.Type
   , inferType
   , inferPatternType
   , generalizeType
+  , refreshType
   ) where
 
 import Bound
@@ -30,12 +31,16 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.ST
+import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
+import Data.Bifoldable
 import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Text as SText (pack)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
+import Data.STRef
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
@@ -123,6 +128,16 @@ checkType d cxt e t = do
   checkKind (fmap (view metaValue) t) star
   runSharing w $ (Witness r ?? c) <$> (unifyType et t)
 
+refreshVar :: Depth -> Meta s f a -> ST s ()
+refreshVar d m = do
+  traverseOf_ metaDepth (writeSTRef ?? depthInf) m
+  traverseOf_ metaRank (writeSTRef ?? 0) m
+
+refreshType :: MonadMeta s m => Depth -> TypeM s -> m (TypeM s)
+refreshType d t0 = do
+  t <- runSharing t0 $ zonk t0 >>= zonkKinds
+  liftST $ t <$ bitraverse_ (refreshVar d) (refreshVar d) t
+
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
 --
@@ -138,7 +153,7 @@ generalizeOverType sks t0 = do
   let tvks = toListOf typeVars t <&> \v -> (v, v^.metaValue)
       kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
       bad :: Meta s f a -> Bool
-      bad v = has skolem v && not (sks^.contains (v^.metaId))
+      bad v = has _Skolem v && not (sks^.contains (v^.metaId))
   when (any (bad.fst) tvks || any bad kvs) $
     fail "escaped skolem"
   case closedType $ forall (const noHint) (const noHint) kvs tvks (And []) t of

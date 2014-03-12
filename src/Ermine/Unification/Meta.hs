@@ -35,7 +35,7 @@ module Ermine.Unification.Meta
   -- * Meta Kinds
   , MetaK, KindM
   -- ** Meta Prisms
-  , skolem
+  , _Skolem
   -- ** λ-Depth
   , Depth, metaDepth, depthInf
   -- ** Union-By-Rank
@@ -155,17 +155,17 @@ instance HasRendering (MetaEnv s) where
 ------------------------------------------------------------------------------
 
 -- | This 'Prism' matches 'Skolem' variables.
-skolem :: Prism' (Meta s f a) (a, Int)
-skolem = prism (uncurry Skolem) $ \t -> case t of
+_Skolem :: Prism' (Meta s f a) (a, Int)
+_Skolem = prism (uncurry Skolem) $ \t -> case t of
   Skolem a i -> Right (a, i)
   _ -> Left t
 
 {-
-meta :: Prism (Meta s f a)
-              (Meta s g a)
-              (a, Int, STRef s (Maybe (f (Meta s f a))), STRef s Depth, STRef s Rank)
-              (a, Int, STRef s (Maybe (g (Meta s g a))), STRef s Depth, STRef s Rank)
-meta = prism (\(a,i,r,k,u) -> Meta a i r k u) $ \t -> case t of
+_Meta :: Prism (Meta s f a)
+               (Meta s g a)
+               (a, Int, STRef s (Maybe (f (Meta s f a))), STRef s Depth, STRef s Rank)
+               (a, Int, STRef s (Maybe (g (Meta s g a))), STRef s Depth, STRef s Rank)
+_Meta = prism (\(a,i,r,k,u) -> Meta a i r k u) $ \t -> case t of
   Meta a i r k u -> Right (a,i,r,k,u)
   _ -> Left t
 -}
