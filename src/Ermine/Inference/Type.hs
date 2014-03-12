@@ -31,13 +31,9 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
-import Control.Monad.State.Strict
 import Data.Foldable as Foldable
-import Data.Function (on)
-import Data.List as List (partition, sortBy)
+import Data.List as List (partition)
 import Data.Text as SText (pack)
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 import Data.Traversable
@@ -58,7 +54,7 @@ import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
-import Prelude hiding (foldr)
+import Prelude hiding (foldr, any)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
@@ -131,34 +127,18 @@ generalizeType = generalizeOverType IntSet.empty
 
 -- TODO: hints
 -- TODO: separate kind vs type skolem sets?
--- TODO: this code is repetitive; see also Kind.generalize
 generalizeOverType :: MonadMeta s m => IntSet -> TypeM s -> m (Type k t)
 generalizeOverType sks t0 = do
   t <- runSharing t0 $ zonk t0
-  -- t' :: Type MetaK (Var Int t)
-  (t', (im, tn)) <- runStateT (traverse goT t) (IntMap.empty, 0)
-  let mks = map snd . sortBy (compare `on` fst) $ toListOf traverse im
-  -- tk :: Type (Var Int k) (Var Int t)
-  ((ks, tk), (_, kn)) <-
-    runStateT ((,) <$> (traverse.traverse) goK mks <*> kindVars goK t') (IntMap.empty, 0)
-  pure $ Forall (replicate kn $ Unhinted ())
-                (map (Unhinted . toScope) ks)
-                (Scope $ And [])
-                (Scope tk)
- where
- goT s@Skolem{}
-   | not $ sks^.contains (s^.metaId) = StateT $ \_ -> fail "escaped skolem"
- goT m = StateT $ \imn@(im, n) -> case im^.at i of
-   Just (b,_) -> pure (B b, imn)
-   Nothing -> let n' = n+1 in n' `seq` return (B n, (im & at i ?~ (n,k), n'))
-  where i = m^.metaId
-        k = m^.metaValue
- goK s@Skolem{}
-   | not $ sks^.contains (s^.metaId) = StateT $ \_ -> fail "escaped skolem"
- goK m = StateT $ \imn@(im, n) -> case im^.at i of
-   Just b -> pure (B b, imn)
-   Nothing -> let n' = n+1 in n' `seq` return (B n, (im & at i ?~ n, n'))
-  where i = m^.metaId
+  let tvks = toListOf typeVars t <&> \v -> (v, v^.metaValue)
+      kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
+      bad :: Meta s f a -> Bool
+      bad v = has skolem v && not (sks^.contains (v^.metaId))
+  when (any (bad.fst) tvks || any bad kvs) $
+    fail "escaped skolem"
+  case closedType $ forall (const noHint) (const noHint) kvs tvks (And []) t of
+    Just ty -> pure ty
+    Nothing -> error "panic: generalizeOverType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)

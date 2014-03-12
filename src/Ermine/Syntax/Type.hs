@@ -41,6 +41,7 @@ module Ermine.Syntax.Type
   , instantiateKindVars
   , bindType
   , bindTK
+  , closedType
   , memoverse
   , prepare
   , abstractAll
@@ -586,6 +587,11 @@ memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed 
    Nothing -> do (memo, v') <- lift (g v)
                  when memo $ l.at v ?= v'
                  return v'
+
+-- | If a type has no free type or kind variables, the parameters can freely be
+-- changed. This function performs that test. See also Bound.close.
+closedType :: Type k t -> Maybe (Type k' t')
+closedType = bitraverse (const Nothing) (const Nothing)
 
 -- | A function for preparing the sort of type that comes out of parsing for
 -- the inference process. Actions for kind and type variables of types 'k' and

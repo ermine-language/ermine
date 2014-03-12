@@ -17,6 +17,7 @@ module Ermine.Syntax.Hint
   ( Hinted(..)
   , Hint
   , hint
+  , noHint
   , stringHint
   , maybeHint
   ) where
@@ -57,6 +58,9 @@ instance Comonad Hinted where
 hint :: Hinted a -> Maybe Text
 hint (Hinted s _) = Just s
 hint _            = Nothing
+
+noHint :: Hint
+noHint = Unhinted ()
 
 stringHint :: Text -> Hint
 stringHint = Hinted ?? ()
