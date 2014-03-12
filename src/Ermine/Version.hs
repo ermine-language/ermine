@@ -42,7 +42,8 @@ allrights = "All Rights Reserved"
 
 logos :: IO String
 logos = do
-  let txt = splitOn [""] $ lines $ unpack $ $(embedFile $ "data" </> "logos.txt")
+  let txt = filter ((<4).length)
+          . splitOn [""] . lines . unpack $ $(embedFile $ "data" </> "logos.txt")
   -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
   -- txt <- splitOn [""] . lines <$> readFile file
   nm:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
