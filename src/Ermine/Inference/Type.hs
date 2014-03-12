@@ -78,38 +78,38 @@ matchFunType t = do
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
 
 inferType :: MonadDischarge s m
-          => (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
-inferType cxt (Term.Var v) = unfurl (cxt v) v
-inferType _   (HardTerm t) = inferHardType t
-inferType cxt (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType cxt tm
-inferType cxt (Remember i t) = do
-  r <- inferType cxt t
+          => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
+inferType _ cxt (Term.Var v) = unfurl (cxt v) v
+inferType _ _   (HardTerm t) = inferHardType t
+inferType d cxt (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType d cxt tm
+inferType d cxt (Remember i t) = do
+  r <- inferType d cxt t
   remember i (r^.witnessType)
   return r
-inferType cxt (Sig tm (Annot ks ty)) = do
+inferType d cxt (Sig tm (Annot ks ty)) = do
   ts <- for ks newMeta
-  checkType cxt tm (instantiateVars ts ty)
-inferType cxt (Term.App f x) = do
-  Witness frcs ft fc <- inferType cxt f
+  checkType d cxt tm (instantiateVars ts ty)
+inferType d cxt (Term.App f x) = do
+  Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
-  Witness xrcs _ xc <- checkType cxt x i
+  Witness xrcs _ xc <- checkType d cxt x i
   simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
-inferType cxt (Term.Lam ps e) = do
-  (pts, ppts) <- unzip <$> traverse inferPatternType ps
+inferType d cxt (Term.Lam ps e) = do
+  (pts, ppts) <- unzip <$> traverse (inferPatternType d) ps
   let pcxt (ArgPP i pp)
         | Just f <- ppts ^? ix (fromIntegral i) = f pp
       pcxt _ = error "panic: bad argument reference in lambda term"
-  Witness rcs t c <- inferTypeInScope pcxt cxt e
+  Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) (error "dummy PCompEnv" :: PCompEnv)
   return $ Witness rcs (foldr (~~>) t pts) (lambda (fromIntegral $ length ps) cc)
 
-inferType _   (Term.Case _ _) = fail "unimplemented"
-inferType _   (Term.Let _ _)  = fail "unimplemented"
+inferType _ _   (Term.Case _ _) = fail "unimplemented"
+inferType _ _   (Term.Let _ _)  = fail "unimplemented"
 
 inferTypeInScope :: MonadDischarge s m
-                 => (b -> TypeM s) -> (v -> TypeM s)
+                 => Depth -> (b -> TypeM s) -> (v -> TypeM s)
                  -> ScopeM b s v -> m (WitnessM s (Var b v))
-inferTypeInScope aug cxt sm = inferType (unvar aug cxt) $ fromScope sm
+inferTypeInScope d aug cxt sm = inferType d (unvar aug cxt) $ fromScope sm
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
@@ -117,9 +117,9 @@ simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 
 -- TODO: write this correctly
 checkType :: MonadDischarge s m
-          => (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
-checkType cxt e t = do
-  w@(Witness r et c) <- inferType cxt e
+          => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
+checkType d cxt e t = do
+  w@(Witness r et c) <- inferType d cxt e
   checkKind (fmap (view metaValue) t) star
   runSharing w $ (Witness r ?? c) <$> (unifyType et t)
 
@@ -188,29 +188,30 @@ unfurlConstraints (Exists ks ts cs) = do
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
 
-inferPatternType :: MonadMeta s m =>  PatM s -> m (TypeM s, PatPath -> TypeM s)
-inferPatternType (SigP ann)  = instantiateAnnot ann >>= \ty -> do
+inferPatternType :: MonadMeta s m =>  Depth -> PatM s -> m (TypeM s, PatPath -> TypeM s)
+inferPatternType d (SigP ann)  = do
+  ty <- instantiateAnnot d ann
   checkKind (view metaValue <$> ty) star
   return (ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
-inferPatternType WildcardP   =
-  pure <$> newMeta star <&> \m ->
+inferPatternType d WildcardP   =
+  pure <$> newShallowMeta d star <&> \m ->
     (m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
-inferPatternType (AsP p)     =
-  inferPatternType p <&> \(ty, pcxt) ->
+inferPatternType d (AsP p)     =
+  inferPatternType d p <&> \(ty, pcxt) ->
     (ty, \case LeafPP -> ty ; pp -> pcxt pp)
-inferPatternType (StrictP p) = inferPatternType p
-inferPatternType (LazyP p)   = inferPatternType p
-inferPatternType (TupP ps)   =
-  unzip <$> traverse inferPatternType ps <&> \(tys, cxts) ->
+inferPatternType d (StrictP p) = inferPatternType d p
+inferPatternType d (LazyP p)   = inferPatternType d p
+inferPatternType d (TupP ps)   =
+  unzip <$> traverse (inferPatternType d) ps <&> \(tys, cxts) ->
     ( apps (tuple $ length ps) tys
     , \case FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
             _ -> error "panic: bad pattern path"
     )
-inferPatternType (LitP l)    =
+inferPatternType _ (LitP l)    =
   pure (literalType l, \_ -> error "panic: bad pattern path")
-inferPatternType (ConP _ _)  = error "unimplemented"
+inferPatternType _ (ConP _ _)  = error "unimplemented"
 
-instantiateAnnot :: MonadMeta s m => Annot (MetaK s) (MetaT s) -> m (TypeM s)
-instantiateAnnot (Annot ks sc) = do
-  traverse (fmap pure . newMeta) ks <&> \tvs ->
+instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
+instantiateAnnot d (Annot ks sc) = do
+  traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
     instantiate (tvs !!) sc

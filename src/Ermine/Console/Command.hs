@@ -152,7 +152,7 @@ checkAndCompile syn = closed syn `for` \syn' -> do
                           (const $ newMeta () >>= newMeta . pure))
                  absurd
                  syn'
-  Witness _ ty c <- inferType id tm
+  Witness _ ty c <- inferType 0 id tm
   (,closed $ fromScope c) <$> generalizeType ty
 
 typeBody :: Term Ann Text -> Console ()
