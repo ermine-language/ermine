@@ -50,6 +50,7 @@ import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Discharge
+import Ermine.Inference.Kind
 import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
@@ -114,9 +115,13 @@ inferTypeInScope aug cxt sm = inferType (unvar aug cxt) $ fromScope sm
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 
-checkType :: MonadMeta s m
-          => (v -> TypeM s) -> TermM s a -> TypeM s -> m (WitnessM s a)
-checkType _   _ _ = fail "Check yourself"
+-- TODO: write this correctly
+checkType :: MonadDischarge s m
+          => (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
+checkType cxt e t = do
+  w@(Witness r et c) <- inferType cxt e
+  checkKind (fmap (view metaValue) t) star
+  runSharing w $ (Witness r ?? c) <$> (unifyType et t)
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
