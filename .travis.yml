@@ -42,6 +42,8 @@ before_install:
       $CABAL install happy alex
       export PATH=$HOME/.cabal/bin:$PATH
     fi
+  # ensure we have an hlint executable
+  - $CABAL install hlint
 
 install:
   - $CABAL install --dependencies-only --enable-tests
