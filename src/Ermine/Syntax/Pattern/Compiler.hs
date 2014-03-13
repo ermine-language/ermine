@@ -260,7 +260,7 @@ compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
 compileLambda ps body = compile ci pm
  where
- pm = PMatrix [ps] [Trivial] [hoistScope lift body]
+ pm = PMatrix (map return ps) [Trivial] [hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
  ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
