@@ -43,6 +43,7 @@ import Ermine.Inference.Discharge
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Inference.Witness
+import Ermine.Optimizer
 import Ermine.Parser.DataType
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
@@ -162,7 +163,7 @@ typeBody syn = ioM mempty (checkAndCompile syn) >>= \case
 
 coreBody :: Term Ann Text -> Console ()
 coreBody syn = ioM mempty (checkAndCompile syn) >>= \case
-  Just (_, Just  c) -> sayLn . runIdentity $ prettyCore names (-1) const c
+  Just (_, Just  c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Just (_, Nothing) -> sayLn "Bad core detected: unresolved classes or globals"
   Nothing           -> sayLn "Unbound variables detected"
 
