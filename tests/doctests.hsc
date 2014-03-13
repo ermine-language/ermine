@@ -56,6 +56,7 @@ main = withUnicode $ getSources >>= \sources -> doctest $
     "-isrc"
   : "-isrc-opt/no-ekg"
   : "-idist/build/autogen"
+  : "-Ldist/build"
   : "-optP-include"
   : "-optPdist/build/autogen/cabal_macros.h"
   : "-hide-all-packages"
