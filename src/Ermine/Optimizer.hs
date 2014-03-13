@@ -99,17 +99,24 @@ lamlam c = return c
 
 -- | Beta reduces redexes like (\x.. -> e) v.. where v.. is all variables
 betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
-betaVar y = case y of
-  Lam k e -> Lam k <$> mangle e
-  Case e bs d -> (Case e ?? d) <$> (traverse._2) mangle bs
-  _       -> return y
+betaVar = open (const False)
  where
- mangle :: Scope Word8 Core c -> m (Scope Word8 Core c)
- mangle = fmap toScope . collapse [] . fromScope
- collapse :: [Core (Var Word8 c)] -> Core (Var Word8 c) -> m (Core (Var Word8 c))
- collapse stk (App f x)
-   | has (var._B) x = collapse (x:stk) f
- collapse stk (Lam n body@(Scope body'))
+ inScope :: forall b d. (Core (Var b d) -> m (Core (Var b d)))
+         -> Scope b Core d -> m (Scope b Core d)
+ inScope f = fmap toScope . f . fromScope
+
+ extend :: forall b v. (v -> Bool) -> (Var b v -> Bool)
+ extend p v = has _B v || anyOf _F p v
+
+ open :: forall v. (v -> Bool) -> Core v -> m (Core v)
+ open p (Lam k e) = Lam k <$> inScope (open $ extend p) e
+ open p (Case e bs d) = (Case e ?? d) <$> (traverse._2) (inScope . open $ extend p) bs
+ open p c = collapse p [] c
+
+ collapse :: forall v. (v -> Bool) -> [Core v] -> Core v -> m (Core v)
+ collapse p stk (App f x)
+   | anyOf var p x = collapse p (x:stk) f
+ collapse p stk (Lam n body@(Scope body'))
    | len < n = do
      tell (Any True)
      let replace i | i < len   = F $ stk `genericIndex` i
@@ -117,6 +124,6 @@ betaVar y = case y of
      return $ Lam (n - len) . Scope $ fmap (unvar replace F) body'
    | (args, stk') <- genericSplitAt n stk = do
      tell (Any True)
-     collapse stk' $ instantiate (genericIndex args) body
+     collapse p stk' $ instantiate (genericIndex args) body
   where len = genericLength stk
- collapse stk c = return $ apps c stk
+ collapse _ stk c = return $ apps c stk
