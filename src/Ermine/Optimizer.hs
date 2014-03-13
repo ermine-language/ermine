@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -19,15 +20,27 @@ module Ermine.Optimizer
   ) where
 
 import Bound
+import Bound.Var
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Writer
+import Data.List (genericLength, genericSplitAt, genericIndex)
 import Data.Word
+import Ermine.Syntax
 import Ermine.Syntax.Core
 import Ermine.Unification.Sharing
 
 optimize :: Core c -> Core c
-optimize c = runIdentity . runSharing c $ rewriteCoreDown lamlam c
+optimize c = runIdentity . runSharing c $ optimize' 10 c
+
+optimize' :: (Applicative m, MonadWriter Any m) => Int -> Core c -> m (Core c)
+optimize' 0 c = return c
+optimize' n c = do (c', Any b) <- listen $ suite c
+                   if b then optimize' (n-1) c' else return c
+ where
+ suite = rewriteCoreDown lamlam
+     >=> rewriteCore betaVar
+
 
 rewriteCoreDown :: forall m c. (Applicative m, MonadWriter Any m)
                 => (forall d. Core d -> m (Core d)) -> Core c -> m (Core c)
@@ -84,3 +97,26 @@ lamlam (Lam k e) = slurp False k (fromScope e)
  slurp b m c         = (Lam m $ toScope c) <$ tell (Any b)
 lamlam c = return c
 
+-- | Beta reduces redexes like (\x.. -> e) v.. where v.. is all variables
+betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
+betaVar y = case y of
+  Lam k e -> Lam k <$> mangle e
+  Case e bs d -> (Case e ?? d) <$> (traverse._2) mangle bs
+  _       -> return y
+ where
+ mangle :: Scope Word8 Core c -> m (Scope Word8 Core c)
+ mangle = fmap toScope . collapse [] . fromScope
+ collapse :: [Core (Var Word8 c)] -> Core (Var Word8 c) -> m (Core (Var Word8 c))
+ collapse stk (App f x)
+   | has (var._B) x = collapse (x:stk) f
+ collapse stk (Lam n body@(Scope body'))
+   | len < n = do
+     tell (Any True)
+     let replace i | i < len   = F $ stk `genericIndex` i
+                   | otherwise = B $ i - len
+     return $ Lam (n - len) . Scope $ fmap (unvar replace F) body'
+   | (args, stk') <- genericSplitAt n stk = do
+     tell (Any True)
+     collapse stk' $ instantiate (genericIndex args) body
+  where len = genericLength stk
+ collapse stk c = return $ apps c stk
