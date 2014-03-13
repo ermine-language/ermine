@@ -60,15 +60,17 @@ import Ermine.Inference.Witness
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
-import Prelude hiding (foldr, any)
+import Prelude hiding (foldr, any, concat)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
 import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
 
-type PatM s = Pattern (Annot (MetaK s) (MetaT s))
-type TermM s a = Term (Annot (MetaK s) (MetaT s)) a
-type ScopeM b s a = Scope b (Term (Annot (MetaK s) (MetaT s))) a
+type AnnotM s = Annot (MetaK s) (MetaT s)
+type PatM s = Pattern (AnnotM s)
+type TermM s a = Term (AnnotM s) a
+type AltM s a = Alt (AnnotM s) (Term (AnnotM s)) a
+type ScopeM b s a = Scope b (Term (AnnotM s)) a
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -108,13 +110,38 @@ inferType d cxt (Term.Lam ps e) = do
   let cc = Pattern.compileLambda ps (splitScope c) (error "dummy PCompEnv" :: PCompEnv)
   return $ Witness rcs (foldr (~~>) t pts) (lambda (fromIntegral $ length ps) cc)
 
-inferType _ _   (Term.Case _ _) = fail "unimplemented"
+inferType d cxt (Term.Case e b) = do
+  w <- inferType d cxt e
+  inferAltTypes d cxt w b
 inferType _ _   (Term.Let _ _)  = fail "unimplemented"
 
 inferTypeInScope :: MonadDischarge s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
                  -> ScopeM b s v -> m (WitnessM s (Var b v))
 inferTypeInScope d aug cxt sm = inferType d (unvar aug cxt) $ fromScope sm
+
+inferAltTypes :: MonadDischarge s m
+              => Depth -> (v -> TypeM s) -> WitnessM s v
+              -> [AltM s v]
+              -> m (WitnessM s v)
+inferAltTypes d cxt (Witness r t c) bs = do
+  (ts, ws) <- unzip <$> traverse inferAlt bs
+  let ps = map (\(Alt p _) -> p) bs
+      rs = concat $ map (view witnessRowConstraints) ws
+      bts = map (view witnessType) ws
+      cs = map (splitScope . view witnessCore) ws
+  runSharing t $ foldlM unifyType t ts
+  let c' = Pattern.compileCase ps c cs (error "dummy PCompEnv" :: PCompEnv)
+  result <- pure <$> newMeta star
+  t' <- runSharing result $ foldlM unifyType result bts
+  -- TODO: skolems
+  return $ Witness (r++rs) t' c'
+ where
+ inferAlt (Alt p b) = do
+   (pt, pcxt) <- inferPatternType d p
+   aw <- inferTypeInScope (d+1) pcxt cxt b
+   return (pt, aw)
+
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)

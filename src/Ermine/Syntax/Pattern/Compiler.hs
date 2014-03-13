@@ -34,6 +34,7 @@ module Ermine.Syntax.Pattern.Compiler
   , splitOn
   , compile
   , compileLambda
+  , compileCase
   ) where
 
 import Prelude hiding (all)
@@ -264,3 +265,10 @@ compileLambda ps body = compile ci pm
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
  ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
+
+compileCase :: (MonadPComp m, Cored c)
+            => [Pattern t] -> c a -> [Scope PatPath c a] -> m (c a)
+compileCase ps disc bs = compile ci pm
+ where
+ pm = PMatrix [ps] (map (const Trivial) ps) bs
+ ci = CInfo HM.empty [disc] [mempty]
