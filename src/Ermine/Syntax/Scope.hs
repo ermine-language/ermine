@@ -25,10 +25,13 @@ module Ermine.Syntax.Scope
   , serializeScope3
   , deserializeScope3
   , splitScope
+  , rebind
+  , inScope
   ) where
 
 import Bound
 import Bound.Scope
+import Bound.Var
 import Control.Applicative
 import Control.Monad.Trans
 import Data.Bytes.Serial
@@ -62,3 +65,14 @@ splitScope (Scope e) = Scope . lift $ swizzle <$> e
  swizzle (B (B b1)) = B b1
  swizzle (B (F b2)) = F . Scope . pure . B $ b2
  swizzle (F a)      = F $ lift a
+
+-- | Enables a partial rebinding and instantiation of the bound variables in a
+-- 'Scope'.
+rebind :: Functor f => (b -> Var b' (f a)) -> Scope b f a -> Scope b' f a
+rebind f = Scope . fmap (unvar f F) . unscope
+
+-- | Helper function for when you wish to run an action on a smashed version of
+-- a scope. Transforms traversals for generality.
+inScope :: (Functor f, Monad t)
+        => (t (Var b a) -> f (t (Var b a))) -> Scope b t a -> f (Scope b t a)
+inScope action = fmap toScope . action . fromScope

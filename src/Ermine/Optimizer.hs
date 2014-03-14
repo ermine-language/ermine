@@ -29,6 +29,7 @@ import Data.List (genericLength, genericSplitAt, genericIndex)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Core
+import Ermine.Syntax.Scope
 import Ermine.Unification.Sharing
 
 optimize :: Core c -> Core c
@@ -65,7 +66,7 @@ rewriteCoreDown opt = go
                       <*> sharing sl (traverse goS sl)
    x -> return x
  goS :: forall b e. Scope b Core e -> m (Scope b Core e)
- goS s = sharing s . fmap toScope . go . fromScope $ s
+ goS s = sharing s . inScope go $ s
 
 rewriteCore :: forall m c. (Applicative m, MonadWriter Any m)
             => (forall d. Core d -> m (Core d)) -> Core c -> m (Core c)
@@ -88,7 +89,7 @@ rewriteCore opt = go
                       <*> sharing sl (traverse goS sl)
    _ -> return c
  goS :: forall b e. Scope b Core e -> m (Scope b Core e)
- goS s = sharing s . fmap toScope . go . fromScope $ s
+ goS s = sharing s . inScope go $ s
 
 -- | Turns \{x..} -> \{y..} -> ... into \{x.. y..} -> ...
 lamlam :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
