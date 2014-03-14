@@ -86,8 +86,9 @@ prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  (ws,rest) = first (fmap text) $ splitAt n vs
  k' (B i) _ = pure $ ws !! (fromIntegral i)
  k' (F c) p = prettyCore rest p k c
+ eq l r = l <+> text "=" <+> r
  h bds ed = parensIf (prec>=0) . nest 2 $
-              text "let" <+> block bds <+> text "in" <+> ed
+              text "let" <+> block (zipWith eq ws bds) <+> text "in" <+> ed
 prettyCore _ _ _ _ = pure $ text "unimplemented"
 -- prettyCore vs prec k (Dict sups slots) = undefined
 -- prettyCore vs prec k (LamDict e) = undefined
