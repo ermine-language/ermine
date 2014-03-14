@@ -21,6 +21,7 @@ module Ermine.Optimizer
 
 import Bound
 import Bound.Var
+import Bound.Scope
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Writer
@@ -40,6 +41,7 @@ optimize' n c = do (c', Any b) <- listen $ suite c
  where
  suite = rewriteCoreDown lamlam
      >=> rewriteCore betaVar
+     >=> rewriteCoreDown specCase
 
 
 rewriteCoreDown :: forall m c. (Applicative m, MonadWriter Any m)
@@ -131,3 +133,13 @@ betaVar = open (const False)
      collapse p stk' $ instantiate (genericIndex args) body
   where len = genericLength stk
  collapse _ stk c = return $ apps c stk
+
+-- | Specializes a case expression to a known constructor.
+specCase :: forall m c. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
+specCase (Case dat@(Data n as) bs d)
+  | Just (arity, body) <- bs ^. at n =
+    Let ((Scope . Data n $ pure . B <$> [1..arity]) : map lift as) body
+      <$ tell (Any True)
+  | Just e <- d = Let [lift dat] (mapBound (const 0) e) <$ tell (Any True)
+  | otherwise = error "PANIC: non-exhaustive case with no default"
+specCase c = pure c
