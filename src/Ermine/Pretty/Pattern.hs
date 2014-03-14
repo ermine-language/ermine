@@ -11,6 +11,7 @@
 module Ermine.Pretty.Pattern
   ( prettyPattern
   , lambdaPatterns
+  , prettyGuarded
   , prettyAlt
   ) where
 
@@ -72,11 +73,18 @@ lambdaPatterns ps vs tk =
   runPP (lsep <$> traverse (\(i,o) -> prettyPat' (argPP i) ?? 12 ?? tk $ o) (zip [0..] ps)) vs
  where lsep [] = empty ; lsep l = space <> hsep l
 
+prettyGuarded :: Applicative f => Guarded tm -> Doc -> (tm -> f Doc) -> f Doc
+prettyGuarded (Unguarded tm) goesTo k = (goesTo </>) <$> k tm
+prettyGuarded (Guarded l)    goesTo k = align . sep <$> traverse (\(l', r) -> h <$> k l' <*> k r) l
+ where
+ h g b = text "|" <+> g <+> goesTo </> b
+
 prettyAlt :: Applicative f
           => [String]
           -> (forall r. g r -> [String] -> Int -> (r -> Int -> f Doc) -> f Doc)
           -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> Alt t g v -> f Doc
-prettyAlt vs kg kt kv (Alt pat (Scope e)) = h <$> fpd <*> kg e rest (-1) kv'
+prettyAlt vs kg kt kv (Alt pat gs) =
+  (<+>) <$> fpd <*> prettyGuarded gs (text "->") (\(Scope e) -> kg e rest (-1) kv')
  where
  (bnd, fpd) = prettyPattern pat vs (-1) kt
  rest = drop (HM.size bnd) vs
@@ -84,5 +92,3 @@ prettyAlt vs kg kt kv (Alt pat (Scope e)) = h <$> fpd <*> kg e rest (-1) kv'
  kv' (B p) _    = fromMaybe (error "PANIC: prettyAlt: Bad pattern variable reference") $
                     pure . text <$> HM.lookup p bnd
  kv' (F g) prec = kg g rest prec kv
-
- h pd ed = pd <+> text "->" <+> ed

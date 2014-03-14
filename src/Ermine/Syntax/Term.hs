@@ -32,7 +32,6 @@ module Ermine.Syntax.Term
   , Binding(..)
   , BindingType(..)
   , Body(..)
-  , Guarded(..)
   ) where
 
 import Bound
@@ -112,12 +111,6 @@ data Body t a = Body [Pattern t]
                      (Guarded (Scope DeclBound (Term t) a))
                      [Binding t (Var PatPath a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
-
--- | A datatype for representing potentially guarded cases of a function
--- body.
-data Guarded tm = Unguarded tm
-                | Guarded [(tm, tm)]
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
 
 instance Bifunctor Body where
   bimap = bimapDefault
@@ -248,7 +241,9 @@ bindBinding :: (t -> t') -> (a -> Term t' b) -> Binding t a -> Binding t' b
 bindBinding f g (Binding r bt bs) = Binding r (fmap f bt) (bindBody f g <$> bs)
 
 bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t (Term t) a -> Alt t' (Term t') b
-bindAlt f g (Alt p (Scope b)) = Alt (fmap f p) (Scope (bindTerm f (Var . fmap (bindTerm f g)) b))
+bindAlt f g (Alt p gs) =
+  let s (Scope b) = Scope $ bimap f (fmap $ bindTerm f g) b in
+    Alt (fmap f p) (fmap s gs)
 
 instance Applicative (Term t) where
   pure = Var
@@ -360,27 +355,6 @@ instance (Binary t, Binary a) => Binary (Body t a) where
 instance (Serialize t, Serialize a) => Serialize (Body t a) where
   put = serializeWith2   Serialize.put Serialize.put
   get = deserializeWith2 Serialize.get Serialize.get
-
-instance Serial1 Guarded where
-  serializeWith ptm (Unguarded tm) = putWord8 0 *> ptm tm
-  serializeWith ptm (Guarded tms)  = putWord8 1 *> serializeWith putPair tms where
-    putPair (tm1, tm2) = ptm tm1 *> ptm tm2
-
-  deserializeWith gtm = getWord8 >>= \b -> case b of
-    0 -> Unguarded <$> gtm
-    1 -> Guarded <$> deserializeWith ((,) <$> gtm <*> gtm)
-    _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
-
-instance Serial v => Serial (Guarded v) where
-  serialize = serialize1 ; deserialize = deserialize1
-
-instance Binary tm => Binary (Guarded tm) where
-  put = serializeWith   Binary.put
-  get = deserializeWith Binary.get
-
-instance Serialize tm => Serialize (Guarded tm) where
-  put = serializeWith Serialize.put
-  get = deserializeWith Serialize.get
 
 instance Serial2 Term where
   serializeWith2 pt pa = go

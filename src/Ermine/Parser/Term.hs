@@ -58,11 +58,10 @@ sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
 
 branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) Text)
 branch = do pp <- pattern
-            reserve op "->"
-            b <- term
+            g <- guarded (reserve op "->")
             validate pp $ \n ->
                 unexpected $ "duplicate bindings in pattern for: " ++ unpack n
-            return $ alt pp b
+            return $ alt pp g
 
 match :: (Monad m, TokenParsing m) => m Tm
 match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep branch)
@@ -95,18 +94,18 @@ termDeclClause :: (Monad m, TokenParsing m)
                => m (Text, PBody)
 termDeclClause =
     (,) <$> termIdentifier
-        <*> (PreBody <$> pattern0s <*> guarded <*> whereClause)
+        <*> (PreBody <$> pattern0s <*> guarded (reserve op "=") <*> whereClause)
  where
  pattern0s = do ps <- sequenceA <$> many pattern0
                 ps <$ validate ps
                         (\n -> unexpected $ "duplicate bindings in pattern for: " ++ unpack n)
 
-guard :: (Monad m, TokenParsing m) => m (Tm, Tm)
-guard = (,) <$ reserve op "|" <*> term <* reserve op "=" <*> term
+guard :: (Monad m, TokenParsing m) => m a -> m (Tm, Tm)
+guard side = (,) <$ reserve op "|" <*> term1 <* side <*> term
 
-guarded :: (Monad m, TokenParsing m) => m (Guarded Tm)
-guarded = Guarded <$> some guard
-      <|> Unguarded <$ reserve op "=" <*> term
+guarded :: (Monad m, TokenParsing m) => m a -> m (Guarded Tm)
+guarded side = Guarded <$> some (guard side)
+      <|> Unguarded <$ side <*> term
 
 type PBody = PreBody Ann Text
 type Where = Binder Text [Binding Ann Text]

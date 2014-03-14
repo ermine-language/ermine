@@ -109,5 +109,5 @@ litp :: Literal -> P t v
 litp = pure . LitP
 
 -- | smart alt constructor
-alt :: (Monad f, Eq v) => P t v -> f v -> Alt t f v
-alt (Binder vs p) = Alt p . abstract (`lookup` zip vs (paths p))
+alt :: (Monad f, Eq v) => P t v -> Guarded (f v) -> Alt t f v
+alt (Binder vs p) = Alt p . fmap (abstract (`lookup` zip vs (paths p)))

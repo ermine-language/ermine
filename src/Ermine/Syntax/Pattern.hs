@@ -40,6 +40,7 @@ module Ermine.Syntax.Pattern
   , leafPP
   , paths
   , manyPaths
+  , Guarded(..)
   , Alt(..)
   , bitraverseAlt
   , patternHead
@@ -176,19 +177,26 @@ forces StrictP{} = True
 forces (AsP p)   = forces p
 forces _         = False
 
+-- | A datatype for representing potentially guarded cases of a function
+-- or case body.
+data Guarded tm = Unguarded tm
+                | Guarded [(tm, tm)]
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
+
 -- | One alternative of a core expression
-data Alt t f a = Alt !(Pattern t) !(Scope PatPath f a)
+data Alt t f a = Alt !(Pattern t) (Guarded (Scope PatPath f a))
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance Bound (Alt t) where
-  Alt p b >>>= f = Alt p (b >>>= f)
+  Alt p b >>>= f = Alt p (fmap (>>>= f) b)
 
 instance Monad f => BoundBy (Alt t f) f where
-  boundBy f (Alt p b) = Alt p (boundBy f b)
+  boundBy f (Alt p b) = Alt p (fmap (boundBy f) b)
 
 -- | Helper function for traversing both sides of an 'Alt'.
 bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -> Alt t (k t) a -> f (Alt t' (k t') b)
-bitraverseAlt f g (Alt p b) = Alt <$> traverse f p <*> bitraverseScope f g b
+bitraverseAlt f g (Alt p b) =
+  Alt <$> traverse f p <*> traverse (bitraverseScope f g) b
 
 matchesTrivially :: Pattern t -> Bool
 matchesTrivially (SigP _)  = True
@@ -202,9 +210,30 @@ instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
 instance (Serial t, Serial1 f) => Serial1 (Alt t f) where
   serializeWith pa (Alt p s) = do
     serialize p
-    serializeWith pa s
+    serializeWith (serializeWith pa) s
 
-  deserializeWith ga = liftM2 Alt deserialize (deserializeWith ga)
+  deserializeWith ga = liftM2 Alt deserialize (deserializeWith $ deserializeWith ga)
+
+instance Serial1 Guarded where
+  serializeWith ptm (Unguarded tm) = putWord8 0 *> ptm tm
+  serializeWith ptm (Guarded tms)  = putWord8 1 *> serializeWith putPair tms where
+    putPair (tm1, tm2) = ptm tm1 *> ptm tm2
+
+  deserializeWith gtm = getWord8 >>= \b -> case b of
+    0 -> Unguarded <$> gtm
+    1 -> Guarded <$> deserializeWith ((,) <$> gtm <*> gtm)
+    _ -> fail $ "getGuarded: Unexpected constructor code: " ++ show b
+
+instance Serial v => Serial (Guarded v) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance Binary tm => Binary (Guarded tm) where
+  put = serializeWith   Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize tm => Serialize (Guarded tm) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
 
 instance (Serial t, Serial1 f, Serial a) => Serial (Alt t f a) where
   serialize = serializeWith serialize
@@ -213,12 +242,12 @@ instance (Serial t, Serial1 f, Serial a) => Serial (Alt t f a) where
 serializeAlt3 :: MonadPut m
               => (t -> m ()) -> (forall a. (a -> m ()) -> f a -> m ()) -> (v -> m ())
               -> Alt t f v -> m ()
-serializeAlt3 pt pf pv (Alt p b) = serializeWith pt p *> serializeScope3 serialize pf pv b
+serializeAlt3 pt pf pv (Alt p b) = serializeWith pt p *> serializeWith (serializeScope3 serialize pf pv) b
 
 deserializeAlt3 :: MonadGet m
                 => m t -> (forall a. m a -> m (f a)) -> m v -> m (Alt t f v)
 deserializeAlt3 gt gf gv =
-  Alt <$> deserializeWith gt <*> deserializeScope3 deserialize gf gv
+  Alt <$> deserializeWith gt <*> deserializeWith (deserializeScope3 deserialize gf gv)
 
 instance Serial1 Pattern where
   serializeWith pt (SigP t)    = putWord8 0 >> pt t

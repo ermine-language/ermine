@@ -29,6 +29,8 @@ module Ermine.Builtin.Type
   -- ** Numerics
   , int, long, byte, short
   , float, double
+  -- ** Booleans
+  , bool
   -- ** Text
   , string, char
   -- ** Containers
@@ -133,6 +135,12 @@ float = builtin_ "Float"
 -- *
 double :: Builtin t => t
 double = builtin_ "Double"
+
+-- |
+-- >>> infer bool
+-- *
+bool :: Builtin t => t
+bool = builtin_ "Bool"
 
 ------------------------------------------------------------------------------
 -- Text

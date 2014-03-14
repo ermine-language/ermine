@@ -88,17 +88,13 @@ prettyBindings :: Applicative f
 prettyBindings bs dvs vs kt kv =
   block . concat <$> traverse (\p -> uncurry prettyBinding p dvs vs kt kv) bs
 
-prettyGuarded :: Applicative f => Guarded tm -> (tm -> f Doc) -> f Doc
-prettyGuarded (Unguarded tm) k = (equals </>) <$> k tm
-prettyGuarded (Guarded l)    k = align . sep <$> traverse (\(l', r) -> h <$> k l' <*> k r) l
- where
- h g b = text "|" <+> g <+> equals </> b
-
 prettyBody :: Applicative f
            => Doc -> Body t v -> [Doc] -> [String]
            -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f Doc
 prettyBody nm (Body ps gs wh) dvs vs kt kv =
-  h <$> fpd <*> prettyGuarded gs (\(Scope e) -> prettyTerm e rest (-1) kt kv') <*> wrd
+  h <$> fpd
+    <*> prettyGuarded gs equals (\(Scope e) -> prettyTerm e rest (-1) kt kv')
+    <*> wrd
  where
  wl = length wh
  wrd | wl == 0   = pure Nothing

@@ -3,6 +3,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -125,13 +126,13 @@ inferAltTypes :: MonadDischarge s m
               -> [AltM s v]
               -> m (WitnessM s v)
 inferAltTypes d cxt (Witness r t c) bs = do
-  (ts, ws) <- unzip <$> traverse inferAlt bs
+  (ts, gws) <- unzip <$> traverse inferAlt bs
   let ps = map (\(Alt p _) -> p) bs
-      rs = concat $ map (view witnessRowConstraints) ws
-      bts = map (view witnessType) ws
-      cs = map (splitScope . view witnessCore) ws
+      rs = gws >>= (>>= view witnessRowConstraints . snd)
+      bts = gws >>= fmap (view witnessType . snd)
+      gcs = over (traverse.traverse._2) (splitScope . view witnessCore) gws
+      c' = Pattern.compileCase ps c gcs (error "dummy PCompEnv" :: PCompEnv)
   runSharing t $ foldlM unifyType t ts
-  let c' = Pattern.compileCase ps c cs (error "dummy PCompEnv" :: PCompEnv)
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts
   -- TODO: skolems
@@ -139,8 +140,16 @@ inferAltTypes d cxt (Witness r t c) bs = do
  where
  inferAlt (Alt p b) = do
    (pt, pcxt) <- inferPatternType d p
-   aw <- inferTypeInScope (d+1) pcxt cxt b
-   return (pt, aw)
+   bgws <- inferGuarded pcxt b
+   return (pt, bgws)
+
+ inferGuarded pcxt (Unguarded s) =
+   return . (Trivial,) <$> inferTypeInScope (d+1) pcxt cxt s
+ inferGuarded pcxt (Guarded gbs) =
+   for gbs $ \(g, b) -> do
+     Witness _ _ gc <- checkTypeInScope (d+1) pcxt cxt g Type.bool
+     w <- inferTypeInScope (d+1) pcxt cxt b
+     return (Pattern.Explicit $ splitScope gc, w)
 
 
 -- TODO: write this
@@ -154,6 +163,11 @@ checkType d cxt e t = do
   w@(Witness r et c) <- inferType d cxt e
   checkKind (fmap (view metaValue) t) star
   runSharing w $ (Witness r ?? c) <$> (unifyType et t)
+
+checkTypeInScope :: MonadDischarge s m
+                 => Depth -> (b -> TypeM s) -> (v -> TypeM s)
+                 -> ScopeM b s v -> TypeM s -> m (WitnessM s (Var b v))
+checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
 
 refreshVar :: Depth -> Meta s f a -> ST s ()
 refreshVar d m = do

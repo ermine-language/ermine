@@ -6,6 +6,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -267,8 +268,9 @@ compileLambda ps body = compile ci pm
  ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileCase :: (MonadPComp m, Cored c)
-            => [Pattern t] -> c a -> [Scope PatPath c a] -> m (c a)
+            => [Pattern t] -> c a -> [[(Guard c a, Scope PatPath c a)]] -> m (c a)
 compileCase ps disc bs = compile ci pm
  where
- pm = PMatrix [ps] (map (const Trivial) ps) bs
+ (ps',gs',bs') = unzip3 . Prelude.concat $ zipWith (\p l -> uncurry (p,,) <$> l) ps bs
+ pm = PMatrix [ps'] gs' bs'
  ci = CInfo HM.empty [disc] [mempty]
