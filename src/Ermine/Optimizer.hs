@@ -110,7 +110,11 @@ betaVar = open (const False)
 
  open :: forall v. (v -> Bool) -> Core v -> m (Core v)
  open p (Lam k e) = Lam k <$> inScope (open $ extend p) e
- open p (Case e bs d) = (Case e ?? d) <$> (traverse._2) (inScope . open $ extend p) bs
+ open p (Case e bs d) = do
+   e' <- sharing e $ open p e
+   bs' <- sharing bs $ (traverse._2) (inScope . open $ extend p) bs
+   d' <- sharing d $ traverse (inScope . open $ extend p) d
+   return $ Case e' bs' d'
  open p c = collapse p [] c
 
  collapse :: forall v. (v -> Bool) -> [Core v] -> Core v -> m (Core v)
