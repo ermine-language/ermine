@@ -202,6 +202,7 @@ matchesTrivially :: Pattern t -> Bool
 matchesTrivially (SigP _)  = True
 matchesTrivially WildcardP = True
 matchesTrivially (LazyP _) = True
+matchesTrivially (AsP p)   = matchesTrivially p
 matchesTrivially _         = False
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
