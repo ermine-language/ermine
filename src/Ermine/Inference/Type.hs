@@ -155,7 +155,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
      return (Pattern.Explicit $ splitScope gc, w)
 
 checkSkolemEscapes :: MonadMeta s m
-                   => Depth -> Traversal' ts (TypeM s) -> [MetaT s] -> ts -> m ts
+                   => Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
 checkSkolemEscapes d trav sks ts = do
   for_ sks $ \s ->
     liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
