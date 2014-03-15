@@ -41,6 +41,7 @@ import Data.List as List (partition)
 import Data.Text as SText (pack)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
+import Data.Set.Lens
 import Data.STRef
 import Data.Traversable
 import Ermine.Builtin.Type as Type
@@ -103,11 +104,12 @@ inferType d cxt (Term.App f x) = do
   Witness xrcs _ xc <- checkType d cxt x i
   simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
 inferType d cxt (Term.Lam ps e) = do
-  (pts, ppts) <- unzip <$> traverse (inferPatternType d) ps
+  (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
   let pcxt (ArgPP i pp)
         | Just f <- ppts ^? ix (fromIntegral i) = f pp
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
+  checkSkolemEscapes d (join skss) $ toListOf folded t
   let cc = Pattern.compileLambda ps (splitScope c) (error "dummy PCompEnv" :: PCompEnv)
   return $ Witness rcs (foldr (~~>) t pts) (lambda (fromIntegral $ length ps) cc)
 
@@ -135,12 +137,12 @@ inferAltTypes d cxt (Witness r t c) bs = do
   runSharing t $ foldlM unifyType t ts
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts
-  -- TODO: skolems
   return $ Witness (r++rs) t' c'
  where
  inferAlt (Alt p b) = do
-   (pt, pcxt) <- inferPatternType d p
+   (sks, pt, pcxt) <- inferPatternType d p
    bgws <- inferGuarded pcxt b
+   checkSkolemEscapes d sks $ toListOf (traverse._2.witnessType.traverse) bgws
    return (pt, bgws)
 
  inferGuarded pcxt (Unguarded s) =
@@ -151,6 +153,15 @@ inferAltTypes d cxt (Witness r t c) bs = do
      w <- inferTypeInScope (d+1) pcxt cxt b
      return (Pattern.Explicit $ splitScope gc, w)
 
+checkSkolemEscapes :: MonadMeta s m => Depth -> [MetaT s] -> [MetaT s] -> m ()
+checkSkolemEscapes d sks fsks = do
+  sds <- for sks $ \s -> (,) s <$> liftST (readSTRef $ s ^. metaDepth)
+  let escaped = (filter (\v -> has (ix $ v^.metaId) skids) fsks)
+             ++ (map fst . filter ((< d) . snd) $ sds)
+  when (not . null $ escaped) $
+    fail "escaped skolem"
+ where
+ skids = setOf (traverse.metaId) sks
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
@@ -248,27 +259,29 @@ unfurlConstraints (Exists ks ts cs) = do
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
 
-inferPatternType :: MonadMeta s m =>  Depth -> PatM s -> m (TypeM s, PatPath -> TypeM s)
+inferPatternType :: MonadMeta s m =>  Depth -> PatM s
+                 -> m ([MetaT s], TypeM s, PatPath -> TypeM s)
 inferPatternType d (SigP ann)  = do
   ty <- instantiateAnnot d ann
   checkKind (view metaValue <$> ty) star
-  return (ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
+  return ([], ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
 inferPatternType d WildcardP   =
   pure <$> newShallowMeta d star <&> \m ->
-    (m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
+    ([], m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
 inferPatternType d (AsP p)     =
-  inferPatternType d p <&> \(ty, pcxt) ->
-    (ty, \case LeafPP -> ty ; pp -> pcxt pp)
+  inferPatternType d p <&> \(sks, ty, pcxt) ->
+    (sks, ty, \case LeafPP -> ty ; pp -> pcxt pp)
 inferPatternType d (StrictP p) = inferPatternType d p
 inferPatternType d (LazyP p)   = inferPatternType d p
 inferPatternType d (TupP ps)   =
-  unzip <$> traverse (inferPatternType d) ps <&> \(tys, cxts) ->
-    ( apps (tuple $ length ps) tys
+  unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->
+    ( join sks
+    , apps (tuple $ length ps) tys
     , \case FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
             _ -> error "panic: bad pattern path"
     )
 inferPatternType _ (LitP l)    =
-  pure (literalType l, \_ -> error "panic: bad pattern path")
+  pure ([], literalType l, \_ -> error "panic: bad pattern path")
 inferPatternType _ (ConP _ _)  = error "unimplemented"
 
 instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
