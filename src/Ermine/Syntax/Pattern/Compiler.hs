@@ -26,6 +26,7 @@ module Ermine.Syntax.Pattern.Compiler
   , PMatrix(..)
   , HasPMatrix(..)
   , PCompEnv(..)
+  , dummyPCompEnv
   , MonadPComp(..)
   , isSignature
   , constructorTag
@@ -61,6 +62,7 @@ import Data.Traversable
 import Data.Word
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
 
 -- | The environment necessary to perform pattern compilation. We need two
@@ -76,6 +78,12 @@ import Ermine.Syntax.Pattern
 -- maps from globals to integer tags.
 newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Word8) }
   deriving (Eq, Show)
+
+dummyPCompEnv :: PCompEnv
+dummyPCompEnv = PCompEnv $
+  HM.singleton n (HM.singleton n 0)
+ where n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
+
 
 -- | Monads that allow us to perform pattern compilation, by providing
 -- a PCompEnv.

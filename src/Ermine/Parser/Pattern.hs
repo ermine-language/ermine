@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013
@@ -27,6 +28,8 @@ import Ermine.Parser.Literal
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax
+import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -59,11 +62,17 @@ tup' xs = tup xs
 sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
+-- TODO: remove this when constructor patterns really work.
+eP :: (Monad m, TokenParsing m) => m PP
+eP = conp nm <$ symbol "E" <*> many pattern1
+ where
+ nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
+
 pattern1 :: (Monad m, TokenParsing m) => m PP
 pattern1 = asp <$> try (termIdentifier <* symbol "@") <*> pattern1 <|> pattern0
 
 pattern2 :: (Monad m, TokenParsing m) => m PP
-pattern2 = sigP <|> pattern0
+pattern2 = eP <|> sigP <|> pattern0
 
 patterns :: (Monad m, TokenParsing m) => m [PP]
 patterns = commaSep pattern2
