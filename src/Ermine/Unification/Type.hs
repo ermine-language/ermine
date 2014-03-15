@@ -115,7 +115,10 @@ unifyType t1 t2 = do
     go _ _ = fail "type mismatch"
 {-# INLINE unifyType #-}
 
-unifyTV :: (MonadWriter Any m, MonadMeta s m) => Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth -> TypeM s -> ST s () -> m (TypeM s)
+unifyTV :: (MonadWriter Any m, MonadMeta s m)
+        => Bool
+        -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth
+        -> TypeM s -> ST s () -> m (TypeM s)
 unifyTV interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
   Just j -> do
     (t', Any m) <- listen $ unifyType j t
