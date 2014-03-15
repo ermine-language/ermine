@@ -169,6 +169,10 @@ checkTypeInScope :: MonadDischarge s m
                  -> ScopeM b s v -> TypeM s -> m (WitnessM s (Var b v))
 checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
 
+subsumesType :: MonadDischarge s m
+             => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
+subsumesType _ _ _ = undefined
+
 refreshVar :: Depth -> Meta s f a -> ST s ()
 refreshVar d m = do
   traverseOf_ metaDepth (writeSTRef ?? depthInf) m
