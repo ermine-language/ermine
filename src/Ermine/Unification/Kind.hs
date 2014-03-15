@@ -132,5 +132,5 @@ unifyKV interesting i r k bump = liftST (readSTRef r) >>= \mb -> case mb of
 -- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
 unifyKindVar :: (MonadMeta s m, MonadWriter Any m) => MetaK s -> KindM s -> m (KindM s)
 unifyKindVar (Meta _ i r _ _) kv = unifyKV True i r kv $ return ()
-unifyKindVar (Skolem _ _)     _  = fail "unifyKindVar: Skolem"
+unifyKindVar (Skolem _ _ _)   _  = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
