@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -36,7 +37,7 @@ import Control.Monad.Reader
 import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
-import Data.Bifoldable
+import Data.Bitraversable
 import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Text as SText (pack)
@@ -173,9 +174,9 @@ simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
 checkType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
-  w@(Witness r et c) <- inferType d cxt e
+  w <- inferType d cxt e
   checkKind (fmap (view metaValue) t) star
-  runSharing w $ (Witness r ?? c) <$> (unifyType et t)
+  subsumesType d w t
 
 checkTypeInScope :: MonadDischarge s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
@@ -184,17 +185,28 @@ checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
 
 subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
-subsumesType _ _ _ = undefined
+subsumesType d (Witness rs t1 c) t2 = do
+  t1' <- refreshType d t1
+  -- TODO: constraints
+  (sks, sts, _, t2') <- skolemize d t2
+  runSharing t1' $ unifyType t1' t2'
+  -- TODO: skolem kinds
+  checkSkolemEscapes d (beside id id) sts (t1,t2) <&> \(_, t2'') ->
+  -- TODO: fix up core representation
+    Witness rs t2'' c
 
-refreshVar :: Depth -> Meta s f a -> ST s ()
+refreshVar :: (MonadMeta s m, MonadWriter Any m)
+           => Depth -> Meta s f a -> m (Meta s f a)
 refreshVar d m = do
-  traverseOf_ metaDepth (writeSTRef ?? depthInf) m
-  traverseOf_ metaRank (writeSTRef ?? 0) m
+  d' <- liftST . readSTRef $ m^.metaDepth
+  if d' >= d
+    then tell (Any True) >> newMeta (m^.metaValue)
+    else return m
 
 refreshType :: MonadMeta s m => Depth -> TypeM s -> m (TypeM s)
 refreshType d t0 = do
   t <- runSharing t0 $ zonk t0 >>= zonkKinds
-  liftST $ t <$ bitraverse_ (refreshVar d) (refreshVar d) t
+  runSharing t $ bitraverse (refreshVar d) (refreshVar d) t
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
@@ -238,6 +250,15 @@ literalType String{} = Type.string
 literalType Char{}   = Type.char
 literalType Float{}  = Type.float
 literalType Double{} = Type.double
+
+skolemize :: MonadMeta s m
+          => Depth -> TypeM s -> m ([MetaK s], [MetaT s], Maybe (TypeM s), TypeM s)
+skolemize d (Forall ks ts cs bd) = do
+  sks <- for ks $ newSkolem . extract
+  sts <- for ts $ newSkolem . instantiateVars sks . extract
+  let inst = instantiateKindVars sks . instantiateVars sts
+  return (sks, sts, Just (inst cs), inst bd)
+skolemize _ t = return ([], [], Nothing, t)
 
 unfurl :: MonadMeta s m => TypeM s -> a -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
