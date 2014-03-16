@@ -196,17 +196,17 @@ subsumesType d (Witness rs t1 c) t2 = do
     Witness rs t2'' c
 
 refreshVar :: (MonadMeta s m, MonadWriter Any m)
-           => Depth -> Meta s f a -> m (Meta s f a)
+           => Depth -> Meta s f a -> m (Bool, Meta s f a)
 refreshVar d m = do
   d' <- liftST . readSTRef $ m^.metaDepth
   if d' >= d
-    then tell (Any True) >> newMeta (m^.metaValue)
-    else return m
+    then tell (Any True) >> (,) True <$> newMeta (m^.metaValue)
+    else return (True, m)
 
 refreshType :: MonadMeta s m => Depth -> TypeM s -> m (TypeM s)
 refreshType d t0 = do
   t <- runSharing t0 $ zonk t0 >>= zonkKinds
-  runSharing t $ bitraverse (refreshVar d) (refreshVar d) t
+  runSharing t $ memoverse (refreshVar d) (refreshVar d) t
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
