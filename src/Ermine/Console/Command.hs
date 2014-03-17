@@ -30,7 +30,6 @@ import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
 import Data.List as List
-import qualified Data.Map as Map
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
@@ -140,11 +139,6 @@ dkindsBody dts = do
         <+> colon
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
--- temporary hack
-instance MonadDischarge s (M s) where
-  askDischarge = return $ DischargeEnv Map.empty Map.empty
-  localDischarge _ m = m
-
 checkAndCompile :: MonadDischarge s m
                 => Term Ann Text -> m (Maybe (Type t k, Maybe (Core c)))
 checkAndCompile syn = closed syn `for` \syn' -> do
@@ -157,12 +151,12 @@ checkAndCompile syn = closed syn `for` \syn' -> do
   (,closed $ fromScope c) <$> generalizeType ty
 
 typeBody :: Term Ann Text -> Console ()
-typeBody syn = ioM mempty (checkAndCompile syn) >>= \case
+typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
   Just (ty, _) -> sayLn $ prettyType ty names (-1)
   Nothing -> sayLn "Unbound variables detected"
 
 coreBody :: Term Ann Text -> Console ()
-coreBody syn = ioM mempty (checkAndCompile syn) >>= \case
+coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
   Just (_, Just  c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Just (_, Nothing) -> sayLn "Bad core detected: unresolved classes or globals"
   Nothing           -> sayLn "Unbound variables detected"
