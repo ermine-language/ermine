@@ -25,7 +25,6 @@ module Ermine.Inference.Type
   , inferType
   , inferPatternType
   , generalizeType
-  , refreshType
   ) where
 
 import Bound
@@ -34,10 +33,8 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
-import Data.Bitraversable
 import Data.Foldable as Foldable
 import Data.List as List (partition)
 import Data.Text as SText (pack)
@@ -186,27 +183,13 @@ checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
 subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
-  t1' <- refreshType d t1
   -- TODO: constraints
-  (sks, sts, _, t2') <- skolemize d t2
-  runSharing t1' $ unifyType t1' t2'
+  (_  , sts, _, t2') <- skolemize d t2
+  runSharing () $ () <$ unifyType t1 t2'
   -- TODO: skolem kinds
-  checkSkolemEscapes d (beside id id) sts (t1,t2) <&> \(_, t2'') ->
+  checkSkolemEscapes d id sts t2 <&> \t2'' ->
   -- TODO: fix up core representation
     Witness rs t2'' c
-
-refreshVar :: (MonadMeta s m, MonadWriter Any m)
-           => Depth -> Meta s f a -> m (Bool, Meta s f a)
-refreshVar d m = do
-  d' <- liftST . readSTRef $ m^.metaDepth
-  if d' >= d
-    then tell (Any True) >> (,) True <$> newMeta (m^.metaValue)
-    else return (True, m)
-
-refreshType :: MonadMeta s m => Depth -> TypeM s -> m (TypeM s)
-refreshType d t0 = do
-  t <- runSharing t0 $ zonk t0 >>= zonkKinds
-  runSharing t $ memoverse (refreshVar d) (refreshVar d) t
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
