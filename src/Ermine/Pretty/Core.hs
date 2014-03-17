@@ -89,10 +89,19 @@ prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  eq l r = l <+> text "=" <+> r
  h bds ed = parensIf (prec>=0) . nest 2 $
               text "let" <+> block (zipWith eq ws bds) <+> text "in" <+> ed
+prettyCore (v:vs) prec k (LamDict (Scope e)) =
+  coreLam prec [v'] <$> prettyCore vs (-1) k' e
+ where
+ v' = text v
+ k' (B _) _ = pure v'
+ k' (F c) p = prettyCore vs p k c
+prettyCore vs prec k (AppDict f d) =
+  (\df dd -> parensIf (prec > 10) $ df <+> dd)
+    <$> prettyCore vs 10 k f
+    <*> prettyCore vs 11 k d
+prettyCore _  _    _ (Dict _    _    ) = pure $ text "<DICT>"
 prettyCore _ _ _ _ = pure $ text "unimplemented"
 -- prettyCore vs prec k (Dict sups slots) = undefined
--- prettyCore vs prec k (LamDict e) = undefined
--- prettyCore vs prec k (AppDict f d) = undefined
 
 coreLam :: Int -> [Doc] -> Doc -> Doc
 coreLam prec ws e = parensIf (prec>=0) $
