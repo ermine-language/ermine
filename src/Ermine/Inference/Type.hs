@@ -236,7 +236,7 @@ literalType Double{} = Type.double
 
 skolemize :: MonadMeta s m
           => Depth -> TypeM s -> m ([MetaK s], [MetaT s], Maybe (TypeM s), TypeM s)
-skolemize d (Forall ks ts cs bd) = do
+skolemize _ (Forall ks ts cs bd) = do
   sks <- for ks $ newSkolem . extract
   sts <- for ts $ newSkolem . instantiateVars sks . extract
   let inst = instantiateKindVars sks . instantiateVars sts

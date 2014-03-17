@@ -205,9 +205,9 @@ splitOn :: Applicative c
 splitOn i hd (PMatrix ps gs cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
-      prune (AsP p) = prune p
-      prune (StrictP p) = prune p
-      prune p = p
+      prune (AsP r) = prune r
+      prune (StrictP r) = prune r
+      prune r = r
       p (pat, _) = has con (prune pat) || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat ->
