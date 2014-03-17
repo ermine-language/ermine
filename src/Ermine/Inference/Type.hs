@@ -36,7 +36,7 @@ import Control.Monad.Reader
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
-import Data.List as List (partition)
+import Data.List as List (partition, nub)
 import Data.Text as SText (pack)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
@@ -195,22 +195,30 @@ subsumesType d (Witness rs t1 c) t2 = do
 -- variables. Checks for skolem escapes while doing so.
 --
 -- TODO: constraint contexts
-generalizeType :: MonadMeta s m => TypeM s -> m (Type k t)
+generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
 generalizeType = generalizeOverType IntSet.empty
 
 -- TODO: hints
 -- TODO: separate kind vs type skolem sets?
-generalizeOverType :: MonadMeta s m => IntSet -> TypeM s -> m (Type k t)
-generalizeOverType sks t0 = do
+generalizeOverType :: MonadMeta s m => IntSet -> WitnessM s a -> m (Type k t, Core a)
+generalizeOverType sks (Witness r0 t0 c0) = do
   t <- runSharing t0 $ zonk t0 >>= zonkKinds
-  let tvks = toListOf typeVars t <&> \v -> (v, v^.metaValue)
+  c <- runSharing c0 $ traverse (zonk >=> zonkKinds) c0
+  r <- runSharing r0 $ traverse (zonk >=> zonkKinds) r0
+  let cc = nub $ toListOf traverse c
+      tvks = toListOf (beside typeVars typeVars) (t,cc) <&> \v -> (v, v^.metaValue)
       kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
       bad :: Meta s f a -> Bool
       bad v = has _Skolem v && not (sks^.contains (v^.metaId))
+      cabs cls (F ty) | cls == ty = Just ()
+      cabs _   _ = Nothing
+  cout <- traverse
+            (unvar pure $ \_-> fail "panic: failed to abstract over all classes")
+            $ foldr (\cls -> LamDict . abstract (cabs cls)) (fromScope c) cc
   when (any (bad.fst) tvks || any bad kvs) $
-    fail "escaped skolem"
-  case closedType $ forall (const noHint) (const noHint) kvs tvks (And []) t of
-    Just ty -> pure ty
+    fail "generalize: escaped skolem"
+  case closedType $ forall (const noHint) (const noHint) kvs tvks (And $ r ++ cc) t of
+    Just ty -> pure (ty, cout)
     Nothing -> error "panic: generalizeOverType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)

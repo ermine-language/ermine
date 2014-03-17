@@ -25,6 +25,7 @@ module Ermine.Console.Command
 import Bound
 import Control.Applicative
 import Control.Lens
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.Bitraversable
@@ -41,7 +42,6 @@ import Ermine.Console.State
 import Ermine.Inference.Discharge
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
-import Ermine.Inference.Witness
 import Ermine.Optimizer
 import Ermine.Parser.DataType
 import Ermine.Parser.Kind
@@ -52,10 +52,13 @@ import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
+import Ermine.Syntax
 import Ermine.Syntax.DataType (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Global
+import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -140,15 +143,26 @@ dkindsBody dts = do
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
 checkAndCompile :: MonadDischarge s m
-                => Term Ann Text -> m (Maybe (Type t k, Maybe (Core c)))
-checkAndCompile syn = closed syn `for` \syn' -> do
+                => Term Ann Text -> m (Maybe (Type t k, Core c))
+checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
   tm <- bitraverse (prepare (newMeta ())
                           (const $ newMeta ())
                           (const $ newMeta () >>= newMeta . pure))
-                 absurd
+                 pure
                  syn'
-  Witness _ ty c <- inferType 0 id tm
-  (,closed $ fromScope c) <$> generalizeType ty
+  w <- inferType 0 (const tyLame) tm
+  over _2 join <$> generalizeType w
+ where
+ clame :: Type k t
+ clame = con (glob Idfix (mkModuleName "ermine" "Ermine") "Lame")
+             (star ~> constraint)
+ tyLame :: Type k t
+ tyLame = Forall [] [Unhinted $ Scope star]
+            (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
+ closedOrLame :: Text -> Maybe (Core c)
+ closedOrLame txt | txt == "lame" =
+   Just . LamDict . Scope $ AppDict (HardCore (Slot 0)) (pure $ B ())
+ closedOrLame _ = Nothing
 
 typeBody :: Term Ann Text -> Console ()
 typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
@@ -157,8 +171,7 @@ typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) 
 
 coreBody :: Term Ann Text -> Console ()
 coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
-  Just (_, Just  c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
-  Just (_, Nothing) -> sayLn "Bad core detected: unresolved classes or globals"
+  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 
 commands :: [Command]
