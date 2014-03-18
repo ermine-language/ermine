@@ -107,7 +107,7 @@ inferType d cxt (Term.Lam ps e) = do
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPCompEnv
-  rt <- checkSkolemEscapes d id (join skss) $ foldr (~~>) t pts
+  rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
   return $ Witness rcs rt (lambda (fromIntegral $ length ps) cc)
 
 inferType d cxt (Term.Case e b) = do
@@ -139,7 +139,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
  inferAlt (Alt p b) = do
    (sks, pt, pcxt) <- inferPatternType d p
    bgws <- inferGuarded pcxt b
-   checkSkolemEscapes d (beside id $ traverse._2.witnessType) sks (pt, bgws)
+   checkSkolemEscapes (Just d) (beside id $ traverse._2.witnessType) sks (pt, bgws)
 
  inferGuarded pcxt (Unguarded s) =
    return . (Trivial,) <$> inferTypeInScope (d+1) pcxt cxt s
@@ -162,7 +162,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co <- runSharing co0 $ traverse zonk co0
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
-    checkSkolemEscapes d (traverse`beside`id`beside`traverse) sks
+    checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
       ((rs, ty), foldr (\cls -> lambdaDict . abstract1 cls) co' cs)
   pure $ Witness rs' ty' co''
 

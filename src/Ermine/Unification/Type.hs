@@ -65,9 +65,9 @@ typeOccurs depth1 t p = zonkWith t tweak where
         depth2 <- readSTRef d
         Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
 
-checkSkolemEscapes :: MonadMeta s m => Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
-checkSkolemEscapes d trav sks ts = do
-  for_ sks $ \s ->
+checkSkolemEscapes :: MonadMeta s m => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
+checkSkolemEscapes md trav sks ts = do
+  for_ md $ \d -> for_ sks $ \s ->
     liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
   trav (\t -> runSharing t $ zonkWith t tweak) ts
  where
