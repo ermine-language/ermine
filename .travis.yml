@@ -1,18 +1,22 @@
 language: haskell
 
 env:
-  - GHCVER=7.4.2
-  - GHCVER=7.6.3
+  - >
+    GHCVER=7.4.2
+    MODE="-f-doctests"
   - >
     GHCVER=7.6.3
-    MODE="-fekg"
+    MODE="-f-doctests"
+  - >
+    GHCVER=7.6.3
+    MODE="-fekg -f-doctests"
   - GHCVER=7.8.1
 
-# Ingore 7.4.2 failures for now because of the doctest GHC panic.
 matrix:
   allow_failures:
-    - env: GHCVER=7.4.2
-    - env: GHCVER=head
+    - env: >
+           GHCVER=7.4.2
+           MODE="-f-doctests"
 
 before_install:
   # If $GHCVER is the one travis has, don't bother reinstalling it.
