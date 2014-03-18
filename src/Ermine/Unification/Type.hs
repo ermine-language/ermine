@@ -122,6 +122,10 @@ unifyType t1 t2 = do
           _ <- unifyType (instantiateKindVars sks (instantiateVars sts a))
                          (instantiateKindVars sks (instantiateVars sts b))
           return sts
+        -- checking skolem escapes here is important for cases like:
+        --  ((f : some b r. (forall a. a -> b) -> r)
+        --   (g : some a r. (forall b. a -> b) -> r) ->
+        --     ((x y -> x) : some a. a -> a -> a) f g)
         if modified
          then fst <$> checkSkolemEscapes Nothing both sts (t, t')
          else return t
