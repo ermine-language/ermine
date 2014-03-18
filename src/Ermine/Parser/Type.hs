@@ -26,6 +26,7 @@ import Bound
 import Control.Applicative
 import Data.List (elemIndex)
 import Data.Text (Text)
+import Ermine.Builtin.Type
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax
@@ -120,6 +121,7 @@ constraint :: (Monad m, TokenParsing m) => m Typ
 constraint =
       buildE <$ symbol "exists" <*> quantBindings <* dot <*> constraint
   <|> parens constraints
+  <|> apps lame <$ symbol "Lame" <*> many typ0
   -- Single constraints
   <|> Var <$> typeIdentifier
  where buildE (kvs, tvks) =

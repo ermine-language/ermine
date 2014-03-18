@@ -40,6 +40,7 @@ module Ermine.Builtin.Type
   , equality
   -- ** Classes
   , functor
+  , lame
   ) where
 
 import Data.Text (pack)
@@ -205,3 +206,9 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 -- ((* -> *) -> Γ) -> *
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"
+
+-- |
+-- >>> infer lame
+-- * -> Γ
+lame :: Builtin t => t
+lame = builtin (star ~> constraint) "Lame"

@@ -38,6 +38,7 @@ import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import Data.Foldable (for_)
 import Data.Void
+import Ermine.Builtin.Type as Type (lame)
 import Ermine.Console.State
 import Ermine.Inference.Discharge
 import Ermine.Inference.Kind as Kind
@@ -57,8 +58,6 @@ import Ermine.Syntax.DataType (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
-import Ermine.Syntax.Global
-import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -154,8 +153,7 @@ checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
   over _2 join <$> generalizeType w
  where
  clame :: Type k t
- clame = con (glob Idfix (mkModuleName_ "Ermine") "Lame")
-             (star ~> constraint)
+ clame = con lame (star ~> constraint)
  tyLame :: Type k t
  tyLame = Forall [] [Unhinted $ Scope star]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)

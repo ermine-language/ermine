@@ -45,7 +45,6 @@ import Ermine.Syntax.Hint
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Literal
-import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 import Ermine.Syntax.Type as Type
 import Ermine.Unification.Meta
@@ -65,7 +64,6 @@ dummyDischargeEnv = DischargeEnv { _classes = singleton lame clame
  where
  -- class Lame a where lame :: a
  -- instance Lame Int where lame = 5
- lame = glob Idfix (mkModuleName_ "Ermine") "Lame"
  clame = Class [] [Unhinted $ Scope star] []
  hlame = mkHead lame 0 [] [] [Type.int]
  dlame = Dict [] [_Lit # Int 5]
