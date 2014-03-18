@@ -26,6 +26,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad.Writer
 import Data.List (genericLength, genericSplitAt, genericIndex)
+import Data.Traversable (sequenceA)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Core
@@ -43,6 +44,7 @@ optimize' n c = do (c', Any b) <- listen $ suite c
  suite = rewriteCoreDown lamlam
      >=> rewriteCore betaVar
      >=> rewriteCoreDown specCase
+     >=> rewriteCore etaDict
 
 
 rewriteCoreDown :: forall m c. (Applicative m, MonadWriter Any m)
@@ -99,6 +101,12 @@ lamlam (Lam k e) = slurp False k (fromScope e)
  slurp _ m (Lam n b) = slurp True (m + n) (instantiate (pure.B.(m+)) b)
  slurp b m c         = (Lam m $ toScope c) <$ tell (Any b)
 lamlam c = return c
+
+etaDict :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
+etaDict c@(LamDict (Scope (AppDict f (Var (B ()))))) = case sequenceA f of
+  B _ -> return c
+  F g -> join g <$ tell (Any True)
+etaDict c = return c
 
 -- | Beta reduces redexes like (\x.. -> e) v.. where v.. is all variables
 betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
