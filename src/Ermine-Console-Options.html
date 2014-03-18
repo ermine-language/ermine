@@ -25,7 +25,7 @@
 <a name="line-16"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>parseOptions</span>
 <a name="line-17"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
 <a name="line-18"></a>
-<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
+<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>argument</span><span class='hs-layout'>)</span>
 <a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Data</span>
 <a name="line-21"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Monitor</span>
 <a name="line-22"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Options</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
@@ -50,6 +50,6 @@
 <a name="line-41"></a>  <span class='hs-varid'>return</span> <span class='hs-varop'>$</span> <span class='hs-conid'>Options</span>
 <a name="line-42"></a>       <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>parseMonitorOptions</span>
 <a name="line-43"></a>       <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>option</span> <span class='hs-layout'>(</span><span class='hs-varid'>long</span> <span class='hs-str'>"libdir"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>short</span> <span class='hs-chr'>'l'</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>help</span> <span class='hs-str'>"location of the ermine library"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>metavar</span> <span class='hs-str'>"DIR"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>action</span> <span class='hs-str'>"directory"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>value</span> <span class='hs-varid'>dd</span><span class='hs-layout'>)</span>
-<a name="line-44"></a>       <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>arguments</span> <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-varid'>help</span> <span class='hs-str'>"files"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>metavar</span> <span class='hs-str'>"FILE"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>action</span> <span class='hs-str'>"file"</span><span class='hs-layout'>)</span>
+<a name="line-44"></a>       <span class='hs-varop'>&lt;*&gt;</span> <span class='hs-varid'>many</span> <span class='hs-layout'>(</span><span class='hs-varid'>argument</span> <span class='hs-conid'>Just</span> <span class='hs-varop'>$</span> <span class='hs-varid'>help</span> <span class='hs-str'>"files"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>metavar</span> <span class='hs-str'>"FILE"</span> <span class='hs-varop'>&lt;&gt;</span> <span class='hs-varid'>action</span> <span class='hs-str'>"file"</span><span class='hs-layout'>)</span>
 </pre></body>
 </html>
