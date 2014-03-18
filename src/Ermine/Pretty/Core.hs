@@ -20,11 +20,15 @@ import Control.Lens
 import Control.Applicative
 import Data.Bifunctor
 import Data.Monoid
+import Data.Text (unpack)
 import Data.Traversable
 import Data.Word
 import Ermine.Pretty
 import Ermine.Pretty.Literal
+import Ermine.Pretty.Type
 import Ermine.Syntax.Core
+import Ermine.Syntax.Head
+import Ermine.Syntax.Name
 
 prettyJavaLike :: JavaLike -> Doc
 prettyJavaLike (Method _st _cn _mn _args) = text $ "method{" ++ "}" -- TODO
@@ -43,7 +47,11 @@ prettyHardCore _ (PrimOp  s)    = text $ "primop{" ++ show s ++ "}"
 prettyHardCore _ (Foreign f)    = prettyForeign f
 prettyHardCore n (Error   s)    = parensIf (n>10) . text $ "error " ++ show s
 prettyHardCore _ (GlobalId g)   = text $ "global{" ++ show g ++ "}"
-prettyHardCore _ (InstanceId i) = text $ "instance{" ++ show i ++ "}"
+prettyHardCore _ (InstanceId i) =
+  text ("instance{" ++ unpack (i^.headClass.name))
+     <+> hsep ((prettyType ?? (repeat "_") ?? 1000) . bimap (const "_") (const "_")
+           <$> i^.headTypeArgs)
+      <> text "}"
 
 --   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
 --   | LamDict !(Scope () Core a)
