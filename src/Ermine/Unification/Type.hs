@@ -108,21 +108,23 @@ unifyType t1 t2 = do
     go s                      (Loc _ t)               = unifyType s t
     go Exists{}               _                       = fail "unifyType: existential"
     go _                      Exists{}                = fail "unifyType: existential"
-    go t@(Forall m xs _ a)   (Forall n ys _ b)
+    go t@(Forall m xs _ a)   t'@(Forall n ys _ b)
       | m /= n                 = fail "unifyType: forall: mismatched kind arity"
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
-        (_, Any modified) <- listen $ do
+        (sts, Any modified) <- listen $ do
           sks <- for m $ \_ -> newSkolem ()
           let nxs = instantiateVars sks <$> fmap extract xs
               nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind x y
             newSkolem k
-          unifyType (instantiateKindVars sks (instantiateVars sts a))
-                    (instantiateKindVars sks (instantiateVars sts b))
-        if modified then zonk t
-                    else return t
+          _ <- unifyType (instantiateKindVars sks (instantiateVars sts a))
+                         (instantiateKindVars sks (instantiateVars sts b))
+          return sts
+        if modified
+         then fst <$> checkSkolemEscapes Nothing both sts (t, t')
+         else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"
 {-# INLINE unifyType #-}
