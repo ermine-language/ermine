@@ -50,7 +50,7 @@ before_install:
   - $CABAL install hlint
 
 install:
-  - $CABAL install --dependencies-only --enable-tests
+  - $CABAL install --dependencies-only --enable-tests $MODE
   - $CABAL configure -flib-Werror --enable-tests $MODE
 
 script:
