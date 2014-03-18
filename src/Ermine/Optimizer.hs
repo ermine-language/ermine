@@ -113,8 +113,7 @@ betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core c -> m (Core c
 betaVar = collapse []
  where
  collapse stk (App f x)
-   | has var x = collapse (x:stk) f
-   | has _Slot x = collapse (x:stk) f
+   | has var x || has _Slot x || has _Super x || has _Lit x = collapse (x:stk) f
  collapse stk (Lam n body@(Scope body'))
    | len < n = do
      tell (Any True)
