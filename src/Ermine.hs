@@ -14,6 +14,7 @@ module Ermine
   ( module Ermine.Builtin.Type
   , module Ermine.Diagnostic
   , module Ermine.Inference.Kind
+  , module Ermine.Optimizer
   , module Ermine.Parser.Kind
   , module Ermine.Syntax
   , module Ermine.Syntax.Core
@@ -34,6 +35,7 @@ module Ermine
 import Ermine.Builtin.Type
 import Ermine.Diagnostic
 import Ermine.Inference.Kind
+import Ermine.Optimizer
 import Ermine.Parser.Kind
 import Ermine.Syntax
 import Ermine.Syntax.Core hiding (Var, App, Let, Case, Lam, Lit)
