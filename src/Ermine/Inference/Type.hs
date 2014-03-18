@@ -33,15 +33,12 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.List as List (partition, nub)
 import Data.Text as SText (pack)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
-import Data.Set.Lens
-import Data.STRef
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
@@ -151,17 +148,6 @@ inferAltTypes d cxt (Witness r t c) bs = do
      Witness _ _ gc <- checkTypeInScope (d+1) pcxt cxt g Type.bool
      w <- inferTypeInScope (d+1) pcxt cxt b
      return (Pattern.Explicit $ splitScope gc, w)
-
-checkSkolemEscapes :: MonadMeta s m
-                   => Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
-checkSkolemEscapes d trav sks ts = do
-  for_ sks $ \s ->
-    liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
-  trav (\t -> runSharing t $ zonkWith t tweak) ts
- where
- serr = fail "escaped skolem"
- skids = setOf (traverse.metaId) sks
- tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)

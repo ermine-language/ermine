@@ -17,6 +17,7 @@
 module Ermine.Unification.Type
   ( unifyType
   , zonkKinds
+  , checkSkolemEscapes
   ) where
 
 import Control.Applicative
@@ -27,6 +28,7 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Bitraversable
+import Data.Foldable (for_)
 import Data.Set as Set
 import Data.IntMap as IntMap
 import Data.Set.Lens
@@ -62,6 +64,16 @@ typeOccurs depth1 t p = zonkWith t tweak where
     | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do
         depth2 <- readSTRef d
         Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
+
+checkSkolemEscapes :: MonadMeta s m => Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
+checkSkolemEscapes d trav sks ts = do
+  for_ sks $ \s ->
+    liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
+  trav (\t -> runSharing t $ zonkWith t tweak) ts
+ where
+ serr = fail "escaped skolem"
+ skids = setOf (traverse.metaId) sks
+ tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
 
 zonkKinds :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
 zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) where
