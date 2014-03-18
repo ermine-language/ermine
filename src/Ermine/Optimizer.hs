@@ -114,6 +114,7 @@ betaVar = collapse []
  where
  collapse stk (App f x)
    | has var x = collapse (x:stk) f
+   | has _Slot x = collapse (x:stk) f
  collapse stk (Lam n body@(Scope body'))
    | len < n = do
      tell (Any True)
