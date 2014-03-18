@@ -65,7 +65,7 @@ dummyDischargeEnv = DischargeEnv { _classes = singleton lame clame
  where
  -- class Lame a where lame :: a
  -- instance Lame Int where lame = 5
- lame = glob Idfix (mkModuleName "ermine" "Ermine") "Lame"
+ lame = glob Idfix (mkModuleName_ "Ermine") "Lame"
  clame = Class [] [Unhinted $ Scope star] []
  hlame = mkHead lame 0 [] [] [Type.int]
  dlame = Dict [] [_Lit # Int 5]

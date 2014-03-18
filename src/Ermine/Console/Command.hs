@@ -154,14 +154,14 @@ checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
   over _2 join <$> generalizeType w
  where
  clame :: Type k t
- clame = con (glob Idfix (mkModuleName "ermine" "Ermine") "Lame")
+ clame = con (glob Idfix (mkModuleName_ "Ermine") "Lame")
              (star ~> constraint)
  tyLame :: Type k t
  tyLame = Forall [] [Unhinted $ Scope star]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
  closedOrLame :: Text -> Maybe (Core c)
  closedOrLame txt | txt == "lame" =
-   Just . LamDict . Scope $ AppDict (HardCore (Slot 0)) (pure $ B ())
+   Just (HardCore $ Slot 0)
  closedOrLame _ = Nothing
 
 typeBody :: Term Ann Text -> Console ()
