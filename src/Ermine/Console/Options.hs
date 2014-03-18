@@ -16,7 +16,7 @@ module Ermine.Console.Options
   , parseOptions
   ) where
 
-import Control.Lens
+import Control.Lens hiding (argument)
 import Data.Data
 import Ermine.Monitor
 import Options.Applicative
@@ -41,4 +41,4 @@ parseOptions = do
   return $ Options
        <$> parseMonitorOptions
        <*> option (long "libdir" <> short 'l' <> help "location of the ermine library" <> metavar "DIR" <> action "directory" <> value dd)
-       <*> arguments Just (help "files" <> metavar "FILE" <> action "file")
+       <*> many (argument Just $ help "files" <> metavar "FILE" <> action "file")
