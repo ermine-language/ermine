@@ -134,7 +134,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
       bts = gws >>= fmap (view witnessType . snd)
       gcs = over (traverse.traverse._2) (splitScope . view witnessCore) gws
       c' = Pattern.compileCase ps c gcs dummyPCompEnv
-  runSharing t $ foldlM unifyType t ts
+  _ <- runSharing t $ foldlM unifyType t ts
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts
   return $ Witness (r++rs) t' c'
