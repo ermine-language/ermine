@@ -31,7 +31,7 @@ import Control.Monad.Trans.Maybe
 import Data.Bitraversable
 import Data.List (delete)
 import Data.Foldable hiding (all)
-import Data.Map as Map hiding (map, empty, delete)
+import Data.Map as Map hiding (map, empty, delete, filter)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (unpack)
 import Data.Traversable
@@ -162,6 +162,7 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
  check _          = Nothing
 
  matchArg (Var i)      t             = Just [(i, [t])]
+ matchArg _            (Var _)       = Nothing
  matchArg (App f x)    (App g y)     = (++) <$> matchArg f g <*> matchArg x y
  matchArg (HardType h) (HardType h') = if h == h' then Just [] else Nothing
  matchArg _            _             = error "PANIC: matchHead encountered invalid Head or constraint."
@@ -183,7 +184,9 @@ dischargesByInstance c = peel [] c
    Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_InstanceId # (i^.instanceHead)) $ i^.instanceContext
 
 entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
-entails cs c = c `dischargesBySupers` cs <|> (dischargesByInstance c >>= simplifyVia cs)
+entails cs c =
+  c `dischargesBySupers` cs' <|> (dischargesByInstance c >>= simplifyVia cs)
+ where cs' = filter (/= c) cs
 
 simplifyVia :: (MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
 simplifyVia cs s = do
