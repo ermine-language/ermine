@@ -168,6 +168,18 @@ simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> 
 simplifiedWitness rcs t c = runSharing c (traverse zonk c) >>= \c' ->
     Witness rcs t <$> simplifyVia (toList c') c'
 
+abstractedWitness :: MonadDischarge s m
+                  => Int -> [MetaT s] -> [TypeM s] -> [TypeM s] -> TypeM s -> CoreM s a
+                  -> m (WitnessM s a)
+abstractedWitness d sks rs cs0 ty co0 = do
+  cs <- runSharing cs0 $ traverse zonk cs0
+  co <- runSharing co0 $ traverse zonk co0
+  co' <- simplifyVia cs co
+  ((rs', ty'), co'') <-
+    checkSkolemEscapes d (traverse`beside`id`beside`traverse) sks
+      ((rs, ty), foldr (\cls -> lambdaDict . abstract1 cls) co' cs)
+  pure $ Witness rs' ty' co''
+
 -- TODO: write this correctly
 checkType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
@@ -184,13 +196,10 @@ checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
 subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
-  -- TODO: constraints
-  (_  , sts, _, t2') <- skolemize d t2
+  (_  , sts, cs, t2') <- skolemize d t2
   runSharing () $ () <$ unifyType t1 t2'
   -- TODO: skolem kinds
-  t2'' <- checkSkolemEscapes d id sts t2
-  -- TODO: fix up core representation
-  simplifiedWitness rs t2'' c
+  abstractedWitness d sts rs cs t2 c
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
@@ -244,13 +253,16 @@ literalType Float{}  = Type.float
 literalType Double{} = Type.double
 
 skolemize :: MonadMeta s m
-          => Depth -> TypeM s -> m ([MetaK s], [MetaT s], Maybe (TypeM s), TypeM s)
+          => Depth -> TypeM s -> m ([MetaK s], [MetaT s], [TypeM s], TypeM s)
 skolemize _ (Forall ks ts cs bd) = do
   sks <- for ks $ newSkolem . extract
   sts <- for ts $ newSkolem . instantiateVars sks . extract
   let inst = instantiateKindVars sks . instantiateVars sts
-  return (sks, sts, Just (inst cs), inst bd)
-skolemize _ t = return ([], [], Nothing, t)
+  (rs, tcs) <- unfurlConstraints $ inst cs
+  when (not $ null rs) $
+      fail "invalid higher-rank row constraints"
+  return (sks, sts, tcs, inst bd)
+skolemize _ t = return ([], [], [], t)
 
 unfurl :: MonadMeta s m => TypeM s -> a -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
