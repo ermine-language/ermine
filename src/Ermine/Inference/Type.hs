@@ -202,7 +202,7 @@ generalizeOverType sks (Witness r0 t0 c0) = do
   c <- runSharing c0 $ traverse (zonk >=> zonkKinds) c0
   r <- runSharing r0 $ traverse (zonk >=> zonkKinds) r0
   let cc = nub $ toListOf traverse c
-      tvks = toListOf (beside typeVars typeVars) (t,cc) <&> \v -> (v, v^.metaValue)
+      tvks = toListOf typeVars (t,cc) <&> \v -> (v, v^.metaValue)
       kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
       bad :: Meta s f a -> Bool
       bad v = has _Skolem v && not (sks^.contains (v^.metaId))

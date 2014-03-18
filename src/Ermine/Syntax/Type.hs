@@ -519,6 +519,10 @@ instance HasTypeVars (Type k a) (Type k b) a b where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
+instance (HasTypeVars s t a b, HasTypeVars u v a b) => HasTypeVars (s,u) (t,v) a b where
+  typeVars = beside typeVars typeVars
+  {-# INLINE typeVars #-}
+
 instance HasTypeVars s t a b => HasTypeVars [s] [t] a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
