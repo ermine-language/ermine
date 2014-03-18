@@ -165,7 +165,8 @@ checkSkolemEscapes d trav sks ts = do
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
-simplifiedWitness rcs t c = Witness rcs t <$> simplifyVia (toList c) c
+simplifiedWitness rcs t c = runSharing c (traverse zonk c) >>= \c' ->
+    Witness rcs t <$> simplifyVia (toList c') c'
 
 -- TODO: write this correctly
 checkType :: MonadDischarge s m
@@ -187,9 +188,9 @@ subsumesType d (Witness rs t1 c) t2 = do
   (_  , sts, _, t2') <- skolemize d t2
   runSharing () $ () <$ unifyType t1 t2'
   -- TODO: skolem kinds
-  checkSkolemEscapes d id sts t2 <&> \t2'' ->
+  t2'' <- checkSkolemEscapes d id sts t2
   -- TODO: fix up core representation
-    Witness rs t2'' c
+  simplifiedWitness rs t2'' c
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
