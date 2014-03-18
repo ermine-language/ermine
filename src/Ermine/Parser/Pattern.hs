@@ -50,10 +50,11 @@ varP = termIdentifier <&> sigp ?? anyType
 
 -- | Parse a single pattern part (e.g. an argument to a lambda)
 pattern0 :: (Monad m, TokenParsing m) => m PP
-pattern0 = varP
-   <|> _p <$ symbol "_"
-   <|> litp <$> literal
-   <|> parens (tup' <$> patterns)
+pattern0
+   = varP
+ <|> _p <$ symbol "_"
+ <|> litp <$> literal
+ <|> parens (tup' <$> patterns)
 
 tup' :: [PP] -> PP
 tup' [x] = x
@@ -64,19 +65,30 @@ sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 -- TODO: remove this when constructor patterns really work.
 eP :: (Monad m, TokenParsing m) => m PP
-eP = conp nm <$ symbol "E" <*> many pattern1
- where
- nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
+eP = conp nm <$ symbol "E" <*> many pattern1 where
+  nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
 
+-- as patterns
 pattern1 :: (Monad m, TokenParsing m) => m PP
-pattern1 = asp <$> try (termIdentifier <* symbol "@") <*> pattern1 <|> pattern0
+pattern1
+    = asp <$> try (termIdentifier <* symbol "@") <*> pattern1
+  <|> pattern0
 
+-- | Parse a single pattern (e.g. a case statement alt pattern)
 pattern2 :: (Monad m, TokenParsing m) => m PP
-pattern2 = eP <|> sigP <|> pattern0
+pattern2
+    = eP
+  <|> pattern1
+
+-- existentials sigP
+pattern3 :: (Monad m, TokenParsing m) => m PP
+pattern3
+   = sigP
+ <|> pattern2
 
 patterns :: (Monad m, TokenParsing m) => m [PP]
-patterns = commaSep pattern2
+patterns = commaSep pattern3
 
 -- | Parse a single pattern (e.g. a case statement alt pattern)
 pattern :: (Monad m, TokenParsing m) => m PP
-pattern = pattern1
+pattern = pattern2
