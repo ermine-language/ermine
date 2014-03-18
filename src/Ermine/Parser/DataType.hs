@@ -55,7 +55,7 @@ dataType = build <$ symbol "data"
  where
  build nm ts cs = over kindVars semiClosed $ DataType nm (map stringHint ks) ts' cs'
   where
-  ks  = nub . catMaybes $ toListOf (beside kindVars kindVars) (snd <$> ts, cs)
+  ks  = nub . catMaybes $ toListOf kindVars (snd <$> ts, cs)
   jks = Just <$> ks
   ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ stringHint tn) ts
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs

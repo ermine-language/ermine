@@ -219,6 +219,9 @@ instance HasKindVars (Kind a) (Kind b) a b where
 instance HasKindVars s t a b => HasKindVars [s] [t] a b where
   kindVars = traverse.kindVars
 
+instance (HasKindVars s t a b, HasKindVars u v a b) => HasKindVars (s,u) (t,v) a b where
+  kindVars = beside kindVars kindVars
+
 instance HasKindVars s t a b => HasKindVars (IntMap s) (IntMap t) a b where
   kindVars = traverse.kindVars
 
