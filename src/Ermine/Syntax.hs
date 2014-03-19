@@ -19,16 +19,16 @@
 module Ermine.Syntax
   (
   -- * Variables
-    Variable(..)
+    Variable(_Var)
   -- * Application
-  , App (..)
+  , App (_App)
   , apps
   , ( # )
   -- * Fun
-  , Fun(..)
+  , Fun(_Fun)
   , (~>)
   -- * Tup
-  , Tup(..)
+  , Tup(_Tup)
   , tup
   ) where
 
