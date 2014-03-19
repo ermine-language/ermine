@@ -44,7 +44,7 @@ isVariable :: (Applicative t, Arbitrary (t a), Arbitrary a, Show (t a), Show a, 
 isVariable v = isPrism v .&. var_1 v .&. var_2 v
 
 variable :: forall p t a. (Variable t, Applicative t, Arbitrary (t a), Arbitrary a, Show (t a), Show a, Eq (t a), Eq a) => p (t a) -> Property
-variable _ = isVariable (var :: Prism' (t a) a)
+variable _ = isVariable (_Var :: Prism' (t a) a)
 
 prop_var_list  = variable (Proxy :: Proxy [Int])
 prop_var_maybe = variable (Proxy :: Proxy (Maybe Char))
