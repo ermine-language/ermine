@@ -99,7 +99,7 @@ inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
   Witness xrcs _ xc <- checkType d cxt x i
-  simplifiedWitness (frcs ++ xrcs) o $ app # (fc, xc)
+  simplifiedWitness (frcs ++ xrcs) o $ _App # (fc, xc)
 inferType d cxt (Term.Lam ps e) = do
   (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
   let pcxt (ArgPP i pp)

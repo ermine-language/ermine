@@ -70,13 +70,13 @@ instance Variable (Either b) where
 -- This prism provides ad hoc overloading of construction and pattern
 -- matching on 'App'.
 class App t where
-  app :: Prism' (t a) (t a, t a)
+  _App :: Prism' (t a) (t a, t a)
 
 instance (Variable t, App t) => App (Scope b t) where
-  app = prism (\ (Scope x, Scope y) -> Scope $ x ## y) $ \t@(Scope b) -> case b^?app of
+  _App = prism (\ (Scope x, Scope y) -> Scope $ x ## y) $ \t@(Scope b) -> case b^?_App of
     Just (x,y) -> Right (Scope x, Scope y)
     _ -> case b^?_Var of
-      Just (F xy) -> case xy^?app of
+      Just (F xy) -> case xy^?_App of
         Just (x,y) -> Right (Scope (_Var # F x), Scope (_Var # F y))
         _ -> Left t
       _ -> Left t
@@ -85,7 +85,7 @@ infixl 9 ##
 
 -- | Convenient infix application operator.
 (##) :: App t => t a -> t a -> t a
-(##) = curry (review app)
+(##) = curry (review _App)
 
 -- | Fold a series of applications.
 apps :: App t => t a -> [t a] -> t a

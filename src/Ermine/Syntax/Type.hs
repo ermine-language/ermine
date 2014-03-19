@@ -169,10 +169,10 @@ instance Fun (Type k) where
   {-# INLINE fun #-}
 
 instance App (Type k) where
-  app = prism (uncurry App) $ \t -> case t of
+  _App = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
-  {-# INLINE app #-}
+  {-# INLINE _App #-}
 
 infixl 9 `App`
 
@@ -683,7 +683,7 @@ instance Fun (Annot k) where
       _                                 -> Left t
 
 instance App (Annot k) where
-  app = prism hither yon
+  _App = prism hither yon
     where
     hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
       let Scope t' = mapBound (+ length ks) t

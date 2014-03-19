@@ -402,7 +402,7 @@ instance IsString a => IsString (Core a) where
   fromString = Var . fromString
 
 instance App Core where
-  app = prism (uncurry App) $ \t -> case t of
+  _App = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
 

@@ -164,9 +164,10 @@ instance Variable (Term t) where
   {-# INLINE _Var #-}
 
 instance App (Term t) where
-  app = prism (uncurry App) $ \t -> case t of
+  _App = prism (uncurry App) $ \t -> case t of
     App l r -> Right (l,r)
     _       -> Left t
+  {-# INLINE _App #-}
 
 instance (p ~ Tagged, f ~ Identity) => Tup p f (Term t a) where
   tupled = unto hither
