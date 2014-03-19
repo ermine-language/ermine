@@ -429,10 +429,10 @@ instance IsString a => IsString (Type k a) where
   {-# INLINE fromString #-}
 
 instance Variable (Type k) where
-  var = prism Var $ \t -> case t of
+  _Var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
-  {-# INLINE var #-}
+  {-# INLINE _Var #-}
 
 instance Typical (Type k a) where
   hardType = prism HardType $ \ s -> case s of
@@ -704,10 +704,10 @@ instance App (Annot k) where
       _                                 -> Left t
 
 instance Variable (Annot k) where
-  var = prism (annot . return) $ \ t@(Annot _ (Scope b)) -> case b of
+  _Var = prism (annot . return) $ \ t@(Annot _ (Scope b)) -> case b of
     Var (F (Var k)) -> Right k
     _               -> Left  t
-  {-# INLINE var #-}
+  {-# INLINE _Var #-}
 
 instance Typical (Annot k a) where
   hardType = prism (annot . review hardType) $ \ t@(Annot _ (Scope b)) -> case b of

@@ -226,13 +226,13 @@ writeMeta (Skolem _ _ _) _   = fail "writeMeta: skolem"
 
 -- | Path-compression
 semiprune :: (Variable f, Monad f, MonadMeta s m) => f (Meta s f a) -> m (f (Meta s f a))
-semiprune t0 = case preview var t0 of
+semiprune t0 = case preview _Var t0 of
   Just v0 -> loop t0 v0
   Nothing -> return t0
   where
     loop t1 v1 = readMeta v1 >>= \mb -> case mb of
       Nothing -> return t1
-      Just t  -> case preview var t of
+      Just t  -> case preview _Var t of
         Nothing -> return t -- t1?
         Just v  -> do
           fv <- loop t v

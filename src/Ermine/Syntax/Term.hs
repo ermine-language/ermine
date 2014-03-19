@@ -158,9 +158,10 @@ instance IsString a => IsString (Term t a) where
   fromString = Var . fromString
 
 instance Variable (Term t) where
-  var = prism Var $ \t -> case t of
+  _Var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
+  {-# INLINE _Var #-}
 
 instance App (Term t) where
   app = prism (uncurry App) $ \t -> case t of

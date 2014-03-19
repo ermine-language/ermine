@@ -407,9 +407,10 @@ instance App Core where
     _       -> Left t
 
 instance Variable Core where
-  var = prism Var $ \t -> case t of
+  _Var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left t
+  {-# INLINE _Var #-}
 
 instance Applicative Core where
   pure = Var

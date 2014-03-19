@@ -137,7 +137,7 @@ instance Fun Kind where
     _       -> Left t
 
 instance Variable Kind where
-  var = prism Var $ \t -> case t of
+  _Var = prism Var $ \t -> case t of
     Var a -> Right a
     _     -> Left  t
 
@@ -265,7 +265,7 @@ instance Fun Schema where
       _                                 -> Left t
 
 instance Variable Schema where
-  var = prism (schema . return) $ \ t@(Schema _ (Scope b)) -> case b of
+  _Var = prism (schema . return) $ \ t@(Schema _ (Scope b)) -> case b of
     Var (F (Var k)) -> Right k
     _               -> Left  t
 

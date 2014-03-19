@@ -45,21 +45,21 @@ class Variable t where
   -- | If @t@ is also 'Applicative', then it should satisfy these laws:
   --
   -- @
-  -- 'pure' a '^?' 'var' ≡ 'Just' a
-  -- 'pure' ≡ 'review' 'var'
+  -- 'pure' a '^?' '_Var' ≡ 'Just' a
+  -- 'pure' ≡ 'review' '_Var'
   -- @
-  var :: Prism' (t a) a
+  _Var :: Prism' (t a) a
 
 instance Variable Maybe where
-  var = _Just
+  _Var = _Just
 
 instance Variable [] where
-  var = prism return $ \xs -> case xs of
+  _Var = prism return $ \xs -> case xs of
     [x] -> Right x
     _   -> Left xs
 
 instance Variable (Either b) where
-  var = _Right
+  _Var = _Right
 
 --------------------------------------------------------------------
 -- App
@@ -75,9 +75,9 @@ class App t where
 instance (Variable t, App t) => App (Scope b t) where
   app = prism (\ (Scope x, Scope y) -> Scope $ x ## y) $ \t@(Scope b) -> case b^?app of
     Just (x,y) -> Right (Scope x, Scope y)
-    _ -> case b^?var of
+    _ -> case b^?_Var of
       Just (F xy) -> case xy^?app of
-        Just (x,y) -> Right (Scope (var # F x), Scope (var # F y))
+        Just (x,y) -> Right (Scope (_Var # F x), Scope (_Var # F y))
         _ -> Left t
       _ -> Left t
 
