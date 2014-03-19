@@ -109,17 +109,9 @@ infixr 0 ~>
 -- Tup
 --------------------------------------------------------------------
 
--- | Irreversible tupling.
-{-
-class Tup' t where
-
-  default tup :: Tup t => [t] -> t
-  tup = review tupled
--}
-
 -- | (Possibly) Discriminable tupling.
 class (Reviewable p, Functor f) => Tup p f t where
-  tupled :: Optic' p f t [t]
+  _Tup :: Optic' p f t [t]
 
 tup :: Tup Tagged Identity t => [t] -> t
-tup = review tupled
+tup = review _Tup

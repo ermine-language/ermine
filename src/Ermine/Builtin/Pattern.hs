@@ -68,7 +68,7 @@ instance Comonad (Binder v) where
   extend f b = b { item = f b }
 
 instance (p ~ Tagged, f ~ Identity, Tup Tagged Identity t) => Tup p f (Binder v t) where
-  tupled = unto (fmap tup . sequenceA)
+  _Tup = unto (fmap tup . sequenceA)
 
 -- | Smart pattern
 type P t v = Binder v (Pattern t)

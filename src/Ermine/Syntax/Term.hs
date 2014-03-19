@@ -170,7 +170,7 @@ instance App (Term t) where
   {-# INLINE _App #-}
 
 instance (p ~ Tagged, f ~ Identity) => Tup p f (Term t a) where
-  tupled = unto hither
+  _Tup = unto hither
    where hither [x] = x
          hither l = apps (HardTerm . Tuple . fromIntegral $ length l) l
 

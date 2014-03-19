@@ -177,7 +177,7 @@ instance App (Type k) where
 infixl 9 `App`
 
 instance (p ~ Tagged, f ~ Identity) => Tup p f (Type k t) where
-  tupled = unto hither
+  _Tup = unto hither
    where hither [x] = x
          hither l = apps (HardType . Tuple $ length l) l
 

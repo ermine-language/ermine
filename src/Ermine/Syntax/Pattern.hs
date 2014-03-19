@@ -206,7 +206,10 @@ matchesTrivially (AsP p)   = matchesTrivially p
 matchesTrivially _         = False
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
-  tupled = prism TupP $ \p -> case p of TupP ps -> Right ps ; _ -> Left p
+  _Tup = prism TupP $ \p -> case p of
+    TupP ps -> Right ps
+    _       -> Left p
+  {-# INLINE _Tup #-}
 
 instance (Serial t, Serial1 f) => Serial1 (Alt t f) where
   serializeWith pa (Alt p s) = do
