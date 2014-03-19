@@ -132,7 +132,7 @@ instance IsString a => IsString (Kind a) where
   fromString = Var . fromString
 
 instance Fun Kind where
-  fun = prism (uncurry (:->)) $ \t -> case t of
+  _Fun = prism (uncurry (:->)) $ \t -> case t of
     l :-> r -> Right (l, r)
     _       -> Left t
 
@@ -244,7 +244,7 @@ instance Hashable1 Schema
 instance Digestable a => Digestable (Schema a)
 
 instance Fun Schema where
-  fun = prism hither yon
+  _Fun = prism hither yon
     where
     hither (Schema nml (Scope s), Schema nmr t) = Schema (nml ++ nmr) $
       let n = length nml

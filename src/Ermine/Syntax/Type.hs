@@ -163,10 +163,10 @@ instance Typical HardType where
 
 instance Fun (Type k) where
   -- TODO: make this preserve invariants about 'Forall'.
-  fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
+  _Fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
     HardType Arrow `App` l `App` r -> Right (l, r)
     _                              -> Left t
-  {-# INLINE fun #-}
+  {-# INLINE _Fun #-}
 
 instance App (Type k) where
   _App = prism (uncurry App) $ \t -> case t of
@@ -662,7 +662,7 @@ annot = Annot [] . lift
 {-# INLINE annot #-}
 
 instance Fun (Annot k) where
-  fun = prism hither yon
+  _Fun = prism hither yon
     where
     hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
       let Scope t' = mapBound (+ length ks) t
