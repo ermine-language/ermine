@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -31,15 +32,18 @@ module Ermine.Syntax.Term
   -- * Bindings
   , BodyBound(..)
   , WhereBound(..)
+  , AsDecl(..)
   , Binding(..)
   , HasBinding(..)
   , BindingType(..)
   , _Implicit
   , _Explicit
   , Body(..)
+  , bodyDecls
   ) where
 
 import Bound
+import Bound.Scope
 import Bound.Var
 import Control.Lens
 import Control.Applicative
@@ -110,6 +114,19 @@ data BodyBound = BodyDecl Int | BodyPat PatPath | BodyWhere Int deriving (Eq,Ord
 
 data WhereBound = WhereDecl Int | WherePat PatPath deriving (Eq,Ord,Show,Read,Generic)
 
+class AsDecl t where
+  _Decl :: Prism' t Int
+
+instance AsDecl BodyBound where
+  _Decl = prism BodyDecl $ \case
+    BodyDecl d -> Right d
+    x          -> Left x
+
+instance AsDecl WhereBound where
+  _Decl = prism WhereDecl $ \case
+    WhereDecl d -> Right d
+    x           -> Left x
+
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
@@ -118,6 +135,9 @@ data Body t a = Body [Pattern t]
                      (Guarded (Scope BodyBound (Term t) a))
                      [Binding t (Var WhereBound a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+bodyDecls :: Traversal' (Body t a) Int
+bodyDecls f (Body ps g bs) = Body ps <$> (traverse.traverseBound._Decl) f g <*> (traverse.traverse._B._Decl) f bs
 
 instance Bifunctor Body where
   bimap = bimapDefault
@@ -133,7 +153,7 @@ instance Bitraversable Body where
 
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
 -- and a list of right hand side bindings.
-data Binding t a = Binding { _bindingLoc :: !Rendering, _bindingType :: !(BindingType t), _bindingBody :: [Body t a] }
+data Binding t a = Binding { _bindingLoc :: !Rendering, _bindingType :: !(BindingType t), _bindingBodies :: [Body t a] }
   deriving (Show, Functor, Foldable, Traversable)
 
 instance (Eq t, Eq a) => Eq (Binding t a) where

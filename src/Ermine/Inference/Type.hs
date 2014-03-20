@@ -92,8 +92,8 @@ inferBindingGroupTypes d cxt bgs = do
   return []
  where
   (is,es) = partition (has (_2.bindingType._Implicit)) $ zip [(0 :: Int)..] bgs
-  sccs = stronglyConnComp (map comp is)
-  comp (i,b@(Binding r Implicit bodies)) = (b, i, [])
+  sccs = stronglyConnComp (comp <$> is)
+  comp (i, b) = (b, i, b^..bindingBodies.traverse.bodyDecls)
 
 inferType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
