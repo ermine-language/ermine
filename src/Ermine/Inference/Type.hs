@@ -36,10 +36,12 @@ import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
-import Data.List as List (partition, nub)
-import Data.Text as SText (pack)
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
+import Data.List as List (partition, nub)
+import Data.Text as SText (pack)
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
@@ -61,7 +63,7 @@ import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
 import Prelude hiding (foldr, any, concat)
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty)
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty, (<>))
 import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
@@ -83,17 +85,40 @@ matchFunType t = do
   y <- pure <$> newMeta star
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
--- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
+inferImplicitBindingGroupTypes
+  :: MonadDischarge s m
+  => Depth -> (v -> TypeM s) -> IntMap (TypeM s) -> IntMap (BindingM s v) -> m (IntMap (WitnessM s v))
+inferImplicitBindingGroupTypes = undefined
 
-inferBindingGroupTypes
+explodeAnnot
+  :: MonadDischarge s m
+  => AnnotM s -> m (TypeM s)
+explodeAnnot (Annot ts xs) = traverse explode (fromScope xs) where
+  explode (F a) = return a
+  explode (B _) = fail "My brain exploded. Kinda."
+
+inferBindings
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s v]
-inferBindingGroupTypes d cxt bgs = do
-  return []
+inferBindings d cxt bgs = do
+  -- TODO: kind check bindings here
+  --
+  es' <- traverse (\e -> explodeAnnot (e^?! bindingType._Explicit)) es
+  (ws,ts) <- foldlM step (IntMap.empty, es') sccs
+  -- now check explicitBindings using ts
+  nws <- traverse (checkExplicitBinding d cxt ts) es
+  return $ toList (ws <> nws)
+
  where
-  (is,es) = partition (has (_2.bindingType._Implicit)) $ zip [(0 :: Int)..] bgs
-  sccs = stronglyConnComp (comp <$> is)
-  comp (i, b) = (b, i, b^..bindingBodies.traverse.bodyDecls)
+  (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
+  es = IntMap.fromList esl 
+  sccs = IntMap.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
+  comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
+  step (ws,ts) scc = do
+    nws <- inferImplicitBindingGroupTypes d cxt ts scc
+    -- nws <- traverse (generalizeWitnessType d) nws
+    return (ws <> nws, ts <> fmap (view witnessType) nws)
+
 
 inferType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
@@ -185,6 +210,11 @@ checkType d cxt e t = do
   w <- inferType d cxt e
   checkKind (fmap (view metaValue) t) star
   subsumesType d w t
+
+checkExplicitBinding :: MonadDischarge s m
+                     => Depth -> (v -> TypeM s) -> IntMap (TypeM s) -> BindingM s v -> m (WitnessM s v)
+checkExplicitBinding d cxt ts (Binding _ (Term.Explicit t) bodies) = do
+  fail "TODO: checkExplicitBinding"
 
 checkTypeInScope :: MonadDischarge s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
