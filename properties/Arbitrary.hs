@@ -170,8 +170,11 @@ instance (Arbitrary t,Arbitrary1 f,Arbitrary a,Functor f) => Arbitrary (Alt t f 
 instance Arbitrary t => Arbitrary (BindingType t) where
   arbitrary = oneof [ Explicit <$> arbitrary, return Implicit ]
 
-instance Arbitrary DeclBound where
-  arbitrary = oneof [ D <$> arbitrary, P <$> arbitrary, W <$> arbitrary ]
+instance Arbitrary BodyBound where
+  arbitrary = oneof [ BodyDecl <$> arbitrary, BodyPat <$> arbitrary, BodyWhere <$> arbitrary ]
+
+instance Arbitrary WhereBound where
+  arbitrary = oneof [ WhereDecl <$> arbitrary, WherePat <$> arbitrary ]
 
 instance Arbitrary tm => Arbitrary (Guarded tm) where
   arbitrary = oneof [ Unguarded <$> arbitrary, Guarded <$> arbitrary ]

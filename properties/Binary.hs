@@ -73,8 +73,11 @@ prop_pack_unpack_pattern = pack_unpack
 prop_pack_unpack_binding_type :: BindingType Int -> Bool
 prop_pack_unpack_binding_type = pack_unpack
 
-prop_pack_unpack_decl_bound :: DeclBound -> Bool
-prop_pack_unpack_decl_bound = pack_unpack
+prop_pack_unpack_body_bound :: BodyBound -> Bool
+prop_pack_unpack_body_bound = pack_unpack
+
+prop_pack_unpack_where_bound :: WhereBound -> Bool
+prop_pack_unpack_where_bound = pack_unpack
 
 prop_pack_unpack_guarded :: Guarded Int -> Bool
 prop_pack_unpack_guarded = pack_unpack

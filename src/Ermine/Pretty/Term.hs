@@ -106,13 +106,14 @@ prettyBody nm (Body ps gs wh) dvs vs kt kv =
  h pd gd (Just wd) = align $ nm <> pd <> nest 2 (softline <> gd)
                   <> nest 1 (line <> text "where" </> align wd)
 
- kv' (B (D i)) _  = pure $ dvs !! i
- kv' (B (P p)) _  = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
+ kv' (B (BodyDecl i)) _  = pure $ dvs !! i
+ kv' (B (BodyPat p)) _  = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
                   $ pure . text <$> HM.lookup p bnd
- kv' (B (W i)) _  = pure $ wvs !! i
+ kv' (B (BodyWhere i)) _  = pure $ wvs !! i
  kv' (F tm)    pr = prettyTerm tm rest pr kt kv
 
- kw (B p) = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
+ kw (B (WhereDecl d)) = const $ pure $ dvs !! d
+ kw (B (WherePat p)) = fromMaybe (error "PANIC: prettyBody: bad pattern variable reference")
           $ const . pure . text <$> HM.lookup p bnd
  kw (F v) = kv v
 

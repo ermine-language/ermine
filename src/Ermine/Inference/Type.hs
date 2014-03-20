@@ -35,6 +35,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
+import Data.Graph
 import Data.List as List (partition, nub)
 import Data.Text as SText (pack)
 import Data.IntSet (IntSet)
@@ -70,6 +71,7 @@ type PatM s = Pattern (AnnotM s)
 type TermM s a = Term (AnnotM s) a
 type AltM s a = Alt (AnnotM s) (Term (AnnotM s)) a
 type ScopeM b s a = Scope b (Term (AnnotM s)) a
+type BindingM s a = Binding (AnnotM s) a
 
 type CoreM s a = Scope a Core (TypeM s)
 
@@ -82,6 +84,16 @@ matchFunType t = do
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 -- discharge :: [TypeM s] -> TypeM s -> M s (Maybe ([TypeM s], Core (Var (Either Int Int) Id)
+
+inferBindingGroupTypes
+  :: MonadDischarge s m
+  => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s v]
+inferBindingGroupTypes d cxt bgs = do
+  return []
+ where
+  (is,es) = partition (has (_2.bindingType._Implicit)) $ zip [(0 :: Int)..] bgs
+  sccs = stronglyConnComp (map comp is)
+  comp (i,b@(Binding r Implicit bodies)) = (b, i, [])
 
 inferType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)

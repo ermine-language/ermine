@@ -86,9 +86,10 @@ finalizeBody ns (PreBody (Binder vs ps) gs (Binder ws wh)) =
   Body ps (abstract f <$> gs) (fmap av <$> wh)
  where
  vp = zip vs $ manyPaths ps
- av x | Just p <- lookup x vp = B p
-      | otherwise             = F x
- f x | Just i <- elemIndex x ws = Just (W i)
-     | Just p <- lookup    x vp = Just (P p)
-     | Just i <- elemIndex x ns = Just (D i)
+ av x | Just p <- lookup x vp    = B (WherePat p)
+      | Just i <- elemIndex x ns = B (WhereDecl i)
+      | otherwise                = F x
+ f x | Just i <- elemIndex x ws = Just (BodyWhere i)
+     | Just p <- lookup    x vp = Just (BodyPat p)
+     | Just i <- elemIndex x ns = Just (BodyDecl i)
      | otherwise                = Nothing

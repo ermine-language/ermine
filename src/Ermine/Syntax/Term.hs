@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -28,9 +29,13 @@ module Ermine.Syntax.Term
   , HardTerm(..)
   , Terminal(..)
   -- * Bindings
-  , DeclBound(..)
+  , BodyBound(..)
+  , WhereBound(..)
   , Binding(..)
+  , HasBinding(..)
   , BindingType(..)
+  , _Implicit
+  , _Explicit
   , Body(..)
   ) where
 
@@ -101,15 +106,17 @@ data BindingType t
 --   2. Variables bound in a pattern
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
-data DeclBound = D Int | P PatPath | W Int deriving (Eq,Ord,Show,Read,Generic)
+data BodyBound = BodyDecl Int | BodyPat PatPath | BodyWhere Int deriving (Eq,Ord,Show,Read,Generic)
+
+data WhereBound = WhereDecl Int | WherePat PatPath deriving (Eq,Ord,Show,Read,Generic)
 
 -- | A body is the right hand side of a definition. This isn't a term because it has to perform simultaneous
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
 -- guards can refer.
 data Body t a = Body [Pattern t]
-                     (Guarded (Scope DeclBound (Term t) a))
-                     [Binding t (Var PatPath a)]
+                     (Guarded (Scope BodyBound (Term t) a))
+                     [Binding t (Var WhereBound a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance Bifunctor Body where
@@ -126,7 +133,7 @@ instance Bitraversable Body where
 
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
 -- and a list of right hand side bindings.
-data Binding t a = Binding !Rendering !(BindingType t) [Body t a]
+data Binding t a = Binding { _bindingLoc :: !Rendering, _bindingType :: !(BindingType t), _bindingBody :: [Body t a] }
   deriving (Show, Functor, Foldable, Traversable)
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
@@ -289,9 +296,13 @@ instance Serial HardTerm
 instance Binary HardTerm where put = serialize ; get = deserialize
 instance Serialize HardTerm where put = serialize ; get = deserialize
 
-instance Serial DeclBound
-instance Binary DeclBound where put = serialize ; get = deserialize
-instance Serialize DeclBound where put = serialize ; get = deserialize
+instance Serial BodyBound
+instance Binary BodyBound where put = serialize ; get = deserialize
+instance Serialize BodyBound where put = serialize ; get = deserialize
+
+instance Serial WhereBound
+instance Binary WhereBound where put = serialize ; get = deserialize
+instance Serialize WhereBound where put = serialize ; get = deserialize
 
 instance Serial1 BindingType where
   serializeWith f (Explicit a) = putWord8 0 >> f a
@@ -410,3 +421,5 @@ instance (Serialize t, Serialize v) => Serialize (Term t v) where
   put = serializeWith2 Serialize.put Serialize.put
   get = deserializeWith2 Serialize.get Serialize.get
 
+makeClassy ''Binding
+makePrisms ''BindingType
