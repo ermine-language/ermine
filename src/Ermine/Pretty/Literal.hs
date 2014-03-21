@@ -1,6 +1,6 @@
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel 2013
+-- Copyright :  (c) Edward Kmett and Dan Doel 2013-2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
@@ -14,6 +14,7 @@ module Ermine.Pretty.Literal
 import Ermine.Pretty
 import Ermine.Syntax.Literal
 
+-- | Pretty print any 'Literal'.
 prettyLiteral :: Literal -> Doc
 prettyLiteral (Int i)    = text $ show i
 prettyLiteral (Long l)   = text $ show l ++ "L"
