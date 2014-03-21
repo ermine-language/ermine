@@ -12,7 +12,6 @@
 
 module Ermine.Builtin.Core
   ( plam
-  -- , plamBranch
   ) where
 
 import Bound
@@ -36,21 +35,3 @@ plam ps body = Lam n . Scope <$> compile ci pm
  pm = PMatrix (map (pure . extract) ps)
               [Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
  ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
-
-{-
-plamBranch :: (Eq v, MonadPComp m) => [([P t v], [(Maybe (Core v), Core v)])] -> m (Core v)
-plamBranch bs | null bs = pure . HardCore $ Error $ SText.pack "Empty lambda branch"
-              | any ((/= n) . fromIntegral . length) ps =
-                  pure . HardCore $ Error $ SText.pack "Non-uniform patterns"
-              | otherwise = Lam n . Scope <$> compile ci pm
- where (bps, gs, cs) = unzip3 $ bs >>= \(bp, gcs) -> map (uncurry (bp,,)) gcs
-       n  = fromIntegral . length $ head ps :: Word8
-       ps = map (map extract) bps
-       is = map (concatMap (\(i,(Binder vs p)) -> zip vs . map (ArgPP i) $ paths p)
-                 . zip [0..]) bps
-       mkguard _ Nothing  = Trivial
-       mkguard i (Just c) = Explicit $ F . pure <$> abstract (`lookup` i) c
-       pm = PMatrix (transpose ps) (zipWith mkguard is gs)
-                    (zipWith (\i c -> F . pure <$> abstract (`lookup` i) c) is cs)
-       ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
--}
