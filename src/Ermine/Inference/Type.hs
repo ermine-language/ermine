@@ -92,20 +92,21 @@ inferImplicitBindingGroupTypes
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s v))
 inferImplicitBindingGroupTypes = undefined
 
-explodeAnnot
+verifyAnnot
   :: MonadDischarge s m
   => AnnotM s -> m (TypeM s)
-explodeAnnot (Annot ts xs) = traverse explode (fromScope xs) where
-  explode (F a) = return a
-  explode (B _) = fail "My brain exploded. Kinda."
+verifyAnnot (Annot ts xs) = do
+  ty <- traverse explode (fromScope xs)
+  ty <$ checkKind (view metaValue <$> ty) star
+ where
+ explode (F a) = return a
+ explode (B _) = fail "My brain exploded. Kinda."
 
 inferBindings
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s v]
 inferBindings d cxt bgs = do
-  -- TODO: kind check bindings here
-  --
-  es' <- traverse (\e -> explodeAnnot (e^?! bindingType._Explicit)) es
+  es' <- traverse (\e -> verifyAnnot (e^?! bindingType._Explicit)) es
   (ws,ts) <- foldlM step (Map.empty, es') sccs
   -- now check explicitBindings using ts
   nws <- traverse (checkExplicitBinding d cxt ts) es
