@@ -1,10 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+--------------------------------------------------------------------
+---- |
+---- Copyright :  (c) Edward Kmett and Dan Doel 2013-2014
+---- License   :  BSD3
+---- Maintainer:  Edward Kmett <ekmett@gmail.com>
+---- Stability :  experimental
+---- Portability: non-portable (DeriveDataTypeable)
+----
+----------------------------------------------------------------------
+
 module Ermine.Syntax.Class
   ( Class(Class)
-  , kindArgs
-  , typeArgs
-  , context
+  , HasClass(..)
   ) where
 
 import Bound
@@ -19,4 +27,4 @@ data Class = Class { _kindArgs :: [Hint]
                    , _context  :: [Type Void Int]
                    }
 
-makeLenses ''Class
+makeClassy ''Class
