@@ -130,7 +130,8 @@ betaVar = collapse []
 specCase :: forall m c. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
 specCase (Case dat@(Data n as) bs d)
   | Just (arity, body) <- bs ^. at n =
-    Let ((Scope . Data n $ pure . B <$> [1..arity]) : map lift as) body
+    Let ((Scope . Data n $ pure . B <$> [1..fromIntegral arity]) : map lift as)
+        (mapBound fromIntegral body)
       <$ tell (Any True)
   | Just e <- d = Let [lift dat] (mapBound (const 0) e) <$ tell (Any True)
   | otherwise = error "PANIC: non-exhaustive case with no default"

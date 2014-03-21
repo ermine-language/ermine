@@ -299,7 +299,7 @@ data Core a
   | Data !Word8 [Core a]
   | App !(Core a) !(Core a)
   | Lam !Word8 !(Scope Word8 Core a)
-  | Let [Scope Word8 Core a] !(Scope Word8 Core a)
+  | Let [Scope Word32 Core a] !(Scope Word32 Core a)
   | Case !(Core a) (Map Word8 (Word8, Scope Word8 Core a)) (Maybe (Scope () Core a))
   | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
