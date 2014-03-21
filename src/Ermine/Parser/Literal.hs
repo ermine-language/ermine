@@ -6,7 +6,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This module provides the parser for terms
+-- This module provides the parser for 'literal' terms or patterns
 --------------------------------------------------------------------
 module Ermine.Parser.Literal
   ( literal
@@ -16,6 +16,7 @@ import Control.Applicative
 import Ermine.Syntax.Literal
 import Text.Parser.Token
 
+-- | Parse a 'literal' number, string or character.
 literal :: (Monad m, TokenParsing m) => m Literal
 literal = either (Int . fromIntegral) Double <$> naturalOrDouble
       <|> String <$> stringLiteral
