@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
+-- General-purpose utilities for pretty printing.
 --------------------------------------------------------------------
 module Ermine.Pretty
   ( module Text.PrettyPrint.ANSI.Leijen
@@ -46,7 +47,7 @@ parensIf :: Bool -> Doc -> Doc
 parensIf True  = parens
 parensIf False = id
 
--- | Hyphenate a word using standard TeX-style english_US hyphenation.
+-- | Hyphenate a word using standard TeX-style 'english_US' hyphenation.
 hyph :: String -> Doc
 hyph t = column $ \k -> columns $ \mn ->
   let n = fromMaybe 80 mn
@@ -67,13 +68,16 @@ prePunctuate' :: Doc -> Doc -> [Doc] -> [Doc]
 prePunctuate' _  _ [    ] = []
 prePunctuate' fp p (d:ds) = (fp <+> d) : map (p <+>) ds
 
+-- | Format a layout block in explicit style.
 block :: [Doc] -> Doc
 block [    ] = text "{}"
 block (d:ds) = sep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
 
+-- | Pretty print to 'stdout'
 say :: MonadIO m => Doc -> m ()
 say = liftIO . displayIO stdout . renderPretty 0.8 80
 
+-- | Pretty print to 'stdout' with a 'linebreak' after.
 sayLn :: MonadIO m => Doc -> m ()
 sayLn d = say (d <> linebreak)
 
