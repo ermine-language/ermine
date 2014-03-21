@@ -6,7 +6,7 @@
 
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel 2014
+-- Copyright :  (c) Edward Kmett and Dan Doel 2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
