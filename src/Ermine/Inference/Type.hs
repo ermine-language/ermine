@@ -85,7 +85,7 @@ matchFunType t = do
   y <- pure <$> newMeta star
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
-type WMap = Map.Map Word8
+type WMap = Map.Map Word32
 
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m

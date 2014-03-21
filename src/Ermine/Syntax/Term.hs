@@ -110,17 +110,17 @@ data BindingType t
 --   2. Variables bound in a pattern
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
-data BodyBound = BodyDecl Word8
+data BodyBound = BodyDecl Word32
                | BodyPat PatPath
-               | BodyWhere Word8
+               | BodyWhere Word32
   deriving (Eq,Ord,Show,Read,Generic)
 
-data WhereBound = WhereDecl Word8
+data WhereBound = WhereDecl Word32
                 | WherePat PatPath
   deriving (Eq,Ord,Show,Read,Generic)
 
 class AsDecl t where
-  _Decl :: Prism' t Word8
+  _Decl :: Prism' t Word32
 
 instance AsDecl BodyBound where
   _Decl = prism BodyDecl $ \case
@@ -141,7 +141,7 @@ data Body t a = Body [Pattern t]
                      [Binding t (Var WhereBound a)]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-bodyDecls :: Traversal' (Body t a) Word8
+bodyDecls :: Traversal' (Body t a) Word32
 bodyDecls f (Body ps g bs) = Body ps <$> (traverse.traverseBound._Decl) f g <*> (traverse.traverse._B._Decl) f bs
 
 instance Bifunctor Body where
