@@ -46,6 +46,8 @@ import Ermine.Unification.Sharing
 
 -- | Perform an occurs check against a type.
 --
+-- This rules out infinite circular type signatures.
+--
 -- This returns the fully zonked 'Type' as a consequence, since it needs it anyways.
 typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Int -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
 typeOccurs depth1 t p = zonkWith t tweak where
@@ -82,6 +84,8 @@ checkSkolemEscapes md trav sks ts = do
  tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
 
 -- | Zonk all of the kinds in a type.
+--
+-- This expands all of the meta variables in the type to their definition.
 zonkKinds :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
 zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) where
   handleKinds m = do
@@ -93,6 +97,8 @@ zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) wh
         r <$ writeMeta m r
 
 -- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
+--
+-- This returns the result of unification with any modifications expanded, as we calculated it in passing
 unifyType :: (MonadWriter Any m, MonadMeta s m) => TypeM s -> TypeM s -> m (TypeM s)
 unifyType t1 t2 = do
   t1' <- semiprune t1
@@ -140,7 +146,7 @@ unifyType t1 t2 = do
     go _ _ = fail "type mismatch"
 {-# INLINE unifyType #-}
 
--- | Unify with a type variable.
+-- | Unify with (the guts of) a type variable.
 unifyTV :: (MonadWriter Any m, MonadMeta s m)
         => Bool
         -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth

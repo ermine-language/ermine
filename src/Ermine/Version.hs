@@ -7,7 +7,8 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This module provides access to the Ermine logo and the version number.
+-- This module provides access to the Ermine 'logo' and the current
+-- 'version' number.
 --------------------------------------------------------------------
 module Ermine.Version
   ( logo
