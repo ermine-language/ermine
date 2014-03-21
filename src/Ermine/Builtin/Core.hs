@@ -33,5 +33,5 @@ plam ps body = Lam n . Scope <$> compile ci pm
  n = fromIntegral $ length ps :: Word8
  assocs = concatMap (\(i,(Binder vs p)) -> zip vs . map (ArgPP i) $ paths p) (zip [0..] ps)
  pm = PMatrix (map (pure . extract) ps)
-              [Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
+              [Raw . Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
  ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])

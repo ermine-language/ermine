@@ -256,6 +256,7 @@ class (Applicative c, Monad c) => Cored c where
   caze :: c a -> Map Word8 (Word8, Scope Word8 c a) -> Maybe (Scope () c a) -> c a
   lambda :: Word8 -> Scope Word8 c a -> c a
   lambdaDict :: Scope () c a -> c a
+  letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
   hardCore :: HardCore -> c a
   hardCore = core . HardCore
   {-# INLINE hardCore #-}
@@ -266,6 +267,7 @@ instance Cored Core where
   caze = Case
   lambda = Lam
   lambdaDict = LamDict
+  letrec = Let
 
 expandScope :: forall t b1 b2 a. (Applicative t, Monad t)
             => Scope b2 (Scope b1 t) a -> Scope b2 t (Var b1 (t a))
@@ -294,6 +296,7 @@ instance Cored m => Cored (Scope b m) where
          (fmap expandScope d)
   lambda w e = Scope . lambda w $ expandScope e
   lambdaDict e = Scope . lambdaDict $ expandScope e
+  letrec ds body = Scope $ letrec (expandScope <$> ds) (expandScope body)
 
 -- | 'Core' values are the output of the compilation process.
 --

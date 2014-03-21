@@ -23,6 +23,7 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Pattern.Compiler
   ( Guard(..)
+  , Claused(..)
   , PMatrix(..)
   , HasPMatrix(..)
   , PCompEnv(..)
@@ -169,10 +170,22 @@ instantiation (CInfo pm cc cp) pp = fromMaybe
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
 
+data Claused c a = Localized [Scope PatPath (Scope Word32 c) a]
+                             (Guarded (Scope PatPath (Scope Word32 c) a))
+                 | Raw (Guarded (Scope PatPath c a))
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+hoistClaused :: Functor c => (forall x. c x -> d x) -> Claused c a -> Claused d a
+hoistClaused tr (Raw g) = Raw $ hoistScope tr <$> g
+hoistClaused tr (Localized ds g) =
+  Localized (hoistScope tr' <$> ds) (hoistScope tr' <$> g)
+ where
+ tr' = hoistScope tr
+
 -- | Pattern matrices for compilation. The matrix is represented as a list
 -- of columns. There is also an extra column representing the guards.
 data PMatrix t c a = PMatrix { _cols     :: [[Pattern t]]
-                             , _bodies   :: [Guarded (Scope PatPath c a)]
+                             , _bodies   :: [Claused c a]
                              }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -185,11 +198,17 @@ promote = fmap . fmap $ F . pure
 -- | This lifts a CompileInfo to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bumpCI :: Applicative c => CompileInfo c a -> CompileInfo c (Var Word8 (c a))
+bumpCI :: Applicative c => CompileInfo c a -> CompileInfo c (Var b (c a))
 bumpCI (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
 
-bumpPM :: Applicative c => PMatrix t c a -> PMatrix t c (Var Word8 (c a))
-bumpPM (PMatrix ps bs) = PMatrix ps (promote <$> bs)
+hbumpCI :: Monad c => CompileInfo c a -> CompileInfo (Scope b c) a
+hbumpCI (CInfo m cs ps) = CInfo (lift <$> m) (lift <$> cs) ps
+
+bumpPM :: Applicative c => PMatrix t c a -> PMatrix t c (Var b (c a))
+bumpPM (PMatrix ps bs) = PMatrix ps (promote $ bs)
+
+hbumpPM :: (Functor c, Monad c) => PMatrix t c a -> PMatrix t (Scope b c) a
+hbumpPM (PMatrix ps bs) = PMatrix ps (hoistClaused lift <$> bs)
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column.
@@ -197,7 +216,7 @@ defaultOn :: Applicative c => Int -> PMatrix t c a -> PMatrix t c (Var () (c a))
 defaultOn i (PMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
-    in PMatrix (map select $ ls ++ rs) (promote <$> select cs)
+    in PMatrix (map select $ ls ++ rs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
 -- | Computes the matrix that should be used recursively when defaulting on
@@ -217,7 +236,7 @@ splitOn i hd (PMatrix ps cs)
            | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
            | otherwise                   -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
-               (promote <$> select cs)
+               (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
 -- | Computes the set of heads of the given patterns.
@@ -234,14 +253,38 @@ selectCol = fmap fst
           . zip [0..]
           . map (length . takeWhile forces)
 
+compileClaused :: (MonadPComp m, Cored c)
+               => CompileInfo c a
+               -> PMatrix t c a
+               -> Claused c a
+               -> m (c a)
+compileClaused ci pm (Raw gbs) = compileGuards ci pm gbs
+compileClaused ci pm (Localized ws gbs) =
+  letrec (inst <$> ws) <$> compileGuards ci' pm' gbs
+ where
+ ci' = hbumpCI ci
+ pm' = hbumpPM pm
+ inst = instantiate (instantiation ci')
+
 compileGuards :: (MonadPComp m, Cored c)
               => CompileInfo c a
               -> PMatrix t c a
-              -> [(Scope PatPath c a, Scope PatPath c a)]
+              -> Guarded (Scope PatPath c a)
               -> m (c a)
-compileGuards ci pm [] = compile ci pm
-compileGuards ci pm ((g,b):gbs) =
-  compileGuards
+-- In the unguarded case, we can terminate immediately, because all patterns
+-- leading up to here matched trivially.
+compileGuards ci _  (Unguarded body) = pure $ instantiate (instantiation ci) body
+compileGuards ci pm (Guarded bods) = compileManyGuards ci pm bods
+
+compileManyGuards :: (MonadPComp m, Cored c)
+                  => CompileInfo c a
+                  -> PMatrix t c a
+                  -> [(Scope PatPath c a, Scope PatPath c a)]
+                  -> m (c a)
+compileManyGuards ci pm [] = compile ci pm
+-- TODO: check for a trivial guard here
+compileManyGuards ci pm ((g,b):gbs) =
+  compileManyGuards
     (bumpCI ci)
     (bumpPM pm)
     (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
@@ -252,15 +295,15 @@ compileGuards ci pm ((g,b):gbs) =
       ]
  where inst = instantiate (instantiation ci)
 
+
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
 compile :: (MonadPComp m, Cored c) => CompileInfo c a -> PMatrix t c a -> m (c a)
 compile _  (PMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile ci pm@(PMatrix ps (b:bs))
-  | all (matchesTrivially . head) ps = case b of
-    Unguarded body -> pure $ instantiate (instantiation ci) body
-    Guarded gbs -> compileGuards ci (PMatrix (drop 1 <$> ps) bs) gbs
+  | all (matchesTrivially . head) ps =
+     compileClaused ci (PMatrix (drop 1 <$> ps) bs) b
 
   | Just i <- selectCol ps = let
       col = ps !! i
@@ -279,7 +322,7 @@ compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
 compileLambda ps body = compile ci pm
  where
- pm = PMatrix (map return ps) [Unguarded $ hoistScope lift body]
+ pm = PMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
  ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
@@ -288,5 +331,5 @@ compileCase :: (MonadPComp m, Cored c)
             => [Pattern t] -> c a -> [Guarded (Scope PatPath c a)] -> m (c a)
 compileCase ps disc bs = compile ci pm
  where
- pm = PMatrix [ps] bs
+ pm = PMatrix [ps] (Raw <$> bs)
  ci = CInfo HM.empty [disc] [mempty]
