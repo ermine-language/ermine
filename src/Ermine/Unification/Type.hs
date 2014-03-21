@@ -44,6 +44,9 @@ import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
 
+-- | Perform an occurs check against a type.
+--
+-- This returns the fully zonked 'Type' as a consequence, since it needs it anyways.
 typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Int -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
 typeOccurs depth1 t p = zonkWith t tweak where
   tweak m
@@ -65,6 +68,9 @@ typeOccurs depth1 t p = zonkWith t tweak where
         depth2 <- readSTRef d
         Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
 
+-- | Check for escaped Skolem variables in any container full of types.
+--
+-- Dies due to an escaped Skolem or returns the container with all of its types fully zonked.
 checkSkolemEscapes :: MonadMeta s m => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
 checkSkolemEscapes md trav sks ts = do
   for_ md $ \d -> for_ sks $ \s ->
@@ -75,6 +81,7 @@ checkSkolemEscapes md trav sks ts = do
  skids = setOf (traverse.metaId) sks
  tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
 
+-- | Zonk all of the kinds in a type.
 zonkKinds :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
 zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) where
   handleKinds m = do
@@ -85,7 +92,7 @@ zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) wh
         r <- zonk fmf
         r <$ writeMeta m r
 
--- | Unify two types, with access to a visited set, logging to a Writer whether or not the answer differs from the first type argument.
+-- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
 unifyType :: (MonadWriter Any m, MonadMeta s m) => TypeM s -> TypeM s -> m (TypeM s)
 unifyType t1 t2 = do
   t1' <- semiprune t1
@@ -133,6 +140,7 @@ unifyType t1 t2 = do
     go _ _ = fail "type mismatch"
 {-# INLINE unifyType #-}
 
+-- | Unify with a type variable.
 unifyTV :: (MonadWriter Any m, MonadMeta s m)
         => Bool
         -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth
