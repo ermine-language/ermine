@@ -22,8 +22,7 @@
 --
 --------------------------------------------------------------------
 module Ermine.Syntax.Pattern.Compiler
-  ( Guard(..)
-  , Claused(..)
+  ( Claused(..)
   , PMatrix(..)
   , HasPMatrix(..)
   , PCompEnv(..)
@@ -114,14 +113,6 @@ constructorTag (ConH _ g) = askPComp <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error $ "PANIC: constructorTag: unknown constructor"
     Just i  -> i
-
--- | Guard representation. Every row of a pattern matrix must have an
--- assocated guard, but if no guard was specified, then it will simply be
--- the trivial guard which allows everything.
-data Guard c a = Trivial | Explicit (Scope PatPath c a)
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-makePrisms ''Guard
 
 -- | Additional information needed for pattern compilation that does not
 -- really belong in the pattern matrix.
