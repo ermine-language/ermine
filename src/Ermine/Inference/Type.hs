@@ -104,13 +104,13 @@ verifyAnnot (Annot ts xs) = do
 
 inferBindings
   :: MonadDischarge s m
-  => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s v]
+  => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word32 v)]
 inferBindings d cxt bgs = do
   es' <- traverse (\e -> verifyAnnot (e^?! bindingType._Explicit)) es
   (ws,ts) <- foldlM step (Map.empty, es') sccs
   -- now check explicitBindings using ts
   nws <- traverse (checkExplicitBinding d cxt ts) es
-  return $ toList (ws <> nws)
+  return $ undefined -- toList (ws <> nws)
 
  where
   (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
@@ -153,7 +153,15 @@ inferType d cxt (Term.Lam ps e) = do
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
   inferAltTypes d cxt w b
-inferType _ _   (Term.Let _ _)  = fail "unimplemented"
+inferType d cxt (Term.Let xs b) = do
+  ws <- inferBindings d cxt xs
+  let ts = map (view witnessType) ws
+  w <- inferTypeInScope d (\i -> ts !! fromIntegral i) cxt b
+  let wc  = w^.witnessCore.to splitScope
+  let wsc = ws^..traverse.witnessCore.to splitScope
+  simplifiedWitness (ws^.traverse.witnessRowConstraints ++ w^.witnessRowConstraints)
+                    (w^.witnessType)
+                  $ letrec wsc wc
 
 inferTypeInScope :: MonadDischarge s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)

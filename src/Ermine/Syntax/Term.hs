@@ -181,7 +181,7 @@ data Term t a
   | Sig !(Term t a) t
   | Lam [Pattern t] !(Scope PatPath (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
-  | Let [Binding t a] !(Scope Int (Term t) a)
+  | Let [Binding t a] !(Scope Word32 (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from
   | Remember !Int !(Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)

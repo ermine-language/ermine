@@ -67,7 +67,7 @@ prettyTerm (Let bs e)     vars prec kt kv =
     <*> prettyTerm (unscope e) rest (-1) kt kv'
  where
  (dvs, rest) = first (map text) $ splitAt (length bs) vars
- kv' (B i) _  = pure $ dvs !! i
+ kv' (B i) _  = pure $ dvs !! fromIntegral i
  kv' (F t) pr = prettyTerm t rest pr kt kv
 
  h bd ed = parensIf (prec > 9) $ text "let" <+> align bd </> text "in" </> ed

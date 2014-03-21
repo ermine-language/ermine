@@ -49,7 +49,7 @@ dataCon :: Fixity -> String -> String -> Type Void Void -> Term t v
 dataCon f m n t = HardTerm (DataCon (glob f (mkModuleName_ m) (pack n)) t)
 
 let_ :: Eq v => Binder v [Binding t v] -> Term t v -> Term t v
-let_ (Binder vs ds) b = Let ds $ abstract (`List.elemIndex` vs) b
+let_ (Binder vs ds) b = Let ds $ abstract (\i -> fromIntegral <$> List.elemIndex i vs) b
 
 data PreBinding t v = PreBinding Rendering (BindingType t) [PreBody t v]
 
