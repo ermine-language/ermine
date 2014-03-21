@@ -89,7 +89,7 @@ type WMap = Map.Map Word32
 
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m
-  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s v))
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
 inferImplicitBindingGroupTypes = undefined
 
 verifyAnnot
@@ -110,7 +110,7 @@ inferBindings d cxt bgs = do
   (ws,ts) <- foldlM step (Map.empty, es') sccs
   -- now check explicitBindings using ts
   nws <- traverse (checkExplicitBinding d cxt ts) es
-  return $ undefined -- toList (ws <> nws)
+  return $ toList (ws <> nws)
 
  where
   (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
@@ -228,7 +228,7 @@ checkType d cxt e t = do
   subsumesType d w t
 
 checkExplicitBinding :: MonadDischarge s m
-                     => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s v)
+                     => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
 checkExplicitBinding d cxt ts (Binding _ (Term.Explicit t) bodies) = do
   fail "TODO: checkExplicitBinding"
 
