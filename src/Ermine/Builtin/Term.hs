@@ -87,9 +87,9 @@ finalizeBody ns (PreBody (Binder vs ps) gs (Binder ws wh)) =
  where
  vp = zip vs $ manyPaths ps
  av x | Just p <- lookup x vp    = B (WherePat p)
-      | Just i <- elemIndex x ns = B (WhereDecl i)
+      | Just i <- elemIndex x ns = B . WhereDecl $ fromIntegral i
       | otherwise                = F x
- f x | Just i <- elemIndex x ws = Just (BodyWhere i)
+ f x | Just i <- elemIndex x ws = Just . BodyWhere $ fromIntegral i
      | Just p <- lookup    x vp = Just (BodyPat p)
-     | Just i <- elemIndex x ns = Just (BodyDecl i)
+     | Just i <- elemIndex x ns = Just . BodyDecl $ fromIntegral i
      | otherwise                = Nothing

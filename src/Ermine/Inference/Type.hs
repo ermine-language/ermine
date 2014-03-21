@@ -36,12 +36,12 @@ import Control.Monad.Reader
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import qualified Data.Map as Map
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 import Data.List as List (partition, nub)
 import Data.Text as SText (pack)
+import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax
@@ -85,9 +85,11 @@ matchFunType t = do
   y <- pure <$> newMeta star
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
+type WMap = Map.Map Word8
+
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m
-  => Depth -> (v -> TypeM s) -> IntMap (TypeM s) -> IntMap (BindingM s v) -> m (IntMap (WitnessM s v))
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s v))
 inferImplicitBindingGroupTypes = undefined
 
 explodeAnnot
@@ -104,15 +106,15 @@ inferBindings d cxt bgs = do
   -- TODO: kind check bindings here
   --
   es' <- traverse (\e -> explodeAnnot (e^?! bindingType._Explicit)) es
-  (ws,ts) <- foldlM step (IntMap.empty, es') sccs
+  (ws,ts) <- foldlM step (Map.empty, es') sccs
   -- now check explicitBindings using ts
   nws <- traverse (checkExplicitBinding d cxt ts) es
   return $ toList (ws <> nws)
 
  where
   (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
-  es = IntMap.fromList esl 
-  sccs = IntMap.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
+  es = Map.fromList esl
+  sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
   comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
   step (ws,ts) scc = do
     nws <- inferImplicitBindingGroupTypes d cxt ts scc
@@ -212,7 +214,7 @@ checkType d cxt e t = do
   subsumesType d w t
 
 checkExplicitBinding :: MonadDischarge s m
-                     => Depth -> (v -> TypeM s) -> IntMap (TypeM s) -> BindingM s v -> m (WitnessM s v)
+                     => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s v)
 checkExplicitBinding d cxt ts (Binding _ (Term.Explicit t) bodies) = do
   fail "TODO: checkExplicitBinding"
 
