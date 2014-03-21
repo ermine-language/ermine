@@ -158,6 +158,7 @@ instance Serial Foreign where
 
 instance Hashable Foreign
 
+-- | 'HardCore' is the subset of 'Core' terms that can be unified with value equality.
 data HardCore
   = Super      !Word8
   | Slot       !Word8
@@ -169,6 +170,7 @@ data HardCore
   | InstanceId !Head
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
+-- | This class describes things that could be 'HardCore'.
 class AsHardCore c where
   _HardCore :: Prism' c HardCore
 
@@ -245,6 +247,10 @@ instance Serialize HardCore where
   put = serialize
   get = deserialize
 
+-- | Instances of this are things we can both construct from a 'Core' expression,
+-- and perform case analysis upon.
+--
+-- e.g. 'Core' and @'Scope' b 'Core'@
 class (Applicative c, Monad c) => Cored c where
   core :: Core a -> c a
   caze :: c a -> Map Word8 (Word8, Scope Word8 c a) -> Maybe (Scope () c a) -> c a
@@ -289,7 +295,7 @@ instance Cored m => Cored (Scope b m) where
   lambda w e = Scope . lambda w $ expandScope e
   lambdaDict e = Scope . lambdaDict $ expandScope e
 
--- | Core values are the output of the compilation process.
+-- | 'Core' values are the output of the compilation process.
 --
 -- They are terms where the dictionary passing has been made explicit
 -- and all of the types have been checked and removed.
@@ -311,12 +317,15 @@ instance AsHardCore (Core a) where
     HardCore hc -> Right hc
     _           -> Left c
 
+-- | ask for the @n@th the superclass of a given dictionary as a core expression
 super :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
 super i c = _AppDict # (_Super # i, c)
 
+-- | ask for the @n@th slot of a given dictionary as a core expression
 slot :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
 slot i c = _AppDict # (_Slot # i, c)
 
+-- | 'AppDict' provides strict application for dictionary manipulation
 class AsAppDict c where
   _AppDict :: Prism' c (c, c)
 
@@ -329,6 +338,7 @@ instance f ~ Core => AsAppDict (Scope b f a) where
     Var (F (AppDict x y)) -> Right (Scope (Var (F x)), Scope (Var (F y)))
     _ -> Left t
 
+-- | Apply several dictionaries.
 appDicts :: AsAppDict c => c -> [c] -> c
 appDicts = Prelude.foldl (curry $ review _AppDict)
 
@@ -375,6 +385,7 @@ instance Serialize a => Serialize (Core a) where
 
 instance Hashable1 Core
 
+-- | Distinct primes used for salting the hash.
 distHardCore, distData, distApp, distLam, distLet, distCase, distDict, distLamDict, distAppDict :: Word
 distHardCore = maxBound `quot` 3
 distData     = maxBound `quot` 5
@@ -432,12 +443,12 @@ instance Monad Core where
 instance Eq1 Core
 instance Show1 Core
 
--- | smart lam constructor
+-- | Smart 'Lam' constructor
 lam :: (Cored m, Eq a) => [a] -> Core a -> m a
 lam as t = core $ Lam (fromIntegral $ length as)
                (abstract (fmap fromIntegral . flip List.elemIndex as) t)
 
--- | smart let constructor
+-- | Smart 'Let' constructor
 let_ :: (Cored m, Eq a) => [(a, Core a)] -> Core a -> m a
 let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
   where vs  = fst <$> bs
@@ -447,15 +458,3 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
 dataCon :: Cored m => Word8 -> Word8 -> m a
 dataCon 0     tg = core $ Data tg []
 dataCon arity tg = core $ Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
-
-{-
-letDict :: Eq a => Vector (a, Core a) -> Vector (a, Core a) -> Core a -> Core a
-letDict supers vslots body = LamDict body' `AppDict` Dict (map snd supers) slots where
-  where abstr = abstract (`elemIndex` vs)
-     go a = case
-     body' = Scope $ body >>= \a -> case elemIndex supers a of
-       Just i  -> Prim (Super i) (B ())
-       Nothing -> case elemIndex vslots a of
-         Just j -> Prim (Slot j) (B ())
-         Nothing -> Var (F (Var a))
--}

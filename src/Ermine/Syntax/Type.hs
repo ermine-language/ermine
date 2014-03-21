@@ -116,27 +116,6 @@ data HardType
 instance Hashable HardType
 instance Digestable HardType
 
-{-
-bananas :: Doc a -> Doc a
-bananas xs = text "(|" <> xs <> text "|)"
-
-instance Pretty HardType where
-  pretty (Tuple i) = parens (replicate (i-1) ',')
-  pretty Arrow     = parens ("->")
-  pretty (Con (Global _ Idfix p m n) _) = text n
-  pretty (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (map text xs)))
-
--- | Pretty print a 'Kind', using a fresh kind variable supply and a helper to print free variables
---
--- You should have already removed any free variables from the variable set.
-prettySchema :: Applicative f => Schema a -> [String] -> (a -> Bool -> f (Doc b)) -> f (Doc b)
-prettySchema (Schema _ b) xs k = prettyKind (fromScope b) False $ \ v p -> case v of
-  B i -> pure $! text (xs !! i)
-  F a -> k a p
--}
-
-
-
 -- | Smart constructors that allows us to pun various 'HardType' constructor names for 'Type'.
 class Typical t where
   hardType :: Prism' t HardType
@@ -250,6 +229,7 @@ instance Hashable2 Type
 instance Hashable k => Hashable1 (Type k)
 instance Digestable k => Digestable1 (Type k)
 
+-- | Distinct primes used for salting the hashes of types
 distApp, distHardType, distForall, distExists, distAnd :: Word
 distApp      = maxBound `quot` 3
 distHardType = maxBound `quot` 5
@@ -292,7 +272,7 @@ unbound :: Var b f -> f
 unbound (F v)       = v
 unbound (B _)       = error "unbound: B"
 
--- | A smart constructor for forall. Given a list of kinds, a list of type
+-- | A smart constructor for @forall@. Given a list of kinds, a list of type
 -- variables with their kinds, a list of constraints, and a body, abstracts
 -- over the kind and type variables in the constraints and the body in
 -- the canonical order determined by the body.
@@ -376,10 +356,15 @@ exists kh th ks tks body = case body of
 
 -- | Takes two constraint types and builds their intersection.
 -- The arguments are assumed to follow the invariants that:
---   1) All existentials are outer-most.
---   2) There are no exists of exists
---   3) There are no Ands of Ands
---   4) All quantified variables are actually used in the bodies
+--
+-- 1) All existentials are outer-most.
+--
+-- 2) There are no exists of exists
+--
+-- 3) There are no Ands of Ands
+--
+-- 4) All quantified variables are actually used in the bodies
+--
 -- No attempt is made to simplify the constraints, but the above invariants
 -- are maintained.
 mergeConstraints :: Type k t -> Type k t -> Type k t
