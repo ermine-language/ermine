@@ -172,8 +172,7 @@ instantiation (CInfo pm cc cp) pp = fromMaybe
 -- | Pattern matrices for compilation. The matrix is represented as a list
 -- of columns. There is also an extra column representing the guards.
 data PMatrix t c a = PMatrix { _cols     :: [[Pattern t]]
-                             , _guards   :: [Guard c a]
-                             , _bodies   :: [Scope PatPath c a]
+                             , _bodies   :: [Guarded (Scope PatPath c a)]
                              }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -186,23 +185,26 @@ promote = fmap . fmap $ F . pure
 -- | This lifts a CompileInfo to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bump :: Applicative c => CompileInfo c a -> CompileInfo c (Var Word8 (c a))
-bump (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
+bumpCI :: Applicative c => CompileInfo c a -> CompileInfo c (Var Word8 (c a))
+bumpCI (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
+
+bumpPM :: Applicative c => PMatrix t c a -> PMatrix t c (Var Word8 (c a))
+bumpPM (PMatrix ps bs) = PMatrix ps (promote <$> bs)
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column.
 defaultOn :: Applicative c => Int -> PMatrix t c a -> PMatrix t c (Var () (c a))
-defaultOn i (PMatrix ps gs cs)
+defaultOn i (PMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
-    in PMatrix (map select $ ls ++ rs) (promote $ select gs) (promote $ select cs)
+    in PMatrix (map select $ ls ++ rs) (promote <$> select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
 splitOn :: Applicative c
         => Int -> PatHead -> PMatrix t c a -> PMatrix t c (Var Word8 (c a))
-splitOn i hd (PMatrix ps gs cs)
+splitOn i hd (PMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
       prune (AsP r) = prune r
@@ -215,15 +217,8 @@ splitOn i hd (PMatrix ps gs cs)
            | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
            | otherwise                   -> []
     in PMatrix (map select ls ++ newcs ++ map select rs)
-               (promote $ select gs) (promote $ select cs)
+               (promote <$> select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
-
--- | Removes the first row of the pattern matrix, and prepares it to be
--- used in a context with a guard.
-peel :: Applicative c => PMatrix t c a -> PMatrix t c (Var Word8 (c a))
-peel (PMatrix ps (_:gs) (_:bs)) =
-  PMatrix (map (drop 1) ps) (promote gs) (promote bs)
-peel _ = error "PANIC: peel: malformed pattern matrix."
 
 -- | Computes the set of heads of the given patterns.
 patternHeads :: [Pattern t] -> Set PatHead
@@ -239,22 +234,33 @@ selectCol = fmap fst
           . zip [0..]
           . map (length . takeWhile forces)
 
+compileGuards :: (MonadPComp m, Cored c)
+              => CompileInfo c a
+              -> PMatrix t c a
+              -> [(Scope PatPath c a, Scope PatPath c a)]
+              -> m (c a)
+compileGuards ci pm [] = compile ci pm
+compileGuards ci pm ((g,b):gbs) =
+  compileGuards
+    (bumpCI ci)
+    (bumpPM pm)
+    (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
+  caze (inst g) ?? Nothing $
+    M.fromList
+      [(1, (0, Scope . fmap (F . pure) $ inst b))
+      ,(0, (0, Scope $ f))
+      ]
+ where inst = instantiate (instantiation ci)
+
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
 compile :: (MonadPComp m, Cored c) => CompileInfo c a -> PMatrix t c a -> m (c a)
-compile _  (PMatrix _  [] _)  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
-compile ci pm@(PMatrix ps gs bs)
-  | all (matchesTrivially . head) ps = case head gs of
-    Trivial -> pure . instantiate (instantiation ci) $ head bs
-    Explicit e -> mk <$> compile (bump ci) (peel pm)
-     where
-     mk f = caze (instantiate (instantiation ci) e) ?? Nothing $
-              M.fromList
-                [(1, (0, Scope . fmap (F . pure) $
-                           instantiate (instantiation ci) $ head bs))
-                ,(0, (0, Scope $ f))
-                ]
+compile _  (PMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
+compile ci pm@(PMatrix ps (b:bs))
+  | all (matchesTrivially . head) ps = case b of
+    Unguarded body -> pure $ instantiate (instantiation ci) body
+    Guarded gbs -> compileGuards ci (PMatrix (drop 1 <$> ps) bs) gbs
 
   | Just i <- selectCol ps = let
       col = ps !! i
@@ -273,15 +279,14 @@ compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
 compileLambda ps body = compile ci pm
  where
- pm = PMatrix (map return ps) [Trivial] [hoistScope lift body]
+ pm = PMatrix (map return ps) [Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
  ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileCase :: (MonadPComp m, Cored c)
-            => [Pattern t] -> c a -> [[(Guard c a, Scope PatPath c a)]] -> m (c a)
+            => [Pattern t] -> c a -> [Guarded (Scope PatPath c a)] -> m (c a)
 compileCase ps disc bs = compile ci pm
  where
- (ps',gs',bs') = unzip3 . Prelude.concat $ zipWith (\p l -> uncurry (p,,) <$> l) ps bs
- pm = PMatrix [ps'] gs' bs'
+ pm = PMatrix [ps] bs
  ci = CInfo HM.empty [disc] [mempty]

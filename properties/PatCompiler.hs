@@ -59,9 +59,11 @@ zipWithDef =
   , ([_p, _p, _p],[(Nothing, Data 0 [])])
   ]
 
+{-
 zipWithCompPretty = simpleEnv & do
                       c <- plamBranch zipWithDef
                       prettyCore names (-1) (const . pure . text) c
+-}
 
 fooDef :: [([P (Annot k t) String], [(Maybe (Core String), Core String)])]
 fooDef =
@@ -69,9 +71,11 @@ fooDef =
   , ([conp consg ["x", _p], _p], [(Nothing, "x")])
   ]
 
+{-
 fooCompPretty = simpleEnv & do
                   c <- plamBranch fooDef
                   prettyCore names (-1) (const . pure . text) c
+-}
 
 filterDef :: [([P (Annot k t) String], [(Maybe (Core String), Core String)])]
 filterDef =
@@ -82,6 +86,8 @@ filterDef =
   , ([_p, _p], [(Nothing, Data 0 [])])
   ]
 
+{-
 filterCompPretty = simpleEnv & do
                      c <- plamBranch filterDef
                      prettyCore names (-1) (const . pure . text) c
+-}

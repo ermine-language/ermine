@@ -164,29 +164,34 @@ inferAltTypes :: MonadDischarge s m
               -> [AltM s v]
               -> m (WitnessM s v)
 inferAltTypes d cxt (Witness r t c) bs = do
-  (ts, gws) <- unzip <$> traverse inferAlt bs
-  let ps = map (\(Alt p _) -> p) bs
-      rs = gws >>= (>>= view witnessRowConstraints . snd)
-      bts = gws >>= fmap (view witnessType . snd)
-      gcs = over (traverse.traverse._2) (splitScope . view witnessCore) gws
+  (pts, l) <- unzip <$> traverse inferAlt bs
+  let (rss, bts, gcs) = unzip3 l
+      ps = map (\(Alt p _) -> p) bs
+      rs = join rss
       c' = Pattern.compileCase ps c gcs dummyPCompEnv
-  _ <- runSharing t $ foldlM unifyType t ts
+  _ <- runSharing t $ foldlM unifyType t pts
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts
   return $ Witness (r++rs) t' c'
  where
  inferAlt (Alt p b) = do
    (sks, pt, pcxt) <- inferPatternType d p
-   bgws <- inferGuarded pcxt b
-   checkSkolemEscapes (Just d) (beside id $ traverse._2.witnessType) sks (pt, bgws)
+   let trav f (x, y, z) = (,,) <$> traverse f x <*> f y <*> (traverse.traverse) f z
+   trip <- inferGuarded pcxt b
+   checkSkolemEscapes (Just d) (beside id trav) sks (pt, trip)
 
- inferGuarded pcxt (Unguarded s) =
-   return . (Trivial,) <$> inferTypeInScope (d+1) pcxt cxt s
- inferGuarded pcxt (Guarded gbs) =
-   for gbs $ \(g, b) -> do
-     Witness _ _ gc <- checkTypeInScope (d+1) pcxt cxt g Type.bool
-     w <- inferTypeInScope (d+1) pcxt cxt b
-     return (Pattern.Explicit $ splitScope gc, w)
+ inferGuarded pcxt gb = do
+   bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
+   over _3 (splitScope <$>) <$> coalesceGuarded bgws
+
+ coalesceGuarded (Unguarded (Witness r t c)) = pure (r, t, Unguarded c)
+ coalesceGuarded (Guarded l) = do
+   rt <- pure <$> newMeta star
+   (rs, ty, l) <- foldrM ?? ([], rt, []) ?? l $
+     \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
+       runSharing () $ () <$ unifyType gt Type.bool
+       (rs++gr++br,,(gc,bc):gcs) <$> runSharing ty (unifyType ty bt)
+   pure (rs, ty, Guarded l)
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)

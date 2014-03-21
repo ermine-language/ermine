@@ -12,15 +12,15 @@
 
 module Ermine.Builtin.Core
   ( plam
-  , plamBranch
+  -- , plamBranch
   ) where
 
 import Bound
 import Control.Applicative
 import Control.Comonad
-import Data.List (transpose)
+-- import Data.List (transpose)
 import qualified Data.HashMap.Lazy as HM
-import Data.Text as SText (pack)
+-- import Data.Text as SText (pack)
 import Data.Word
 import Ermine.Builtin.Pattern
 import Ermine.Syntax.Core
@@ -34,10 +34,10 @@ plam ps body = Lam n . Scope <$> compile ci pm
  n = fromIntegral $ length ps :: Word8
  assocs = concatMap (\(i,(Binder vs p)) -> zip vs . map (ArgPP i) $ paths p) (zip [0..] ps)
  pm = PMatrix (map (pure . extract) ps)
-              [Trivial]
-              [F . pure <$> abstract (`lookup` assocs) body]
+              [Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
  ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
 
+{-
 plamBranch :: (Eq v, MonadPComp m) => [([P t v], [(Maybe (Core v), Core v)])] -> m (Core v)
 plamBranch bs | null bs = pure . HardCore $ Error $ SText.pack "Empty lambda branch"
               | any ((/= n) . fromIntegral . length) ps =
@@ -53,3 +53,4 @@ plamBranch bs | null bs = pure . HardCore $ Error $ SText.pack "Empty lambda bra
        pm = PMatrix (transpose ps) (zipWith mkguard is gs)
                     (zipWith (\i c -> F . pure <$> abstract (`lookup` i) c) is cs)
        ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
+-}
