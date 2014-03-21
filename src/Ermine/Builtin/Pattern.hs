@@ -35,7 +35,10 @@ import Bound
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
+import Data.Bifoldable
+import Data.Bitraversable
 import Data.Foldable
+import Data.Monoid
 import Data.String
 import Data.Tagged
 import Data.Traversable
@@ -48,6 +51,15 @@ import Ermine.Syntax.Type
 
 data Binder v a = Binder { vars :: [v], item :: a }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Bifunctor Binder where
+  bimap f g (Binder vs a) = Binder (map f vs) (g a)
+
+instance Bifoldable Binder where
+  bifoldMap f g (Binder vs a) = foldMap f vs <> g a
+
+instance Bitraversable Binder where
+  bitraverse f g (Binder vs a) = Binder <$> traverse f vs <*> g a
 
 -- | If the annotation and item types correspond, we can push the item
 -- onto the annotations
