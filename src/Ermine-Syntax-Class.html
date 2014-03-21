@@ -9,25 +9,33 @@
 <body>
 <pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
 <a name="line-2"></a>
-<a name="line-3"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
-<a name="line-4"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>Class</span><span class='hs-layout'>(</span><span class='hs-conid'>Class</span><span class='hs-layout'>)</span>
-<a name="line-5"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>kindArgs</span>
-<a name="line-6"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>typeArgs</span>
-<a name="line-7"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>context</span>
-<a name="line-8"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-9"></a>
-<a name="line-10"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Bound</span>
-<a name="line-11"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
-<a name="line-12"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Void</span>
-<a name="line-13"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Hint</span>
-<a name="line-14"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Kind</span>
-<a name="line-15"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Type</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Type</span>
-<a name="line-16"></a>
-<a name="line-17"></a><a name="Class"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Class</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Class</span> <span class='hs-layout'>{</span> <span class='hs-sel'>_kindArgs</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Hint</span><span class='hs-keyglyph'>]</span>
-<a name="line-18"></a>                   <span class='hs-layout'>,</span> <span class='hs-sel'>_typeArgs</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Hinted</span> <span class='hs-layout'>(</span><span class='hs-conid'>Scope</span> <span class='hs-conid'>Int</span> <span class='hs-conid'>Kind</span> <span class='hs-conid'>Void</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span>
-<a name="line-19"></a>                   <span class='hs-layout'>,</span> <span class='hs-sel'>_context</span>  <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Type</span> <span class='hs-conid'>Void</span> <span class='hs-conid'>Int</span><span class='hs-keyglyph'>]</span>
-<a name="line-20"></a>                   <span class='hs-layout'>}</span>
-<a name="line-21"></a>
-<a name="line-22"></a><a name="makeLenses"></a><span class='hs-definition'>makeLenses</span> <span class='hs-chr'>'</span><span class='hs-chr'>'</span><span class='hs-conid'>Class</span>
+<a name="line-3"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-4"></a><span class='hs-comment'>---- |</span>
+<a name="line-5"></a><span class='hs-comment'>---- Copyright :  (c) Edward Kmett and Dan Doel 2013-2014</span>
+<a name="line-6"></a><span class='hs-comment'>---- License   :  BSD3</span>
+<a name="line-7"></a><span class='hs-comment'>---- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
+<a name="line-8"></a><span class='hs-comment'>---- Stability :  experimental</span>
+<a name="line-9"></a><span class='hs-comment'>---- Portability: non-portable (DeriveDataTypeable)</span>
+<a name="line-10"></a><span class='hs-comment'>----</span>
+<a name="line-11"></a><span class='hs-comment'>----------------------------------------------------------------------</span>
+<a name="line-12"></a>
+<a name="line-13"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Class</span>
+<a name="line-14"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>Class</span><span class='hs-layout'>(</span><span class='hs-conid'>Class</span><span class='hs-layout'>)</span>
+<a name="line-15"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>HasClass</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-16"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-17"></a>
+<a name="line-18"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Bound</span>
+<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
+<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Void</span>
+<a name="line-21"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Hint</span>
+<a name="line-22"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Kind</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Kind</span>
+<a name="line-23"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Type</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>Type</span>
+<a name="line-24"></a>
+<a name="line-25"></a><a name="Class"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Class</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Class</span> <span class='hs-layout'>{</span> <span class='hs-sel'>_kindArgs</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Hint</span><span class='hs-keyglyph'>]</span>
+<a name="line-26"></a>                   <span class='hs-layout'>,</span> <span class='hs-sel'>_typeArgs</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Hinted</span> <span class='hs-layout'>(</span><span class='hs-conid'>Scope</span> <span class='hs-conid'>Int</span> <span class='hs-conid'>Kind</span> <span class='hs-conid'>Void</span><span class='hs-layout'>)</span><span class='hs-keyglyph'>]</span>
+<a name="line-27"></a>                   <span class='hs-layout'>,</span> <span class='hs-sel'>_context</span>  <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Type</span> <span class='hs-conid'>Void</span> <span class='hs-conid'>Int</span><span class='hs-keyglyph'>]</span>
+<a name="line-28"></a>                   <span class='hs-layout'>}</span>
+<a name="line-29"></a>
+<a name="line-30"></a><a name="makeClassy"></a><span class='hs-definition'>makeClassy</span> <span class='hs-chr'>'</span><span class='hs-chr'>'</span><span class='hs-conid'>Class</span>
 </pre></body>
 </html>
