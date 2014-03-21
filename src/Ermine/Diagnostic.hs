@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 --------------------------------------------------------------------
@@ -22,6 +23,7 @@ module Ermine.Diagnostic
   -- * Diagnostics
   , Diagnostic(Diagnostic)
   , AsDiagnostic(..)
+  , HasDiagnostic(..)
   , Err(Err)
   , HasErr(..)
   , die
@@ -40,8 +42,14 @@ import Text.Trifecta.Rendering
 import Text.Trifecta.Result
 
 -- | Ermine diagnostic type
-data Diagnostic = Diagnostic !Rendering (Maybe Doc) [Doc] (Set String)
-  deriving Typeable
+data Diagnostic = Diagnostic
+  { _diagnosticRendering :: !Rendering
+  , _diagnosticMessage   :: Maybe Doc
+  , _diagnosticNotes     :: [Doc]
+  , _diagnosticExpected  :: Set String
+  } deriving Typeable
+
+makeClassy ''Diagnostic
 
 -- | Construct a diagnostic
 die :: HasRendering r => r -> Text -> Diagnostic
@@ -67,9 +75,7 @@ instance HasErr Diagnostic where
   err f (Diagnostic r p a x) = f (Err p a x) <&> \(Err q b y) -> Diagnostic r q b y
 
 instance HasRendering Diagnostic where
-  rendering f (Diagnostic r p a x) = f r <&> \r' -> Diagnostic r' p a x
+  rendering = diagnosticRendering
 
 instance Read Rendering where
   readPrec = pfail
-
-
