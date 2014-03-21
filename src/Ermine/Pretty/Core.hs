@@ -8,6 +8,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
+-- Tools for pretty-printing 'Core' expressions.
 --------------------------------------------------------------------
 
 module Ermine.Pretty.Core
@@ -30,15 +31,17 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Head
 import Ermine.Syntax.Name
 
+-- | Pretty print JavaLike FFI descrptions
 prettyJavaLike :: JavaLike -> Doc
-prettyJavaLike (Method _st _cn _mn _args) = text $ "method{" ++ "}" -- TODO
-prettyJavaLike (Constructor _cn _args)  = text $ "constructor{" ++ "}" -- TODO
-prettyJavaLike (Value _st _cn _fn)       = text $ "value{" ++ "}" -- TODO
+prettyJavaLike (Method _st _cn _mn _args) = text $ "method{..}" -- TODO
+prettyJavaLike (Constructor _cn _args)    = text $ "constructor{..}" -- TODO
+prettyJavaLike (Value _st _cn _fn)        = text $ "value{..}" -- TODO
 
 prettyForeign :: Foreign -> Doc
 prettyForeign (JavaLike j) = prettyJavaLike j
 prettyForeign (Unknown s)  = text $ "unknown{" ++ show s ++ "}"
 
+-- | Pretty print a 'HardCore' expression.
 prettyHardCore :: Int -> HardCore -> Doc
 prettyHardCore _ (Super   i)    = text $ "super{" ++ show i ++ "}"
 prettyHardCore _ (Slot    i)    = text $ "slot{"  ++ show i ++ "}"
@@ -53,9 +56,7 @@ prettyHardCore _ (InstanceId i) =
            <$> i^.headTypeArgs)
       <> text "}"
 
---   | Dict { supers :: [Core a], slots :: [Scope Int Core a] }
---   | LamDict !(Scope () Core a)
---   | AppDict !(Core a) !(Core a)
+-- | Pretty print a 'HardCore' expression.
 prettyCore :: Applicative f
            => [String] -> Int -> (a -> Int -> f Doc) -> Core a -> f Doc
 prettyCore _  prec k (Var v) = k v prec
@@ -107,9 +108,16 @@ prettyCore vs prec k (AppDict f d) =
   (\df dd -> parensIf (prec > 10) $ df <+> dd)
     <$> prettyCore vs 10 k f
     <*> prettyCore vs 11 k d
-prettyCore _  _    _ (Dict _    _    ) = pure $ text "<DICT>"
+prettyCore vs _ k (Dict sups sls) =
+  (\xs ys -> text "dict" <> block [text "supers" `eq` block xs, text "slots" `eq` block (zipWith eq slotNames ys)])
+    <$> traverse (prettyCore vs 0 k) sups
+    <*> traverse (prettyCore rest 0 k' . unscope) sls
+ where
+  (slotNames,rest) = first (fmap text) $ splitAt (length sls) vs
+  eq l r = l <+> text "=" <+> r
+  k' (B i) _ = pure $ slotNames !! (fromIntegral i)
+  k' (F c) p = prettyCore rest p k c
 prettyCore _ _ _ _ = pure $ text "unimplemented"
--- prettyCore vs prec k (Dict sups slots) = undefined
 
 coreLam :: Int -> [Doc] -> Doc -> Doc
 coreLam prec ws e = parensIf (prec>=0) $
