@@ -33,13 +33,15 @@ import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
-import Data.IntSet (IntSet)
-import qualified Data.IntSet as IntSet
 import Data.List as List (partition, nub)
+import qualified Data.Set as Set
+import Data.Set.Lens
+import Data.STRef
 import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
@@ -95,7 +97,7 @@ inferImplicitBindingGroupTypes = undefined
 verifyAnnot
   :: MonadDischarge s m
   => AnnotM s -> m (TypeM s)
-verifyAnnot (Annot ts xs) = do
+verifyAnnot (Annot _ xs) = do
   ty <- traverse explode (fromScope xs)
   ty <$ checkKind (view metaValue <$> ty) star
  where
@@ -108,7 +110,6 @@ inferBindings
 inferBindings d cxt bgs = do
   es' <- traverse (\e -> verifyAnnot (e^?! bindingType._Explicit)) es
   (ws,ts) <- foldlM step (Map.empty, es') sccs
-  -- now check explicitBindings using ts
   nws <- traverse (checkExplicitBinding d cxt ts) es
   return $ toList (ws <> nws)
 
@@ -117,8 +118,8 @@ inferBindings d cxt bgs = do
   es = Map.fromList esl
   sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
   comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
-  step (ws,ts) scc = do
-    nws <- inferImplicitBindingGroupTypes d cxt ts scc
+  step (ws,ts) cc = do
+    nws <- inferImplicitBindingGroupTypes d cxt ts cc
     -- nws <- traverse (generalizeWitnessType d) nws
     return (ws <> nws, ts <> fmap (view witnessType) nws)
 
@@ -193,14 +194,14 @@ inferAltTypes d cxt (Witness r t c) bs = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
    over _3 (splitScope <$>) <$> coalesceGuarded bgws
 
- coalesceGuarded (Unguarded (Witness r t c)) = pure (r, t, Unguarded c)
+ coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
  coalesceGuarded (Guarded l) = do
    rt <- pure <$> newMeta star
-   (rs, ty, l) <- foldrM ?? ([], rt, []) ?? l $
+   (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
      \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
        runSharing () $ () <$ unifyType gt Type.bool
        (rs++gr++br,,(gc,bc):gcs) <$> runSharing ty (unifyType ty bt)
-   pure (rs, ty, Guarded l)
+   pure (rs, ty, Guarded l')
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
@@ -229,13 +230,17 @@ checkType d cxt e t = do
 
 checkExplicitBinding :: MonadDischarge s m
                      => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-checkExplicitBinding d cxt ts (Binding _ (Term.Explicit t) bodies) = do
+checkExplicitBinding _d _cxt _ts (Binding _ (Term.Explicit _t) _bodies) = do
   fail "TODO: checkExplicitBinding"
+checkExplicitBinding _ _ _ (Binding _ Term.Implicit _) =
+  fail "Explicit binding expected"
 
+{-
 checkTypeInScope :: MonadDischarge s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
                  -> ScopeM b s v -> TypeM s -> m (WitnessM s (Var b v))
 checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
+-}
 
 subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
@@ -245,35 +250,60 @@ subsumesType d (Witness rs t1 c) t2 = do
   -- TODO: skolem kinds
   abstractedWitness d sts rs cs t2 c
 
+cabs :: Eq a => a -> Var b a -> Maybe ()
+cabs cls (F ty) | cls == ty = Just ()
+cabs _   _ = Nothing
+
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
 --
 -- TODO: constraint contexts
-generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
-generalizeType = generalizeOverType IntSet.empty
-
--- TODO: hints
--- TODO: separate kind vs type skolem sets?
-generalizeOverType :: MonadMeta s m => IntSet -> WitnessM s a -> m (Type k t, Core a)
-generalizeOverType sks (Witness r0 t0 c0) = do
+generalizeWitnessType
+  :: MonadMeta s m
+  => Depth -> WitnessM s v -> m (WitnessM s v)
+generalizeWitnessType min_d (Witness r0 t0 c0) = do
+  r <- runSharing r0 $ traverse (zonk >=> zonkKinds) r0
   t <- runSharing t0 $ zonk t0 >>= zonkKinds
   c <- runSharing c0 $ traverse (zonk >=> zonkKinds) c0
-  r <- runSharing r0 $ traverse (zonk >=> zonkKinds) r0
-  let cc = nub $ toListOf traverse c
-      tvks = toListOf typeVars (t,cc) <&> \v -> (v, v^.metaValue)
-      kvs = toListOf kindVars t ++ toListOf (traverse._2.kindVars) tvks
-      bad :: Meta s f a -> Bool
-      bad v = has _Skolem v && not (sks^.contains (v^.metaId))
-      cabs cls (F ty) | cls == ty = Just ()
-      cabs _   _ = Nothing
-  cout <- traverse
-            (unvar pure $ \_-> fail "panic: failed to abstract over all classes")
-            $ foldr (\cls -> LamDict . abstract (cabs cls)) (fromScope c) cc
-  when (any (bad.fst) tvks || any bad kvs) $
-    fail "generalize: escaped skolem"
-  case closedType $ forall (const noHint) (const noHint) kvs tvks (And $ r ++ cc) t of
-    Just ty -> pure (ty, cout)
-    Nothing -> error "panic: generalizeOverType failed to generalize all variables"
+  let cc = nub (toList c)
+
+  tvs <- filterM ?? toListOf typeVars (t,cc,r) $ \ tv -> do
+    d <- liftST $ readSTRef (tv^.metaDepth)
+    return (min_d <= d)
+
+  let s = setOf traverse tvs
+      cc' = filter (any (`Set.member` s)) cc
+
+  let kvs0 = toListOf kindVars t ++ toListOf (traverse.metaValue.kindVars) tvs
+  kvs <- filterM ?? kvs0 $ \kv -> do
+    d <- liftST $ readSTRef (kv^.metaDepth)
+    return (min_d <= d)
+
+  let (r',cc'')
+        | min_d == 0 = ([],r ++ cc')
+        | otherwise  = (r, cc')
+
+  -- if depth != 0 and we quantify over anything in r, yell. Yell loudly.
+  when (any (any (`Set.member` s)) r') $
+    fail "Unable to abstract over a local row constraint"
+
+  return $ Witness r'
+    (forall
+        (const noHint)
+        (const noHint)
+        kvs
+        (tvs <&> \tv -> (tv, tv^.metaValue))
+        (allConstraints cc'')
+        t)
+    (toScope (foldr (fmap LamDict . abstract . cabs) (fromScope c) cc'))
+
+generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
+generalizeType w = do
+  Witness [] t c <- generalizeWitnessType 0 w
+  c' <- traverse (unvar pure $ \_ -> fail "panic: generalizeType failed to abstract over all class constraints") (fromScope c)
+  case closedType t of
+    Just t' -> pure (t', c')
+    Nothing -> fail "panic: generalizeType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)

@@ -49,7 +49,7 @@ import Ermine.Unification.Sharing
 -- This rules out infinite circular type signatures.
 --
 -- This returns the fully zonked 'Type' as a consequence, since it needs it anyways.
-typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Int -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
+typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Depth -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
 typeOccurs depth1 t p = zonkWith t tweak where
   tweak m
     | p m = do
