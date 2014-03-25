@@ -159,11 +159,10 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
    | all (x==) xs = Just x
  check _          = Nothing
 
- matchArg (Var i)      t             = Just [(i, [t])]
- matchArg _            (Var _)       = Nothing
- matchArg (App f x)    (App g y)     = (++) <$> matchArg f g <*> matchArg x y
- matchArg (HardType h) (HardType h') = if h == h' then Just [] else Nothing
- matchArg _            _             = error "PANIC: matchHead encountered invalid Head or constraint."
+ matchArg (Var i)      t                       = Just [(i, [t])]
+ matchArg (App f x)    (App g y)               = (++) <$> matchArg f g <*> matchArg x y
+ matchArg (HardType h) (HardType h') | h == h' = Just []
+ matchArg _            _                       = Nothing
 
 dischargesByInstance :: (Eq k, Eq t, Alternative m, MonadDischarge s m) => Type k t -> m (Scope b Core (Type k t))
 dischargesByInstance c = peel [] c
