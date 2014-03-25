@@ -378,6 +378,19 @@ div#style-menu-holder {
   margin: 0 -0.5em 0 0.5em;
 }
 
+#interface span.fixity {
+  color: #919191;
+  border-left: 1px solid #919191;
+  padding: 0.2em 0.5em 0.2em 0.5em;
+  margin: 0 -1em 0 1em;
+}
+
+#interface span.rightedge {
+  border-left: 1px solid #919191;
+  padding: 0.2em 0 0.2em 0;
+  margin: 0 0 0 1em;
+}
+
 #interface table { border-spacing: 2px; }
 #interface td {
   vertical-align: top;
@@ -420,18 +433,17 @@ div#style-menu-holder {
   margin: 0;
 }
 
-.subs ul {
+/* Render short-style data instances */
+.inst ul {
   height: 100%;
   padding: 0.5em;
   margin: 0;
 }
 
-.subs ul,
-.subs ul li.src {
+.inst, .inst li {
   list-style: none;
   margin-left: 1em;
 }
-
 
 .top p.src {
   border-top: 1px solid #ccc;

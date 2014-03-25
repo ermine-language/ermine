@@ -15,7 +15,7 @@
 <a name="line-6"></a><span class='hs-comment'>-- Stability :  experimental</span>
 <a name="line-7"></a><span class='hs-comment'>-- Portability: non-portable</span>
 <a name="line-8"></a><span class='hs-comment'>--</span>
-<a name="line-9"></a><span class='hs-comment'>-- This module provides the parser for terms</span>
+<a name="line-9"></a><span class='hs-comment'>-- This module provides the parser for 'literal' terms or patterns</span>
 <a name="line-10"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
 <a name="line-11"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Literal</span>
 <a name="line-12"></a>  <span class='hs-layout'>(</span> <span class='hs-varid'>literal</span>
@@ -25,9 +25,10 @@
 <a name="line-16"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Literal</span>
 <a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Text</span><span class='hs-varop'>.</span><span class='hs-conid'>Parser</span><span class='hs-varop'>.</span><span class='hs-conid'>Token</span>
 <a name="line-18"></a>
-<a name="line-19"></a><a name="literal"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Literal</span>
-<a name="line-20"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>either</span> <span class='hs-layout'>(</span><span class='hs-conid'>Int</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromIntegral</span><span class='hs-layout'>)</span> <span class='hs-conid'>Double</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>naturalOrDouble</span>
-<a name="line-21"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>String</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>stringLiteral</span>
-<a name="line-22"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>Char</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>charLiteral</span>
+<a name="line-19"></a><a name="literal"></a><span class='hs-comment'>-- | Parse a 'literal' number, string or character.</span>
+<a name="line-20"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Literal</span>
+<a name="line-21"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>either</span> <span class='hs-layout'>(</span><span class='hs-conid'>Int</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromIntegral</span><span class='hs-layout'>)</span> <span class='hs-conid'>Double</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>naturalOrDouble</span>
+<a name="line-22"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>String</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>stringLiteral</span>
+<a name="line-23"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>Char</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>charLiteral</span>
 </pre></body>
 </html>
