@@ -17,6 +17,8 @@
 module Ermine.Unification.Type
   ( unifyType
   , zonkKinds
+  , zonkKindsAndTypes
+  , zonkKindsAndTypesWith
   , checkSkolemEscapes
   ) where
 
@@ -72,6 +74,9 @@ typeOccurs depth1 t p = zonkKindsAndTypesWith t tweakDepth tweakType where
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
     | otherwise = tweakDepth m
 
+
+zonkKindsAndTypes :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
+zonkKindsAndTypes t = zonkKindsAndTypesWith t (const $ return ()) (const $ return ())
 
 zonkKindsAndTypesWith :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> (MetaK s -> m ()) -> (MetaT s -> m ()) -> m (TypeM s)
 zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where

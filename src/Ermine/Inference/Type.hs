@@ -262,9 +262,9 @@ generalizeWitnessType
   :: MonadMeta s m
   => Depth -> WitnessM s v -> m (WitnessM s v)
 generalizeWitnessType min_d (Witness r0 t0 c0) = do
-  r <- runSharing r0 $ traverse (zonk >=> zonkKinds) r0
-  t <- runSharing t0 $ zonk t0 >>= zonkKinds
-  c <- runSharing c0 $ traverse (zonk >=> zonkKinds) c0
+  r <- runSharing r0 $ traverse zonkKindsAndTypes r0
+  t <- runSharing t0 $ zonkKindsAndTypes t0
+  c <- runSharing c0 $ traverse zonkKindsAndTypes c0
   let cc = nub (toList c)
 
   tvs <- filterM ?? toListOf typeVars (t,cc,r) $ \ tv -> do
