@@ -74,11 +74,12 @@ import Data.Bytes.Put
 import Data.Bitraversable
 import Data.Data
 import Data.Foldable hiding (all)
+import Data.Function (on)
 import Data.Hashable
 import Data.Hashable.Extras
 import Data.Monoid
 import Data.IntMap hiding (map, filter, null, foldl')
-import Data.List (sortBy, elemIndex)
+import Data.List (sortBy, elemIndex, nub, nubBy)
 import Data.Map as Map hiding (map, filter, null, foldl')
 import Data.Ord (comparing)
 import Data.Set as Set hiding (map, filter, null, foldl')
@@ -291,7 +292,7 @@ forall kh th ks tks cs (Forall n tls ds b) =
  cs' = bimap F F cs
  ks' = map F ks ++ zipWith (const . B) [0..] n
  tks' = map (bimap F $ fmap F) tks ++ imap (\i l -> (B i, fromScope $ extract l)) tls
-forall kh th ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
+forall kh th ks0 tks0 cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tvm  <- use _2
   let tvs = vars tvm
@@ -309,6 +310,8 @@ forall kh th ks tks cs body = evalState ?? (Map.empty, Map.empty) $ do
  where
  km = Set.fromList ks
  tm = Map.fromList tks
+ ks = nub ks0
+ tks = nubBy (on (==) fst) tks0
 
  tty t | t `Map.member` tm = B <$> abstractM _2 t
        | otherwise         = return (F . pure $ t)
