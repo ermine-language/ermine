@@ -89,10 +89,24 @@ matchFunType t = do
 
 type WMap = Map.Map Word32
 
+-- inferBodyType :: MonadDischarge s m => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> Body (AnnotM s) v -> m ???
+
 inferImplicitBindingType
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-inferImplicitBindingType = undefined
+inferImplicitBindingType _d _cxt _lcxt _b = do
+  undefined
+  
+
+{-
+ where bodies = b^.bindingBodies
+
+ to which the body and
+-- guards can refer.
+data Body t a = Body [Pattern t]
+                     (Guarded (Scope BodyBound (Term t) a))
+                     [Binding t (Var WhereBound a)]
+-}
 
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m

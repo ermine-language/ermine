@@ -39,6 +39,9 @@ module Ermine.Syntax.Term
   , _Implicit
   , _Explicit
   , Body(..)
+  , bodyPatterns
+  , bodyGuarded
+  , bodyWhere
   , bodyDecls
   ) where
 
@@ -136,10 +139,11 @@ instance AsDecl WhereBound where
 -- matches on multiple patterns with backtracking.
 -- Each Body contains a list of where clause bindings to which the body and
 -- guards can refer.
-data Body t a = Body [Pattern t]
-                     (Guarded (Scope BodyBound (Term t) a))
-                     [Binding t (Var WhereBound a)]
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+data Body t a = Body
+  { _bodyPatterns :: [Pattern t]
+  , _bodyGuarded  :: Guarded (Scope BodyBound (Term t) a)
+  , _bodyWhere    :: [Binding t (Var WhereBound a)]
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 bodyDecls :: Traversal' (Body t a) Word32
 bodyDecls f (Body ps g bs) = Body ps <$> (traverse.traverseBound._Decl) f g <*> (traverse.traverse._B._Decl) f bs
@@ -448,3 +452,4 @@ instance (Serialize t, Serialize v) => Serialize (Term t v) where
 
 makeClassy ''Binding
 makePrisms ''BindingType
+makeLenses ''Body
