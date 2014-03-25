@@ -50,8 +50,12 @@ import Ermine.Unification.Sharing
 --
 -- This returns the fully zonked 'Type' as a consequence, since it needs it anyways.
 typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Depth -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
-typeOccurs depth1 t p = zonkWith t tweak where
-  tweak m
+typeOccurs depth1 t p = zonkKindsAndTypesWith t tweakDepth tweakType where
+  tweakDepth :: MonadST m => Meta (World m) f a -> m ()
+  tweakDepth m = liftST $ forMOf_ metaDepth m $ \d -> do
+    depth2 <- readSTRef d
+    when (depth2 > depth1) $ writeSTRef d depth1
+  tweakType m
     | p m = do
       zt <- sharing t $ zonk t
       let st = setOf typeVars zt
@@ -66,9 +70,31 @@ typeOccurs depth1 t p = zonkWith t tweak where
                  (-1)
       r <- viewMeta rendering
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
-    | otherwise = liftST $ forMOf_ metaDepth m $ \d -> do
-        depth2 <- readSTRef d
-        Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
+    | otherwise = tweakDepth m
+
+
+zonkKindsAndTypesWith :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> (MetaK s -> m ()) -> (MetaT s -> m ()) -> m (TypeM s)
+zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where
+  go fs = bindType id id <$> bitraverse handleKind handleType fs
+  handleType m = do
+    tweakType m
+    zmv <- zonkWith (m^.metaValue) tweakKind
+    readMeta m >>= \mv -> case mv of
+      Nothing -> return $ return $ m & metaValue .~ zmv
+      Just fmf -> do
+        tell $ Any True
+        r <- go fmf
+        r <$ writeMeta m r
+  handleKind m = do
+    tweakKind m
+    readMeta m >>= \mv -> case mv of
+      Nothing -> return (return m)
+      Just fmf -> do
+        tell $ Any True
+        r <- zonkWith fmf tweakKind
+        r <$ writeMeta m r
+{-# INLINE zonkKindsAndTypesWith #-}
+
 
 -- | Check for escaped Skolem variables in any container full of types.
 --
@@ -157,15 +183,20 @@ unifyTV interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
     if m then liftST $ t' <$ writeSTRef r (Just t')
          else j <$ tell (Any True)
   Nothing -> case t of
-    Var (Meta _ _ _ e _) -> do -- this has been semipruned so its not part of a chain
+    Var v@(Meta k _ _ e _) -> do -- this has been semipruned so its not part of a chain
       tell (Any interesting)
+      zk <- zonkWith k $ \kv -> liftST $ do
+        let f = kv^.metaDepth
+        depth1 <- readSTRef d
+        depth2 <- readSTRef f
+        when (depth2 > depth1) $ writeSTRef f depth1
       liftST $ do
         bump
         writeSTRef r (Just t)
         depth1 <- readSTRef d
         depth2 <- readSTRef e
         when (depth2 > depth1) $ writeSTRef e depth1
-        return t
+        return $ Var $ v & metaValue .~ zk
     _ -> do
       tell (Any interesting)
       depth1 <- liftST $ readSTRef d
