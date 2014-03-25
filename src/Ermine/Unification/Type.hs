@@ -16,7 +16,6 @@
 --------------------------------------------------------------------
 module Ermine.Unification.Type
   ( unifyType
-  , zonkKinds
   , zonkKindsAndTypes
   , zonkKindsAndTypesWith
   , checkSkolemEscapes
@@ -113,19 +112,6 @@ checkSkolemEscapes md trav sks ts = do
  serr = fail "escaped skolem"
  skids = setOf (traverse.metaId) sks
  tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
-
--- | Zonk all of the kinds in a type.
---
--- This expands all of the meta variables in the type to their definition.
-zonkKinds :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
-zonkKinds = fmap (bindType id pure) . bitraverse handleKinds (metaValue zonk) where
-  handleKinds m = do
-    readMeta m >>= \mv -> case mv of
-      Nothing -> return (return m)
-      Just fmf -> do
-        tell $ Any True
-        r <- zonk fmf
-        r <$ writeMeta m r
 
 -- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
 --
