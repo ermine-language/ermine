@@ -16,9 +16,11 @@ module Ermine.Unification.Sharing
   , sharing
   , SharingT(..)
   , Shared(..)
+  , uncaring
   ) where
 
 import Control.Applicative
+import Control.Monad (void)
 import Control.Monad.Writer.Class
 import Control.Monad.Reader.Class
 import Control.Monad.State.Class
@@ -107,6 +109,10 @@ runSharing a m = do
   Shared modified b <- unsharingT m
   return $! if modified then b else a
 {-# INLINE runSharing #-}
+
+uncaring :: Functor m => SharingT m a -> m ()
+uncaring = void . unsharingT
+{-# INLINE uncaring #-}
 
 -- | Run an action, if it returns @'Any' 'True'@ then use its new value, otherwise use the passed in value.
 --

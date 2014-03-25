@@ -89,10 +89,20 @@ matchFunType t = do
 
 type WMap = Map.Map Word32
 
+inferImplicitBindingType
+  :: MonadDischarge s m
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
+inferImplicitBindingType = undefined
+
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
-inferImplicitBindingGroupTypes = undefined
+inferImplicitBindingGroupTypes d cxt lcxt bg = do
+  bgts <- for bg $ \_ -> Type.Var <$> newShallowMeta d star
+  witnesses <- for bg $ inferImplicitBindingType d cxt (bgts <> lcxt)
+  sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
+    uncaring $ unifyType vt (w^.witnessType)
+    generalizeWitnessType d w
 
 verifyAnnot
   :: MonadDischarge s m
@@ -179,7 +189,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
       ps = map (\(Alt p _) -> p) bs
       rs = join rss
       c' = Pattern.compileCase ps c gcs dummyPCompEnv
-  _ <- runSharing t $ foldlM unifyType t pts
+  uncaring $ foldlM unifyType t pts
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts
   return $ Witness (r++rs) t' c'
@@ -199,7 +209,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
    rt <- pure <$> newMeta star
    (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
      \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
-       runSharing () $ () <$ unifyType gt Type.bool
+       uncaring $ unifyType gt Type.bool
        (rs++gr++br,,(gc,bc):gcs) <$> runSharing ty (unifyType ty bt)
    pure (rs, ty, Guarded l')
 
@@ -246,7 +256,7 @@ subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
   (_  , sts, cs, t2') <- skolemize d t2
-  runSharing () $ () <$ unifyType t1 t2'
+  uncaring $ unifyType t1 t2'
   -- TODO: skolem kinds
   abstractedWitness d sts rs cs t2 c
 
@@ -392,7 +402,7 @@ inferPatternType d (ConP g ps)
     newShallowSkolem d star >>= \x ->
     case ps of
       [p] -> do (sks, ty, f) <- inferPatternType d p
-                runSharing () $ () <$ unifyType (pure x) ty
+                uncaring $ unifyType (pure x) ty
                 return ( x:sks
                        , builtin_ "E"
                        , \case FieldPP 0 pp -> f pp
