@@ -47,7 +47,6 @@ module Ermine.Unification.Meta
   , writeMeta
   -- ** Pruning
   , semiprune
-  , occurs
   , zonk
   , zonk_
   , zonkWith
@@ -248,10 +247,6 @@ zonk fs = zonkWith fs $ \_ -> return ()
 zonk_ :: (MonadMeta s m, Traversable f, Monad f) => f (Meta s f a) -> m (f (Meta s f a))
 zonk_ fs = runSharing fs $ zonk fs
 {-# INLINE zonk_ #-}
-
-occurs :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f) => f (Meta s f a) -> (Meta s f a -> Bool) -> m () -> m (f (Meta s f a))
-occurs fs p kf = zonkWith fs $ \v -> when (p v) kf
-{-# INLINE occurs #-}
 
 zonkWith :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f) => f (Meta s f a) -> (Meta s f a -> m ()) -> m (f (Meta s f a))
 zonkWith fs0 tweak = go fs0 where
