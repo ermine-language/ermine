@@ -111,8 +111,8 @@ _ConP' g = prism (ConP g) $ \case ConP g' ps | g == g' -> Right ps ; p -> Left p
 -- pointing at the right portion of an AsP---which is invalid unless the
 -- pattern contains redundancies.
 data PatPath = LeafPP -- ^ refer to a variable
-             | FieldPP Word8 PatPath -- ^ refer to the n-th subpattern of a constructor
-             | ArgPP Word8 PatPath -- ^ refer to the n-th pattern of many top-level patterns
+             | FieldPP {-# UNPACK #-} !Word8 PatPath -- ^ refer to the n-th subpattern of a constructor
+             | ArgPP {-# UNPACK #-} !Word8 PatPath -- ^ refer to the n-th pattern of many top-level patterns
   deriving (Eq, Ord, Show, Read, Generic)
 
 type PatPaths = Endo PatPath
