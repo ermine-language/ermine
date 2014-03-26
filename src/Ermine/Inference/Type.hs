@@ -38,7 +38,7 @@ import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
-import Data.List as List (partition, nub)
+import Data.List as List (partition, nub, transpose, group)
 import qualified Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
@@ -94,12 +94,59 @@ type WMap = Map.Map Word32
 inferImplicitBindingType
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-inferImplicitBindingType _d _cxt _lcxt _b = do
-  undefined
-  
+inferImplicitBindingType d cxt lcxt bdg = do
+  case compare (length (List.group $ map length transposedPatterns)) 1 of
+    LT -> fail "panic: missing right hand sides"
+    EQ -> return ()
+    GT -> fail "pattern arity mismatch"
+  _ <- for (bdg^.bindingBodies) $ \(Body ps gd wc) -> do
+    (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
+    let pcxt (ArgPP i pp)
+          | Just f <- ppts ^? ix (fromIntegral i) = f pp
+        pcxt _ = error "panic: bad argument reference in lambda term"
+        whereCxt (F a)             = cxt a
+        whereCxt (B (WhereDecl w)) = lcxt^?!ix w
+        whereCxt (B (WherePat p))  = pcxt p
+    whereWitnesses <- inferBindings (d+1) whereCxt wc
+    let bodyCxt (BodyDecl w)  = lcxt^?!ix w
+        bodyCxt (BodyPat p)   = pcxt p
+        bodyCxt (BodyWhere w) = whereWitnesses^?!ix (fromIntegral w).witnessType
+    gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
+    (rs, t, guardedCores) <- coalesceGuarded gd'
+    return ()
 
 {-
+    Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
+    let cc = Pattern.compileLambda ps (splitScope c) dummyPCompEnv
+    rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
+    return $ Witness rcs rt (lambda (fromIntegral $ length ps) cc)
+-}
+
+  let patterns = transpose transposedPatterns
+  undefined
+ where
+  transposedPatterns = bdg^..bindingBodies.traverse.bodyPatterns
+
+{-
+
+inferTypeInScope :: MonadDischarge s m
+                 => Depth -> (b -> TypeM s) -> (v -> TypeM s)
+                 -> ScopeM b s v -> m (WitnessM s (Var b v))
+
+
+-- or case body.
+-- data Guarded tm = Unguarded tm
+--                 | Guarded [(tm, tm)]
+--                   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
+
+  :: MonadDischarge s m
+  => Depth -> (Var WhereBound a -> TypeM s) -> [BindingM s (Var WhereBound a)] -> m [WitnessM s (Var Word32 (Var WhereBound a))]
+
  where bodies = b^.bindingBodies
+
+data WhereBound = WhereDecl Word32
+                | WherePat PatPath
+  deriving (Eq,Ord,Show,Read,Generic)
 
  to which the body and
 -- guards can refer.
@@ -218,14 +265,15 @@ inferAltTypes d cxt (Witness r t c) bs = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
    over _3 (splitScope <$>) <$> coalesceGuarded bgws
 
- coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
- coalesceGuarded (Guarded l) = do
-   rt <- pure <$> newMeta star
-   (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
-     \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
-       uncaring $ unifyType gt Type.bool
-       (rs++gr++br,,(gc,bc):gcs) <$> runSharing ty (unifyType ty bt)
-   pure (rs, ty, Guarded l')
+coalesceGuarded :: MonadMeta s m => Guarded (WitnessM s v) -> m ([TypeM s], TypeM s, Guarded (Scope v Core (TypeM s)))
+coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
+coalesceGuarded (Guarded l) = do
+  rt <- pure <$> newMeta star
+  (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
+    \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
+      uncaring $ unifyType gt Type.bool
+      (rs++gr++br,,(gc,bc):gcs) <$> runSharing ty (unifyType ty bt)
+  pure (rs, ty, Guarded l')
 
 -- TODO: write this
 simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
