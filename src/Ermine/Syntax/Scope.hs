@@ -24,6 +24,7 @@ module Ermine.Syntax.Scope
   -- , putVar , getVar , putScope, getScope
   , serializeScope3
   , deserializeScope3
+  , mergeScope
   , splitScope
   , rebind
   , inScope
@@ -33,6 +34,7 @@ import Bound
 import Bound.Scope
 import Bound.Var
 import Control.Applicative
+import Control.Monad (liftM)
 import Control.Monad.Trans
 import Data.Bytes.Serial
 import Data.Bytes.Get
@@ -55,6 +57,12 @@ deserializeScope3 :: MonadGet m
                   => m b -> (forall a. m a -> m (f a)) -> m v
                   -> m (Scope b f v)
 deserializeScope3 gb gf gv = Scope <$> gf (deserializeWith2 gb (gf gv))
+
+mergeScope :: Monad c => Scope b1 (Scope b2 c) a -> Scope (Var b1 b2) c a
+mergeScope = toScope . liftM go . fromScope . fromScope where
+  go (B b2)     = B (F b2)
+  go (F (B b1)) = B (B b1)
+  go (F (F a))  = F a
 
 splitScope :: (Applicative c, Monad c)
            => Scope (Var b1 b2) c a -> Scope b1 (Scope b2 c) a

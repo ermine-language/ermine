@@ -35,6 +35,7 @@ module Ermine.Syntax.Pattern.Compiler
   , defaultOn
   , splitOn
   , compile
+  , compileBinding
   , compileLambda
   , compileCase
   ) where
@@ -64,6 +65,7 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
+import Ermine.Syntax.Term
 
 -- | The environment necessary to perform pattern compilation. We need two
 -- pieces of information:
@@ -308,6 +310,11 @@ compile ci pm@(PMatrix ps (b:bs))
           caze ((ci^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
+
+compileBinding
+  :: (MonadPComp m, Cored c)
+  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var Word32 WhereBound) c a]] -> m (Scope Word32 c a)
+compileBinding = error "TODO: compileBinding"
 
 compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)

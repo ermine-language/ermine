@@ -28,6 +28,7 @@ module Ermine.Inference.Type
   ) where
 
 import Bound
+import Bound.Scope
 import Bound.Var
 import Control.Applicative
 import Control.Comonad
@@ -38,7 +39,7 @@ import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
-import Data.List as List (partition, nub, transpose, group)
+import Data.List as List (partition, nub, group)
 import qualified Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
@@ -89,18 +90,20 @@ matchFunType t = do
 
 type WMap = Map.Map Word32
 
--- inferBodyType :: MonadDischarge s m => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> Body (AnnotM s) v -> m ???
+beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> LensLike f s3 t3 a b -> LensLike f (s1,s2,s3) (t1,t2,t3) a b
+beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
 inferImplicitBindingType
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
 inferImplicitBindingType d cxt lcxt bdg = do
-  case compare (length (List.group $ map length transposedPatterns)) 1 of
+  let ps = bdg^..bindingBodies.traverse.bodyPatterns
+  case compare (length (List.group $ map length ps)) 1 of
     LT -> fail "panic: missing right hand sides"
     EQ -> return ()
     GT -> fail "pattern arity mismatch"
-  _ <- for (bdg^.bindingBodies) $ \(Body ps gd wc) -> do
-    (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
+  mess <- for (bdg^.bindingBodies) $ \(Body bps gd wc) -> do
+    (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) bps
     let pcxt (ArgPP i pp)
           | Just f <- ppts ^? ix (fromIntegral i) = f pp
         pcxt _ = error "panic: bad argument reference in lambda term"
@@ -108,52 +111,25 @@ inferImplicitBindingType d cxt lcxt bdg = do
         whereCxt (B (WhereDecl w)) = lcxt^?!ix w
         whereCxt (B (WherePat p))  = pcxt p
     whereWitnesses <- inferBindings (d+1) whereCxt wc
-    let bodyCxt (BodyDecl w)  = lcxt^?!ix w
+    let wrs = whereWitnesses^..folded.witnessRowConstraints.folded
+        bodyCxt (BodyDecl w)  = lcxt^?!ix w
         bodyCxt (BodyPat p)   = pcxt p
         bodyCxt (BodyWhere w) = whereWitnesses^?!ix (fromIntegral w).witnessType
     gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
-    (rs, t, guardedCores) <- coalesceGuarded gd'
-    return ()
+    (rs, t, cores) <- coalesceGuarded gd'
+    (rs', t', cores') <- checkSkolemEscapes (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
+    let assocL (B a)     = B (B a)
+        assocL (F (B a)) = B (F a)
+        assocL (F (F a)) = F a
+    return (rs', t', splitScope <$> cores', whereWitnesses^..folded.witnessCore.to (splitScope . mapBound assocL))
 
-{-
-    Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
-    let cc = Pattern.compileLambda ps (splitScope c) dummyPCompEnv
-    rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-    return $ Witness rcs rt (lambda (fromIntegral $ length ps) cc)
--}
-
-  let patterns = transpose transposedPatterns
-  undefined
- where
-  transposedPatterns = bdg^..bindingBodies.traverse.bodyPatterns
-
-{-
-
-inferTypeInScope :: MonadDischarge s m
-                 => Depth -> (b -> TypeM s) -> (v -> TypeM s)
-                 -> ScopeM b s v -> m (WitnessM s (Var b v))
-
-
--- or case body.
--- data Guarded tm = Unguarded tm
---                 | Guarded [(tm, tm)]
---                   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
-
-  :: MonadDischarge s m
-  => Depth -> (Var WhereBound a -> TypeM s) -> [BindingM s (Var WhereBound a)] -> m [WitnessM s (Var Word32 (Var WhereBound a))]
-
- where bodies = b^.bindingBodies
-
-data WhereBound = WhereDecl Word32
-                | WherePat PatPath
-  deriving (Eq,Ord,Show,Read,Generic)
-
- to which the body and
--- guards can refer.
-data Body t a = Body [Pattern t]
-                     (Guarded (Scope BodyBound (Term t) a))
-                     [Binding t (Var WhereBound a)]
--}
+  -- if only someone could write unzip4!
+  let rs       = mess^.folded._1
+      guards   = view _3 <$> mess
+      wheres   = view _4 <$> mess
+      (t0:tys) = view _2 <$> mess
+  ty <- runSharing t0 $ foldM unifyType t0 tys
+  simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPCompEnv
 
 inferImplicitBindingGroupTypes
   :: MonadDischarge s m
