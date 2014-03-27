@@ -40,6 +40,7 @@ import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
 import Data.List as List (partition, nub, group)
+import Data.Maybe
 import qualified Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
@@ -47,6 +48,7 @@ import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
+import Ermine.Parser.Type (anyType)
 import Ermine.Syntax
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
@@ -91,15 +93,6 @@ type WMap = Map.Map Word32
 beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> LensLike f s3 t3 a b -> LensLike f (s1,s2,s3) (t1,t2,t3) a b
 beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
-checkExplicitBinding
-  :: MonadDischarge s m
-  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-checkExplicitBinding _ _ _ (Binding _ Term.Implicit _) = fail "Explicit binding expected"
-checkExplicitBinding d cxt lcxt bdg@(Binding _ (Term.Explicit a) _) = do
-  w <- inferBindingType d cxt lcxt bdg
-  t <- verifyAnnot a
-  subsumesType d w t
-
 inferBindingType
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
@@ -138,41 +131,28 @@ inferBindingType d cxt lcxt bdg = do
   ty <- runSharing t0 $ foldM unifyType t0 tys
   simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPCompEnv
 
-inferImplicitBindingGroupTypes
+inferBindingGroupTypes
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
-inferImplicitBindingGroupTypes d cxt lcxt bg = do
-  bgts <- for bg $ \_ -> Type.Var <$> newShallowMeta d star
-  witnesses <- for bg $ inferBindingType d cxt (bgts <> lcxt)
+inferBindingGroupTypes d cxt lcxt bg = do
+  bgts <- for bg $ \ b -> instantiateAnnot depthInf $ fromMaybe anyType $ b^?bindingType._Explicit
+  witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
   sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
-    uncaring $ unifyType vt (w^.witnessType)
-    generalizeWitnessType d w
-
-verifyAnnot
-  :: MonadDischarge s m
-  => AnnotM s -> m (TypeM s)
-verifyAnnot (Annot _ xs) = do
-  ty <- traverse explode (fromScope xs)
-  ty <$ checkKind (view metaValue <$> ty) star
- where
- explode (F a) = return a
- explode (B _) = fail "My brain exploded. I don't know how to deal with explicit type annotations in a binding group involving `some'."
+    w' <- subsumesType (d+1) w vt
+    generalizeWitnessType d w'
 
 inferBindings
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word32 v)]
 inferBindings d cxt bgs = do
-  es' <- traverse (\e -> verifyAnnot (e^?! bindingType._Explicit)) es
-  (ws,ts) <- foldlM step (Map.empty, es') sccs
-  nws <- traverse (checkExplicitBinding d cxt ts) es
-  return $ toList (ws <> nws)
+  (ws,_ts) <- foldlM step (Map.empty, Map.empty) sccs
+  return $ toList ws
  where
-  (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
-  es = Map.fromList esl
+  is = zip [0..] bgs
   sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
   comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
   step (ws,ts) cc = do
-    nws <- inferImplicitBindingGroupTypes (d+1) cxt ts cc
+    nws <- inferBindingGroupTypes (d+1) cxt ts cc
     nws' <- traverse (generalizeWitnessType (d+1)) nws
     return (ws <> nws', ts <> fmap (view witnessType) nws')
 
@@ -441,5 +421,6 @@ inferPatternType _ (ConP _ _)  = error "unimplemented"
 
 instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d (Annot ks sc) = do
-  traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
+  ty <- traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
     instantiate (tvs !!) sc
+  ty <$ checkKind (view metaValue <$> ty) star
