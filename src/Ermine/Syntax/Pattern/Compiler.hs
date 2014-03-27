@@ -314,7 +314,7 @@ compile ci pm@(PMatrix ps (b:bs))
 compileBinding
   :: (MonadPComp m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var Word32 WhereBound) c a]] -> m (Scope Word32 c a)
-compileBinding = error "TODO: compileBinding"
+compileBinding _ _ _ = return (core $ lit "Binding")
 
 compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)

@@ -91,10 +91,19 @@ type WMap = Map.Map Word32
 beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> LensLike f s3 t3 a b -> LensLike f (s1,s2,s3) (t1,t2,t3) a b
 beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
-inferImplicitBindingType
+checkExplicitBinding
   :: MonadDischarge s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-inferImplicitBindingType d cxt lcxt bdg = do
+checkExplicitBinding _ _ _ (Binding _ Term.Implicit _) = fail "Explicit binding expected"
+checkExplicitBinding d cxt lcxt bdg@(Binding _ (Term.Explicit a) _) = do
+  w <- inferBindingType d cxt lcxt bdg
+  t <- verifyAnnot a
+  subsumesType d w t
+
+inferBindingType
+  :: MonadDischarge s m
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
+inferBindingType d cxt lcxt bdg = do
   let ps = bdg^..bindingBodies.traverse.bodyPatterns
   case compare (length (List.group $ map length ps)) 1 of
     LT -> fail "panic: missing right hand sides"
@@ -134,7 +143,7 @@ inferImplicitBindingGroupTypes
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
 inferImplicitBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \_ -> Type.Var <$> newShallowMeta d star
-  witnesses <- for bg $ inferImplicitBindingType d cxt (bgts <> lcxt)
+  witnesses <- for bg $ inferBindingType d cxt (bgts <> lcxt)
   sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
     uncaring $ unifyType vt (w^.witnessType)
     generalizeWitnessType d w
@@ -157,17 +166,15 @@ inferBindings d cxt bgs = do
   (ws,ts) <- foldlM step (Map.empty, es') sccs
   nws <- traverse (checkExplicitBinding d cxt ts) es
   return $ toList (ws <> nws)
-
  where
   (is,esl) = partition (has (_2.bindingType._Implicit)) $ zip [0..] bgs
   es = Map.fromList esl
   sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
   comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
   step (ws,ts) cc = do
-    nws <- inferImplicitBindingGroupTypes d cxt ts cc
-    -- nws <- traverse (generalizeWitnessType d) nws
-    return (ws <> nws, ts <> fmap (view witnessType) nws)
-
+    nws <- inferImplicitBindingGroupTypes (d+1) cxt ts cc
+    nws' <- traverse (generalizeWitnessType (d+1)) nws
+    return (ws <> nws', ts <> fmap (view witnessType) nws')
 
 inferType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
@@ -273,13 +280,6 @@ checkType d cxt e t = do
   w <- inferType d cxt e
   checkKind (fmap (view metaValue) t) star
   subsumesType d w t
-
-checkExplicitBinding :: MonadDischarge s m
-                     => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
-checkExplicitBinding _d _cxt _ts (Binding _ (Term.Explicit _t) _bodies) = do
-  fail "TODO: checkExplicitBinding"
-checkExplicitBinding _ _ _ (Binding _ Term.Implicit _) =
-  fail "Explicit binding expected"
 
 {-
 checkTypeInScope :: MonadDischarge s m
