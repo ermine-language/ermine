@@ -15,14 +15,14 @@
 
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel
+-- Copyright :  (c) Dan Doel and Edward Kmett 2013-2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Syntax.Pattern.Compiler
+module Ermine.Matching
   ( Claused(..)
   , PMatrix(..)
   , HasPMatrix(..)

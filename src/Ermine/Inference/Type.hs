@@ -48,6 +48,7 @@ import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
+import Ermine.Matching as Pattern
 import Ermine.Parser.Type (anyType)
 import Ermine.Syntax
 import Ermine.Syntax.Name
@@ -56,7 +57,6 @@ import Ermine.Syntax.Literal
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Pattern as Pattern
-import Ermine.Syntax.Pattern.Compiler as Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type

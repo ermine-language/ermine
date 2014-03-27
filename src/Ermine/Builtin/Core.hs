@@ -17,14 +17,12 @@ module Ermine.Builtin.Core
 import Bound
 import Control.Applicative
 import Control.Comonad
--- import Data.List (transpose)
 import qualified Data.HashMap.Lazy as HM
--- import Data.Text as SText (pack)
 import Data.Word
 import Ermine.Builtin.Pattern
+import Ermine.Matching
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
-import Ermine.Syntax.Pattern.Compiler
 
 
 plam :: (Eq v, MonadPComp m) => [P t v] -> Core v -> m (Core v)

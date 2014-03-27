@@ -104,6 +104,7 @@ library
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
+    Ermine.Matching
     Ermine.Monitor
     Ermine.Optimizer
     Ermine.Parser.DataType
@@ -139,7 +140,6 @@ library
     Ermine.Syntax.ModuleName
     Ermine.Syntax.Name
     Ermine.Syntax.Pattern
-    Ermine.Syntax.Pattern.Compiler
     Ermine.Syntax.Literal
     Ermine.Syntax.Scope
     Ermine.Syntax.Term
