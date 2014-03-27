@@ -114,12 +114,12 @@ data BindingType t
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
 data BodyBound = BodyDecl Word32
-               | BodyPat PatPath
+               | BodyPat PatternPath
                | BodyWhere Word32
   deriving (Eq,Ord,Show,Read,Generic)
 
 data WhereBound = WhereDecl Word32
-                | WherePat PatPath
+                | WherePat PatternPath
   deriving (Eq,Ord,Show,Read,Generic)
 
 class AsDecl t where
@@ -183,7 +183,7 @@ data Term t a
   | App !(Term t a) !(Term t a)
   | HardTerm !HardTerm
   | Sig !(Term t a) t
-  | Lam [Pattern t] !(Scope PatPath (Term t) a)
+  | Lam [Pattern t] !(Scope PatternPath (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Word32 (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from

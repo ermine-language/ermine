@@ -84,9 +84,8 @@ newtype MatchEnv = MatchEnv { signatures :: HashMap Global (HashMap Global Word8
   deriving (Eq, Show)
 
 dummyMatchEnv :: MatchEnv
-dummyMatchEnv = MatchEnv $
-  HM.singleton n (HM.singleton n 0)
- where n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
+dummyMatchEnv = MatchEnv $ HM.singleton n (HM.singleton n 0) where
+  n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
 
 
 -- | Monads that allow us to perform pattern compilation, by providing
@@ -100,7 +99,7 @@ instance MonadMatch ((->) MatchEnv) where
 -- | Determines whether a set of pattern heads constitutes a signature.
 -- This is handled specially for tuples and literals, and relies on the
 -- monad for data type constructors.
-isSignature :: MonadMatch m => Set PatHead -> m Bool
+isSignature :: MonadMatch m => Set PatternHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
   Just (TupH _)   -> pure True
@@ -111,7 +110,7 @@ isSignature ps = case preview folded ps of
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadMatch m => PatHead -> m Word8
+constructorTag :: MonadMatch m => PatternHead -> m Word8
 constructorTag (TupH _) = pure 0
 constructorTag (ConH _ g) = askMatch <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
@@ -130,9 +129,9 @@ constructorTag (ConH _ g) = askMatch <&> \env ->
 -- 'colPaths' contains the paths into the original pattern that correspond to
 -- each of the current columns.
 data Matching c a = Matching
-  { _pathMap  :: HashMap PatPath (c a)
+  { _pathMap  :: HashMap PatternPath (c a)
   , _colCores :: [c a]
-  , _colPaths :: [PatPaths]
+  , _colPaths :: [PatternPaths]
   }
 
 makeClassy ''Matching
@@ -160,15 +159,15 @@ expand i n (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
           (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
-instantiation :: Matching c a -> PatPath -> c a
+instantiation :: Matching c a -> PatternPath -> c a
 instantiation (Matching pm cc cp) pp = fromMaybe
   (error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp) (HM.lookup pp pm')
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
 
-data Claused c a = Localized [Scope PatPath (Scope Word32 c) a]
-                             (Guarded (Scope PatPath (Scope Word32 c) a))
-                 | Raw (Guarded (Scope PatPath c a))
+data Claused c a = Localized [Scope PatternPath (Scope Word32 c) a]
+                             (Guarded (Scope PatternPath (Scope Word32 c) a))
+                 | Raw (Guarded (Scope PatternPath c a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 hoistClaused :: Functor c => (forall x. c x -> d x) -> Claused c a -> Claused d a
@@ -218,7 +217,7 @@ defaultOn i (PatternMatrix ps cs)
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
 splitOn :: Applicative c
-        => Int -> PatHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
+        => Int -> PatternHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
 splitOn i hd (PatternMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
@@ -236,7 +235,7 @@ splitOn i hd (PatternMatrix ps cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
 -- | Computes the set of heads of the given patterns.
-patternHeads :: [Pattern t] -> Set PatHead
+patternHeads :: [Pattern t] -> Set PatternHead
 patternHeads = setOf (traverse.patternHead)
 
 -- | Uses a heuristic to select a column from a pattern matrix.
@@ -265,7 +264,7 @@ compileClaused ci pm (Localized ws gbs) =
 compileGuards :: (MonadMatch m, Cored c)
               => Matching c a
               -> PatternMatrix t c a
-              -> Guarded (Scope PatPath c a)
+              -> Guarded (Scope PatternPath c a)
               -> m (c a)
 -- In the unguarded case, we can terminate immediately, because all patterns
 -- leading up to here matched trivially.
@@ -275,7 +274,7 @@ compileGuards ci pm (Guarded bods) = compileManyGuards ci pm bods
 compileManyGuards :: (MonadMatch m, Cored c)
                   => Matching c a
                   -> PatternMatrix t c a
-                  -> [(Scope PatPath c a, Scope PatPath c a)]
+                  -> [(Scope PatternPath c a, Scope PatternPath c a)]
                   -> m (c a)
 compileManyGuards ci pm [] = compile ci pm
 -- TODO: check for a trivial guard here
@@ -314,17 +313,17 @@ compile ci pm@(PatternMatrix ps (b:bs))
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
 
-bodyVar :: BodyBound -> Var (Var PatPath Word32) Word32
+bodyVar :: BodyBound -> Var (Var PatternPath Word32) Word32
 bodyVar (BodyDecl w) = F w
 bodyVar (BodyPat p) = B (B p)
 bodyVar (BodyWhere w) = B (F w)
 
-bodyVar_ :: BodyBound -> Var PatPath Word32
+bodyVar_ :: BodyBound -> Var PatternPath Word32
 bodyVar_ (BodyDecl w) = F w
 bodyVar_ (BodyPat p) = B p
 bodyVar_ (BodyWhere _) = error "panic: reference to non-existent where clause detected"
 
-whereVar :: WhereBound -> Var PatPath Word32
+whereVar :: WhereBound -> Var PatternPath Word32
 whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
 
@@ -342,7 +341,7 @@ compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile 
 
 compileLambda
   :: (MonadMatch m, Cored c)
-  => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
+  => [Pattern t] -> Scope PatternPath c a -> m (Scope Word8 c a)
 compileLambda ps body = compile ci pm where
  pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
@@ -351,7 +350,7 @@ compileLambda ps body = compile ci pm where
 
 compileCase
   :: (MonadMatch m, Cored c)
-  => [Pattern t] -> c a -> [Guarded (Scope PatPath c a)] -> m (c a)
+  => [Pattern t] -> c a -> [Guarded (Scope PatternPath c a)] -> m (c a)
 compileCase ps disc bs = compile ci pm where
  pm = PatternMatrix [ps] (Raw <$> bs)
  ci = Matching HM.empty [disc] [mempty]

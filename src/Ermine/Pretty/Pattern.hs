@@ -28,7 +28,7 @@ import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
 import Ermine.Syntax.Pattern
 
-newtype PP f a = PP { unPP :: State [String] (HashMap PatPath String, f a) }
+newtype PP f a = PP { unPP :: State [String] (HashMap PatternPath String, f a) }
 
 instance Functor f => Functor (PP f) where
   fmap f = PP . (fmap . fmap . fmap $ f) .  unPP
@@ -37,14 +37,14 @@ instance Applicative f => Applicative (PP f) where
   pure = PP . pure . pure . pure
   PP f <*> PP x = PP $ liftA2 (liftA2 (<*>)) f x
 
-varPP :: Applicative f => PatPath -> PP f Doc
+varPP :: Applicative f => PatternPath -> PP f Doc
 varPP p = PP . state $ \(v:vars) -> ((HM.singleton p v, pure $ text v), vars)
 
-runPP :: PP f a -> [String] -> (HashMap PatPath String, f a)
+runPP :: PP f a -> [String] -> (HashMap PatternPath String, f a)
 runPP pp = evalState (unPP pp)
 
 prettyPat' :: Applicative f
-           => PatPaths -> Pattern t -> Int -> (t -> Int -> f Doc) -> PP f Doc
+           => PatternPaths -> Pattern t -> Int -> (t -> Int -> f Doc) -> PP f Doc
 prettyPat' path (SigP _t)   _    _  = varPP $ leafPP path
 prettyPat' _    WildcardP   _    _  = pure $ text "_"
 prettyPat' path (AsP p)     prec kt = h <$> varPP (leafPP path)
@@ -63,12 +63,12 @@ prettyPat' path (TupP ps)   _    kt =
 
 prettyPattern :: Applicative f
               => Pattern t -> [String] -> Int
-              -> (t -> Int -> f Doc) -> (HashMap PatPath String, f Doc)
+              -> (t -> Int -> f Doc) -> (HashMap PatternPath String, f Doc)
 prettyPattern p vs prec tk = runPP (prettyPat' mempty p prec tk) vs
 
 lambdaPatterns :: Applicative f
                => [Pattern t] -> [String] -> (t -> Int -> f Doc)
-               -> (HashMap PatPath String, f Doc)
+               -> (HashMap PatternPath String, f Doc)
 lambdaPatterns ps vs tk =
   runPP (lsep <$> traverse (\(i,o) -> prettyPat' (argPP i) ?? 12 ?? tk $ o) (zip [0..] ps)) vs
  where lsep [] = empty ; lsep l = space <> hsep l

@@ -379,7 +379,7 @@ unfurlConstraints (Exists ks ts cs) = do
 unfurlConstraints c = pure $ partConstraints c
 
 inferPatternType :: MonadMeta s m =>  Depth -> PatM s
-                 -> m ([MetaT s], TypeM s, PatPath -> TypeM s)
+                 -> m ([MetaT s], TypeM s, PatternPath -> TypeM s)
 inferPatternType d (SigP ann)  = do
   ty <- instantiateAnnot d ann
   checkKind (view metaValue <$> ty) star
