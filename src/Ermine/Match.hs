@@ -193,11 +193,11 @@ promote = fmap . fmap $ F . pure
 -- | This lifts a Matching to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bumpCI :: Applicative c => Matching c a -> Matching c (Var b (c a))
-bumpCI (Matching m cs ps) = Matching (promote m) (promote cs) ps
+bumpM :: Applicative c => Matching c a -> Matching c (Var b (c a))
+bumpM (Matching m cs ps) = Matching (promote m) (promote cs) ps
 
-hbumpCI :: Monad c => Matching c a -> Matching (Scope b c) a
-hbumpCI (Matching m cs ps) = Matching (lift <$> m) (lift <$> cs) ps
+hbumpM :: Monad c => Matching c a -> Matching (Scope b c) a
+hbumpM (Matching m cs ps) = Matching (lift <$> m) (lift <$> cs) ps
 
 bumpPM :: Applicative c => PatternMatrix t c a -> PatternMatrix t c (Var b (c a))
 bumpPM (PatternMatrix ps bs) = PatternMatrix ps (promote $ bs)
@@ -253,13 +253,13 @@ compileClaused :: (MonadMatch m, Cored c)
                -> PatternMatrix t c a
                -> Claused c a
                -> m (c a)
-compileClaused ci pm (Raw gbs) = compileGuards ci pm gbs
-compileClaused ci pm (Localized ws gbs) =
-  letrec (inst <$> ws) <$> compileGuards ci' pm' gbs
+compileClaused m pm (Raw gbs) = compileGuards m pm gbs
+compileClaused m pm (Localized ws gbs) =
+  letrec (inst <$> ws) <$> compileGuards m' pm' gbs
  where
- ci' = hbumpCI ci
+ m' = hbumpM m
  pm' = hbumpPM pm
- inst = instantiate (instantiation ci')
+ inst = instantiate (instantiation m')
 
 compileGuards :: (MonadMatch m, Cored c)
               => Matching c a
@@ -268,19 +268,19 @@ compileGuards :: (MonadMatch m, Cored c)
               -> m (c a)
 -- In the unguarded case, we can terminate immediately, because all patterns
 -- leading up to here matched trivially.
-compileGuards ci _  (Unguarded body) = pure $ instantiate (instantiation ci) body
-compileGuards ci pm (Guarded bods) = compileManyGuards ci pm bods
+compileGuards m _  (Unguarded body) = pure $ instantiate (instantiation m) body
+compileGuards m pm (Guarded bods) = compileManyGuards m pm bods
 
 compileManyGuards :: (MonadMatch m, Cored c)
                   => Matching c a
                   -> PatternMatrix t c a
                   -> [(Scope PatternPath c a, Scope PatternPath c a)]
                   -> m (c a)
-compileManyGuards ci pm [] = compile ci pm
+compileManyGuards m pm [] = compile m pm
 -- TODO: check for a trivial guard here
-compileManyGuards ci pm ((g,b):gbs) =
+compileManyGuards m pm ((g,b):gbs) =
   compileManyGuards
-    (bumpCI ci)
+    (bumpM m)
     (bumpPM pm)
     (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
   caze (inst g) ?? Nothing $
@@ -288,7 +288,7 @@ compileManyGuards ci pm ((g,b):gbs) =
       [(1, (0, Scope . fmap (F . pure) $ inst b))
       ,(0, (0, Scope $ f))
       ]
- where inst = instantiate (instantiation ci)
+ where inst = instantiate (instantiation m)
 
 
 -- | Compiles a pattern matrix together with a corresponding set of core
@@ -296,9 +296,9 @@ compileManyGuards ci pm ((g,b):gbs) =
 -- of the pattern matrix.
 compile :: (MonadMatch m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
 compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
-compile ci pm@(PatternMatrix ps (b:bs))
+compile m pm@(PatternMatrix ps (b:bs))
   | all (matchesTrivially . head) ps =
-     compileClaused ci (PatternMatrix (drop 1 <$> ps) bs) b
+     compileClaused m (PatternMatrix (drop 1 <$> ps) bs) b
 
   | Just i <- selectCol ps = let
       col = ps !! i
@@ -308,9 +308,9 @@ compile ci pm@(PatternMatrix ps (b:bs))
           sms <- for (toListOf folded heads) $ \h -> do
                    let n = h^.arity
                    (,) <$> constructorTag h
-                       <*> ((,) n . Scope <$> compile (expand i n ci) (splitOn i h pm))
-          caze ((ci^.colCores) !! i) (M.fromList sms) <$>
-            if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
+                       <*> ((,) n . Scope <$> compile (expand i n m) (splitOn i h pm))
+          caze ((m^.colCores) !! i) (M.fromList sms) <$>
+            if sig then pure Nothing else Just . Scope <$> compile (remove i m) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
 
 bodyVar :: BodyBound -> Var (Var PatternPath Word32) Word32
@@ -330,27 +330,27 @@ whereVar (WherePat p) = B p
 compileBinding
   :: (MonadMatch m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
-compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile ci pm where
+compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
   clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                          (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
   pm = PatternMatrix (transpose ps) (zipWith clause gds ws)
   pps = zipWith (const . argPP) [0..] (head ps)
   cs = zipWith (const . Scope . pure . B) [(0 :: Word8)..] (head ps)
-  ci = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
+  m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileLambda
   :: (MonadMatch m, Cored c)
   => [Pattern t] -> Scope PatternPath c a -> m (Scope Word8 c a)
-compileLambda ps body = compile ci pm where
+compileLambda ps body = compile m pm where
  pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
- ci = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
+ m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileCase
   :: (MonadMatch m, Cored c)
   => [Pattern t] -> c a -> [Guarded (Scope PatternPath c a)] -> m (c a)
-compileCase ps disc bs = compile ci pm where
+compileCase ps disc bs = compile m pm where
  pm = PatternMatrix [ps] (Raw <$> bs)
- ci = Matching HM.empty [disc] [mempty]
+ m = Matching HM.empty [disc] [mempty]
