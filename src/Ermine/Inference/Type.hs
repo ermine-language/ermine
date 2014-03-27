@@ -13,7 +13,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2011-2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2011-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -70,14 +70,12 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty, (<>))
 import Text.Trifecta.Result
 
 type WitnessM s a = Witness (TypeM s) a
-
 type AnnotM s = Annot (MetaK s) (MetaT s)
 type PatM s = Pattern (AnnotM s)
 type TermM s a = Term (AnnotM s) a
 type AltM s a = Alt (AnnotM s) (Term (AnnotM s)) a
 type ScopeM b s a = Scope b (Term (AnnotM s)) a
 type BindingM s a = Binding (AnnotM s) a
-
 type CoreM s a = Scope a Core (TypeM s)
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
@@ -149,7 +147,7 @@ verifyAnnot (Annot _ xs) = do
   ty <$ checkKind (view metaValue <$> ty) star
  where
  explode (F a) = return a
- explode (B _) = fail "My brain exploded. Kinda."
+ explode (B _) = fail "My brain exploded. I don't know how to deal with explicit type annotations in a binding group involving `some'."
 
 inferBindings
   :: MonadDischarge s m
