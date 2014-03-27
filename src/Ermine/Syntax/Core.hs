@@ -265,7 +265,8 @@ instance Cored Core where
   core = id
   {-# INLINE core #-}
   caze = Case
-  lambda = Lam
+  lambda 0 s = instantiate (error "lambda: impossible argument") s
+  lambda n s = Lam n s
   lambdaDict = LamDict
   letrec = Let
 

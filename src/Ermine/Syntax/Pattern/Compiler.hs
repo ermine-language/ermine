@@ -9,6 +9,7 @@
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
@@ -65,6 +66,7 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
+import Ermine.Syntax.Scope
 import Ermine.Syntax.Term
 
 -- | The environment necessary to perform pattern compilation. We need two
@@ -311,10 +313,29 @@ compile ci pm@(PMatrix ps (b:bs))
             if sig then pure Nothing else Just . Scope <$> compile (remove i ci) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
 
+bodyVar :: BodyBound -> Var (Var PatPath Word32) Word32
+bodyVar (BodyDecl w) = F w
+bodyVar (BodyPat p) = B (B p)
+bodyVar (BodyWhere w) = B (F w)
+
+whereVar :: WhereBound -> Var PatPath Word32
+whereVar (WhereDecl w) = F w
+whereVar (WherePat p) = B p
+
 compileBinding
-  :: (MonadPComp m, Cored c)
-  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var Word32 WhereBound) c a]] -> m (Scope Word32 c a)
-compileBinding _ _ _ = return (core $ lit "Binding")
+  :: forall m c t a.
+     (MonadPComp m, Cored c)
+  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
+compileBinding ps gds ws = do
+  let clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
+                             (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
+      pm :: PMatrix t (Scope Word8 (Scope Word32 c)) a
+      pm = PMatrix (transpose ps) (zipWith clause gds ws)
+      pps = zipWith (const . argPP) [0..] (head ps)
+      cs = zipWith (const . Scope . pure . B) [(0 :: Word8)..] (head ps)
+      ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
+  r <- compile ci pm
+  return $ lambda (fromIntegral $ length $ head ps) r
 
 compileLambda :: (MonadPComp m, Cored c)
               => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)

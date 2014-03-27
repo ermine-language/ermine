@@ -125,10 +125,10 @@ inferBindingType d cxt lcxt bdg = do
     gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
     (rs, t, cores) <- coalesceGuarded gd'
     (rs', t', cores') <- checkSkolemEscapes (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
-    let assocL (B a)     = B (B a)
-        assocL (F (B a)) = B (F a)
-        assocL (F (F a)) = F a
-    return (rs', t', splitScope <$> cores', whereWitnesses^..folded.witnessCore.to (splitScope . mapBound assocL))
+    let shuffle (B a)     = B (F a)
+        shuffle (F (B a)) = B (B a)
+        shuffle (F (F a)) = F a
+    return (rs', t', splitScope <$> cores', whereWitnesses^..folded.witnessCore.to (splitScope . mapBound shuffle))
 
   -- if only someone could write unzip4!
   let rs       = mess^.folded._1
