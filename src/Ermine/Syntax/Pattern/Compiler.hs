@@ -318,6 +318,11 @@ bodyVar (BodyDecl w) = F w
 bodyVar (BodyPat p) = B (B p)
 bodyVar (BodyWhere w) = B (F w)
 
+bodyVar_ :: BodyBound -> Var PatPath Word32
+bodyVar_ (BodyDecl w) = F w
+bodyVar_ (BodyPat p) = B p
+bodyVar_ (BodyWhere _) = error "panic: reference to non-existent where clause detected"
+
 whereVar :: WhereBound -> Var PatPath Word32
 whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
@@ -327,7 +332,8 @@ compileBinding
      (MonadPComp m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
 compileBinding ps gds ws = do
-  let clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
+  let clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
+      clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                              (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
       pm :: PMatrix t (Scope Word8 (Scope Word32 c)) a
       pm = PMatrix (transpose ps) (zipWith clause gds ws)
