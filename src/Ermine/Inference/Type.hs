@@ -278,15 +278,8 @@ checkType :: MonadDischarge s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
   w <- inferType d cxt e
-  checkKind (fmap (view metaValue) t) star
+  checkKind (view metaValue <$> t) star
   subsumesType d w t
-
-{-
-checkTypeInScope :: MonadDischarge s m
-                 => Depth -> (b -> TypeM s) -> (v -> TypeM s)
-                 -> ScopeM b s v -> TypeM s -> m (WitnessM s (Var b v))
-checkTypeInScope d aug cxt e t = checkType d (unvar aug cxt) (fromScope e) t
--}
 
 subsumesType :: MonadDischarge s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
@@ -329,7 +322,6 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
         | min_d == 0 = ([],r ++ cc')
         | otherwise  = (r, cc')
 
-  -- if depth != 0 and we quantify over anything in r, yell. Yell loudly.
   when (any (any (`Set.member` s)) r') $
     fail "Unable to abstract over a local row constraint"
 
