@@ -104,7 +104,7 @@ library
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
-    Ermine.Matching
+    Ermine.Match
     Ermine.Monitor
     Ermine.Optimizer
     Ermine.Parser.DataType

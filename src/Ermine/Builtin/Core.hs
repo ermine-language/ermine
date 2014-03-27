@@ -20,16 +20,16 @@ import Control.Comonad
 import qualified Data.HashMap.Lazy as HM
 import Data.Word
 import Ermine.Builtin.Pattern
-import Ermine.Matching
+import Ermine.Match
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 
 
-plam :: (Eq v, MonadPComp m) => [P t v] -> Core v -> m (Core v)
+plam :: (Eq v, MonadMatch m) => [P t v] -> Core v -> m (Core v)
 plam ps body = Lam n . Scope <$> compile ci pm
  where
  n = fromIntegral $ length ps :: Word8
  assocs = concatMap (\(i,(Binder vs p)) -> zip vs . map (ArgPP i) $ paths p) (zip [0..] ps)
- pm = PMatrix (map (pure . extract) ps)
+ pm = PatternMatrix (map (pure . extract) ps)
               [Raw . Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
- ci = CInfo HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])
+ ci = Matching HM.empty (map (pure . B) [0..n-1]) (map argPP [0..n-1])

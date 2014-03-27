@@ -22,17 +22,17 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Matching
+module Ermine.Match
   ( Claused(..)
-  , PMatrix(..)
-  , HasPMatrix(..)
-  , PCompEnv(..)
-  , dummyPCompEnv
-  , MonadPComp(..)
+  , PatternMatrix(..)
+  , HasPatternMatrix(..)
+  , MatchEnv(..)
+  , dummyMatchEnv
+  , MonadMatch(..)
   , isSignature
   , constructorTag
-  , CompileInfo(..)
-  , HasCompileInfo(..)
+  , Matching(..)
+  , HasMatching(..)
   , defaultOn
   , splitOn
   , compile
@@ -80,40 +80,40 @@ import Ermine.Syntax.Term
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
 -- maps from globals to integer tags.
-newtype PCompEnv = PCompEnv { signatures :: HashMap Global (HashMap Global Word8) }
+newtype MatchEnv = MatchEnv { signatures :: HashMap Global (HashMap Global Word8) }
   deriving (Eq, Show)
 
-dummyPCompEnv :: PCompEnv
-dummyPCompEnv = PCompEnv $
+dummyMatchEnv :: MatchEnv
+dummyMatchEnv = MatchEnv $
   HM.singleton n (HM.singleton n 0)
  where n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
 
 
 -- | Monads that allow us to perform pattern compilation, by providing
--- a PCompEnv.
-class (Applicative m, Monad m) => MonadPComp m where
-  askPComp :: m PCompEnv
+-- a MatchEnv.
+class (Applicative m, Monad m) => MonadMatch m where
+  askMatch :: m MatchEnv
 
-instance MonadPComp ((->) PCompEnv) where
-  askPComp = id
+instance MonadMatch ((->) MatchEnv) where
+  askMatch = id
 
 -- | Determines whether a set of pattern heads constitutes a signature.
 -- This is handled specially for tuples and literals, and relies on the
 -- monad for data type constructors.
-isSignature :: MonadPComp m => Set PatHead -> m Bool
+isSignature :: MonadMatch m => Set PatHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
   Just (TupH _)   -> pure True
-  Just (ConH _ g) -> askPComp <&> \env -> case HM.lookup g $ signatures env of
+  Just (ConH _ g) -> askMatch <&> \env -> case HM.lookup g $ signatures env of
     Nothing -> error $ "PANIC: isSignature: unknown constructor"
     Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadPComp m => PatHead -> m Word8
+constructorTag :: MonadMatch m => PatHead -> m Word8
 constructorTag (TupH _) = pure 0
-constructorTag (ConH _ g) = askPComp <&> \env ->
+constructorTag (ConH _ g) = askMatch <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error $ "PANIC: constructorTag: unknown constructor"
     Just i  -> i
@@ -129,38 +129,39 @@ constructorTag (ConH _ g) = askPComp <&> \env ->
 --
 -- 'colPaths' contains the paths into the original pattern that correspond to
 -- each of the current columns.
-data CompileInfo c a = CInfo { _pathMap  :: HashMap PatPath (c a)
-                             , _colCores :: [c a]
-                             , _colPaths :: [PatPaths]
-                             }
+data Matching c a = Matching
+  { _pathMap  :: HashMap PatPath (c a)
+  , _colCores :: [c a]
+  , _colPaths :: [PatPaths]
+  }
 
-makeClassy ''CompileInfo
+makeClassy ''Matching
 
--- | @'remove' i@ removes the /i/th column of the 'CompileInfo'. This is for use
+-- | @'remove' i@ removes the /i/th column of the 'Matching'. This is for use
 -- when compiling the default case for a column, and thus the resulting
--- 'CompileInfo' is lifted to be used in such a context.
-remove :: Applicative c => Int -> CompileInfo c a -> CompileInfo c (Var () (c a))
-remove i (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
+-- 'Matching' is lifted to be used in such a context.
+remove :: Applicative c => Int -> Matching c a -> Matching c (Var () (c a))
+remove i (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
-    CInfo (HM.insert (leafPP p) (pure $ B ()) $ fmap (pure . F) m)
+    Matching (HM.insert (leafPP p) (pure $ B ()) $ fmap (pure . F) m)
           (map (pure . F) $ cl ++ cr)
           (pl ++ pr)
   _ -> error "PANIC: remove: bad column reference"
 
 -- | @'expand' i n@ expands the /i/th column of a pattern into /n/ columns. This
 -- is for use when compiling a constructor case of a pattern, and thus the
--- 'CompileInfo' returned is prepared to be used in such a case.
+-- 'Matching' returned is prepared to be used in such a case.
 expand :: Applicative c
-       => Int -> Word8 -> CompileInfo c a -> CompileInfo c (Var Word8 (c a))
-expand i n (CInfo m ccs cps) = case (splitAt i ccs, splitAt i cps) of
+       => Int -> Word8 -> Matching c a -> Matching c (Var Word8 (c a))
+expand i n (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
-    CInfo (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
+    Matching (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
           (map (pure . F) cl ++ map (\j -> pure $ B j) [1..n] ++ map (pure . F) cr)
           (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
-instantiation :: CompileInfo c a -> PatPath -> c a
-instantiation (CInfo pm cc cp) pp = fromMaybe
+instantiation :: Matching c a -> PatPath -> c a
+instantiation (Matching pm cc cp) pp = fromMaybe
   (error $ "PANIC: instantiation: unknown pattern reference: " ++ show pp) (HM.lookup pp pm')
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
@@ -179,46 +180,46 @@ hoistClaused tr (Localized ds g) =
 
 -- | Pattern matrices for compilation. The matrix is represented as a list
 -- of columns. There is also an extra column representing the guards.
-data PMatrix t c a = PMatrix { _cols     :: [[Pattern t]]
-                             , _bodies   :: [Claused c a]
-                             }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+data PatternMatrix t c a = PatternMatrix
+  { _cols     :: [[Pattern t]]
+  , _bodies   :: [Claused c a]
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
 
-makeClassy ''PMatrix
+makeClassy ''PatternMatrix
 
 -- | A helper function to make a more deeply nested core.
 promote :: (Functor f, Functor g, Applicative c) => f (g a) -> f (g (Var b (c a)))
 promote = fmap . fmap $ F . pure
 
--- | This lifts a CompileInfo to work under one additional scope. This is
+-- | This lifts a Matching to work under one additional scope. This is
 -- necessary when we compile a guard, which eliminates a row, but leaves
 -- all columns in place.
-bumpCI :: Applicative c => CompileInfo c a -> CompileInfo c (Var b (c a))
-bumpCI (CInfo m cs ps) = CInfo (promote m) (promote cs) ps
+bumpCI :: Applicative c => Matching c a -> Matching c (Var b (c a))
+bumpCI (Matching m cs ps) = Matching (promote m) (promote cs) ps
 
-hbumpCI :: Monad c => CompileInfo c a -> CompileInfo (Scope b c) a
-hbumpCI (CInfo m cs ps) = CInfo (lift <$> m) (lift <$> cs) ps
+hbumpCI :: Monad c => Matching c a -> Matching (Scope b c) a
+hbumpCI (Matching m cs ps) = Matching (lift <$> m) (lift <$> cs) ps
 
-bumpPM :: Applicative c => PMatrix t c a -> PMatrix t c (Var b (c a))
-bumpPM (PMatrix ps bs) = PMatrix ps (promote $ bs)
+bumpPM :: Applicative c => PatternMatrix t c a -> PatternMatrix t c (Var b (c a))
+bumpPM (PatternMatrix ps bs) = PatternMatrix ps (promote $ bs)
 
-hbumpPM :: (Functor c, Monad c) => PMatrix t c a -> PMatrix t (Scope b c) a
-hbumpPM (PMatrix ps bs) = PMatrix ps (hoistClaused lift <$> bs)
+hbumpPM :: (Functor c, Monad c) => PatternMatrix t c a -> PatternMatrix t (Scope b c) a
+hbumpPM (PatternMatrix ps bs) = PatternMatrix ps (hoistClaused lift <$> bs)
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column.
-defaultOn :: Applicative c => Int -> PMatrix t c a -> PMatrix t c (Var () (c a))
-defaultOn i (PMatrix ps cs)
+defaultOn :: Applicative c => Int -> PatternMatrix t c a -> PatternMatrix t c (Var () (c a))
+defaultOn i (PatternMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
-    in PMatrix (map select $ ls ++ rs) (promote $ select cs)
+    in PatternMatrix (map select $ ls ++ rs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
 splitOn :: Applicative c
-        => Int -> PatHead -> PMatrix t c a -> PMatrix t c (Var Word8 (c a))
-splitOn i hd (PMatrix ps cs)
+        => Int -> PatHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
+splitOn i hd (PatternMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
       prune (AsP r) = prune r
@@ -230,7 +231,7 @@ splitOn i hd (PMatrix ps cs)
         if | Just ps' <- preview con pat -> [ps']
            | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
            | otherwise                   -> []
-    in PMatrix (map select ls ++ newcs ++ map select rs)
+    in PatternMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"
 
@@ -248,9 +249,9 @@ selectCol = fmap fst
           . zip [0..]
           . map (length . takeWhile forces)
 
-compileClaused :: (MonadPComp m, Cored c)
-               => CompileInfo c a
-               -> PMatrix t c a
+compileClaused :: (MonadMatch m, Cored c)
+               => Matching c a
+               -> PatternMatrix t c a
                -> Claused c a
                -> m (c a)
 compileClaused ci pm (Raw gbs) = compileGuards ci pm gbs
@@ -261,9 +262,9 @@ compileClaused ci pm (Localized ws gbs) =
  pm' = hbumpPM pm
  inst = instantiate (instantiation ci')
 
-compileGuards :: (MonadPComp m, Cored c)
-              => CompileInfo c a
-              -> PMatrix t c a
+compileGuards :: (MonadMatch m, Cored c)
+              => Matching c a
+              -> PatternMatrix t c a
               -> Guarded (Scope PatPath c a)
               -> m (c a)
 -- In the unguarded case, we can terminate immediately, because all patterns
@@ -271,9 +272,9 @@ compileGuards :: (MonadPComp m, Cored c)
 compileGuards ci _  (Unguarded body) = pure $ instantiate (instantiation ci) body
 compileGuards ci pm (Guarded bods) = compileManyGuards ci pm bods
 
-compileManyGuards :: (MonadPComp m, Cored c)
-                  => CompileInfo c a
-                  -> PMatrix t c a
+compileManyGuards :: (MonadMatch m, Cored c)
+                  => Matching c a
+                  -> PatternMatrix t c a
                   -> [(Scope PatPath c a, Scope PatPath c a)]
                   -> m (c a)
 compileManyGuards ci pm [] = compile ci pm
@@ -294,11 +295,11 @@ compileManyGuards ci pm ((g,b):gbs) =
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
-compile :: (MonadPComp m, Cored c) => CompileInfo c a -> PMatrix t c a -> m (c a)
-compile _  (PMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
-compile ci pm@(PMatrix ps (b:bs))
+compile :: (MonadMatch m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
+compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
+compile ci pm@(PatternMatrix ps (b:bs))
   | all (matchesTrivially . head) ps =
-     compileClaused ci (PMatrix (drop 1 <$> ps) bs) b
+     compileClaused ci (PatternMatrix (drop 1 <$> ps) bs) b
 
   | Just i <- selectCol ps = let
       col = ps !! i
@@ -328,33 +329,29 @@ whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
 
 compileBinding
-  :: forall m c t a.
-     (MonadPComp m, Cored c)
+  :: (MonadMatch m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
-compileBinding ps gds ws = do
-  let clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
-      clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
-                             (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
-      pm :: PMatrix t (Scope Word8 (Scope Word32 c)) a
-      pm = PMatrix (transpose ps) (zipWith clause gds ws)
-      pps = zipWith (const . argPP) [0..] (head ps)
-      cs = zipWith (const . Scope . pure . B) [(0 :: Word8)..] (head ps)
-      ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
-  r <- compile ci pm
-  return $ lambda (fromIntegral $ length $ head ps) r
+compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile ci pm where
+  clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
+  clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
+                         (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
+  pm = PatternMatrix (transpose ps) (zipWith clause gds ws)
+  pps = zipWith (const . argPP) [0..] (head ps)
+  cs = zipWith (const . Scope . pure . B) [(0 :: Word8)..] (head ps)
+  ci = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
-compileLambda :: (MonadPComp m, Cored c)
-              => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
-compileLambda ps body = compile ci pm
- where
- pm = PMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
+compileLambda
+  :: (MonadMatch m, Cored c)
+  => [Pattern t] -> Scope PatPath c a -> m (Scope Word8 c a)
+compileLambda ps body = compile ci pm where
+ pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
  cs = zipWith (const . Scope . pure . B) [0..] ps
- ci = CInfo (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
+ ci = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
-compileCase :: (MonadPComp m, Cored c)
-            => [Pattern t] -> c a -> [Guarded (Scope PatPath c a)] -> m (c a)
-compileCase ps disc bs = compile ci pm
- where
- pm = PMatrix [ps] (Raw <$> bs)
- ci = CInfo HM.empty [disc] [mempty]
+compileCase
+  :: (MonadMatch m, Cored c)
+  => [Pattern t] -> c a -> [Guarded (Scope PatPath c a)] -> m (c a)
+compileCase ps disc bs = compile ci pm where
+ pm = PatternMatrix [ps] (Raw <$> bs)
+ ci = Matching HM.empty [disc] [mempty]
