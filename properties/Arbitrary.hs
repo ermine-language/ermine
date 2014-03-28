@@ -27,7 +27,7 @@ import Test.QuickCheck.Instances
 
 -- Orphans
 instance Arbitrary HardKind where
-  arbitrary = oneof $ return <$> [ Star, Constraint, Rho, Phi ]
+  arbitrary = oneof $ return <$> [ Star, Constraint, Rho, Phi, Unboxed ]
 
 instance Arbitrary a => Arbitrary (Hinted a) where
   arbitrary = oneof [ Unhinted <$> arbitrary, Hinted <$> arbitrary <*> arbitrary ]
@@ -41,11 +41,12 @@ instance Arbitrary Assoc where
 genPrecedence = choose (0, 9) :: Gen Int
 
 instance Arbitrary Fixity where
-  arbitrary = oneof [
-    Infix   <$> arbitrary <*> genPrecedence,
-    Prefix  <$> genPrecedence,
-    Postfix <$> genPrecedence,
-    return  Idfix ]
+  arbitrary = oneof
+    [ Infix   <$> arbitrary <*> genPrecedence
+    , Prefix  <$> genPrecedence
+    , Postfix <$> genPrecedence
+    , return  Idfix
+    ]
 
 instance Arbitrary ModuleName where
   arbitrary = mkModuleName <$> arbitrary <*> arbitrary
@@ -63,13 +64,13 @@ instance Arbitrary a => Arbitrary (Schema a) where
   arbitrary = Schema <$> arbitrary <*> arbitrary
 
 instance Arbitrary Type.HardType where
-  arbitrary = oneof [
-    Type.Tuple  <$> arbitrary,
-    return Type.Arrow,
-    -- TODO: learn more about Data.Void
+  arbitrary = oneof
+    [ Type.Tuple <$> arbitrary
+    , return Type.Arrow
     -- | Con !Global !(Schema Void)
-    --Type.Con    <$> arbitrary <*> arbitrary,
-    Type.ConcreteRho <$> arbitrary ]
+    -- , Type.Con <$> arbitrary <*> arbitrary
+    , Type.ConcreteRho <$> arbitrary
+    ]
 
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
   arbitrary = genType (Just arbitrary) (Just arbitrary)
@@ -142,28 +143,34 @@ genScope' :: Maybe (Gen b) -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (G
 genScope' mgb gf mga = Scope <$> gf (genVar' mgb . Just $ gf mga)
 
 instance Arbitrary Literal where
-  arbitrary = oneof [
-    Int     <$> arbitrary,
-    Long    <$> arbitrary,
-    Byte    <$> arbitrary,
-    Short   <$> arbitrary,
-    String  <$> arbitrary,
-    Char    <$> arbitrary,
-    Float   <$> arbitrary,
-    Double  <$> arbitrary ]
+  arbitrary = oneof
+    [ Int     <$> arbitrary
+    , Long    <$> arbitrary
+    , Byte    <$> arbitrary
+    , Short   <$> arbitrary
+    , String  <$> arbitrary
+    , Char    <$> arbitrary
+    , Float   <$> arbitrary
+    , Double  <$> arbitrary
+    ]
 
 instance Arbitrary t => Arbitrary (Pattern t) where
   arbitrary = sized tree' where
-    tree' 0 =  oneof [ SigP <$> arbitrary, return WildcardP, LitP <$> arbitrary ]
-    tree' n = smaller $ oneof [
-      SigP    <$> arbitrary,
-      return WildcardP,
-      AsP     <$> arbitrary,
-      StrictP <$> arbitrary,
-      LazyP   <$> arbitrary,
-      LitP    <$> arbitrary,
-      ConP    <$> arbitrary <*> arbitrary,
-      TupP    <$> arbitrary ]
+    tree' 0 =  oneof
+      [ SigP <$> arbitrary
+      , return WildcardP
+      , LitP <$> arbitrary
+      ]
+    tree' n = smaller $ oneof
+      [ SigP    <$> arbitrary
+      , return WildcardP
+      , AsP     <$> arbitrary
+      , StrictP <$> arbitrary
+      , LazyP   <$> arbitrary
+      , LitP    <$> arbitrary
+      , ConP    <$> arbitrary <*> arbitrary
+      , TupP    <$> arbitrary
+      ]
 
 instance (Arbitrary t,Arbitrary1 f,Arbitrary a,Functor f) => Arbitrary (Alt t f a) where
   arbitrary = Alt <$> arbitrary <*> arbitrary
@@ -191,64 +198,73 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Binding t a) where
     binding' n = smaller $ Binding <$> return mempty <*> arbitrary <*> arbitrary
 
 instance Arbitrary HardTerm where
-  arbitrary = oneof [
-    Term.Lit     <$> arbitrary,
-    DataCon      <$> arbitrary <*> genType Nothing Nothing,
-    Term.Tuple   <$> arbitrary,
-    return Hole ]
+  arbitrary = oneof
+    [ Term.Lit     <$> arbitrary
+    , DataCon      <$> arbitrary <*> genType Nothing Nothing
+    , Term.Tuple   <$> arbitrary
+    , return Hole
+    ]
 
 -- TODO: generate PatternPaths that actually make sense.
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
   arbitrary = sized term' where
     term' 0 = oneof [ Term.Var <$> arbitrary, HardTerm <$> arbitrary ]
-    term' n = smaller $ oneof [
-      Term.Var  <$> arbitrary,
-      Term.App  <$> arbitrary <*> arbitrary,
-      HardTerm  <$> arbitrary,
-      Term.Sig  <$> arbitrary <*> arbitrary,
-      Term.Lam  <$> arbitrary <*> arbitrary,
-      Term.Case <$> arbitrary <*> arbitrary,
-      Term.Let  <$> arbitrary <*> arbitrary,
-      Term.Loc  <$> return mempty <*> arbitrary,
-      Term.Remember <$> arbitrary <*> arbitrary ]
+    term' n = smaller $ oneof
+      [ Term.Var  <$> arbitrary
+      , Term.App  <$> arbitrary <*> arbitrary
+      , HardTerm  <$> arbitrary
+      , Term.Sig  <$> arbitrary <*> arbitrary
+      , Term.Lam  <$> arbitrary <*> arbitrary
+      , Term.Case <$> arbitrary <*> arbitrary
+      , Term.Let  <$> arbitrary <*> arbitrary
+      , Term.Loc  <$> return mempty <*> arbitrary
+      , Term.Remember <$> arbitrary <*> arbitrary
+      ]
 
 instance Arbitrary PatternPath where
-  arbitrary = oneof [ pure LeafPP
-                    , FieldPP <$> arbitrary <*> arbitrary
-                    , ArgPP   <$> arbitrary <*> arbitrary
+  arbitrary = oneof
+    [ pure LeafPP
+    , FieldPP <$> arbitrary <*> arbitrary
+    , ArgPP   <$> arbitrary <*> arbitrary
                     ]
 
 instance Arbitrary JavaLike where
-  arbitrary = oneof [
-    Method           <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary,
-    Core.Constructor <$> arbitrary <*> arbitrary,
-    Value            <$> arbitrary <*> arbitrary <*> arbitrary ]
+  arbitrary = oneof
+    [ Method           <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , Core.Constructor <$> arbitrary <*> arbitrary
+    , Value            <$> arbitrary <*> arbitrary <*> arbitrary
+    ]
 
 instance Arbitrary Foreign where
   arbitrary = oneof [ JavaLike <$> arbitrary , JavaLike <$> arbitrary ]
 
 instance Arbitrary HardCore where
-  arbitrary = oneof [
-    Super    <$> arbitrary,
-    Slot     <$> arbitrary,
-    Core.Lit <$> arbitrary,
-    PrimOp   <$> arbitrary,
-    Foreign  <$> arbitrary,
-    Error    <$> arbitrary ]
+  arbitrary = oneof
+    [ Super    <$> arbitrary
+    , Slot     <$> arbitrary
+    , Core.Lit <$> arbitrary
+    , PrimOp   <$> arbitrary
+    , Foreign  <$> arbitrary
+    , Error    <$> arbitrary
+    ]
 
 instance Arbitrary a => Arbitrary (Core a) where
   arbitrary = sized core' where
     core' 0 = oneof [ Core.Var <$> arbitrary, HardCore <$> arbitrary ]
-    core' n = smaller $ oneof [
-      Core.Var     <$> arbitrary,
-      HardCore     <$> arbitrary,
-      Core.App     <$> arbitrary <*> arbitrary,
-      Core.Lam     <$> arbitrary <*> arbitrary,
-      Core.Let     <$> arbitrary <*> arbitrary,
-      Core.Case    <$> arbitrary <*> arbitrary <*> arbitrary,
-      Core.Dict    <$> arbitrary <*> arbitrary,
-      Core.LamDict <$> arbitrary,
-      Core.AppDict <$> arbitrary <*> arbitrary ]
+    core' n = smaller $ oneof
+      [ Core.Var      <$> arbitrary
+      , HardCore      <$> arbitrary
+      , Core.App      <$> arbitrary <*> arbitrary
+      , Core.Lam      <$> arbitrary <*> arbitrary
+      , Core.Let      <$> arbitrary <*> arbitrary
+      , Core.Case     <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.Dict     <$> arbitrary <*> arbitrary
+      , Core.LamDict  <$> arbitrary <*> arbitrary
+      , Core.AppDict  <$> arbitrary <*> arbitrary
+      , Core.LamHash  <$> arbitrary <*> arbitrary
+      , Core.AppHash  <$> arbitrary <*> arbitrary
+      , Core.CaseHash <$> arbitrary <*> arbitrary <*> arbitrary
+      ]
 
 instance (Arbitrary k, Arbitrary t) => Arbitrary (Constructor.Constructor k t) where
   arbitrary = Constructor.Constructor <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
