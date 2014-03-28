@@ -1,17 +1,9 @@
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 
 --------------------------------------------------------------------
 -- |
@@ -43,6 +35,10 @@ import Data.Word
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
+
+#ifdef HLINT
+{-# ANN module "hlint: ignore Use fromMaybe" #-}
+#endif
 
 -- | The environment necessary to perform pattern compilation. We need two
 -- pieces of information:

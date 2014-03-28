@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -207,14 +206,14 @@ instance f ~ Core => AsHardCore (Scope b f a) where
 instance AsHardCore HardCore where
   _HardCore = id
 
-  _Lit        = prism Lit        $ \case Lit     l -> Right l ; hc -> Left hc
-  _PrimOp     = prism PrimOp     $ \case PrimOp  l -> Right l ; hc -> Left hc
-  _Error      = prism Error      $ \case Error   l -> Right l ; hc -> Left hc
-  _Super      = prism Super      $ \case Super   l -> Right l ; hc -> Left hc
-  _Slot       = prism Slot       $ \case Slot    l -> Right l ; hc -> Left hc
-  _Foreign    = prism Foreign    $ \case Foreign l -> Right l ; hc -> Left hc
-  _GlobalId   = prism GlobalId   $ \case GlobalId l -> Right l; hc -> Left hc
-  _InstanceId = prism InstanceId $ \case InstanceId l -> Right l; hc -> Left hc
+  _Lit        = prism Lit        $ \ xs -> case xs of Lit     l -> Right l ; hc -> Left hc
+  _PrimOp     = prism PrimOp     $ \ xs -> case xs of PrimOp  l -> Right l ; hc -> Left hc
+  _Error      = prism Error      $ \ xs -> case xs of Error   l -> Right l ; hc -> Left hc
+  _Super      = prism Super      $ \ xs -> case xs of Super   l -> Right l ; hc -> Left hc
+  _Slot       = prism Slot       $ \ xs -> case xs of Slot    l -> Right l ; hc -> Left hc
+  _Foreign    = prism Foreign    $ \ xs -> case xs of Foreign l -> Right l ; hc -> Left hc
+  _GlobalId   = prism GlobalId   $ \ xs -> case xs of GlobalId l -> Right l; hc -> Left hc
+  _InstanceId = prism InstanceId $ \ xs -> case xs of InstanceId l -> Right l; hc -> Left hc
 
 instance Hashable HardCore
 
@@ -334,7 +333,7 @@ class AsAppDict c where
   _AppDict :: Prism' c (c, c)
 
 instance AsAppDict (Core a) where
-  _AppDict = prism (uncurry AppDict) $ \case AppDict f d -> Right (f, d) ; c -> Left c
+  _AppDict = prism (uncurry AppDict) $ \ xs -> case xs of AppDict f d -> Right (f, d) ; c -> Left c
 
 instance f ~ Core => AsAppDict (Scope b f a) where
   _AppDict = prism (\ (Scope x, Scope y) -> Scope $ AppDict x y) $ \t@(Scope b) -> case b of

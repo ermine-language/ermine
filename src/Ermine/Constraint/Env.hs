@@ -98,10 +98,10 @@ viewConstraint :: MonadConstraint s m => Getting a ConstraintEnv a -> m a
 viewConstraint g = view g <$> askConstraint
 
 superclasses :: MonadConstraint s m => Type k t -> m [Type k t]
-superclasses tc = go [] tc
+superclasses = go []
  where
  go stk (App f x) = go (x:stk) f
- go stk (HardType (Con g _)) = viewConstraint (classes.at g) >>= \case
+ go stk (HardType (Con g _)) = viewConstraint (classes.at g) >>= \ xs -> case xs of
    Just clazz -> traverse (fmap join . bitraverse (pure . absurd) look) $ clazz^.context
     where look i | Just t <- stk ^? ix i = pure t
                  | otherwise = fail "Under-applied class"

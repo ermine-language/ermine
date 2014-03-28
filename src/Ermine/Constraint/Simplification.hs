@@ -1,8 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -47,7 +44,7 @@ bySuper :: (Alternative m, MonadConstraint s m, Eq k, Eq t)
 bySuper c d = Prelude.foldr id (pure d) <$> go [] d
  where
  go ps c'
-   | c == c'   = pure $ ps
+   | c == c'   = pure ps
    | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [0..]
 
 -- As bySuper.
@@ -81,10 +78,10 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
  matchArg _            _                       = Nothing
 
 byInstance :: (Eq k, Eq t, Alternative m, MonadConstraint s m) => Type k t -> m (Scope b Core (Type k t))
-byInstance c = peel [] c
+byInstance = peel []
  where
  peel stk (App f x) = peel (x:stk) f
- peel stk (HardType (Con g _)) = viewConstraint (instances . at g) >>= \case
+ peel stk (HardType (Con g _)) = viewConstraint (instances . at g) >>= \ xs -> case xs of
    Nothing -> empty
    Just [] -> empty
    Just is -> case catMaybes $ tryConstraint stk <$> is of

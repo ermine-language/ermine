@@ -52,7 +52,7 @@ rewriteCoreDown :: forall m c. (Applicative m, MonadWriter Any m)
 rewriteCoreDown opt = go
  where
  go :: forall e. Core e -> m (Core e)
- go c = sharing c (opt c) >>= \case
+ go c = sharing c (opt c) >>= \ xs -> case xs of
    l@(Lam n e) -> sharing l $ Lam n <$> goS e
    d@(Data n l) -> sharing d $ Data n <$> traverse go l
    a@(App f x) -> sharing a $ App <$> go f <*> go x
@@ -99,7 +99,7 @@ lamlam (Lam k e) = slurp False k (fromScope e)
  where
  slurp :: forall e. Bool -> Word8 -> Core (Var Word8 e) -> m (Core e)
  slurp _ m (Lam n b) = slurp True (m + n) (instantiate (pure.B.(m+)) b)
- slurp b m c         = (Lam m $ toScope c) <$ tell (Any b)
+ slurp b m c         = Lam m (toScope c) <$ tell (Any b)
 lamlam c = return c
 
 -- | 'LamDict' is strict, so η-reduction for it is sound. η-reduce.

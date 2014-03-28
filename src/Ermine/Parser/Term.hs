@@ -152,9 +152,7 @@ declarations = do
   bindings (extend (uncurry bindType) <$> tms) <$ validateDecls tys tms
 
 uncovered :: Ord a => [a] -> [a] -> Maybe a
-uncovered xs ys = find (`Set.notMember` s) ys
- where
- s = Set.fromList xs
+uncovered xs = find (`Set.notMember` s) where s = Set.fromList xs
 
 findDuplicate :: Ord a => [a] -> Maybe a
 findDuplicate = flip evalState Set.empty . foldrM test Nothing

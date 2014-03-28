@@ -1,9 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
 --------------------------------------------------------------------
 -- |
 -- Module    :  Ermine.Syntax.Digest
@@ -48,16 +46,20 @@ nullBS = Strict.pack [0]
 class Digestable t where
   -- | update a hash. This will default to updating using 'show' if not specified
   digest :: Ctx -> t -> Ctx
+#ifndef HLINT
   default digest :: (Generic t, GDigestable (Rep t)) => Ctx -> t -> Ctx
   digest c = gdigest c . from
+#endif
 
   digestList :: Ctx -> [t] -> Ctx
   digestList = Prelude.foldr (\e c -> update (digest c e) nullBS)
 
 class Digestable1 t where
   digest1 :: Digestable a => Ctx -> t a -> Ctx
+#ifndef HLINT
   default digest1 :: Digestable (t a) => Ctx -> t a -> Ctx
   digest1 = digest
+#endif
 
 instance (Digestable b, Digestable v) => Digestable (Var b v) where
 

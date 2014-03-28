@@ -56,10 +56,10 @@ data PreBinding t v = PreBinding Rendering (BindingType t) [PreBody t v]
 data PreBody t v = PreBody (Binder v [Pattern t]) (Guarded (Term t v)) (Binder v [Binding t v])
 
 body :: Binder v [Pattern t] -> Term t v -> Binder v [Binding t v] -> PreBody t v
-body ps b wh = PreBody ps (Unguarded b) wh
+body ps = PreBody ps . Unguarded
 
 gbody :: Binder v [Pattern t] -> [(Term t v, Term t v)] -> Binder v [Binding t v] -> PreBody t v
-gbody ps gs wh = PreBody ps (Guarded gs) wh
+gbody ps = PreBody ps . Guarded
 
 shapely :: [PreBody t v] -> Bool
 shapely [    ] = False
@@ -67,10 +67,10 @@ shapely (b:bs) = all (\b' -> plength b == plength b') bs
   where plength (PreBody ps _ _) = length $ extract ps
 
 implicit :: [PreBody t v] -> PreBinding t v
-implicit bs = PreBinding mempty Implicit bs
+implicit = PreBinding mempty Implicit
 
 explicit :: t -> [PreBody t v] -> PreBinding t v
-explicit t bs = PreBinding mempty (Explicit t) bs
+explicit = PreBinding mempty . Explicit
 
 bindings :: Eq v => [(v, PreBinding t v)] -> Binder v [Binding t v]
 bindings = extend finalizeBindings . uncurry Binder . unzip

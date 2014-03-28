@@ -8,7 +8,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011-2012
@@ -109,7 +108,7 @@ inferKind (Forall n tks cs b) = do
   return star
 
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
-fixCons m f dt = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m) dt
+fixCons m f = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m)
 
 -- | Checks a list of data types for well-kindedness. The unit in the kind
 -- variables is interpreted as an unknown, which must be determined by the

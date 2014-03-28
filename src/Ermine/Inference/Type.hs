@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternGuards #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2011-2014
@@ -351,8 +349,8 @@ skolemize _ (Forall ks ts cs bd) = do
   sts <- for ts $ newSkolem . instantiateVars sks . extract
   let inst = instantiateKindVars sks . instantiateVars sts
   (rs, tcs) <- unfurlConstraints $ inst cs
-  when (not $ null rs) $
-      fail "invalid higher-rank row constraints"
+  unless (null rs) $
+    fail "invalid higher-rank row constraints"
   return (sks, sts, tcs, inst bd)
 skolemize _ t = return ([], [], [], t)
 
@@ -383,21 +381,22 @@ inferPatternType :: MonadMeta s m =>  Depth -> PatM s
 inferPatternType d (SigP ann)  = do
   ty <- instantiateAnnot d ann
   checkKind (view metaValue <$> ty) star
-  return ([], ty, \case LeafPP -> ty ; _ -> error "panic: bad pattern path")
+  return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
 inferPatternType d WildcardP   =
   pure <$> newShallowMeta d star <&> \m ->
-    ([], m, \case LeafPP -> m ; _ -> error "panic: bad pattern path")
+    ([], m, \ xs -> case xs of LeafPP -> m ; _ -> error "panic: bad pattern path")
 inferPatternType d (AsP p)     =
   inferPatternType d p <&> \(sks, ty, pcxt) ->
-    (sks, ty, \case LeafPP -> ty ; pp -> pcxt pp)
+    (sks, ty, \ xs -> case xs of LeafPP -> ty ; pp -> pcxt pp)
 inferPatternType d (StrictP p) = inferPatternType d p
 inferPatternType d (LazyP p)   = inferPatternType d p
 inferPatternType d (TupP ps)   =
   unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->
     ( join sks
     , apps (tuple $ length ps) tys
-    , \case FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
-            _ -> error "panic: bad pattern path"
+    , \ xs -> case xs of
+       FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
+       _ -> error "panic: bad pattern path"
     )
 inferPatternType _ (LitP l)    =
   pure ([], literalType l, \_ -> error "panic: bad pattern path")
@@ -413,8 +412,9 @@ inferPatternType d (ConP g ps)
                 uncaring $ unifyType (pure x) ty
                 return ( x:sks
                        , builtin_ "E"
-                       , \case FieldPP 0 pp -> f pp
-                               _ -> error "panic: bad pattern path"
+                       , \xs -> case xs of
+                         FieldPP 0 pp -> f pp
+                         _ -> error "panic: bad pattern path"
                        )
       _ -> fail "over-applied constructor"
 inferPatternType _ (ConP _ _)  = error "unimplemented"

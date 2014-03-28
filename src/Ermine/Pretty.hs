@@ -51,7 +51,7 @@ parensIf False = id
 hyph :: String -> Doc
 hyph t = column $ \k -> columns $ \mn ->
   let n = fromMaybe 80 mn
-      (pr,sf) = (bimap (fmap fst) (fmap fst)) $ span (\ (_,d) -> k + d < n) $ zip xs ls
+      (pr,sf) = bimap (fmap fst) (fmap fst) $ span (\ (_,d) -> k + d < n) $ zip xs ls
       ls = tail $ scanl (\a b -> a + length b) 0 xs
       xs = hyphenate english_US t
   in if null pr

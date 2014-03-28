@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE PatternGuards #-}
@@ -44,6 +44,10 @@ import Data.Foldable
 import Data.List (transpose)
 import Data.Word
 import Ermine.Syntax.Pattern
+
+#ifdef HLINT
+{-# ANN module "hlint: ignore Eta reduce" #-}
+#endif
 
 -- * Claused
 
@@ -95,10 +99,10 @@ splitOn i hd (PatternMatrix ps cs)
       prune r = r
       p (pat, _) = has con (prune pat) || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'
-      newcs = transpose $ c >>= \pat ->
-        if | Just ps' <- preview con pat -> [ps']
-           | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
-           | otherwise                   -> []
+      newcs = transpose $ c >>= \pat -> case () of
+        _ | Just ps' <- preview con pat -> [ps']
+          | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
+          | otherwise                   -> []
     in PatternMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select cs)
   | otherwise = error "PANIC: splitOn: bad column reference"

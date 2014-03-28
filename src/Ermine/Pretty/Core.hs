@@ -33,9 +33,9 @@ import Ermine.Syntax.Name
 
 -- | Pretty print JavaLike FFI descrptions
 prettyJavaLike :: JavaLike -> Doc
-prettyJavaLike (Method _st _cn _mn _args) = text $ "method{..}" -- TODO
-prettyJavaLike (Constructor _cn _args)    = text $ "constructor{..}" -- TODO
-prettyJavaLike (Value _st _cn _fn)        = text $ "value{..}" -- TODO
+prettyJavaLike (Method _st _cn _mn _args) = text "method{..}" -- TODO
+prettyJavaLike (Constructor _cn _args)    = text "constructor{..}" -- TODO
+prettyJavaLike (Value _st _cn _fn)        = text "value{..}" -- TODO
 
 prettyForeign :: Foreign -> Doc
 prettyForeign (JavaLike j) = prettyJavaLike j
@@ -52,7 +52,7 @@ prettyHardCore n (Error   s)    = parensIf (n>10) . text $ "error " ++ show s
 prettyHardCore _ (GlobalId g)   = text $ "global{" ++ show g ++ "}"
 prettyHardCore _ (InstanceId i) =
   text ("instance{" ++ unpack (i^.headClass.name))
-     <+> hsep ((prettyType ?? (repeat "_") ?? 1000) . bimap (const "_") (const "_")
+     <+> hsep ((prettyType ?? repeat "_" ?? 1000) . bimap (const "_") (const "_")
            <$> i^.headTypeArgs)
       <> text "}"
 
@@ -84,7 +84,7 @@ prettyCore (v:vs) prec k (Case e m d) =
  branches = for (itoList m) $ \(t, (n, Scope b)) ->
    let (ws,rest) = first (fmap text) $ splitAt (fromIntegral n) vs
        k' (B 0) _ = pure dv
-       k' (B i) _ = pure $ ws !! (fromIntegral $ i-1)
+       k' (B i) _ = pure $ ws !! fromIntegral (i-1)
        k' (F c) p = prettyCore rest p k c
     in (\bd -> nest 2 $ coreData t ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b
@@ -93,7 +93,7 @@ prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  pc = prettyCore rest (-1) k' . unscope
  n = length bs
  (ws,rest) = first (fmap text) $ splitAt n vs
- k' (B i) _ = pure $ ws !! (fromIntegral i)
+ k' (B i) _ = pure $ ws !! fromIntegral i
  k' (F c) p = prettyCore rest p k c
  eq l r = l <+> text "=" <+> r
  h bds ed = parensIf (prec>=0) . nest 2 $
@@ -115,7 +115,7 @@ prettyCore vs _ k (Dict sups sls) =
  where
   (slotNames,rest) = first (fmap text) $ splitAt (length sls) vs
   eq l r = l <+> text "=" <+> r
-  k' (B i) _ = pure $ slotNames !! (fromIntegral i)
+  k' (B i) _ = pure $ slotNames !! fromIntegral i
   k' (F c) p = prettyCore rest p k c
 prettyCore _ _ _ _ = pure $ text "unimplemented"
 

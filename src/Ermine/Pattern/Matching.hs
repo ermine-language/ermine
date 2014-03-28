@@ -100,7 +100,7 @@ expand i n (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     Matching (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
           (map (pure . F) cl ++ map (pure . B) [1..n] ++ map (pure . F) cr)
-          (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
+          (pl ++ map (\j -> p <> fieldPP j) [0..fromIntegral n - 1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
 instantiation :: Matching c a -> PatternPath -> c a

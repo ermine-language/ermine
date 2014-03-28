@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -163,12 +162,12 @@ checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
  closedOrLame _ = Nothing
 
 typeBody :: Term Ann Text -> Console ()
-typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \case
+typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
   Just (ty, _) -> sayLn $ prettyType ty names (-1)
   Nothing -> sayLn "Unbound variables detected"
 
 coreBody :: Term Ann Text -> Console ()
-coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \case
+coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
   Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 
