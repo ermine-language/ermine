@@ -10,7 +10,7 @@ import Data.Monoid
 import Data.Void
 import Ermine.Syntax.Core        as Core
 import Ermine.Syntax.Constructor as Constructor
-import Ermine.Syntax.DataType    as DataType
+import Ermine.Syntax.Data        as Data
 import Ermine.Syntax.Global      as Global
 import Ermine.Syntax.Hint        as Hint
 import Ermine.Syntax.Kind        as Kind

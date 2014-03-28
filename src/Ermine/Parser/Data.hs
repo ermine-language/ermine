@@ -9,7 +9,7 @@
 --
 -- This module provides the parser for types
 --------------------------------------------------------------------
-module Ermine.Parser.DataType
+module Ermine.Parser.Data
   ( constr
   , dataType
   ) where
@@ -24,7 +24,7 @@ import Ermine.Parser.Global
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.Constructor
-import Ermine.Syntax.DataType
+import Ermine.Syntax.Data
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind (HasKindVars(..))
 import Ermine.Syntax.Type

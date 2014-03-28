@@ -45,7 +45,7 @@ import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax.Constructor as Data
-import Ermine.Syntax.DataType as Data
+import Ermine.Syntax.Data as Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
@@ -53,7 +53,7 @@ import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var)
-import Ermine.Unification.DataType
+import Ermine.Unification.Data
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing

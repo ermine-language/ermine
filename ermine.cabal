@@ -107,7 +107,7 @@ library
     Ermine.Inference.Witness
     Ermine.Monitor
     Ermine.Optimizer
-    Ermine.Parser.DataType
+    Ermine.Parser.Data
     Ermine.Parser.Global
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
@@ -131,7 +131,7 @@ library
     Ermine.Syntax.Class
     Ermine.Syntax.Constructor
     Ermine.Syntax.Core
-    Ermine.Syntax.DataType
+    Ermine.Syntax.Data
     Ermine.Syntax.Digest
     Ermine.Syntax.Exposed
     Ermine.Syntax.Global
@@ -148,7 +148,7 @@ library
     Ermine.Syntax.Scope
     Ermine.Syntax.Term
     Ermine.Syntax.Type
-    Ermine.Unification.DataType
+    Ermine.Unification.Data
     Ermine.Unification.Kind
     Ermine.Unification.Meta
     Ermine.Unification.Sharing

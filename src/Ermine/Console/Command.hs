@@ -43,7 +43,7 @@ import Ermine.Constraint.Env
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Optimizer
-import Ermine.Parser.DataType
+import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
@@ -53,7 +53,7 @@ import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax
-import Ermine.Syntax.DataType (DataType, dataTypeSchema)
+import Ermine.Syntax.Data (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind

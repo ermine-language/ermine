@@ -1,14 +1,13 @@
-
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel 2013
+-- Copyright :  (c) Edward Kmett and Dan Doel 2013-2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Unification.DataType
+module Ermine.Unification.Data
   ( zonkDataType
   , zonkConstructor
   ) where
@@ -19,7 +18,7 @@ import Control.Applicative
 import Data.Traversable
 import Data.Void
 import Ermine.Syntax.Constructor
-import Ermine.Syntax.DataType
+import Ermine.Syntax.Data
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type
 import Ermine.Unification.Meta

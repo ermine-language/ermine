@@ -16,7 +16,7 @@ import Data.Map
 import Data.Serialize
 import Data.Void
 import Ermine.Syntax.Core
-import Ermine.Syntax.DataType
+import Ermine.Syntax.Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name

@@ -7,7 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
@@ -16,7 +16,7 @@
 -- This module provides the AST for data type declarations
 --------------------------------------------------------------------
 
-module Ermine.Syntax.DataType
+module Ermine.Syntax.Data
   ( DataType(DataType)
   , kparams
   , tparams
