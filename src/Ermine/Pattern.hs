@@ -27,14 +27,10 @@ module Ermine.Pattern
   -- * Monad
     module Ermine.Pattern.Env
   -- * Pattern Matrix
-  , Claused(..)
-  , PatternMatrix(..)
-  , HasPatternMatrix(..)
+  , module Ermine.Pattern.Matrix
   -- * Matching
   , Matching(..)
   , HasMatching(..)
-  , defaultOn
-  , splitOn
   -- * Compilation
   , compile
   , compileBinding
@@ -63,6 +59,7 @@ import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
 import Ermine.Pattern.Env
+import Ermine.Pattern.Matrix
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
@@ -116,27 +113,6 @@ instantiation (Matching pm cc cp) pp = fromMaybe
  where
  pm' = HM.union pm . HM.fromList $ zip (map leafPP cp) cc
 
-data Claused c a = Localized [Scope PatternPath (Scope Word32 c) a]
-                             (Guarded (Scope PatternPath (Scope Word32 c) a))
-                 | Raw (Guarded (Scope PatternPath c a))
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-hoistClaused :: Functor c => (forall x. c x -> d x) -> Claused c a -> Claused d a
-hoistClaused tr (Raw g) = Raw $ hoistScope tr <$> g
-hoistClaused tr (Localized ds g) =
-  Localized (hoistScope tr' <$> ds) (hoistScope tr' <$> g)
- where
- tr' = hoistScope tr
-
--- | Pattern matrices for compilation. The matrix is represented as a list
--- of columns. There is also an extra column representing the guards.
-data PatternMatrix t c a = PatternMatrix
-  { _cols     :: [[Pattern t]]
-  , _bodies   :: [Claused c a]
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
-
-makeClassy ''PatternMatrix
-
 -- | A helper function to make a more deeply nested core.
 promote :: (Functor f, Functor g, Applicative c) => f (g a) -> f (g (Var b (c a)))
 promote = fmap . fmap $ F . pure
@@ -155,35 +131,6 @@ bumpPM (PatternMatrix ps bs) = PatternMatrix ps (promote $ bs)
 
 hbumpPM :: (Functor c, Monad c) => PatternMatrix t c a -> PatternMatrix t (Scope b c) a
 hbumpPM (PatternMatrix ps bs) = PatternMatrix ps (hoistClaused lift <$> bs)
-
--- | Computes the matrix that should be used recursively when defaulting on
--- the specified column.
-defaultOn :: Applicative c => Int -> PatternMatrix t c a -> PatternMatrix t c (Var () (c a))
-defaultOn i (PatternMatrix ps cs)
-  | (ls, c:rs) <- splitAt i ps = let
-      select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
-    in PatternMatrix (map select $ ls ++ rs) (promote $ select cs)
-  | otherwise = error "PANIC: defaultOn: bad column reference"
-
--- | Computes the matrix that should be used recursively when defaulting on
--- the specified column, with the given pattern head.
-splitOn :: Applicative c
-        => Int -> PatternHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
-splitOn i hd (PatternMatrix ps cs)
-  | (ls, c:rs) <- splitAt i ps = let
-      con pat = traverseHead hd pat
-      prune (AsP r) = prune r
-      prune (StrictP r) = prune r
-      prune r = r
-      p (pat, _) = has con (prune pat) || matchesTrivially pat
-      select c' = map snd . filter p $ zip c c'
-      newcs = transpose $ c >>= \pat ->
-        if | Just ps' <- preview con pat -> [ps']
-           | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
-           | otherwise                   -> []
-    in PatternMatrix (map select ls ++ newcs ++ map select rs)
-               (promote $ select cs)
-  | otherwise = error "PANIC: splitOn: bad column reference"
 
 -- | Computes the set of heads of the given patterns.
 patternHeads :: [Pattern t] -> Set PatternHead
