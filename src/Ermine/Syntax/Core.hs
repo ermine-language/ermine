@@ -26,6 +26,8 @@ module Ermine.Syntax.Core
   , Cored(..)
   , AsAppDict(..)
   , appDicts
+  , AsAppHash(..)
+  , appHashes
   , JavaLike(..)
   , Foreign(..)
   , HardCore(..)
@@ -35,6 +37,7 @@ module Ermine.Syntax.Core
   , slot
   -- * Smart constructors
   , lam
+  , lamHash
   , let_
   , dataCon
   -- * Common built-in terms
@@ -315,6 +318,8 @@ data Core a
   | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
+  | LamHash !Word8 !(Scope Word8 Core a)
+  | AppHash !(Core a) !(Core a)
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance AsHardCore (Core a) where
@@ -329,6 +334,18 @@ super i c = _AppDict # (_Super # i, c)
 -- | ask for the @n@th slot of a given dictionary as a core expression
 slot :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
 slot i c = _AppDict # (_Slot # i, c)
+
+class AsAppHash c where
+  _AppHash :: Prism' c (c, c)
+
+instance AsAppHash (Core a) where
+  _AppHash = prism (uncurry AppHash) $ \ xs -> case xs of AppHash f d -> Right (f, d) ; c -> Left c
+
+instance f ~ Core => AsAppHash (Scope b f a) where
+  _AppHash = prism (\ (Scope x, Scope y) -> Scope $ AppHash x y) $ \t@(Scope b) -> case b of
+    AppHash x y -> Right (Scope x,Scope y)
+    Var (F (AppHash x y)) -> Right (Scope (Var (F x)), Scope (Var (F y)))
+    _ -> Left t
 
 -- | 'AppDict' provides strict application for dictionary manipulation
 class AsAppDict c where
@@ -347,33 +364,41 @@ instance f ~ Core => AsAppDict (Scope b f a) where
 appDicts :: AsAppDict c => c -> [c] -> c
 appDicts = Prelude.foldl (curry $ review _AppDict)
 
+-- | Apply several dictionaries.
+appHashes :: AsAppHash c => c -> [c] -> c
+appHashes = Prelude.foldl (curry $ review _AppHash)
+
 instance (Hashable a, Hashable b) => Hashable (Map a b) where
   hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
 
 instance Serial1 Core where
   -- | Binary serialization of a 'Core', given serializers for its parameter.
-  serializeWith pa (Var a)          = putWord8 0 >> pa a
-  serializeWith _  (HardCore h)     = putWord8 1 >> serialize h
-  serializeWith pa (Data i g cs)    = putWord8 2 >> serialize i >> serialize g >> serializeWith (serializeWith pa) cs
-  serializeWith pa (App c1 c2)      = putWord8 3 >> serializeWith pa c1 >> serializeWith pa c2
-  serializeWith pa (Lam i s)        = putWord8 4 >> serialize i >> serializeWith pa s
-  serializeWith pa (Let ss s)       = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
-  serializeWith pa (Case c bs d)    = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith $ serializeWith pa) bs >> serializeWith (serializeWith pa) d
-  serializeWith pa (Dict sups slts) = putWord8 7 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
-  serializeWith pa (LamDict s)      = putWord8 8 >> serializeWith pa s
-  serializeWith pa (AppDict c1 c2)  = putWord8 9 >> serializeWith pa c1 >> serializeWith pa c2
+  serializeWith pa (Var a)          = putWord8 0  >> pa a
+  serializeWith _  (HardCore h)     = putWord8 1  >> serialize h
+  serializeWith pa (Data i g cs)    = putWord8 2  >> serialize i >> serialize g >> serializeWith (serializeWith pa) cs
+  serializeWith pa (App c1 c2)      = putWord8 3  >> serializeWith pa c1 >> serializeWith pa c2
+  serializeWith pa (Lam i s)        = putWord8 4  >> serialize i >> serializeWith pa s
+  serializeWith pa (Let ss s)       = putWord8 5  >> serializeWith (serializeWith pa) ss >> serializeWith pa s
+  serializeWith pa (Case c bs d)    = putWord8 6  >> serializeWith pa c >> serializeWith (serializeWith $ serializeWith pa) bs >> serializeWith (serializeWith pa) d
+  serializeWith pa (Dict sups slts) = putWord8 7  >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
+  serializeWith pa (LamDict s)      = putWord8 8  >> serializeWith pa s
+  serializeWith pa (AppDict c1 c2)  = putWord8 9  >> serializeWith pa c1 >> serializeWith pa c2
+  serializeWith pa (LamHash i s)    = putWord8 10 >> serialize i >> serializeWith pa s
+  serializeWith pa (AppHash c1 c2)  = putWord8 11 >> serializeWith pa c1 >> serializeWith pa c2
 
   deserializeWith ga = getWord8 >>= \b -> case b of
-    0 -> liftM Var ga
-    1 -> liftM HardCore deserialize
-    2 -> liftM3 Data deserialize deserialize (deserializeWith (deserializeWith ga))
-    3 -> liftM2 App (deserializeWith ga) (deserializeWith ga)
-    4 -> liftM2 Lam deserialize (deserializeWith ga)
-    5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
-    6 -> liftM3 Case (deserializeWith ga) (deserializeWith (deserializeWith $ deserializeWith ga)) (deserializeWith (deserializeWith ga))
-    7 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith (deserializeWith ga))
-    8 -> liftM LamDict (deserializeWith ga)
-    9 -> liftM2 AppDict (deserializeWith ga) (deserializeWith ga)
+    0  -> liftM Var ga
+    1  -> liftM HardCore deserialize
+    2  -> liftM3 Data deserialize deserialize (deserializeWith (deserializeWith ga))
+    3  -> liftM2 App (deserializeWith ga) (deserializeWith ga)
+    4  -> liftM2 Lam deserialize (deserializeWith ga)
+    5  -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
+    6  -> liftM3 Case (deserializeWith ga) (deserializeWith (deserializeWith $ deserializeWith ga)) (deserializeWith (deserializeWith ga))
+    7  -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith (deserializeWith ga))
+    8  -> liftM LamDict (deserializeWith ga)
+    9  -> liftM2 AppDict (deserializeWith ga) (deserializeWith ga)
+    10 -> liftM2 LamHash deserialize (deserializeWith ga)
+    11 -> liftM2 AppHash (deserializeWith ga) (deserializeWith ga)
     _ -> fail $ "deserializeWith: Unexpected constructor code: " ++ show b
 
 instance Serial a => Serial (Core a) where
@@ -391,7 +416,7 @@ instance Serialize a => Serialize (Core a) where
 instance Hashable1 Core
 
 -- | Distinct primes used for salting the hash.
-distHardCore, distData, distApp, distLam, distLet, distCase, distDict, distLamDict, distAppDict :: Word
+distHardCore, distData, distApp, distLam, distLet, distCase, distDict, distLamDict, distAppDict, distLamHash, distAppHash :: Word
 distHardCore = maxBound `quot` 3
 distData     = maxBound `quot` 5
 distApp      = maxBound `quot` 7
@@ -401,18 +426,22 @@ distCase     = maxBound `quot` 17
 distDict     = maxBound `quot` 19
 distLamDict  = maxBound `quot` 23
 distAppDict  = maxBound `quot` 29
+distLamHash  = maxBound `quot` 31
+distAppHash  = maxBound `quot` 37
 
 instance Hashable a => Hashable (Core a) where
   hashWithSalt n (Var a)       = hashWithSalt n a
-  hashWithSalt n (HardCore c)  = hashWithSalt n c  `hashWithSalt` distHardCore
+  hashWithSalt n (HardCore c)  = hashWithSalt n c                                     `hashWithSalt` distHardCore
   hashWithSalt n (Data i g cs) = hashWithSalt n i  `hashWithSalt` cs `hashWithSalt` g `hashWithSalt` distData
-  hashWithSalt n (App x y)     = hashWithSalt n x  `hashWithSalt` y `hashWithSalt` distApp
-  hashWithSalt n (Lam k b)     = hashWithSalt n k  `hashWithSalt` b `hashWithSalt` distLam
-  hashWithSalt n (Let ts b)    = hashWithSalt n ts `hashWithSalt` b `hashWithSalt` distLet
+  hashWithSalt n (App x y)     = hashWithSalt n x  `hashWithSalt` y                   `hashWithSalt` distApp
+  hashWithSalt n (Lam k b)     = hashWithSalt n k  `hashWithSalt` b                   `hashWithSalt` distLam
+  hashWithSalt n (Let ts b)    = hashWithSalt n ts `hashWithSalt` b                   `hashWithSalt` distLet
   hashWithSalt n (Case c bs d) = hashWithSalt n c  `hashWithSalt` bs `hashWithSalt` d `hashWithSalt` distCase
-  hashWithSalt n (Dict s ss)   = hashWithSalt n s  `hashWithSalt` ss `hashWithSalt` distDict
-  hashWithSalt n (LamDict b)   = hashWithSalt n b `hashWithSalt` distLamDict
-  hashWithSalt n (AppDict x y) = hashWithSalt n x `hashWithSalt` y `hashWithSalt` distAppDict
+  hashWithSalt n (Dict s ss)   = hashWithSalt n s  `hashWithSalt` ss                  `hashWithSalt` distDict
+  hashWithSalt n (LamDict b)   = hashWithSalt n b                                     `hashWithSalt` distLamDict
+  hashWithSalt n (AppDict x y) = hashWithSalt n x  `hashWithSalt` y                   `hashWithSalt` distAppDict
+  hashWithSalt n (LamHash k b) = hashWithSalt n k  `hashWithSalt` b                   `hashWithSalt` distLamHash
+  hashWithSalt n (AppHash x y) = hashWithSalt n x  `hashWithSalt` y                   `hashWithSalt` distAppHash
 
 instance IsString a => IsString (Core a) where
   fromString = Var . fromString
@@ -444,6 +473,8 @@ instance Monad Core where
   Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   LamDict e   >>= f = LamDict (e >>>= f)
   AppDict x y >>= f = AppDict (x >>= f) (y >>= f)
+  LamHash i e >>= f = LamHash i (e >>>= f)
+  AppHash x y >>= f = AppHash (x >>= f) (y >>= f)
 
 instance Eq1 Core
 instance Show1 Core
@@ -451,7 +482,12 @@ instance Show1 Core
 -- | Smart 'Lam' constructor
 lam :: (Cored m, Eq a) => [a] -> Core a -> m a
 lam as t = core $ Lam (fromIntegral $ length as)
-               (abstract (fmap fromIntegral . flip List.elemIndex as) t)
+  (abstract (fmap fromIntegral . flip List.elemIndex as) t)
+
+-- | Smart 'Lam' constructor
+lamHash :: (Cored m, Eq a) => [a] -> Core a -> m a
+lamHash as t = core $ LamHash (fromIntegral $ length as)
+  (abstract (fmap fromIntegral . flip List.elemIndex as) t)
 
 -- | Smart 'Let' constructor
 let_ :: (Cored m, Eq a) => [(a, Core a)] -> Core a -> m a
@@ -460,6 +496,8 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
         abstr = abstract (fmap fromIntegral . flip List.elemIndex vs)
 
 -- | Builds an n-ary data constructor
+--
+-- TODO: gracefully handle unboxed fields
 dataCon :: Cored m => Word8 -> Word8 -> Global -> m a
 dataCon 0     tg g = core $ Data tg g []
 dataCon arity tg g = core $ Lam arity . Scope . Data tg g $ pure . B <$> [0 .. arity-1]
