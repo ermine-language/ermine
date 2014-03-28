@@ -204,7 +204,7 @@ compile m pm@(PatternMatrix ps (b:bs))
           sms <- for (toListOf folded heads) $ \h -> do
                    let n = h^.arity
                    (,) <$> constructorTag h
-                       <*> ((,,) n missingg . Scope <$> compile (expand i n m) (splitOn i h pm))
+                       <*> ((,,) n (constructorGlobal h) . Scope <$> compile (expand i n m) (splitOn i h pm))
           caze ((m^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i m) dm
   | otherwise = error "PANIC: pattern compile: No column selected."

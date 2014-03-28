@@ -20,6 +20,7 @@ module Ermine.Pattern.Env
   , MonadPattern(..)
   , isSignature
   , constructorTag
+  , constructorGlobal
   ) where
 
 import Prelude hiding (all)
@@ -87,3 +88,9 @@ constructorTag (ConH _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error "PANIC: constructorTag: unknown constructor"
     Just i  -> i
+
+-- | Looks up the constructor tag for a pattern head. For tuples this is
+-- always 0, but constructors must consult the compilation environment.
+constructorGlobal :: PatternHead -> Global
+constructorGlobal (TupH n) = tupleg n
+constructorGlobal (ConH _ g) = g

@@ -29,7 +29,6 @@ module Ermine.Syntax.Global
   , tupleg
   , trueg
   , falseg
-  , missingg -- temp
   ) where
 
 import Control.Applicative
@@ -204,8 +203,7 @@ tupleg :: Word8 -> Global
 tupleg w8 = glob Idfix (mkModuleName_ "Builtin") $ Data.Text.pack $ "(" ++ Prelude.replicate (if n == 0 then 0 else n-1) ',' ++ ")"
   where n = fromIntegral w8
 
-missingg, trueg, falseg :: Global
-missingg = glob Idfix (mkModuleName_ "Builtin") "Missing"
+trueg, falseg :: Global
 trueg = glob Idfix (mkModuleName_ "Builtin") "True"
 falseg = glob Idfix (mkModuleName_ "Builtin") "False"
 
