@@ -376,7 +376,7 @@ mergeConstraints (Exists m ks (Scope c)) (Exists n ls (Scope d)) =
  where
  bk :: Var Int a -> Var Int a -- mono local binds
  bk = first (+ length m) -- bump kind var
- ls' = fmap (Scope . (fmap bk) . unscope) <$> ls
+ ls' = fmap (Scope . fmap bk . unscope) <$> ls
  d' = bimap bk (bimap (+ length ks) (first bk)) d
 mergeConstraints (Exists m ks (Scope c)) d =
   Exists m ks . Scope $ mergeConstraints c (bimap F (F . pure) d)
