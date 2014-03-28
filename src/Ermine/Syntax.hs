@@ -25,6 +25,7 @@ module Ermine.Syntax
   -- * Tup
   , Tup(_Tup)
   , tup
+  , tup'
   ) where
 
 import Bound
@@ -110,3 +111,7 @@ class (Reviewable p, Functor f) => Tup p f t where
 
 tup :: Tup Tagged Identity t => [t] -> t
 tup = review _Tup
+
+tup' :: Tup Tagged Identity t => [t] -> t
+tup' [x] = x
+tup' xs = review _Tup xs

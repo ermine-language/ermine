@@ -57,10 +57,6 @@ pattern0
  <|> litp <$> literal
  <|> parens (tup' <$> patterns)
 
-tup' :: [PP] -> PP
-tup' [x] = x
-tup' xs = tup xs
-
 sigP :: (Monad m, TokenParsing m) => m PP
 sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
