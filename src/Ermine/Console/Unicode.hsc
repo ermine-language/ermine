@@ -12,7 +12,7 @@ module Ermine.Console.Unicode
   ( withUnicode
   ) where
 
-import Control.Monad.CatchIO
+import Control.Monad.Catch
 
 ##ifdef mingw32_HOST_ARCH
 ##ifdef i386_HOST_ARCH
@@ -35,7 +35,7 @@ foreign import ccall "windows.h GetConsoleCP" c_GetConsoleCP :: IO CUInt
 -- | Run in a modified codepage where we can print UTF-8 values on Windows.
 --
 -- You should probably run the top level of your program in this.
-withUnicode :: MonadCatchIO m => m a -> m a
+withUnicode :: MonadCatch m => m a -> m a
 ##ifdef USE_CP
 withUnicode m = do
   cp <- liftIO c_GetConsoleCP
