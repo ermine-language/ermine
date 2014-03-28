@@ -40,7 +40,7 @@ import Data.Foldable (for_)
 import Data.Void
 import Ermine.Builtin.Type as Type (lame)
 import Ermine.Console.State
-import Ermine.Constraint
+import Ermine.Constraint.Env
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Optimizer
