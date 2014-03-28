@@ -94,7 +94,7 @@ instance MonadConstraint s (D s) where
   askConstraint = D $ \de -> pure de
   localConstraint f (D m) = D $ \de -> m $ f de
 
-viewConstraint :: MonadConstraint s m => Getter ConstraintEnv a -> m a
+viewConstraint :: MonadConstraint s m => Getting a ConstraintEnv a -> m a
 viewConstraint g = view g <$> askConstraint
 
 superclasses :: MonadConstraint s m => Type k t -> m [Type k t]
