@@ -51,6 +51,7 @@ term0 = Var <$> termIdentifier
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match
     <|> foldl1 App <$> some term0
+    -- TODO: handle AppHash
 
 sig :: (Monad m, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
