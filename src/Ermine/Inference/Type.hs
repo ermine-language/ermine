@@ -48,7 +48,8 @@ import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
-import Ermine.Pattern as Pattern
+import Ermine.Pattern.Env as Pattern
+import Ermine.Pattern.Matching as Pattern
 import Ermine.Syntax
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint

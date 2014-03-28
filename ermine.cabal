@@ -115,7 +115,6 @@ library
     Ermine.Parser.Style
     Ermine.Parser.Type
     Ermine.Parser.Term
-    Ermine.Pattern
     Ermine.Pattern.Env
     Ermine.Pattern.Matching
     Ermine.Pattern.Matrix

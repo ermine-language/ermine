@@ -20,7 +20,9 @@ import Control.Comonad
 import qualified Data.HashMap.Lazy as HM
 import Data.Word
 import Ermine.Builtin.Pattern
-import Ermine.Pattern
+import Ermine.Pattern.Env
+import Ermine.Pattern.Matrix
+import Ermine.Pattern.Matching
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 
