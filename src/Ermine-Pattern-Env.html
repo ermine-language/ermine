@@ -7,98 +7,94 @@
 <link type='text/css' rel='stylesheet' href='hscolour.css' />
 </head>
 <body>
-<pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE MultiWayIf #-}</span>
+<pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE CPP #-}</span>
 <a name="line-2"></a><span class='hs-comment'>{-# LANGUAGE RankNTypes #-}</span>
-<a name="line-3"></a><span class='hs-comment'>{-# LANGUAGE DeriveFunctor #-}</span>
-<a name="line-4"></a><span class='hs-comment'>{-# LANGUAGE PatternGuards #-}</span>
-<a name="line-5"></a><span class='hs-comment'>{-# LANGUAGE TupleSections #-}</span>
-<a name="line-6"></a><span class='hs-comment'>{-# LANGUAGE DeriveFoldable #-}</span>
-<a name="line-7"></a><span class='hs-comment'>{-# LANGUAGE KindSignatures #-}</span>
-<a name="line-8"></a><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
-<a name="line-9"></a><span class='hs-comment'>{-# LANGUAGE ParallelListComp #-}</span>
-<a name="line-10"></a><span class='hs-comment'>{-# LANGUAGE DeriveTraversable #-}</span>
-<a name="line-11"></a><span class='hs-comment'>{-# LANGUAGE FlexibleInstances #-}</span>
-<a name="line-12"></a><span class='hs-comment'>{-# LANGUAGE ScopedTypeVariables #-}</span>
-<a name="line-13"></a><span class='hs-comment'>{-# LANGUAGE MultiParamTypeClasses #-}</span>
-<a name="line-14"></a><span class='hs-comment'>{-# LANGUAGE FunctionalDependencies #-}</span>
-<a name="line-15"></a>
+<a name="line-3"></a><span class='hs-comment'>{-# LANGUAGE TupleSections #-}</span>
+<a name="line-4"></a><span class='hs-comment'>{-# LANGUAGE FlexibleInstances #-}</span>
+<a name="line-5"></a><span class='hs-comment'>{-# LANGUAGE ScopedTypeVariables #-}</span>
+<a name="line-6"></a><span class='hs-comment'>{-# LANGUAGE MultiParamTypeClasses #-}</span>
+<a name="line-7"></a>
+<a name="line-8"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-9"></a><span class='hs-comment'>-- |</span>
+<a name="line-10"></a><span class='hs-comment'>-- Copyright :  (c) Dan Doel and Edward Kmett 2013-2014</span>
+<a name="line-11"></a><span class='hs-comment'>-- License   :  BSD3</span>
+<a name="line-12"></a><span class='hs-comment'>-- Maintainer:  Dan Doel &lt;dan.doel@gmail.com&gt;</span>
+<a name="line-13"></a><span class='hs-comment'>-- Stability :  experimental</span>
+<a name="line-14"></a><span class='hs-comment'>-- Portability: non-portable</span>
+<a name="line-15"></a><span class='hs-comment'>--</span>
 <a name="line-16"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-17"></a><span class='hs-comment'>-- |</span>
-<a name="line-18"></a><span class='hs-comment'>-- Copyright :  (c) Dan Doel and Edward Kmett 2013-2014</span>
-<a name="line-19"></a><span class='hs-comment'>-- License   :  BSD3</span>
-<a name="line-20"></a><span class='hs-comment'>-- Maintainer:  Dan Doel &lt;dan.doel@gmail.com&gt;</span>
-<a name="line-21"></a><span class='hs-comment'>-- Stability :  experimental</span>
-<a name="line-22"></a><span class='hs-comment'>-- Portability: non-portable</span>
-<a name="line-23"></a><span class='hs-comment'>--</span>
-<a name="line-24"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-25"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Pattern</span><span class='hs-varop'>.</span><span class='hs-conid'>Env</span>
-<a name="line-26"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>PatternEnv</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
-<a name="line-27"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>dummyPatternEnv</span>
-<a name="line-28"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>MonadPattern</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
-<a name="line-29"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>isSignature</span>
-<a name="line-30"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>constructorTag</span>
-<a name="line-31"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-32"></a>
-<a name="line-33"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Prelude</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>all</span><span class='hs-layout'>)</span>
-<a name="line-34"></a>
-<a name="line-35"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
-<a name="line-36"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
-<a name="line-37"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>HashMap</span><span class='hs-varop'>.</span><span class='hs-conid'>Lazy</span> <span class='hs-layout'>(</span><span class='hs-conid'>HashMap</span><span class='hs-layout'>)</span>
-<a name="line-38"></a><span class='hs-keyword'>import</span> <span class='hs-keyword'>qualified</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>HashMap</span><span class='hs-varop'>.</span><span class='hs-conid'>Lazy</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>HM</span>
-<a name="line-39"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Set</span> <span class='hs-layout'>(</span><span class='hs-conid'>Set</span><span class='hs-layout'>)</span>
-<a name="line-40"></a><span class='hs-keyword'>import</span> <span class='hs-keyword'>qualified</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Set</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>S</span>
-<a name="line-41"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Text</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>SText</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span><span class='hs-layout'>)</span>
-<a name="line-42"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Word</span>
-<a name="line-43"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Global</span>
-<a name="line-44"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>ModuleName</span>
-<a name="line-45"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Pattern</span>
-<a name="line-46"></a>
-<a name="line-47"></a><a name="PatternEnv"></a><span class='hs-comment'>-- | The environment necessary to perform pattern compilation. We need two</span>
-<a name="line-48"></a><a name="PatternEnv"></a><span class='hs-comment'>-- pieces of information:</span>
-<a name="line-49"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
-<a name="line-50"></a><a name="PatternEnv"></a><span class='hs-comment'>--   1) The signatures (full list of constructors) associated with each</span>
-<a name="line-51"></a><a name="PatternEnv"></a><span class='hs-comment'>--      particular constructor</span>
-<a name="line-52"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
-<a name="line-53"></a><a name="PatternEnv"></a><span class='hs-comment'>--   2) A mapping from constructors to their @Core@ integer tag</span>
-<a name="line-54"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
-<a name="line-55"></a><a name="PatternEnv"></a><span class='hs-comment'>-- This is accomplished via a map of maps. The outer map should take each</span>
-<a name="line-56"></a><a name="PatternEnv"></a><span class='hs-comment'>-- global to its associated signature, and signatures are represented as</span>
-<a name="line-57"></a><a name="PatternEnv"></a><span class='hs-comment'>-- maps from globals to integer tags.</span>
-<a name="line-58"></a><a name="PatternEnv"></a><span class='hs-keyword'>newtype</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-layout'>{</span> <span class='hs-varid'>signatures</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>HashMap</span> <span class='hs-conid'>Global</span> <span class='hs-layout'>(</span><span class='hs-conid'>HashMap</span> <span class='hs-conid'>Global</span> <span class='hs-conid'>Word8</span><span class='hs-layout'>)</span> <span class='hs-layout'>}</span>
-<a name="line-59"></a>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span> <span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<a name="line-17"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Pattern</span><span class='hs-varop'>.</span><span class='hs-conid'>Env</span>
+<a name="line-18"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>PatternEnv</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-19"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>dummyPatternEnv</span>
+<a name="line-20"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>MonadPattern</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-21"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>isSignature</span>
+<a name="line-22"></a>  <span class='hs-layout'>,</span> <span class='hs-varid'>constructorTag</span>
+<a name="line-23"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-24"></a>
+<a name="line-25"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Prelude</span> <span class='hs-varid'>hiding</span> <span class='hs-layout'>(</span><span class='hs-varid'>all</span><span class='hs-layout'>)</span>
+<a name="line-26"></a>
+<a name="line-27"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Applicative</span>
+<a name="line-28"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
+<a name="line-29"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>HashMap</span><span class='hs-varop'>.</span><span class='hs-conid'>Lazy</span> <span class='hs-layout'>(</span><span class='hs-conid'>HashMap</span><span class='hs-layout'>)</span>
+<a name="line-30"></a><span class='hs-keyword'>import</span> <span class='hs-keyword'>qualified</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>HashMap</span><span class='hs-varop'>.</span><span class='hs-conid'>Lazy</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>HM</span>
+<a name="line-31"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Set</span> <span class='hs-layout'>(</span><span class='hs-conid'>Set</span><span class='hs-layout'>)</span>
+<a name="line-32"></a><span class='hs-keyword'>import</span> <span class='hs-keyword'>qualified</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Set</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>S</span>
+<a name="line-33"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Text</span> <span class='hs-keyword'>as</span> <span class='hs-conid'>SText</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span><span class='hs-layout'>)</span>
+<a name="line-34"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Word</span>
+<a name="line-35"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Global</span>
+<a name="line-36"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>ModuleName</span>
+<a name="line-37"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Pattern</span>
+<a name="line-38"></a>
+<a name="line-39"></a><span class='hs-cpp'>#ifdef HLINT</span>
+<a name="line-40"></a><span class='hs-comment'>{-# ANN module "hlint: ignore Use fromMaybe" #-}</span>
+<a name="line-41"></a><span class='hs-cpp'>#endif</span>
+<a name="line-42"></a>
+<a name="line-43"></a><a name="PatternEnv"></a><span class='hs-comment'>-- | The environment necessary to perform pattern compilation. We need two</span>
+<a name="line-44"></a><a name="PatternEnv"></a><span class='hs-comment'>-- pieces of information:</span>
+<a name="line-45"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
+<a name="line-46"></a><a name="PatternEnv"></a><span class='hs-comment'>--   1) The signatures (full list of constructors) associated with each</span>
+<a name="line-47"></a><a name="PatternEnv"></a><span class='hs-comment'>--      particular constructor</span>
+<a name="line-48"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
+<a name="line-49"></a><a name="PatternEnv"></a><span class='hs-comment'>--   2) A mapping from constructors to their @Core@ integer tag</span>
+<a name="line-50"></a><a name="PatternEnv"></a><span class='hs-comment'>--</span>
+<a name="line-51"></a><a name="PatternEnv"></a><span class='hs-comment'>-- This is accomplished via a map of maps. The outer map should take each</span>
+<a name="line-52"></a><a name="PatternEnv"></a><span class='hs-comment'>-- global to its associated signature, and signatures are represented as</span>
+<a name="line-53"></a><a name="PatternEnv"></a><span class='hs-comment'>-- maps from globals to integer tags.</span>
+<a name="line-54"></a><a name="PatternEnv"></a><span class='hs-keyword'>newtype</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-layout'>{</span> <span class='hs-varid'>signatures</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>HashMap</span> <span class='hs-conid'>Global</span> <span class='hs-layout'>(</span><span class='hs-conid'>HashMap</span> <span class='hs-conid'>Global</span> <span class='hs-conid'>Word8</span><span class='hs-layout'>)</span> <span class='hs-layout'>}</span>
+<a name="line-55"></a>  <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span> <span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<a name="line-56"></a>
+<a name="line-57"></a><a name="dummyPatternEnv"></a><span class='hs-definition'>dummyPatternEnv</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>PatternEnv</span>
+<a name="line-58"></a><span class='hs-definition'>dummyPatternEnv</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-varop'>$</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>singleton</span> <span class='hs-varid'>n</span> <span class='hs-layout'>(</span><span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>singleton</span> <span class='hs-varid'>n</span> <span class='hs-num'>0</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-59"></a>  <span class='hs-varid'>n</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>glob</span> <span class='hs-conid'>Idfix</span> <span class='hs-layout'>(</span><span class='hs-varid'>mkModuleName</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"ermine"</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"Ermine"</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"E"</span><span class='hs-layout'>)</span>
 <a name="line-60"></a>
-<a name="line-61"></a><a name="dummyPatternEnv"></a><span class='hs-definition'>dummyPatternEnv</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>PatternEnv</span>
-<a name="line-62"></a><span class='hs-definition'>dummyPatternEnv</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>PatternEnv</span> <span class='hs-varop'>$</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>singleton</span> <span class='hs-varid'>n</span> <span class='hs-layout'>(</span><span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>singleton</span> <span class='hs-varid'>n</span> <span class='hs-num'>0</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-63"></a>  <span class='hs-varid'>n</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>glob</span> <span class='hs-conid'>Idfix</span> <span class='hs-layout'>(</span><span class='hs-varid'>mkModuleName</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"ermine"</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"Ermine"</span><span class='hs-layout'>)</span><span class='hs-layout'>)</span> <span class='hs-layout'>(</span><span class='hs-varid'>pack</span> <span class='hs-str'>"E"</span><span class='hs-layout'>)</span>
-<a name="line-64"></a>
-<a name="line-65"></a>
-<a name="line-66"></a><a name="MonadPattern"></a><span class='hs-comment'>-- | Monads that allow us to perform pattern compilation, by providing</span>
-<a name="line-67"></a><a name="MonadPattern"></a><span class='hs-comment'>-- a PatternEnv.</span>
-<a name="line-68"></a><a name="MonadPattern"></a><span class='hs-keyword'>class</span> <span class='hs-layout'>(</span><span class='hs-conid'>Applicative</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyword'>where</span>
-<a name="line-69"></a>  <span class='hs-varid'>askPattern</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>m</span> <span class='hs-conid'>PatternEnv</span>
-<a name="line-70"></a>
-<a name="line-71"></a><a name="instance%20MonadPattern%20((-%3e)%20PatternEnv)"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>-&gt;</span><span class='hs-layout'>)</span> <span class='hs-conid'>PatternEnv</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-72"></a>  <span class='hs-varid'>askPattern</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
-<a name="line-73"></a>
-<a name="line-74"></a><a name="isSignature"></a><span class='hs-comment'>-- | Determines whether a set of pattern heads constitutes a signature.</span>
-<a name="line-75"></a><span class='hs-comment'>-- This is handled specially for tuples and literals, and relies on the</span>
-<a name="line-76"></a><span class='hs-comment'>-- monad for data type constructors.</span>
-<a name="line-77"></a><span class='hs-definition'>isSignature</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>Set</span> <span class='hs-conid'>PatternHead</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Bool</span>
-<a name="line-78"></a><span class='hs-definition'>isSignature</span> <span class='hs-varid'>ps</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>case</span> <span class='hs-varid'>preview</span> <span class='hs-varid'>folded</span> <span class='hs-varid'>ps</span> <span class='hs-keyword'>of</span>
-<a name="line-79"></a>  <span class='hs-conid'>Nothing</span>         <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-conid'>False</span>
-<a name="line-80"></a>  <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-conid'>TupH</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span>   <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-conid'>True</span>
-<a name="line-81"></a>  <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-conid'>ConH</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>askPattern</span> <span class='hs-varop'>&lt;&amp;&gt;</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>env</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>case</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-varop'>$</span> <span class='hs-varid'>signatures</span> <span class='hs-varid'>env</span> <span class='hs-keyword'>of</span>
-<a name="line-82"></a>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-varop'>$</span> <span class='hs-str'>"PANIC: isSignature: unknown constructor"</span>
-<a name="line-83"></a>    <span class='hs-conid'>Just</span> <span class='hs-varid'>hm</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>iall</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>g'</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>S</span><span class='hs-varop'>.</span><span class='hs-varid'>member</span> <span class='hs-varid'>g'</span> <span class='hs-varid'>ns</span><span class='hs-layout'>)</span> <span class='hs-varid'>hm</span>
-<a name="line-84"></a> <span class='hs-keyword'>where</span> <span class='hs-varid'>ns</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>S</span><span class='hs-varop'>.</span><span class='hs-varid'>map</span> <span class='hs-sel'>_name</span> <span class='hs-varid'>ps</span>
-<a name="line-85"></a>
-<a name="line-86"></a><a name="constructorTag"></a><span class='hs-comment'>-- | Looks up the constructor tag for a pattern head. For tuples this is</span>
-<a name="line-87"></a><span class='hs-comment'>-- always 0, but constructors must consult the compilation environment.</span>
-<a name="line-88"></a><span class='hs-definition'>constructorTag</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>PatternHead</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Word8</span>
-<a name="line-89"></a><span class='hs-definition'>constructorTag</span> <span class='hs-layout'>(</span><span class='hs-conid'>TupH</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>pure</span> <span class='hs-num'>0</span>
-<a name="line-90"></a><span class='hs-definition'>constructorTag</span> <span class='hs-layout'>(</span><span class='hs-conid'>ConH</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>askPattern</span> <span class='hs-varop'>&lt;&amp;&gt;</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>env</span> <span class='hs-keyglyph'>-&gt;</span>
-<a name="line-91"></a>  <span class='hs-keyword'>case</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-layout'>(</span><span class='hs-varid'>signatures</span> <span class='hs-varid'>env</span><span class='hs-layout'>)</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-keyword'>of</span>
-<a name="line-92"></a>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-varop'>$</span> <span class='hs-str'>"PANIC: constructorTag: unknown constructor"</span>
-<a name="line-93"></a>    <span class='hs-conid'>Just</span> <span class='hs-varid'>i</span>  <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>i</span>
+<a name="line-61"></a>
+<a name="line-62"></a><a name="MonadPattern"></a><span class='hs-comment'>-- | Monads that allow us to perform pattern compilation, by providing</span>
+<a name="line-63"></a><a name="MonadPattern"></a><span class='hs-comment'>-- a PatternEnv.</span>
+<a name="line-64"></a><a name="MonadPattern"></a><span class='hs-keyword'>class</span> <span class='hs-layout'>(</span><span class='hs-conid'>Applicative</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyword'>where</span>
+<a name="line-65"></a>  <span class='hs-varid'>askPattern</span> <span class='hs-keyglyph'>::</span> <span class='hs-varid'>m</span> <span class='hs-conid'>PatternEnv</span>
+<a name="line-66"></a>
+<a name="line-67"></a><a name="instance%20MonadPattern%20((-%3e)%20PatternEnv)"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-layout'>(</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>-&gt;</span><span class='hs-layout'>)</span> <span class='hs-conid'>PatternEnv</span><span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-68"></a>  <span class='hs-varid'>askPattern</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
+<a name="line-69"></a>
+<a name="line-70"></a><a name="isSignature"></a><span class='hs-comment'>-- | Determines whether a set of pattern heads constitutes a signature.</span>
+<a name="line-71"></a><span class='hs-comment'>-- This is handled specially for tuples and literals, and relies on the</span>
+<a name="line-72"></a><span class='hs-comment'>-- monad for data type constructors.</span>
+<a name="line-73"></a><span class='hs-definition'>isSignature</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>Set</span> <span class='hs-conid'>PatternHead</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Bool</span>
+<a name="line-74"></a><span class='hs-definition'>isSignature</span> <span class='hs-varid'>ps</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>case</span> <span class='hs-varid'>preview</span> <span class='hs-varid'>folded</span> <span class='hs-varid'>ps</span> <span class='hs-keyword'>of</span>
+<a name="line-75"></a>  <span class='hs-conid'>Nothing</span>         <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-conid'>False</span>
+<a name="line-76"></a>  <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-conid'>TupH</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span>   <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>pure</span> <span class='hs-conid'>True</span>
+<a name="line-77"></a>  <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-conid'>ConH</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>askPattern</span> <span class='hs-varop'>&lt;&amp;&gt;</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>env</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-keyword'>case</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-varop'>$</span> <span class='hs-varid'>signatures</span> <span class='hs-varid'>env</span> <span class='hs-keyword'>of</span>
+<a name="line-78"></a>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-str'>"PANIC: isSignature: unknown constructor"</span>
+<a name="line-79"></a>    <span class='hs-conid'>Just</span> <span class='hs-varid'>hm</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>iall</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>g'</span> <span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>S</span><span class='hs-varop'>.</span><span class='hs-varid'>member</span> <span class='hs-varid'>g'</span> <span class='hs-varid'>ns</span><span class='hs-layout'>)</span> <span class='hs-varid'>hm</span>
+<a name="line-80"></a> <span class='hs-keyword'>where</span> <span class='hs-varid'>ns</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>S</span><span class='hs-varop'>.</span><span class='hs-varid'>map</span> <span class='hs-sel'>_name</span> <span class='hs-varid'>ps</span>
+<a name="line-81"></a>
+<a name="line-82"></a><a name="constructorTag"></a><span class='hs-comment'>-- | Looks up the constructor tag for a pattern head. For tuples this is</span>
+<a name="line-83"></a><span class='hs-comment'>-- always 0, but constructors must consult the compilation environment.</span>
+<a name="line-84"></a><span class='hs-definition'>constructorTag</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadPattern</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>PatternHead</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Word8</span>
+<a name="line-85"></a><span class='hs-definition'>constructorTag</span> <span class='hs-layout'>(</span><span class='hs-conid'>TupH</span> <span class='hs-keyword'>_</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>pure</span> <span class='hs-num'>0</span>
+<a name="line-86"></a><span class='hs-definition'>constructorTag</span> <span class='hs-layout'>(</span><span class='hs-conid'>ConH</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>g</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>askPattern</span> <span class='hs-varop'>&lt;&amp;&gt;</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>env</span> <span class='hs-keyglyph'>-&gt;</span>
+<a name="line-87"></a>  <span class='hs-keyword'>case</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-layout'>(</span><span class='hs-varid'>signatures</span> <span class='hs-varid'>env</span><span class='hs-layout'>)</span> <span class='hs-varop'>&gt;&gt;=</span> <span class='hs-conid'>HM</span><span class='hs-varop'>.</span><span class='hs-varid'>lookup</span> <span class='hs-varid'>g</span> <span class='hs-keyword'>of</span>
+<a name="line-88"></a>    <span class='hs-conid'>Nothing</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>error</span> <span class='hs-str'>"PANIC: constructorTag: unknown constructor"</span>
+<a name="line-89"></a>    <span class='hs-conid'>Just</span> <span class='hs-varid'>i</span>  <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>i</span>
 </pre></body>
 </html>

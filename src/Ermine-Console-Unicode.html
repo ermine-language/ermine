@@ -23,7 +23,7 @@
 <a name="line-14"></a>  <span class='hs-layout'>(</span> <span class='hs-varid'>withUnicode</span>
 <a name="line-15"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
 <a name="line-16"></a>
-<a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>CatchIO</span>
+<a name="line-17"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Monad</span><span class='hs-varop'>.</span><span class='hs-conid'>Catch</span>
 <a name="line-18"></a>
 <a name="line-19"></a><span class='hs-cpp'>#ifdef mingw32_HOST_ARCH</span>
 <a name="line-20"></a><span class='hs-cpp'>#ifdef i386_HOST_ARCH</span>
@@ -46,7 +46,7 @@
 <a name="line-37"></a><a name="withUnicode"></a><span class='hs-comment'>-- | Run in a modified codepage where we can print UTF-8 values on Windows.</span>
 <a name="line-38"></a><span class='hs-comment'>--</span>
 <a name="line-39"></a><span class='hs-comment'>-- You should probably run the top level of your program in this.</span>
-<a name="line-40"></a><span class='hs-definition'>withUnicode</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadCatchIO</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span>
+<a name="line-40"></a><span class='hs-definition'>withUnicode</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>MonadCatch</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>m</span> <span class='hs-varid'>a</span>
 <a name="line-41"></a><span class='hs-cpp'>#ifdef USE_CP</span>
 <a name="line-42"></a><span class='hs-definition'>withUnicode</span> <span class='hs-varid'>m</span> <span class='hs-keyglyph'>=</span> <span class='hs-keyword'>do</span>
 <a name="line-43"></a>  <span class='hs-varid'>cp</span> <span class='hs-keyglyph'>&lt;-</span> <span class='hs-varid'>liftIO</span> <span class='hs-varid'>c_GetConsoleCP</span>

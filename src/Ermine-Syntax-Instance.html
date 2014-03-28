@@ -7,56 +7,55 @@
 <link type='text/css' rel='stylesheet' href='hscolour.css' />
 </head>
 <body>
-<pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE DeriveDataTypeable #-}</span>
-<a name="line-2"></a><span class='hs-comment'>{-# LANGUAGE DeriveGeneric #-}</span>
-<a name="line-3"></a><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
-<a name="line-4"></a><span class='hs-comment'>{-# LANGUAGE DeriveGeneric #-}</span>
-<a name="line-5"></a><span class='hs-comment'>{-# LANGUAGE FlexibleInstances #-}</span>
-<a name="line-6"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-7"></a><span class='hs-comment'>-- |</span>
-<a name="line-8"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013</span>
-<a name="line-9"></a><span class='hs-comment'>-- License   :  BSD3</span>
-<a name="line-10"></a><span class='hs-comment'>-- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
-<a name="line-11"></a><span class='hs-comment'>-- Stability :  experimental</span>
-<a name="line-12"></a><span class='hs-comment'>-- Portability: non-portable</span>
-<a name="line-13"></a><span class='hs-comment'>--</span>
-<a name="line-14"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
-<a name="line-15"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Instance</span>
-<a name="line-16"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>Instance</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
-<a name="line-17"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>HasInstance</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
-<a name="line-18"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
-<a name="line-19"></a>
-<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
-<a name="line-21"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Hashable</span>
-<a name="line-22"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Typeable</span>
-<a name="line-23"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Void</span>
-<a name="line-24"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Core</span>
-<a name="line-25"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Head</span>
-<a name="line-26"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Id</span>
-<a name="line-27"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Type</span>
-<a name="line-28"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>GHC</span><span class='hs-varop'>.</span><span class='hs-conid'>Generics</span>
-<a name="line-29"></a>
-<a name="line-30"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-31"></a><span class='hs-comment'>-- Instance</span>
-<a name="line-32"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-33"></a>
-<a name="line-34"></a><span class='hs-comment'>-- instance Ord a =&gt; Ord [a]</span>
-<a name="line-35"></a><span class='hs-comment'>-- Instance [ord (pure 0)] (Head ord 0 [star] [] [list (pure 0)]) (LamDict (Scope (Dict [AppDict (InstanceId (Head eq 0 [star] [] [list (pure 0))) (AppDict (Slot 0) (B ()))] ...)))</span>
-<a name="line-36"></a>
-<a name="line-37"></a><span class='hs-comment'>-- instance Category (:-)</span>
-<a name="line-38"></a><span class='hs-comment'>-- Instance [] (Head category 0 [] [constraint] [con ":-" ...]) (Dict [] ...)</span>
-<a name="line-39"></a>
-<a name="line-40"></a><a name="Instance"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Instance</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Instance</span>
-<a name="line-41"></a>  <span class='hs-layout'>{</span> <span class='hs-sel'>_instanceContext</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Type</span> <span class='hs-conid'>Void</span> <span class='hs-conid'>Int</span><span class='hs-keyglyph'>]</span>
-<a name="line-42"></a>  <span class='hs-layout'>,</span> <span class='hs-sel'>_instanceHead</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Head</span>
-<a name="line-43"></a>  <span class='hs-layout'>,</span> <span class='hs-sel'>_instanceBody</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Core</span> <span class='hs-conid'>Id</span>
-<a name="line-44"></a>  <span class='hs-layout'>}</span> <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span><span class='hs-layout'>,</span> <span class='hs-conid'>Generic</span><span class='hs-layout'>,</span> <span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
-<a name="line-45"></a>
-<a name="line-46"></a><a name="??"></a><span class='hs-definition'>makeLensesWith</span> <span class='hs-varop'>??</span> <span class='hs-chr'>'</span><span class='hs-chr'>'</span><span class='hs-conid'>Instance</span> <span class='hs-varop'>$</span> <span class='hs-varid'>classyRules</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>lensClass</span> <span class='hs-varop'>.~</span> <span class='hs-keyglyph'>\</span><span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-str'>"HasInstance"</span><span class='hs-layout'>,</span><span class='hs-str'>"instance_"</span><span class='hs-layout'>)</span>
-<a name="line-47"></a>
-<a name="line-48"></a><a name="instance%20HasHead%20Instance"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>HasHead</span> <span class='hs-conid'>Instance</span> <span class='hs-keyword'>where</span>
-<a name="line-49"></a>  <span class='hs-varid'>head_</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>instanceHead</span>
-<a name="line-50"></a>
-<a name="line-51"></a><a name="instance%20Hashable%20Instance"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Hashable</span> <span class='hs-conid'>Instance</span>
+<pre><a name="line-1"></a><span class='hs-comment'>{-# LANGUAGE DeriveGeneric #-}</span>
+<a name="line-2"></a><span class='hs-comment'>{-# LANGUAGE TemplateHaskell #-}</span>
+<a name="line-3"></a><span class='hs-comment'>{-# LANGUAGE FlexibleInstances #-}</span>
+<a name="line-4"></a><span class='hs-comment'>{-# LANGUAGE DeriveDataTypeable #-}</span>
+<a name="line-5"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-6"></a><span class='hs-comment'>-- |</span>
+<a name="line-7"></a><span class='hs-comment'>-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013</span>
+<a name="line-8"></a><span class='hs-comment'>-- License   :  BSD3</span>
+<a name="line-9"></a><span class='hs-comment'>-- Maintainer:  Edward Kmett &lt;ekmett@gmail.com&gt;</span>
+<a name="line-10"></a><span class='hs-comment'>-- Stability :  experimental</span>
+<a name="line-11"></a><span class='hs-comment'>-- Portability: non-portable</span>
+<a name="line-12"></a><span class='hs-comment'>--</span>
+<a name="line-13"></a><span class='hs-comment'>--------------------------------------------------------------------</span>
+<a name="line-14"></a><span class='hs-keyword'>module</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Instance</span>
+<a name="line-15"></a>  <span class='hs-layout'>(</span> <span class='hs-conid'>Instance</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-16"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>HasInstance</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-17"></a>  <span class='hs-layout'>)</span> <span class='hs-keyword'>where</span>
+<a name="line-18"></a>
+<a name="line-19"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Control</span><span class='hs-varop'>.</span><span class='hs-conid'>Lens</span>
+<a name="line-20"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Hashable</span>
+<a name="line-21"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Typeable</span>
+<a name="line-22"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Data</span><span class='hs-varop'>.</span><span class='hs-conid'>Void</span>
+<a name="line-23"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Core</span>
+<a name="line-24"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Head</span>
+<a name="line-25"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Id</span>
+<a name="line-26"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>Ermine</span><span class='hs-varop'>.</span><span class='hs-conid'>Syntax</span><span class='hs-varop'>.</span><span class='hs-conid'>Type</span>
+<a name="line-27"></a><span class='hs-keyword'>import</span> <span class='hs-conid'>GHC</span><span class='hs-varop'>.</span><span class='hs-conid'>Generics</span>
+<a name="line-28"></a>
+<a name="line-29"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-30"></a><span class='hs-comment'>-- Instance</span>
+<a name="line-31"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-32"></a>
+<a name="line-33"></a><span class='hs-comment'>-- instance Ord a =&gt; Ord [a]</span>
+<a name="line-34"></a><span class='hs-comment'>-- Instance [ord (pure 0)] (Head ord 0 [star] [] [list (pure 0)]) (LamDict (Scope (Dict [AppDict (InstanceId (Head eq 0 [star] [] [list (pure 0))) (AppDict (Slot 0) (B ()))] ...)))</span>
+<a name="line-35"></a>
+<a name="line-36"></a><span class='hs-comment'>-- instance Category (:-)</span>
+<a name="line-37"></a><span class='hs-comment'>-- Instance [] (Head category 0 [] [constraint] [con ":-" ...]) (Dict [] ...)</span>
+<a name="line-38"></a>
+<a name="line-39"></a><a name="Instance"></a><span class='hs-keyword'>data</span> <span class='hs-conid'>Instance</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>Instance</span>
+<a name="line-40"></a>  <span class='hs-layout'>{</span> <span class='hs-sel'>_instanceContext</span> <span class='hs-keyglyph'>::</span> <span class='hs-keyglyph'>[</span><span class='hs-conid'>Type</span> <span class='hs-conid'>Void</span> <span class='hs-conid'>Int</span><span class='hs-keyglyph'>]</span>
+<a name="line-41"></a>  <span class='hs-layout'>,</span> <span class='hs-sel'>_instanceHead</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Head</span>
+<a name="line-42"></a>  <span class='hs-layout'>,</span> <span class='hs-sel'>_instanceBody</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Core</span> <span class='hs-conid'>Id</span>
+<a name="line-43"></a>  <span class='hs-layout'>}</span> <span class='hs-keyword'>deriving</span> <span class='hs-layout'>(</span><span class='hs-conid'>Eq</span><span class='hs-layout'>,</span> <span class='hs-conid'>Typeable</span><span class='hs-layout'>,</span> <span class='hs-conid'>Generic</span><span class='hs-layout'>,</span> <span class='hs-conid'>Show</span><span class='hs-layout'>)</span>
+<a name="line-44"></a>
+<a name="line-45"></a><a name="??"></a><span class='hs-definition'>makeLensesWith</span> <span class='hs-varop'>??</span> <span class='hs-chr'>'</span><span class='hs-chr'>'</span><span class='hs-conid'>Instance</span> <span class='hs-varop'>$</span> <span class='hs-varid'>classyRules</span> <span class='hs-varop'>&amp;</span> <span class='hs-varid'>lensClass</span> <span class='hs-varop'>.~</span> <span class='hs-keyglyph'>\</span><span class='hs-keyword'>_</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Just</span> <span class='hs-layout'>(</span><span class='hs-str'>"HasInstance"</span><span class='hs-layout'>,</span><span class='hs-str'>"instance_"</span><span class='hs-layout'>)</span>
+<a name="line-46"></a>
+<a name="line-47"></a><a name="instance%20HasHead%20Instance"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>HasHead</span> <span class='hs-conid'>Instance</span> <span class='hs-keyword'>where</span>
+<a name="line-48"></a>  <span class='hs-varid'>head_</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>instanceHead</span>
+<a name="line-49"></a>
+<a name="line-50"></a><a name="instance%20Hashable%20Instance"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Hashable</span> <span class='hs-conid'>Instance</span>
 </pre></body>
 </html>
