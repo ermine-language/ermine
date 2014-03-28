@@ -46,7 +46,7 @@ type Tm = Term Ann Text
 term0 :: (Monad m, TokenParsing m) => m Tm
 term0 = Var <$> termIdentifier
    <|> HardTerm . Lit <$> literal
-   <|> parens (tup <$> terms)
+   <|> parens (tup' <$> terms)
 
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match
