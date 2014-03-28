@@ -1,6 +1,12 @@
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveDataTypeable, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013
@@ -30,9 +36,10 @@ import Control.Comonad
 import Data.Foldable
 import Data.Monoid
 import Data.Traversable
+import Data.Data
 
 data Shared a = Shared !Bool a
-  deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable,Data)
 
 instance Comonad Shared where
   extract (Shared _ a) = a
@@ -40,6 +47,9 @@ instance Comonad Shared where
 
 -- An efficient strict-in-the-monoid version of WriterT Any@
 newtype SharingT m a = SharingT { unsharingT :: m (Shared a) }
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ >= 708
+  deriving Typeable
+#endif
 
 instance Monad m => Functor (SharingT m) where
   fmap f (SharingT m) = SharingT $ do

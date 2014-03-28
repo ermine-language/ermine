@@ -79,7 +79,7 @@ isSignature ps = case preview folded ps of
   Nothing         -> pure False
   Just (TupH _)   -> pure True
   Just (ConH _ g) -> askPattern <&> \env -> case HM.lookup g $ signatures env of
-    Nothing -> error $ "PANIC: isSignature: unknown constructor"
+    Nothing -> error "PANIC: isSignature: unknown constructor"
     Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
 
@@ -89,5 +89,5 @@ constructorTag :: MonadPattern m => PatternHead -> m Word8
 constructorTag (TupH _) = pure 0
 constructorTag (ConH _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
-    Nothing -> error $ "PANIC: constructorTag: unknown constructor"
+    Nothing -> error "PANIC: constructorTag: unknown constructor"
     Just i  -> i

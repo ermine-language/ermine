@@ -99,7 +99,7 @@ expand :: Applicative c
 expand i n (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     Matching (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
-          (map (pure . F) cl ++ map (\j -> pure $ B j) [1..n] ++ map (pure . F) cr)
+          (map (pure . F) cl ++ map (pure . B) [1..n] ++ map (pure . F) cr)
           (pl ++ map (\j -> p <> fieldPP j) [0..(fromIntegral n)-1] ++ pr)
   _ -> error "PANIC: expand: bad column reference"
 
@@ -123,7 +123,7 @@ hbumpM :: Monad c => Matching c a -> Matching (Scope b c) a
 hbumpM (Matching m cs ps) = Matching (lift <$> m) (lift <$> cs) ps
 
 bumpPM :: Applicative c => PatternMatrix t c a -> PatternMatrix t c (Var b (c a))
-bumpPM (PatternMatrix ps bs) = PatternMatrix ps (promote $ bs)
+bumpPM (PatternMatrix ps bs) = PatternMatrix ps (promote bs)
 
 hbumpPM :: (Functor c, Monad c) => PatternMatrix t c a -> PatternMatrix t (Scope b c) a
 hbumpPM (PatternMatrix ps bs) = PatternMatrix ps (hoistClaused lift <$> bs)
@@ -180,7 +180,7 @@ compileManyGuards m pm ((g,b):gbs) =
   caze (inst g) ?? Nothing $
     M.fromList
       [(1, (0, Scope . fmap (F . pure) $ inst b))
-      ,(0, (0, Scope $ f))
+      ,(0, (0, Scope f))
       ]
  where inst = instantiate (instantiation m)
 

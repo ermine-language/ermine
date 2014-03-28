@@ -7,10 +7,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2011-2013
+-- Copyright :  (c) Edward Kmett 2011-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental

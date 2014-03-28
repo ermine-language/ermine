@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -126,12 +125,12 @@ class AsDecl t where
   _Decl :: Prism' t Word32
 
 instance AsDecl BodyBound where
-  _Decl = prism BodyDecl $ \case
+  _Decl = prism BodyDecl $ \ xs -> case xs of
     BodyDecl d -> Right d
     x          -> Left x
 
 instance AsDecl WhereBound where
-  _Decl = prism WhereDecl $ \case
+  _Decl = prism WhereDecl $ \ xs -> case xs of
     WhereDecl d -> Right d
     x           -> Left x
 

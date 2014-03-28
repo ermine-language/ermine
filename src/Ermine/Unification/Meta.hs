@@ -214,13 +214,13 @@ newShallowSkolem d a = Skolem a <$> fresh <*> liftST (newSTRef d)
 -- | Read a meta variable
 readMeta :: MonadMeta s m => Meta s f a -> m (Maybe (f (Meta s f a)))
 readMeta (Meta _ _ r _ _) = liftST $ readSTRef r
-readMeta (Skolem _ _ _)   = return Nothing
+readMeta Skolem{} = return Nothing
 {-# INLINE readMeta #-}
 
 -- | Write to a meta variable
 writeMeta :: MonadMeta s m => Meta s f a -> f (Meta s f a) -> m ()
 writeMeta (Meta _ _ r _ _) a = liftST $ writeSTRef r (Just a)
-writeMeta (Skolem _ _ _) _   = fail "writeMeta: skolem"
+writeMeta Skolem{} _   = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 
 -- | Path-compression
@@ -288,8 +288,10 @@ instance Functor Result where
 
 class (Applicative m, MonadST m, s ~ World m) => MonadMeta s m | m -> s where
   askMeta :: m (MetaEnv s)
+#ifndef HLINT
   default askMeta :: (m ~ t n, MonadTrans t, MonadMeta s n) => m (MetaEnv s)
   askMeta = lift askMeta
+#endif
 
   localMeta :: (MetaEnv s -> MetaEnv s) -> m a -> m a
 
