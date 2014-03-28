@@ -41,8 +41,11 @@ module Ermine.Builtin.Type
   -- ** Classes
   , functor
   , lame
+  -- ** Annotations
+  , anyType
   ) where
 
+import Bound
 import Data.Text (pack)
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -212,3 +215,11 @@ functor = builtin ((star ~> star) ~> constraint) "Functor"
 -- * -> Γ
 lame :: Builtin t => t
 lame = builtin (star ~> constraint) "Lame"
+
+------------------------------------------------------------------------------
+-- Annotations
+------------------------------------------------------------------------------
+
+-- | A type annotation that can be applied to anything.
+anyType :: Annot t a
+anyType = Annot [star] $ Scope $ return $ B 0

@@ -11,7 +11,6 @@
 module Ermine.Parser.Type
   ( Ann
   , Typ
-  , anyType
   , typ
   , typ0
   , annotation
@@ -38,9 +37,6 @@ import Text.Parser.Token
 
 type Ann = Annot (Maybe Text) Text
 type Typ = Type (Maybe Text) Text
-
-anyType :: Annot t a
-anyType = Annot [star] . Scope . Var $ B 0
 
 banana :: (Monad m, TokenParsing m) => m a -> m a
 banana p = reserve op "(|" *> p <* reserve op "|)"

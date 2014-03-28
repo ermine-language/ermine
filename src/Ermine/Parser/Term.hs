@@ -31,6 +31,7 @@ import Data.Text (Text, unpack)
 import Data.Traversable hiding (mapM)
 import Ermine.Builtin.Pattern
 import Ermine.Builtin.Term
+import Ermine.Builtin.Type (anyType)
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
 import Ermine.Parser.Literal

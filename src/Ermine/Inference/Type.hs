@@ -49,7 +49,6 @@ import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
 import Ermine.Match as Pattern
-import Ermine.Parser.Type (anyType)
 import Ermine.Syntax
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
