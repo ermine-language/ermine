@@ -37,7 +37,7 @@ import Control.Monad.Writer.Strict
 import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
-import Data.List as List (partition, nub, group)
+import Data.List as List (partition, nub, group, elemIndex)
 import Data.Maybe
 import qualified Data.Set as Set
 import Data.Set.Lens
@@ -249,7 +249,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
     checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
-      ((rs, ty), foldr (\cls -> lambdaDict . abstract1 cls) co' cs)
+      ((rs, ty), lambdaDict (fromIntegral $ length cs) $ abstract (fmap fromIntegral . flip elemIndex cs) co')
   pure $ Witness rs' ty' co''
 
 -- TODO: write this correctly
@@ -268,9 +268,9 @@ subsumesType d (Witness rs t1 c) t2 = do
   -- TODO: skolem kinds
   abstractedWitness d sts rs cs t2 c
 
-cabs :: Eq a => a -> Var b a -> Maybe ()
-cabs cls (F ty) | cls == ty = Just ()
-cabs _   _ = Nothing
+cabs :: Eq a => [a] -> Var b a -> Maybe Word8
+cabs cls (F ty) = fromIntegral <$> elemIndex ty cls
+cabs _   _      = Nothing
 
 -- | Generalizes the metavariables in a TypeM, yielding a type with no free
 -- variables. Checks for skolem escapes while doing so.
@@ -304,6 +304,8 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
   when (any (any (`Set.member` s)) r') $
     fail "Unable to abstract over a local row constraint"
 
+  let n = length cc'
+
   return $ Witness r'
     (forall
         (const noHint)
@@ -312,7 +314,9 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
         (tvs <&> \tv -> (tv, tv^.metaValue))
         (allConstraints cc'')
         t)
-    (toScope (foldr (fmap LamDict . abstract . cabs) (fromScope c) cc'))
+    $ if n == 0
+      then c
+      else toScope $ LamDict (fromIntegral $ length cc') $ abstract (cabs cc') $ fromScope c
 
 generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
 generalizeType w = do

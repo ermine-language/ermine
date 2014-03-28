@@ -57,12 +57,18 @@ rewriteCoreDown opt = go
    d@(Data n g l) -> sharing d $ Data n g <$> traverse go l
    a@(App f x) -> sharing a $ App <$> go f <*> go x
    l@(Let d b) -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
-   l@(LamDict e) -> sharing l $ LamDict <$> goS e
+   l@(LamDict n e) -> sharing l $ LamDict n <$> goS e
    a@(AppDict f d) -> sharing a $ AppDict <$> go f <*> go d
+   l@(LamHash n e) -> sharing l $ LamHash n <$> goS e
+   a@(AppHash f d) -> sharing a $ AppHash <$> go f <*> go d
    s@(Case e b d) ->
      sharing s $ Case <$> go e
                       <*> sharing b ((traverse._3) goS b)
                       <*> sharing d (traverse goS d)
+   s@(CaseHash e b d) ->
+     sharing s $ CaseHash <$> go e
+                          <*> sharing b (traverse goS b)
+                          <*> sharing d (traverse goS d)
    d@(Dict su sl) ->
      sharing d $ Dict <$> sharing su (traverse go su)
                       <*> sharing sl (traverse goS sl)
@@ -80,12 +86,18 @@ rewriteCore opt = go
    d@(Data n g l) -> sharing d $ Data n g <$> traverse go l
    a@(App f x) -> sharing a $ App <$> go f <*> go x
    l@(Let d b) -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
-   l@(LamDict e) -> sharing l $ LamDict <$> goS e
+   l@(LamDict n e) -> sharing l $ LamDict n <$> goS e
    a@(AppDict f d) -> sharing a $ AppDict <$> go f <*> go d
+   l@(LamHash n e) -> sharing l $ LamHash n <$> goS e
+   a@(AppHash f d) -> sharing a $ AppHash <$> go f <*> go d
    s@(Case e b d) ->
      sharing s $ Case <$> go e
                       <*> sharing b ((traverse._3) goS b)
                       <*> sharing d (traverse goS d)
+   s@(CaseHash e b d) ->
+     sharing s $ CaseHash <$> go e
+                          <*> sharing b (traverse goS b)
+                          <*> sharing d (traverse goS d)
    d@(Dict su sl) ->
      sharing d $ Dict <$> sharing su (traverse go su)
                       <*> sharing sl (traverse goS sl)
@@ -103,8 +115,10 @@ lamlam (Lam k e) = slurp False k (fromScope e)
 lamlam c = return c
 
 -- | 'LamDict' is strict, so η-reduction for it is sound. η-reduce.
+--
+-- Todo: generalize this to larger lambdas
 etaDict :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
-etaDict c@(LamDict (Scope (AppDict f (Var (B ()))))) = case sequenceA f of
+etaDict c@(LamDict 1 (Scope (AppDict f (Var (B 0))))) = case sequenceA f of
   B _ -> return c
   F g -> join g <$ tell (Any True)
 etaDict c = return c
