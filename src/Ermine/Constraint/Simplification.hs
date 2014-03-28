@@ -24,6 +24,7 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Data.Traversable
 import Data.Void
 import Ermine.Constraint.Env
+import Ermine.Syntax
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Head
 import Ermine.Syntax.Instance as Instance

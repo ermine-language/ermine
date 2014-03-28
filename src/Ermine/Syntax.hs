@@ -16,9 +16,15 @@ module Ermine.Syntax
   -- * Variables
     Variable(_Var)
   -- * Application
-  , App (_App)
+  , App(_App)
   , apps
-  , ( # )
+  , ( ## )
+  -- * Strict Unboxed Application
+  , AppHash(_AppHash)
+  , appHashes
+  -- * Dictionary Application
+  , AppDict(_AppDict)
+  , appDicts
   -- * Fun
   , Fun(_Fun)
   , (~>)
@@ -86,6 +92,47 @@ infixl 9 ##
 -- | Fold a series of applications.
 apps :: App t => t a -> [t a] -> t a
 apps = foldl (##)
+
+--------------------------------------------------------------------
+-- AppHash
+--------------------------------------------------------------------
+
+class AppHash t where
+  _AppHash :: Prism' (t a) (t a, t a)
+
+instance (Variable t, AppHash t) => AppHash (Scope b t) where
+  _AppHash = prism (\ (Scope x, Scope y) -> Scope $ _AppHash # (x,y)) $ \t@(Scope b) -> case b^?_AppHash of
+    Just (x,y) -> Right (Scope x, Scope y)
+    _ -> case b^?_Var of
+      Just (F xy) -> case xy^?_AppHash of
+        Just (x,y) -> Right (Scope (_Var # F x), Scope (_Var # F y))
+        _ -> Left t
+      _ -> Left t
+
+-- | Fold a series of unboxed applications.
+appHashes :: AppHash t => t a -> [t a] -> t a
+appHashes = foldl $ curry $ review _AppHash
+
+--------------------------------------------------------------------
+-- AppDict
+--------------------------------------------------------------------
+
+-- | 'AppDict' provides strict application for dictionary manipulation
+class AppDict c where
+  _AppDict :: Prism' (c a) (c a, c a)
+
+instance (Variable t, AppDict t) => AppDict (Scope b t) where
+  _AppDict = prism (\ (Scope x, Scope y) -> Scope $ _AppDict # (x,y)) $ \t@(Scope b) -> case b^?_AppDict of
+    Just (x,y) -> Right (Scope x, Scope y)
+    _ -> case b^?_Var of
+      Just (F xy) -> case xy^?_AppDict of
+        Just (x,y) -> Right (Scope (_Var # F x), Scope (_Var # F y))
+        _ -> Left t
+      _ -> Left t
+
+-- | Apply several dictionaries.
+appDicts :: AppDict t => t a -> [t a] -> t a
+appDicts = Prelude.foldl $ curry $ review _AppDict
 
 --------------------------------------------------------------------
 -- Fun

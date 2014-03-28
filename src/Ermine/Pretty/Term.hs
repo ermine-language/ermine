@@ -43,24 +43,34 @@ prettyTerm (App f x) vars prec kt kv =
   (\df dx -> parensIf (prec > 10) $ df <+> dx)
     <$> prettyTerm f vars 10 kt kv
     <*> prettyTerm x vars 11 kt kv
+prettyTerm (AppHash f x) vars prec kt kv =
+  (\df dx -> parensIf (prec > 10) $ df <+> text "@" <+> dx)
+    <$> prettyTerm f vars 10 kt kv
+    <*> prettyTerm x vars 11 kt kv
 prettyTerm (Sig tm ty) vars prec kt kv =
   (\dm dy -> parensIf (prec >= 0) $ dm <+> text ":" <+> dy)
     <$> prettyTerm tm vars 0 kt kv
     <*> kt ty (-1)
-prettyTerm (Lam ps (Scope e)) vars prec kt kv =
-  h <$> fpd <*> prettyTerm e vars' (-1) kt kv'
- where
- (bnd, fpd) = lambdaPatterns ps vars kt
- (_, vars') = splitAt (HM.size bnd) vars
- h pd bd = parensIf (prec >= 0) $ pd <+> text "->" <+> bd
- kv' (B b) _ = fromMaybe (error "PANIC: prettyTerm: invlaid pattern variable reference") $
-                 pure . text <$> HM.lookup b bnd
- kv' (F t) p = prettyTerm t vars' p kt kv
+prettyTerm (LamHash ps (Scope e)) vars prec kt kv = h <$> fpd <*> prettyTerm e vars' (-1) kt kv'
+  where
+    (_, vars') = splitAt (length ps) vars
+    fpd = hsep <$> traverse (kt ?? 12) ps
+    h pd bd = parensIf (prec >= 0) $ pd <+> text "->#" <+> bd
+    kv' (B b) _ = pure $ text $ vars !! fromIntegral b
+    kv' (F t) p = prettyTerm t vars' p kt kv
+prettyTerm (Lam ps (Scope e)) vars prec kt kv = h <$> fpd <*> prettyTerm e vars' (-1) kt kv'
+  where
+    (bnd, fpd) = lambdaPatterns ps vars kt
+    (_, vars') = splitAt (HM.size bnd) vars
+    h pd bd = parensIf (prec >= 0) $ pd <+> text "->" <+> bd
+    kv' (B b) _ = fromMaybe (error "PANIC: prettyTerm: invalid Lam pattern variable reference") $
+                  pure . text <$> HM.lookup b bnd
+    kv' (F t) p = prettyTerm t vars' p kt kv
 prettyTerm (Case d alts)  vars prec kt kv =
   h <$> prettyTerm d vars (-1) kt kv
     <*> traverse (prettyAlt vars (\tm vs pr kv' -> prettyTerm tm vs pr kt kv') kt kv) alts
- where
- h dd cs = parensIf (prec > 9) $
+  where
+    h dd cs = parensIf (prec > 9) $
              text "case" <+> dd <+> text "of" <> nest 2 (group $ line <> block cs)
 prettyTerm (Let bs e)     vars prec kt kv =
   h <$> prettyBindings (zip dvs bs) dvs rest kt kv

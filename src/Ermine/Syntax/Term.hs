@@ -180,9 +180,11 @@ instance Bitraversable Binding where
 data Term t a
   = Var a
   | App !(Term t a) !(Term t a)
+  | AppHash !(Term t a) !(Term t a)
   | HardTerm !HardTerm
   | Sig !(Term t a) t
   | Lam [Pattern t] !(Scope PatternPath (Term t) a)
+  | LamHash [t] !(Scope Word8 (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
   | Let [Binding t a] !(Scope Word32 (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from
@@ -204,6 +206,12 @@ instance App (Term t) where
     _       -> Left t
   {-# INLINE _App #-}
 
+instance AppHash (Term t) where
+  _AppHash = prism (uncurry AppHash) $ \t -> case t of
+    AppHash l r -> Right (l,r)
+    _       -> Left t
+  {-# INLINE _AppHash #-}
+
 instance (p ~ Tagged, f ~ Identity) => Tup p f (Term t a) where
   _Tup = unto hither
    where hither [x] = x
@@ -215,20 +223,22 @@ instance Terminal (Term t a) where
     _          -> Left t
 
 instance (Eq t, Eq a) => Eq (Term t a) where
-  Loc _ l      == r            = l == r
-  l            == Loc _ r      = l == r
+  Loc _ l      == r             = l == r
+  l            == Loc _ r       = l == r
 
-  Remember _ l == r            = l == r -- ?
-  l            == Remember _ r = l == r -- ?
+  Remember _ l == r             = l == r -- ?
+  l            == Remember _ r  = l == r -- ?
 
-  Var a        == Var b        = a == b
-  Sig e t      == Sig e' t'    = e == e' && t == t'
-  Lam p b      == Lam p' b'    = p == p' && b == b'
-  HardTerm t   == HardTerm t'  = t == t'
-  Case b as    == Case b' as'  = b == b' && as == as'
-  App a b      == App c d      = a == c  && b == d
-  Let bs e     == Let bs' e'   = bs == bs' && e == e' -- this is rather inflexible
-  _            == _            = False
+  Var a        == Var b         = a == b
+  Sig e t      == Sig e' t'     = e == e' && t == t'
+  Lam p b      == Lam p' b'     = p == p' && b == b'
+  LamHash p b  == LamHash p' b' = p == p' && b == b'
+  HardTerm t   == HardTerm t'   = t == t'
+  Case b as    == Case b' as'   = b == b' && as == as'
+  App a b      == App c d       = a == c  && b == d
+  AppHash a b  == AppHash c d   = a == c  && b == d
+  Let bs e     == Let bs' e'    = bs == bs' && e == e' -- this is rather inflexible
+  _            == _             = False
 
 instance Bifunctor Term where
   bimap = bimapDefault
@@ -241,8 +251,10 @@ instance Bitraversable Term where
     tm (Var a)        = Var <$> g a
     tm (Sig e t)      = Sig <$> tm e <*> f t
     tm (Lam ps b)     = Lam <$> traverse (traverse f) ps <*> bitraverseScope f g b
+    tm (LamHash ps b) = LamHash <$> traverse f ps <*> bitraverseScope f g b
     tm (HardTerm t)   = pure (HardTerm t)
     tm (App l r)      = App <$> tm l <*> tm r
+    tm (AppHash l r)  = AppHash <$> tm l <*> tm r
     tm (Loc r b)      = Loc r <$> tm b
     tm (Remember i b) = Remember i <$> tm b
     tm (Case b as)    = Case <$> tm b <*> traverse (bitraverseAlt f g) as
@@ -259,9 +271,11 @@ instance Show2 Term
 bindTerm :: (t -> t') -> (a -> Term t' b) -> Term t a -> Term t' b
 bindTerm _ g (Var a)   = g a
 bindTerm f g (App l r) = App (bindTerm f g l) (bindTerm f g r)
+bindTerm f g (AppHash l r) = AppHash (bindTerm f g l) (bindTerm f g r)
 bindTerm f g (Sig e t) = Sig (bindTerm f g e) (f t)
 bindTerm _ _ (HardTerm t) = HardTerm t
 bindTerm f g (Lam ps (Scope b)) = Lam (fmap f <$> ps) (Scope (bimap f (fmap (bindTerm f g)) b))
+bindTerm f g (LamHash ps (Scope b)) = LamHash (f <$> ps) (Scope (bimap f (fmap (bindTerm f g)) b))
 bindTerm f g (Loc r b) = Loc r (bindTerm f g b)
 bindTerm f g (Remember i b) = Remember i (bindTerm f g b)
 bindTerm f g (Case b as) = Case (bindTerm f g b) (bindAlt f g <$> as)
@@ -414,6 +428,10 @@ instance Serial2 Term where
                 *> serializeScope3 serialize (serializeWith2 pt) pa s
    go (Loc _ t)      = putWord8 7 *> go t
    go (Remember i t) = putWord8 8 *> serialize i *> go t
+   go (LamHash ps s) =
+     putWord8 9 *> serializeWith pt ps
+                *> serializeScope3 serialize (serializeWith2 pt) pa s
+   go (AppHash t1 t2) = putWord8 10 *> go t1 *> go t2
   {-# INLINE serializeWith2 #-}
 
   deserializeWith2 gt ga = go
@@ -430,6 +448,9 @@ instance Serial2 Term where
                <*> deserializeScope3 deserialize (deserializeWith2 gt) ga
      7 -> Loc  <$> return mempty <*> go
      8 -> Remember <$> deserialize <*> go
+     9 -> LamHash  <$> deserializeWith gt
+                   <*> deserializeScope3 deserialize (deserializeWith2 gt) ga
+     10 -> App <$> go <*> go
      _ -> fail $ "getTerm: Unexpected constructor code: " ++ show b
   {-# INLINE deserializeWith2 #-}
 

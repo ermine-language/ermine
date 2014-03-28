@@ -24,10 +24,6 @@ module Ermine.Syntax.Core
   -- * Core Terms
     Core(..)
   , Cored(..)
-  , AsAppDict(..)
-  , appDicts
-  , AsAppHash(..)
-  , appHashes
   , JavaLike(..)
   , Foreign(..)
   , HardCore(..)
@@ -336,45 +332,18 @@ instance AsHardCore (Core a) where
     _           -> Left c
 
 -- | ask for the @n@th the superclass of a given dictionary as a core expression
-super :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
+super :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
 super i c = _AppDict # (_Super # i, c)
 
 -- | ask for the @n@th slot of a given dictionary as a core expression
-slot :: (AsHardCore c, AsAppDict c) => Word8 -> c -> c
+slot :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
 slot i c = _AppDict # (_Slot # i, c)
 
-class AsAppHash c where
-  _AppHash :: Prism' c (c, c)
-
-instance AsAppHash (Core a) where
-  _AppHash = prism (uncurry AppHash) $ \ xs -> case xs of AppHash f d -> Right (f, d) ; c -> Left c
-
-instance f ~ Core => AsAppHash (Scope b f a) where
-  _AppHash = prism (\ (Scope x, Scope y) -> Scope $ AppHash x y) $ \t@(Scope b) -> case b of
-    AppHash x y -> Right (Scope x,Scope y)
-    Var (F (AppHash x y)) -> Right (Scope (Var (F x)), Scope (Var (F y)))
-    _ -> Left t
-
--- | 'AppDict' provides strict application for dictionary manipulation
-class AsAppDict c where
-  _AppDict :: Prism' c (c, c)
-
-instance AsAppDict (Core a) where
+instance AppDict Core where
   _AppDict = prism (uncurry AppDict) $ \ xs -> case xs of AppDict f d -> Right (f, d) ; c -> Left c
 
-instance f ~ Core => AsAppDict (Scope b f a) where
-  _AppDict = prism (\ (Scope x, Scope y) -> Scope $ AppDict x y) $ \t@(Scope b) -> case b of
-    AppDict x y -> Right (Scope x,Scope y)
-    Var (F (AppDict x y)) -> Right (Scope (Var (F x)), Scope (Var (F y)))
-    _ -> Left t
-
--- | Apply several dictionaries.
-appDicts :: AsAppDict c => c -> [c] -> c
-appDicts = Prelude.foldl (curry $ review _AppDict)
-
--- | Apply several dictionaries.
-appHashes :: AsAppHash c => c -> [c] -> c
-appHashes = Prelude.foldl (curry $ review _AppHash)
+instance AppHash Core where
+  _AppHash = prism (uncurry AppHash) $ \ xs -> case xs of AppHash f d -> Right (f, d) ; c -> Left c
 
 instance (Hashable a, Hashable b) => Hashable (Map a b) where
   hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
