@@ -2,7 +2,7 @@ name:          ermine
 category:      Compiler
 version:       0.6
 license:       BSD3
-cabal-version: >= 1.8
+cabal-version: >= 1.16
 license-file:  LICENSE
 author:        Edward A. Kmett
 maintainer:    Edward A. Kmett <ekmett@gmail.com>
@@ -91,6 +91,7 @@ flag q
   default: False
 
 library
+  default-language: Haskell2010
   hs-source-dirs: src
 
   exposed-modules:
@@ -226,6 +227,7 @@ library
     ghc-options: -j3
 
 executable core-echo
+  default-language: Haskell2010
   hs-source-dirs: echo
   main-is: Main.hs
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
@@ -255,6 +257,7 @@ executable core-echo
       unordered-containers
 
 executable ermine
+  default-language: Haskell2010
   hs-source-dirs: repl
   main-is: Main.hs
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
@@ -287,10 +290,11 @@ executable ermine
 
 -- Verify the properties of lenses with QuickCheck
 test-suite properties
-  type:           exitcode-stdio-1.0
-  main-is:        properties.hs
-  ghc-options:    -w -threaded -rtsopts -with-rtsopts=-N -v0
-  hs-source-dirs: . properties
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          properties.hs
+  ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N -v0
+  hs-source-dirs:   . properties
 
   if flag(j) && impl(ghc >= 7.8)
     ghc-options: -j3
@@ -328,10 +332,11 @@ test-suite properties
 
 
 test-suite hlint
-  type: exitcode-stdio-1.0
-  main-is: hlint.hs
-  ghc-options: -w -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs: tests
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          hlint.hs
+  ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:   tests
 
   if !flag(hlint)
     buildable: False
@@ -342,10 +347,11 @@ test-suite hlint
 
 -- Verify the results of the examples
 test-suite doctests
-  type:           exitcode-stdio-1.0
-  main-is:        doctests.hs
-  ghc-options:    -Wall -threaded -v0
-  hs-source-dirs: tests
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          doctests.hs
+  ghc-options:      -Wall -threaded -v0
+  hs-source-dirs:   tests
 
   if !flag(doctests)
     buildable: False
