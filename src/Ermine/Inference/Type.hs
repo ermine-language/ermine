@@ -138,7 +138,7 @@ inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d $ fromMaybe anyType $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
   sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
-    w' <- subsumesType (d+1) w vt
+    w' <- subsumesType d w vt
     generalizeWitnessType d w'
 
 inferBindings
