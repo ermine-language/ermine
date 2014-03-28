@@ -300,7 +300,7 @@ test-suite properties
     Arbitrary
     Binary
     Inference
-    PatCompiler
+    Pattern
     Syntax
     Var
 

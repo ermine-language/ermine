@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module PatCompiler where
+module Pattern where
 
 import Prelude hiding (any)
 import Bound
