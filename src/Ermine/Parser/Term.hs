@@ -11,8 +11,7 @@
 -- This module provides the parser for terms
 --------------------------------------------------------------------
 module Ermine.Parser.Term
-  ( anyType
-  , term
+  ( term
   , terms
   , declarations
   , letBlock
@@ -31,7 +30,6 @@ import Data.Text (Text, unpack)
 import Data.Traversable hiding (mapM)
 import Ermine.Builtin.Pattern
 import Ermine.Builtin.Term
-import Ermine.Builtin.Type (anyType)
 import Ermine.Parser.Style
 import Ermine.Parser.Type as Type
 import Ermine.Parser.Literal
