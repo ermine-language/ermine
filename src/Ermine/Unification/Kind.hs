@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -45,7 +45,7 @@ import Ermine.Pretty
 import Ermine.Pretty.Kind
 
 -- $setup
--- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies
+-- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies -XRankNTypes
 -- >>> import Ermine.Syntax
 -- >>> import Text.Trifecta.Rendering
 -- >>> import Control.Comonad

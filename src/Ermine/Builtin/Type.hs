@@ -56,7 +56,9 @@ import Ermine.Syntax.Kind as Kind
 
 -- $setup
 -- >>> :set -XRank2Types -XNoMonomorphismRestriction -XExtendedDefaultRules
--- >>> :m + Control.Lens Data.Void Ermine Text.Trifecta.Rendering Data.Functor.Identity Ermine.Pretty.Kind
+-- >>> :m + Control.Lens Data.Void Ermine.Syntax.Type Ermine.Unification.Meta
+-- >>> :m + Ermine.Unification.Kind Ermine.Inference.Kind
+-- >>> :m + Text.Trifecta.Rendering Data.Functor.Identity Ermine.Pretty.Kind
 -- >>> import Ermine.Pretty (names, plain, Doc, Pretty(..))
 -- >>> let infer :: (forall k t. Type k t) -> Doc; infer t = prettySchema ?? names $ runM_ emptyRendering $ generalize =<< inferKind t
 

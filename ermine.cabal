@@ -94,7 +94,6 @@ library
   hs-source-dirs: src
 
   exposed-modules:
-    Ermine
     Ermine.Builtin.Core
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
