@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -101,7 +102,10 @@ import qualified Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
 import GHC.Generics
 import Prelude.Extras
--- mport Text.Trifecta.Diagnostic.Rendering.Prim
+
+#ifdef HLINT
+{-# ANN module "hlint: ignore Eta reduce" #-}
+#endif
 
 -- | A placeholder for a more complicated database fieldname.
 type FieldName = Text

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Ermine.Syntax.Name where
 
 import Control.Lens

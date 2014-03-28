@@ -91,6 +91,10 @@ import Ermine.Syntax.Type
 import Ermine.Syntax.Kind
 import Ermine.Unification.Sharing
 
+#ifdef HLINT
+{-# ANN module "hlint: ignore Reduce duplication" #-}
+#endif
+
 ------------------------------------------------------------------------------
 -- Meta
 ------------------------------------------------------------------------------

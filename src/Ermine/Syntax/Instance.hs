@@ -1,8 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012-2013

@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -88,7 +87,9 @@ data Pattern t
 makePrisms ''Pattern
 
 _ConP' :: Global -> Prism' (Pattern t) [Pattern t]
-_ConP' g = prism (ConP g) $ \case ConP g' ps | g == g' -> Right ps ; p -> Left p
+_ConP' g = prism (ConP g) $ \ xs -> case xs of
+  ConP g' ps | g == g' -> Right ps
+  p -> Left p
 
 -- | Paths into a pattern tree. These will be used as the bound variables
 -- for scopes that have patterns in their binder. No effort has been made

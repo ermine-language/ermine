@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Ermine.Syntax.Module
  ( Module(Module)
  , definitions
