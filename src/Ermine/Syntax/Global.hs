@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011
@@ -20,6 +21,15 @@ module Ermine.Syntax.Global
   -- * Lenses
   , unpackFixity
   , packFixity
+  -- * Common globals
+  , nilg
+  , consg
+  , nothingg
+  , justg
+  , tupleg
+  , trueg
+  , falseg
+  , missingg -- temp
   ) where
 
 import Control.Applicative
@@ -183,3 +193,19 @@ instance AsGlobal Global where
 glob :: AsGlobal t => Fixity -> ModuleName -> Text -> t
 glob f m n = _Global # Global d f m n where
   d = MD5.finalize $ digest MD5.init f `digest` m `digest` n
+
+nilg, consg, nothingg, justg :: Global
+nilg = glob Idfix (mkModuleName_ "Builtin") "[]"
+consg = glob (Infix R 5) (mkModuleName_ "Builtin") "(:)"
+nothingg = glob (Infix R 5) (mkModuleName_ "Builtin") "Nothing"
+justg = glob Idfix (mkModuleName_ "Builtin") "Just"
+
+tupleg :: Word8 -> Global
+tupleg w8 = glob Idfix (mkModuleName_ "Builtin") $ Data.Text.pack $ "(" ++ Prelude.replicate (if n == 0 then 0 else n-1) ',' ++ ")"
+  where n = fromIntegral w8
+
+missingg, trueg, falseg :: Global
+missingg = glob Idfix (mkModuleName_ "Builtin") "Missing"
+trueg = glob Idfix (mkModuleName_ "Builtin") "True"
+falseg = glob Idfix (mkModuleName_ "Builtin") "False"
+

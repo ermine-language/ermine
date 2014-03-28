@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 --------------------------------------------------------------------
@@ -67,7 +68,7 @@ import Data.Text as Strict hiding (cons, length)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Head
-import Ermine.Syntax.Global
+import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics
@@ -82,21 +83,21 @@ import Prelude
 -- >>> putStrLn $ groom $ lit (1 :: Int32) `cons` nil
 -- Data 1 [HardCore (Lit (Int 1)), Data 0 []]
 instance Cons (Core a) (Core a) (Core a) (Core a) where
-  _Cons = prism (\(a, as) -> Data 1 [a,as]) $ \ s -> case s of
-    Data 1 [x,xs] -> Right (x,xs)
-    _             -> Left s
+  _Cons = prism (\(a, as) -> Data 1 consg [a,as]) $ \ s -> case s of
+    Data 1 _ [x,xs] -> Right (x,xs)
+    _               -> Left s
 
 -- | The built-in '[]' constructor for a list.
 nil :: Core a
-nil = Data 0 []
+nil = Data 0 nilg []
 
 -- | The built-in 'Just' constructor for 'Maybe'.
 just :: Core a -> Core a
-just a = Data 1 [a]
+just a = Data 1 justg [a]
 
 -- | The built-in 'Nothing' constructor for 'Maybe'.
 nothing :: Core a
-nothing = Data 0 []
+nothing = Data 0 nothingg []
 
 -- | Lifting of literal values to core.
 class Lit a where
@@ -112,7 +113,7 @@ instance Lit Char where
 instance Lit Int8 where lit b = HardCore . Lit $ Byte b
 instance Lit Int16 where lit s = HardCore . Lit $ Short s
 instance (Lit a, Lit b) => Lit (a, b) where
-  lit (a,b) = Data 0 [lit a, lit b]
+  lit (a,b) = Data 0 (tupleg 2) [lit a, lit b]
 instance Lit a => Lit [a] where
   lit = lits
 instance Lit a => Lit (Maybe a) where
@@ -252,7 +253,7 @@ instance Serialize HardCore where
 -- e.g. 'Core' and @'Scope' b 'Core'@
 class (Applicative c, Monad c) => Cored c where
   core :: Core a -> c a
-  caze :: c a -> Map Word8 (Word8, Scope Word8 c a) -> Maybe (Scope () c a) -> c a
+  caze :: c a -> Map Word8 (Word8, Global, Scope Word8 c a) -> Maybe (Scope () c a) -> c a
   lambda :: Word8 -> Scope Word8 c a -> c a
   lambdaDict :: Scope () c a -> c a
   letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
@@ -286,13 +287,12 @@ expandScope (Scope e) = Scope e'''
  e''' :: t (Var b2 (t (Var b1 (t a))))
  e''' = (fmap.fmap) (unvar (pure . B) unscope) e''
 
-
 instance Cored m => Cored (Scope b m) where
   core = lift . core
   {-# INLINE core #-}
   caze e bs d = Scope $
     caze (unscope e)
-         (fmap (fmap expandScope) bs)
+         (fmap (over _3 expandScope) bs)
          (fmap expandScope d)
   lambda w e = Scope . lambda w $ expandScope e
   lambdaDict e = Scope . lambdaDict $ expandScope e
@@ -305,11 +305,11 @@ instance Cored m => Cored (Scope b m) where
 data Core a
   = Var a
   | HardCore !HardCore
-  | Data !Word8 [Core a]
+  | Data !Word8 !Global [Core a]
   | App !(Core a) !(Core a)
   | Lam !Word8 !(Scope Word8 Core a)
   | Let [Scope Word32 Core a] !(Scope Word32 Core a)
-  | Case !(Core a) (Map Word8 (Word8, Scope Word8 Core a)) (Maybe (Scope () Core a))
+  | Case !(Core a) (Map Word8 (Word8, Global, Scope Word8 Core a)) (Maybe (Scope () Core a))
   | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
   | LamDict !(Scope () Core a)
   | AppDict !(Core a) !(Core a)
@@ -352,7 +352,7 @@ instance Serial1 Core where
   -- | Binary serialization of a 'Core', given serializers for its parameter.
   serializeWith pa (Var a)          = putWord8 0 >> pa a
   serializeWith _  (HardCore h)     = putWord8 1 >> serialize h
-  serializeWith pa (Data i cs)      = putWord8 2 >> serialize i >> serializeWith (serializeWith pa) cs
+  serializeWith pa (Data i g cs)    = putWord8 2 >> serialize i >> serialize g >> serializeWith (serializeWith pa) cs
   serializeWith pa (App c1 c2)      = putWord8 3 >> serializeWith pa c1 >> serializeWith pa c2
   serializeWith pa (Lam i s)        = putWord8 4 >> serialize i >> serializeWith pa s
   serializeWith pa (Let ss s)       = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
@@ -364,7 +364,7 @@ instance Serial1 Core where
   deserializeWith ga = getWord8 >>= \b -> case b of
     0 -> liftM Var ga
     1 -> liftM HardCore deserialize
-    2 -> liftM2 Data deserialize (deserializeWith (deserializeWith ga))
+    2 -> liftM3 Data deserialize deserialize (deserializeWith (deserializeWith ga))
     3 -> liftM2 App (deserializeWith ga) (deserializeWith ga)
     4 -> liftM2 Lam deserialize (deserializeWith ga)
     5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
@@ -403,7 +403,7 @@ distAppDict  = maxBound `quot` 29
 instance Hashable a => Hashable (Core a) where
   hashWithSalt n (Var a)       = hashWithSalt n a
   hashWithSalt n (HardCore c)  = hashWithSalt n c  `hashWithSalt` distHardCore
-  hashWithSalt n (Data i cs)   = hashWithSalt n i  `hashWithSalt` cs `hashWithSalt` distData
+  hashWithSalt n (Data i g cs) = hashWithSalt n i  `hashWithSalt` cs `hashWithSalt` g `hashWithSalt` distData
   hashWithSalt n (App x y)     = hashWithSalt n x  `hashWithSalt` y `hashWithSalt` distApp
   hashWithSalt n (Lam k b)     = hashWithSalt n k  `hashWithSalt` b `hashWithSalt` distLam
   hashWithSalt n (Let ts b)    = hashWithSalt n ts `hashWithSalt` b `hashWithSalt` distLet
@@ -434,11 +434,11 @@ instance Monad Core where
   return = Var
   Var a       >>= f = f a
   HardCore h  >>= _ = HardCore h
-  Data n xs   >>= f = Data n ((>>= f) <$> xs)
+  Data n g xs >>= f = Data n g ((>>= f) <$> xs)
   App x y     >>= f = App (x >>= f) (y >>= f)
   Lam n e     >>= f = Lam n (boundBy f e)
   Let bs e    >>= f = Let (boundBy f <$> bs) (boundBy f e)
-  Case e as d >>= f = Case (e >>= f) (fmap (boundBy f) <$> as) ((>>>= f) <$> d)
+  Case e as d >>= f = Case (e >>= f) (over _3 (boundBy f) <$> as) ((>>>= f) <$> d)
   Dict xs ys  >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   LamDict e   >>= f = LamDict (e >>>= f)
   AppDict x y >>= f = AppDict (x >>= f) (y >>= f)
@@ -458,6 +458,6 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
         abstr = abstract (fmap fromIntegral . flip List.elemIndex vs)
 
 -- | Builds an n-ary data constructor
-dataCon :: Cored m => Word8 -> Word8 -> m a
-dataCon 0     tg = core $ Data tg []
-dataCon arity tg = core $ Lam arity . Scope . Data tg $ pure . B <$> [0 .. arity-1]
+dataCon :: Cored m => Word8 -> Word8 -> Global -> m a
+dataCon 0     tg g = core $ Data tg g []
+dataCon arity tg g = core $ Lam arity . Scope . Data tg g $ pure . B <$> [0 .. arity-1]

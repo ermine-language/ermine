@@ -9,6 +9,7 @@
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -57,6 +58,7 @@ import Data.Word
 import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
 import Ermine.Syntax.Core
+import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term
@@ -179,8 +181,8 @@ compileManyGuards m pm ((g,b):gbs) =
     (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
   caze (inst g) ?? Nothing $
     M.fromList
-      [(1, (0, Scope . fmap (F . pure) $ inst b))
-      ,(0, (0, Scope f))
+      [(1, (0, trueg, Scope . fmap (F . pure) $ inst b))
+      ,(0, (0, falseg, Scope f))
       ]
  where inst = instantiate (instantiation m)
 
@@ -202,7 +204,7 @@ compile m pm@(PatternMatrix ps (b:bs))
           sms <- for (toListOf folded heads) $ \h -> do
                    let n = h^.arity
                    (,) <$> constructorTag h
-                       <*> ((,) n . Scope <$> compile (expand i n m) (splitOn i h pm))
+                       <*> ((,,) n missingg . Scope <$> compile (expand i n m) (splitOn i h pm))
           caze ((m^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i m) dm
   | otherwise = error "PANIC: pattern compile: No column selected."

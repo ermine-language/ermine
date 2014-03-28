@@ -51,10 +51,11 @@ import Ermine.Constraint.Simplification
 import Ermine.Pattern.Env as Pattern
 import Ermine.Pattern.Matching as Pattern
 import Ermine.Syntax
+import Ermine.Syntax.Core as Core
+import Ermine.Syntax.Global
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Pattern as Pattern
 import Ermine.Syntax.Scope
@@ -325,7 +326,7 @@ inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon n 0
+  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon n 0 (tupleg n)
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
