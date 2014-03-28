@@ -23,18 +23,23 @@
 --
 --------------------------------------------------------------------
 module Ermine.Match
-  ( Claused(..)
-  , PatternMatrix(..)
-  , HasPatternMatrix(..)
-  , MatchEnv(..)
+  (
+  -- * Monad
+    MatchEnv(..)
   , dummyMatchEnv
   , MonadMatch(..)
   , isSignature
   , constructorTag
+  -- * Pattern Matrix
+  , Claused(..)
+  , PatternMatrix(..)
+  , HasPatternMatrix(..)
+  -- * Matching
   , Matching(..)
   , HasMatching(..)
   , defaultOn
   , splitOn
+  -- * Compilation
   , compile
   , compileBinding
   , compileLambda
@@ -57,65 +62,15 @@ import Data.Maybe
 import Data.Monoid
 import Data.Ord
 import Data.Set (Set)
-import qualified Data.Set as S
 import Data.Set.Lens
 import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
+import Ermine.Match.Monad
 import Ermine.Syntax.Core
-import Ermine.Syntax.Global
-import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term
-
--- | The environment necessary to perform pattern compilation. We need two
--- pieces of information:
---
---   1) The signatures (full list of constructors) associated with each
---      particular constructor
---
---   2) A mapping from constructors to their @Core@ integer tag
---
--- This is accomplished via a map of maps. The outer map should take each
--- global to its associated signature, and signatures are represented as
--- maps from globals to integer tags.
-newtype MatchEnv = MatchEnv { signatures :: HashMap Global (HashMap Global Word8) }
-  deriving (Eq, Show)
-
-dummyMatchEnv :: MatchEnv
-dummyMatchEnv = MatchEnv $ HM.singleton n (HM.singleton n 0) where
-  n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
-
-
--- | Monads that allow us to perform pattern compilation, by providing
--- a MatchEnv.
-class (Applicative m, Monad m) => MonadMatch m where
-  askMatch :: m MatchEnv
-
-instance MonadMatch ((->) MatchEnv) where
-  askMatch = id
-
--- | Determines whether a set of pattern heads constitutes a signature.
--- This is handled specially for tuples and literals, and relies on the
--- monad for data type constructors.
-isSignature :: MonadMatch m => Set PatternHead -> m Bool
-isSignature ps = case preview folded ps of
-  Nothing         -> pure False
-  Just (TupH _)   -> pure True
-  Just (ConH _ g) -> askMatch <&> \env -> case HM.lookup g $ signatures env of
-    Nothing -> error $ "PANIC: isSignature: unknown constructor"
-    Just hm -> iall (\g' _ -> S.member g' ns) hm
- where ns = S.map _name ps
-
--- | Looks up the constructor tag for a pattern head. For tuples this is
--- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadMatch m => PatternHead -> m Word8
-constructorTag (TupH _) = pure 0
-constructorTag (ConH _ g) = askMatch <&> \env ->
-  case HM.lookup g (signatures env) >>= HM.lookup g of
-    Nothing -> error $ "PANIC: constructorTag: unknown constructor"
-    Just i  -> i
 
 -- | Additional information needed for pattern compilation that does not
 -- really belong in the pattern matrix.
