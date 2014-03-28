@@ -25,6 +25,7 @@ import Ermine.Syntax.Kind
 -- >>> :set -XOverloadedStrings
 
 prettyHardKind :: HardKind -> Doc
+prettyHardKind Unboxed = "#"
 prettyHardKind Star = "*"
 prettyHardKind Constraint = "Γ"
 prettyHardKind Rho = "ρ"
