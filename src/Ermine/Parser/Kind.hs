@@ -27,6 +27,7 @@ kind0 = parens kind
     <|> rho <$ reserve kindIdent "ρ"
     <|> phi <$ reserve kindIdent "phi"
     <|> phi <$ reserve kindIdent "φ"
+    <|> unboxed <$ reserve kindIdent "#"
     <|> constraint <$ reserve kindIdent "constraint"
     <|> constraint <$ reserve kindIdent "Γ"
     <|> Var <$> kindIdentifier
