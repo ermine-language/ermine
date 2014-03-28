@@ -48,7 +48,7 @@ import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
-import Ermine.Match as Pattern
+import Ermine.Pattern as Pattern
 import Ermine.Syntax
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
@@ -128,7 +128,7 @@ inferBindingType d cxt lcxt bdg = do
       wheres   = view _4 <$> mess
       (t0:tys) = view _2 <$> mess
   ty <- runSharing t0 $ foldM unifyType t0 tys
-  simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyMatchEnv
+  simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPatternEnv
 
 inferBindingGroupTypes
   :: MonadDischarge s m
@@ -177,7 +177,7 @@ inferType d cxt (Term.Lam ps e) = do
         | Just f <- ppts ^? ix (fromIntegral i) = f pp
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
-  let cc = Pattern.compileLambda ps (splitScope c) dummyMatchEnv
+  let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
   return $ Witness rcs rt (lambda (fromIntegral $ length ps) cc)
 
@@ -208,7 +208,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
   let (rss, bts, gcs) = unzip3 l
       ps = map (\(Alt p _) -> p) bs
       rs = join rss
-      c' = Pattern.compileCase ps c gcs dummyMatchEnv
+      c' = Pattern.compileCase ps c gcs dummyPatternEnv
   uncaring $ foldlM unifyType t pts
   result <- pure <$> newMeta star
   t' <- runSharing result $ foldlM unifyType result bts

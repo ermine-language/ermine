@@ -104,8 +104,6 @@ library
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
-    Ermine.Match
-    Ermine.Match.Monad
     Ermine.Monitor
     Ermine.Optimizer
     Ermine.Parser.DataType
@@ -117,6 +115,8 @@ library
     Ermine.Parser.Style
     Ermine.Parser.Type
     Ermine.Parser.Term
+    Ermine.Pattern
+    Ermine.Pattern.Env
     Ermine.Pretty
     Ermine.Pretty.Core
     Ermine.Pretty.Global

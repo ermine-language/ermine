@@ -22,14 +22,10 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Match
+module Ermine.Pattern
   (
   -- * Monad
-    MatchEnv(..)
-  , dummyMatchEnv
-  , MonadMatch(..)
-  , isSignature
-  , constructorTag
+    module Ermine.Pattern.Env
   -- * Pattern Matrix
   , Claused(..)
   , PatternMatrix(..)
@@ -66,7 +62,7 @@ import Data.Set.Lens
 import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
-import Ermine.Match.Monad
+import Ermine.Pattern.Env
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
@@ -203,7 +199,7 @@ selectCol = fmap fst
           . zip [0..]
           . map (length . takeWhile forces)
 
-compileClaused :: (MonadMatch m, Cored c)
+compileClaused :: (MonadPattern m, Cored c)
                => Matching c a
                -> PatternMatrix t c a
                -> Claused c a
@@ -216,7 +212,7 @@ compileClaused m pm (Localized ws gbs) =
  pm' = hbumpPM pm
  inst = instantiate (instantiation m')
 
-compileGuards :: (MonadMatch m, Cored c)
+compileGuards :: (MonadPattern m, Cored c)
               => Matching c a
               -> PatternMatrix t c a
               -> Guarded (Scope PatternPath c a)
@@ -226,7 +222,7 @@ compileGuards :: (MonadMatch m, Cored c)
 compileGuards m _  (Unguarded body) = pure $ instantiate (instantiation m) body
 compileGuards m pm (Guarded bods) = compileManyGuards m pm bods
 
-compileManyGuards :: (MonadMatch m, Cored c)
+compileManyGuards :: (MonadPattern m, Cored c)
                   => Matching c a
                   -> PatternMatrix t c a
                   -> [(Scope PatternPath c a, Scope PatternPath c a)]
@@ -249,7 +245,7 @@ compileManyGuards m pm ((g,b):gbs) =
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
-compile :: (MonadMatch m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
+compile :: (MonadPattern m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
 compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile m pm@(PatternMatrix ps (b:bs))
   | all (matchesTrivially . head) ps =
@@ -283,7 +279,7 @@ whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
 
 compileBinding
-  :: (MonadMatch m, Cored c)
+  :: (MonadPattern m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
 compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
@@ -295,7 +291,7 @@ compileBinding ps gds ws = lambda (fromIntegral $ length $ head ps) <$> compile 
   m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileLambda
-  :: (MonadMatch m, Cored c)
+  :: (MonadPattern m, Cored c)
   => [Pattern t] -> Scope PatternPath c a -> m (Scope Word8 c a)
 compileLambda ps body = compile m pm where
  pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
@@ -304,7 +300,7 @@ compileLambda ps body = compile m pm where
  m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileCase
-  :: (MonadMatch m, Cored c)
+  :: (MonadPattern m, Cored c)
   => [Pattern t] -> c a -> [Guarded (Scope PatternPath c a)] -> m (c a)
 compileCase ps disc bs = compile m pm where
  pm = PatternMatrix [ps] (Raw <$> bs)

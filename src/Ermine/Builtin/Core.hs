@@ -20,12 +20,12 @@ import Control.Comonad
 import qualified Data.HashMap.Lazy as HM
 import Data.Word
 import Ermine.Builtin.Pattern
-import Ermine.Match
+import Ermine.Pattern
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 
 
-plam :: (Eq v, MonadMatch m) => [P t v] -> Core v -> m (Core v)
+plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
 plam ps body = Lam n . Scope <$> compile ci pm
  where
  n = fromIntegral $ length ps :: Word8

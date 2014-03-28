@@ -22,10 +22,10 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Match.Monad
-  ( MatchEnv(..)
-  , dummyMatchEnv
-  , MonadMatch(..)
+module Ermine.Pattern.Env
+  ( PatternEnv(..)
+  , dummyPatternEnv
+  , MonadPattern(..)
   , isSignature
   , constructorTag
   ) where
@@ -55,39 +55,39 @@ import Ermine.Syntax.Pattern
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
 -- maps from globals to integer tags.
-newtype MatchEnv = MatchEnv { signatures :: HashMap Global (HashMap Global Word8) }
+newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global Word8) }
   deriving (Eq, Show)
 
-dummyMatchEnv :: MatchEnv
-dummyMatchEnv = MatchEnv $ HM.singleton n (HM.singleton n 0) where
+dummyPatternEnv :: PatternEnv
+dummyPatternEnv = PatternEnv $ HM.singleton n (HM.singleton n 0) where
   n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
 
 
 -- | Monads that allow us to perform pattern compilation, by providing
--- a MatchEnv.
-class (Applicative m, Monad m) => MonadMatch m where
-  askMatch :: m MatchEnv
+-- a PatternEnv.
+class (Applicative m, Monad m) => MonadPattern m where
+  askPattern :: m PatternEnv
 
-instance MonadMatch ((->) MatchEnv) where
-  askMatch = id
+instance MonadPattern ((->) PatternEnv) where
+  askPattern = id
 
 -- | Determines whether a set of pattern heads constitutes a signature.
 -- This is handled specially for tuples and literals, and relies on the
 -- monad for data type constructors.
-isSignature :: MonadMatch m => Set PatternHead -> m Bool
+isSignature :: MonadPattern m => Set PatternHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
   Just (TupH _)   -> pure True
-  Just (ConH _ g) -> askMatch <&> \env -> case HM.lookup g $ signatures env of
+  Just (ConH _ g) -> askPattern <&> \env -> case HM.lookup g $ signatures env of
     Nothing -> error $ "PANIC: isSignature: unknown constructor"
     Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadMatch m => PatternHead -> m Word8
+constructorTag :: MonadPattern m => PatternHead -> m Word8
 constructorTag (TupH _) = pure 0
-constructorTag (ConH _ g) = askMatch <&> \env ->
+constructorTag (ConH _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error $ "PANIC: constructorTag: unknown constructor"
     Just i  -> i
