@@ -117,6 +117,7 @@ library
     Ermine.Parser.Term
     Ermine.Pattern
     Ermine.Pattern.Env
+    Ermine.Pattern.Matching
     Ermine.Pattern.Matrix
     Ermine.Pretty
     Ermine.Pretty.Core
