@@ -49,7 +49,7 @@ typ0 = Var <$> typeIdentifier
               )
    <|> parens ( arrow <$ reserve op "->"
             <|> tuple . (+1) . length <$> some comma
-            <|> tup <$> commaSep anyTyp
+            <|> tup' <$> commaSep anyTyp
               )
 
 typ1 :: (Monad m, TokenParsing m) => m Typ
@@ -123,16 +123,8 @@ constraint =
  where buildE (kvs, tvks) =
          exists maybeHint stringHint (Just <$> kvs) tvks
 
--- | Parses an optional constraint context, followed by an arrow if necessary.
---   constraint ::= constraint =>
---                | empty
-constrained :: (Monad m, TokenParsing m) => m Typ
-constrained = optional constraint >>= \mcs -> case mcs of
-  Just cs -> cs <$ reserve op "=>"
-  Nothing -> return $ And []
-
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 = forall maybeHint stringHint [] [] <$> try constrained <*> typ4
+typ3 = forall maybeHint stringHint [] [] <$> try (constraint <* reserve op "=>") <*> typ4
     <|> typ2
 
 typ4 :: (Applicative m, Monad m, TokenParsing m) => m Typ
