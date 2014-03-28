@@ -26,7 +26,6 @@ import Ermine.Pattern.Matching
 import Ermine.Syntax.Core
 import Ermine.Syntax.Pattern
 
-
 plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
 plam ps body = Lam n . Scope <$> compile ci pm
  where

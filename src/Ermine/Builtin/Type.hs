@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett and Dan Doel 2012,2013
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -212,7 +212,9 @@ equality = builtin ("a" ~> "a" ~> star) "Equality"
 functor :: Builtin t => t
 functor = builtin ((star ~> star) ~> constraint) "Functor"
 
--- |
+-- | This is a placeholder typeclass we're using until we get class declaration
+-- parsing implemented
+--
 -- >>> infer lame
 -- * -> Γ
 lame :: Builtin t => t
