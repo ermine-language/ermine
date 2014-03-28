@@ -18,6 +18,7 @@ import Bound.Scope
 import Control.Applicative
 import Data.Traversable
 import Data.Void
+import Ermine.Syntax.Constructor
 import Ermine.Syntax.DataType
 import Ermine.Syntax.Kind
 import Ermine.Syntax.Type

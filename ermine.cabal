@@ -129,6 +129,7 @@ library
     Ermine.Pretty.Type
     Ermine.Syntax
     Ermine.Syntax.Class
+    Ermine.Syntax.Constructor
     Ermine.Syntax.Core
     Ermine.Syntax.DataType
     Ermine.Syntax.Digest

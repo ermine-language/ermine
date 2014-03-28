@@ -45,6 +45,7 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
+import Ermine.Syntax.Constructor as Data
 import Ermine.Syntax.DataType as Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.Hint

@@ -23,6 +23,7 @@ import Data.Text (Text)
 import Ermine.Parser.Global
 import Ermine.Parser.Style
 import Ermine.Parser.Type
+import Ermine.Syntax.Constructor
 import Ermine.Syntax.DataType
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind (HasKindVars(..))
