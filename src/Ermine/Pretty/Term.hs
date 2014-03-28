@@ -44,7 +44,7 @@ prettyTerm (App f x) vars prec kt kv =
     <$> prettyTerm f vars 10 kt kv
     <*> prettyTerm x vars 11 kt kv
 prettyTerm (AppHash f x) vars prec kt kv =
-  (\df dx -> parensIf (prec > 10) $ df <+> text "@" <+> dx)
+  (\df dx -> parensIf (prec > 10) $ df <+> text "#" <+> dx)
     <$> prettyTerm f vars 10 kt kv
     <*> prettyTerm x vars 11 kt kv
 prettyTerm (Sig tm ty) vars prec kt kv =
