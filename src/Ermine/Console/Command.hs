@@ -40,7 +40,7 @@ import Data.Foldable (for_)
 import Data.Void
 import Ermine.Builtin.Type as Type (lame)
 import Ermine.Console.State
-import Ermine.Inference.Discharge
+import Ermine.Constraint
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Optimizer
@@ -141,7 +141,7 @@ dkindsBody dts = do
         <+> colon
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
-checkAndCompile :: MonadDischarge s m
+checkAndCompile :: MonadConstraint s m
                 => Term Ann Text -> m (Maybe (Type t k, Core c))
 checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
   tm <- bitraverse (prepare (newMeta ())
@@ -163,12 +163,12 @@ checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
  closedOrLame _ = Nothing
 
 typeBody :: Term Ann Text -> Console ()
-typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
+typeBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \case
   Just (ty, _) -> sayLn $ prettyType ty names (-1)
   Nothing -> sayLn "Unbound variables detected"
 
 coreBody :: Term Ann Text -> Console ()
-coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyDischargeEnv) >>= \case
+coreBody syn = ioM mempty (discharging (checkAndCompile syn) dummyConstraintEnv) >>= \case
   Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 

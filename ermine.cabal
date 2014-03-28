@@ -99,8 +99,8 @@ library
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type
+    Ermine.Constraint
     Ermine.Diagnostic
-    Ermine.Inference.Discharge
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness

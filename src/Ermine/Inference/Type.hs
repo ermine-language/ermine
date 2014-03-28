@@ -48,6 +48,7 @@ import Data.Text as SText (pack)
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
+import Ermine.Constraint
 import Ermine.Pattern.Env as Pattern
 import Ermine.Pattern.Matching as Pattern
 import Ermine.Syntax
@@ -61,7 +62,6 @@ import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
 import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
-import Ermine.Inference.Discharge
 import Ermine.Inference.Kind
 import Ermine.Inference.Witness
 import Ermine.Unification.Type
@@ -94,7 +94,7 @@ beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> Lens
 beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
 inferBindingType
-  :: MonadDischarge s m
+  :: MonadConstraint s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
 inferBindingType d cxt lcxt bdg = do
   let ps = bdg^..bindingBodies.traverse.bodyPatterns
@@ -132,7 +132,7 @@ inferBindingType d cxt lcxt bdg = do
   simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPatternEnv
 
 inferBindingGroupTypes
-  :: MonadDischarge s m
+  :: MonadConstraint s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d $ fromMaybe anyType $ b^?bindingType._Explicit
@@ -142,7 +142,7 @@ inferBindingGroupTypes d cxt lcxt bg = do
     generalizeWitnessType d w'
 
 inferBindings
-  :: MonadDischarge s m
+  :: MonadConstraint s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word32 v)]
 inferBindings d cxt bgs = do
   (ws,_ts) <- foldlM step (Map.empty, Map.empty) sccs
@@ -155,7 +155,7 @@ inferBindings d cxt bgs = do
     nws <- inferBindingGroupTypes (d+1) cxt ts cc
     return (ws <> nws, ts <> fmap (view witnessType) nws)
 
-inferType :: MonadDischarge s m
+inferType :: MonadConstraint s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
 inferType _ cxt (Term.Var v) = unfurl (cxt v) v
 inferType _ _   (HardTerm t) = inferHardType t
@@ -195,12 +195,12 @@ inferType d cxt (Term.Let xs b) = do
                     (w^.witnessType)
                   $ letrec wsc wc
 
-inferTypeInScope :: MonadDischarge s m
+inferTypeInScope :: MonadConstraint s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
                  -> ScopeM b s v -> m (WitnessM s (Var b v))
 inferTypeInScope d aug cxt sm = inferType d (unvar aug cxt) $ fromScope sm
 
-inferAltTypes :: MonadDischarge s m
+inferAltTypes :: MonadConstraint s m
               => Depth -> (v -> TypeM s) -> WitnessM s v
               -> [AltM s v]
               -> m (WitnessM s v)
@@ -236,11 +236,11 @@ coalesceGuarded (Guarded l) = do
   pure (rs, ty, Guarded l')
 
 -- TODO: write this
-simplifiedWitness :: MonadDischarge s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
+simplifiedWitness :: MonadConstraint s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = runSharing c (traverse zonk c) >>= \c' ->
     Witness rcs t <$> simplifyVia (toList c') c'
 
-abstractedWitness :: MonadDischarge s m
+abstractedWitness :: MonadConstraint s m
                   => Int -> [MetaT s] -> [TypeM s] -> [TypeM s] -> TypeM s -> CoreM s a
                   -> m (WitnessM s a)
 abstractedWitness d sks rs cs0 ty co0 = do
@@ -253,14 +253,14 @@ abstractedWitness d sks rs cs0 ty co0 = do
   pure $ Witness rs' ty' co''
 
 -- TODO: write this correctly
-checkType :: MonadDischarge s m
+checkType :: MonadConstraint s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
   w <- inferType d cxt e
   checkKind (view metaValue <$> t) star
   subsumesType d w t
 
-subsumesType :: MonadDischarge s m
+subsumesType :: MonadConstraint s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
   (_  , sts, cs, t2') <- skolemize d t2

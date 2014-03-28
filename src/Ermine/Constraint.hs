@@ -7,17 +7,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Ermine.Inference.Discharge
-  ( MonadDischarge(..)
+module Ermine.Constraint
+  ( MonadConstraint(..)
   , D(..)
-  , DischargeEnv(..)
-  , HasDischargeEnv(..)
-  , dummyDischargeEnv
-  , viewDischarge
+  , ConstraintEnv(..)
+  , HasConstraintEnv(..)
+  , dummyConstraintEnv
+  , viewConstraint
   , superclasses
-  , dischargesBySuper
-  , dischargesBySupers
-  , dischargesByInstance
+  , bySuper
+  , bySupers
+  , byInstance
   , entails
   , simplifyVia
   ) where
@@ -50,15 +50,15 @@ import Ermine.Syntax.Type as Type
 import Ermine.Unification.Meta
 import Prelude hiding (sequence)
 
-data DischargeEnv = DischargeEnv
+data ConstraintEnv = ConstraintEnv
                   { _classes   :: Map Global Class
                   , _instances :: Map Global [Instance]
                   }
 
-makeClassy ''DischargeEnv
+makeClassy ''ConstraintEnv
 
-dummyDischargeEnv :: DischargeEnv
-dummyDischargeEnv = DischargeEnv { _classes = singleton lame clame
+dummyConstraintEnv :: ConstraintEnv
+dummyConstraintEnv = ConstraintEnv { _classes = singleton lame clame
                                  , _instances = singleton lame [ilame]
                                  }
  where
@@ -69,16 +69,16 @@ dummyDischargeEnv = DischargeEnv { _classes = singleton lame clame
  dlame = Dict [] [_Lit # Int 5]
  ilame = Instance [] hlame dlame
 
-class MonadMeta s m => MonadDischarge s m where
-  askDischarge :: m DischargeEnv
-  localDischarge :: (DischargeEnv -> DischargeEnv) -> m a -> m a
+class MonadMeta s m => MonadConstraint s m where
+  askConstraint :: m ConstraintEnv
+  localConstraint :: (ConstraintEnv -> ConstraintEnv) -> m a -> m a
 
-instance MonadDischarge s m => MonadDischarge s (MaybeT m) where
-  askDischarge     = MaybeT $ fmap Just askDischarge
-  localDischarge f = MaybeT . localDischarge f . runMaybeT
+instance MonadConstraint s m => MonadConstraint s (MaybeT m) where
+  askConstraint     = MaybeT $ fmap Just askConstraint
+  localConstraint f = MaybeT . localConstraint f . runMaybeT
 
 
-newtype D s a = D { discharging :: DischargeEnv -> M s a }
+newtype D s a = D { discharging :: ConstraintEnv -> M s a }
 
 instance Functor (D s) where
   fmap f (D e) = D $ fmap f <$> e
@@ -99,21 +99,21 @@ instance MonadMeta s (D s) where
   askMeta = D $ const askMeta
   localMeta f (D m) = D $ localMeta f . m
 
-instance MonadDischarge s (D s) where
-  askDischarge = D $ \de -> pure de
-  localDischarge f (D m) = D $ \de -> m $ f de
+instance MonadConstraint s (D s) where
+  askConstraint = D $ \de -> pure de
+  localConstraint f (D m) = D $ \de -> m $ f de
 
 mangle :: (Applicative f, Monad t, Traversable t) =>  (a -> f (t c)) -> t a -> f (t c)
 mangle f c = join <$> traverse f c
 
-viewDischarge :: MonadDischarge s m => Getter DischargeEnv a -> m a
-viewDischarge g = view g <$> askDischarge
+viewConstraint :: MonadConstraint s m => Getter ConstraintEnv a -> m a
+viewConstraint g = view g <$> askConstraint
 
-superclasses :: MonadDischarge s m => Type k t -> m [Type k t]
+superclasses :: MonadConstraint s m => Type k t -> m [Type k t]
 superclasses tc = go [] tc
  where
  go stk (App f x) = go (x:stk) f
- go stk (HardType (Con g _)) = viewDischarge (classes.at g) >>= \case
+ go stk (HardType (Con g _)) = viewConstraint (classes.at g) >>= \case
    Just clazz -> traverse (fmap join . bitraverse (pure . absurd) look) $ clazz^.context
     where look i | Just t <- stk ^? ix i = pure t
                  | otherwise = fail "Under-applied class"
@@ -126,20 +126,20 @@ superclasses tc = go [] tc
 --
 -- We expect here that both arguments have been reduced by instance before
 -- they arrive here.
-dischargesBySuper :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+bySuper :: (Alternative m, MonadConstraint s m, Eq k, Eq t)
                   => Type k t -> Type k t -> m (Scope b Core (Type k t))
-dischargesBySuper c d = Prelude.foldr id (pure d) <$> go [] d
+bySuper c d = Prelude.foldr id (pure d) <$> go [] d
  where
  go ps c'
    | c == c'   = pure $ ps
    | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [0..]
 
--- As dischargesBySuper.
-dischargesBySupers :: (Alternative m, MonadDischarge s m, Eq k, Eq t)
+-- As bySuper.
+bySupers :: (Alternative m, MonadConstraint s m, Eq k, Eq t)
                    => Type k t -> [Type k t] -> m (Scope b Core (Type k t))
-dischargesBySupers c cs = asum (map (dischargesBySuper c) cs)
+bySupers c cs = asum (map (bySuper c) cs)
                       >>= mangle (\d ->
-                              d `dischargesBySupers` delete d cs <|>
+                              d `bySupers` delete d cs <|>
                               pure (pure d))
 
 -- Checks if a series of type arguments would match against the type
@@ -164,28 +164,28 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
  matchArg (HardType h) (HardType h') | h == h' = Just []
  matchArg _            _                       = Nothing
 
-dischargesByInstance :: (Eq k, Eq t, Alternative m, MonadDischarge s m) => Type k t -> m (Scope b Core (Type k t))
-dischargesByInstance c = peel [] c
+byInstance :: (Eq k, Eq t, Alternative m, MonadConstraint s m) => Type k t -> m (Scope b Core (Type k t))
+byInstance c = peel [] c
  where
  peel stk (App f x) = peel (x:stk) f
- peel stk (HardType (Con g _)) = viewDischarge (instances . at g) >>= \case
+ peel stk (HardType (Con g _)) = viewConstraint (instances . at g) >>= \case
    Nothing -> empty
    Just [] -> empty
-   Just is -> case catMaybes $ tryDischarge stk <$> is of
+   Just is -> case catMaybes $ tryConstraint stk <$> is of
      []  -> empty
      [x] -> pure x
      _   -> fail "Ambiguous class discharge"
  peel _   _ = error "PANIC: Malformed class head"
 
- tryDischarge stk i = matchHead stk (i^.instanceHead) <&> \m ->
+ tryConstraint stk i = matchHead stk (i^.instanceHead) <&> \m ->
    Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_InstanceId # (i^.instanceHead)) $ i^.instanceContext
 
-entails :: (Alternative m, MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
+entails :: (Alternative m, MonadConstraint s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
 entails cs c =
-  c `dischargesBySupers` cs' <|> (dischargesByInstance c >>= simplifyVia cs)
+  c `bySupers` cs' <|> (byInstance c >>= simplifyVia cs)
  where cs' = filter (/= c) cs
 
-simplifyVia :: (MonadDischarge s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
+simplifyVia :: (MonadConstraint s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
 simplifyVia cs s = do
   x <- for s $ \t -> runMaybeT (entails cs t) <&> fromMaybe (pure t)
   return $ join x
