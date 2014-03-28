@@ -63,6 +63,7 @@ import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Term as Term
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
+import Ermine.Version
 import System.Console.Haskeline
 import System.Exit
 import Text.Parser.Combinators (eof)
@@ -213,5 +214,8 @@ commands =
       & desc .~ "show the internal representation of a data declaration"
       & body .~ parsing dataType (liftIO . print)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
+  , cmd "version"
+      & desc .~ "show the compiler version number"
+      & body .~ \_ -> liftIO $ putStrLn version
 
   ]
