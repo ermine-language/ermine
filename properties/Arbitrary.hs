@@ -8,17 +8,18 @@ import Control.Applicative
 import Data.Map
 import Data.Monoid
 import Data.Void
-import Ermine.Syntax.Core       as Core
-import Ermine.Syntax.DataType   as DataType
-import Ermine.Syntax.Global     as Global
-import Ermine.Syntax.Hint       as Hint
-import Ermine.Syntax.Kind       as Kind
-import Ermine.Syntax.Literal    as Lit
-import Ermine.Syntax.Module     as Module
-import Ermine.Syntax.ModuleName as ModuleName
-import Ermine.Syntax.Pattern    as Pat
-import Ermine.Syntax.Type       as Type
-import Ermine.Syntax.Term       as Term
+import Ermine.Syntax.Core        as Core
+import Ermine.Syntax.Constructor as Constructor
+import Ermine.Syntax.DataType    as DataType
+import Ermine.Syntax.Global      as Global
+import Ermine.Syntax.Hint        as Hint
+import Ermine.Syntax.Kind        as Kind
+import Ermine.Syntax.Literal     as Lit
+import Ermine.Syntax.Module      as Module
+import Ermine.Syntax.ModuleName  as ModuleName
+import Ermine.Syntax.Pattern     as Pat
+import Ermine.Syntax.Type        as Type
+import Ermine.Syntax.Term        as Term
 import Prelude.Extras
 import Test.QuickCheck
 import Test.QuickCheck.Function
@@ -196,7 +197,7 @@ instance Arbitrary HardTerm where
     Term.Tuple   <$> arbitrary,
     return Hole ]
 
--- TODO: generate PatPaths that actually make sense.
+-- TODO: generate PatternPaths that actually make sense.
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
   arbitrary = sized term' where
     term' 0 = oneof [ Term.Var <$> arbitrary, HardTerm <$> arbitrary ]
@@ -211,7 +212,7 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Term t a) where
       Term.Loc  <$> return mempty <*> arbitrary,
       Term.Remember <$> arbitrary <*> arbitrary ]
 
-instance Arbitrary PatPath where
+instance Arbitrary PatternPath where
   arbitrary = oneof [ pure LeafPP
                     , FieldPP <$> arbitrary <*> arbitrary
                     , ArgPP   <$> arbitrary <*> arbitrary
@@ -249,15 +250,15 @@ instance Arbitrary a => Arbitrary (Core a) where
       Core.LamDict <$> arbitrary,
       Core.AppDict <$> arbitrary <*> arbitrary ]
 
-instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType.Constructor k t) where
-  arbitrary = DataType.Constructor <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+instance (Arbitrary k, Arbitrary t) => Arbitrary (Constructor.Constructor k t) where
+  arbitrary = Constructor.Constructor <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType k t) where
   arbitrary = DataType <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-genConstructor :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType.Constructor k t)
+genConstructor :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (Constructor.Constructor k t)
 genConstructor mgk mgt =
-  smaller $ DataType.Constructor <$> arbitrary <*>  arbitrary <*>
+  smaller $ Constructor.Constructor <$> arbitrary <*>  arbitrary <*>
     (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
     (listOf (genScope arbitrary (genTK mgk) mgt))
 

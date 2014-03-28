@@ -17,7 +17,8 @@ import Data.Maybe
 import Data.Monoid
 import Data.Map as Map
 import Ermine.Builtin.Type
-import Ermine.Inference.Discharge
+import Ermine.Constraint.Env
+import Ermine.Constraint.Simplification
 import Ermine.Unification.Meta
 import Ermine.Syntax
 import Ermine.Syntax.Class
@@ -36,7 +37,7 @@ import Test.QuickCheck.Property
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-newtype DumbDischarge s a = DD { unDD :: M s (Maybe a) }
+newtype DD s a = DD { unDD :: M s (Maybe a) }
 
 fooCon, barCon, bazCon :: Type k t
 fooCon = con foo (schema $ constraint ~> star)
@@ -48,11 +49,11 @@ foo = glob Idfix (mkModuleName_ "Ermine") "Foo"
 bar = glob Idfix (mkModuleName_ "Ermine") "Bar"
 baz = glob Idfix (mkModuleName_ "Ermine") "Baz"
 
-instance MonadST (DumbDischarge s) where
-  type World (DumbDischarge s) = s
+instance MonadST (DD s) where
+  type World (DD s) = s
   liftST = DD . liftST . fmap Just
 
-instance Monad (DumbDischarge s) where
+instance Monad (DD s) where
   return = DD . return . return
   DD m >>= f = DD $ do
     ma <- m
@@ -60,18 +61,18 @@ instance Monad (DumbDischarge s) where
       Just x -> unDD $ f x
       Nothing -> return Nothing
 
-instance Functor (DumbDischarge s) where
+instance Functor (DD s) where
   fmap = liftM
 
-instance Applicative (DumbDischarge s) where
+instance Applicative (DD s) where
   pure = return
   (<*>) = ap
 
-instance MonadMeta s (DumbDischarge s) where
+instance MonadMeta s (DD s) where
   askMeta = DD $ Just <$> askMeta
   localMeta f (DD m) = DD $ localMeta f m
 
-instance Alternative (DumbDischarge s) where
+instance Alternative (DD s) where
   empty = DD $ pure Nothing
   DD mma <|> dd = DD $ mma >>= \ma -> case ma of
     Nothing -> unDD dd
@@ -81,7 +82,7 @@ fooInstance = Instance [] (mkHead foo 0 [] [] [int]) (Dict [] [])
 barInstance = Instance [] (mkHead bar 0 [] [] [int]) (Dict [fooInstance^.instanceBody] [])
 bazInstance = Instance [] (mkHead baz 0 [] [] [int]) (Dict [barInstance^.instanceBody] [])
 
-dumbDischargeEnv = DischargeEnv
+dumbConstraintEnv = ConstraintEnv
                  { _classes = Map.fromList
                            [ (foo, Class [] [Unhinted $ Scope $ star] [])
                            , (baz, Class [] [Unhinted $ Scope $ star] [barCon `App` pure 0])
@@ -94,11 +95,11 @@ dumbDischargeEnv = DischargeEnv
                      ]
                  }
 
-instance MonadDischarge s (DumbDischarge s) where
-  askDischarge = return dumbDischargeEnv
-  localDischarge _ m = m
+instance MonadConstraint s (DD s) where
+  askConstraint = return dumbConstraintEnv
+  localConstraint _ m = m
 
-runDD :: (forall s. DumbDischarge s a) -> Maybe a
+runDD :: (forall s. DD s a) -> Maybe a
 runDD dd = either (\_ -> Nothing) id $ runM mempty (unDD dd)
 
 prop_discharge_optimal = let v = pure () in
@@ -106,7 +107,7 @@ prop_discharge_optimal = let v = pure () in
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
-      c :: Scope () Core (Type () ()) <- App fooCon v `dischargesBySupers` sups
+      c :: Scope () Core (Type () ()) <- App fooCon v `bySupers` sups
       return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_entails_optimal = let v = pure () in
@@ -118,6 +119,6 @@ prop_entails_optimal = let v = pure () in
       return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_instance_discharge = maybe False (const True) $ runDD $ do
-  dischargesByInstance (App fooCon int :: Type () ())
+  byInstance (App fooCon int :: Type () ())
 
 tests = $testGroupGenerator

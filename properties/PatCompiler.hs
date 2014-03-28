@@ -25,7 +25,9 @@ import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
-import Ermine.Syntax.Pattern.Compiler
+import Ermine.Pattern.Env
+import Ermine.Pattern.Matching
+import Ermine.Pattern.Matrix
 import Ermine.Syntax.Term as Term hiding (Explicit)
 import Ermine.Syntax.Type as Type
 
@@ -46,8 +48,8 @@ thatg = glob Idfix (mkModuleName_ "Data.Which") "That"
 theseg = glob Idfix (mkModuleName_ "Data.Which") "These"
 whichSig = HM.fromList [(thisg, 0), (thatg, 1), (theseg, 2)]
 
-simpleEnv :: PCompEnv
-simpleEnv = PCompEnv $ (listSig <$ listSig)
+simpleEnv :: PatternEnv
+simpleEnv = PatternEnv $ (listSig <$ listSig)
             `HM.union` (maySig <$ maySig)
             `HM.union` (eitherSig <$ eitherSig)
             `HM.union` (whichSig <$ whichSig)
