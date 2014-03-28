@@ -206,7 +206,6 @@ library
     vector                    >= 0.10,
     void                      >= 0.6
 
-  --  MonadCatchIO-transformers >= 0.3,
   if flag(ekg)
     build-depends: ekg >= 0.3     && < 0.4
     hs-source-dirs: src-opt/ekg
@@ -246,11 +245,11 @@ executable core-echo
       bytestring,
       containers,
       data-default,
+      exceptions,
       ermine,
       filepath,
       haskeline,
       lens,
-      MonadCatchIO-transformers,
       mtl,
       optparse-applicative,
       text,
@@ -279,10 +278,10 @@ executable ermine
       containers,
       data-default,
       ermine,
+      exceptions,
       filepath,
       haskeline,
       lens,
-      MonadCatchIO-transformers,
       mtl,
       optparse-applicative,
       unordered-containers
@@ -358,10 +357,10 @@ test-suite doctests
       containers,
       directory >= 1.0,
       doctest >= 0.9.1,
+      exceptions,
       file-embed,
       filepath,
       groom >= 0.1.1 && < 0.2,
-      MonadCatchIO-transformers,
       mtl
 
   if impl(ghc<7.6.1)
