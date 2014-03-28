@@ -77,6 +77,7 @@ data HardKind
   | Constraint
   | Rho
   | Phi
+  | Unboxed
   deriving (Eq, Ord, Show, Read, Bounded, Enum, Data, Typeable, Generic)
 
 instance Hashable HardKind
@@ -90,11 +91,12 @@ instance Digestable HardKind
 -- | Smart constructor for hard kinds
 class Kindly k where
   hardKind :: Prism' k HardKind
-  star, constraint, rho, phi :: k
+  star, constraint, rho, phi, unboxed :: k
   star       = review hardKind Star
   constraint = review hardKind Constraint
   rho        = review hardKind Rho
   phi        = review hardKind Phi
+  unboxed    = review hardKind Unboxed
 
 instance Kindly HardKind where
   hardKind = id
@@ -104,12 +106,14 @@ instance Binary HardKind where
   put Constraint = putWord8 1
   put Rho        = putWord8 2
   put Phi        = putWord8 3
+  put Unboxed    = putWord8 4
 
   get = getWord8 >>= \b -> case b of
     0 -> return Star
     1 -> return Constraint
     2 -> return Rho
     3 -> return Phi
+    4 -> return Unboxed
     _ -> fail $ "get HardKind: Unexpected constructor code: " ++ show b
 
 ------------------------------------------------------------------------------

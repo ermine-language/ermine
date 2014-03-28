@@ -87,6 +87,7 @@ inferKind :: MonadMeta s m => Type (MetaK s) (KindM s) -> m (KindM s)
 inferKind (Loc l t)                = set rendering l `localMeta` inferKind t
 inferKind (Type.Var tk)            = return tk
 inferKind (HardType Arrow)         = return $ star :-> star :-> star
+inferKind (HardType ArrowHash)     = return $ unboxed :-> star :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)
 inferKind (HardType (Tuple n))     = return $ productKind n
 inferKind (HardType ConcreteRho{}) = return rho
