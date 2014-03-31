@@ -77,7 +77,7 @@ data Pattern t
   = SigP t
   | WildcardP
   | AsP (Pattern t)
-  | StrictP (Pattern t)
+  | StrictP t
   | LazyP (Pattern t)
   | LitP Literal
   | ConP Global [Pattern t]
@@ -135,7 +135,7 @@ paths = go mempty
  where
  go pp (SigP    _) = [leafPP pp]
  go pp (AsP     p) = leafPP pp : go pp p
- go pp (StrictP p) = go pp p
+ go pp (StrictP _) = [leafPP pp]
  go pp (LazyP   p) = go pp p
  go pp (ConP _ ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
  go pp (TupP   ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
@@ -263,7 +263,7 @@ instance Serial1 Pattern where
   serializeWith pt (SigP t)    = putWord8 0 >> pt t
   serializeWith _  WildcardP   = putWord8 1
   serializeWith pt (AsP p)     = putWord8 2 >> serializeWith pt p
-  serializeWith pt (StrictP p) = putWord8 3 >> serializeWith pt p
+  serializeWith pt (StrictP t) = putWord8 3 >> pt t
   serializeWith pt (LazyP p)   = putWord8 4 >> serializeWith pt p
   serializeWith _  (LitP l)    = putWord8 5 >> serialize l
   serializeWith pt (ConP g ps) = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
@@ -273,7 +273,7 @@ instance Serial1 Pattern where
     0 -> liftM SigP gt
     1 -> return WildcardP
     2 -> liftM AsP $ deserializeWith gt
-    3 -> liftM StrictP $ deserializeWith gt
+    3 -> liftM StrictP gt
     4 -> liftM LazyP $ deserializeWith gt
     5 -> liftM LitP deserialize
     6 -> liftM2 ConP deserialize $ deserializeWith (deserializeWith gt)

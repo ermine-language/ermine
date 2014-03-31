@@ -101,8 +101,8 @@ _p :: P t v
 _p = pure WildcardP
 
 -- | A strict (bang) pattern
-strictp :: P t v -> P t v
-strictp = fmap StrictP
+strictp :: v -> t -> P t v
+strictp v t = Binder [v] $ StrictP t
 
 -- | A lazy (irrefutable) pattern
 lazyp :: P t v -> P t v

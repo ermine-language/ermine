@@ -95,7 +95,6 @@ splitOn i hd (PatternMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
       prune (AsP r) = prune r
-      prune (StrictP r) = prune r
       prune r = r
       p (pat, _) = has con (prune pat) || matchesTrivially pat
       select c' = map snd . filter p $ zip c c'

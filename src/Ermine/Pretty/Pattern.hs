@@ -50,7 +50,7 @@ prettyPat' _    WildcardP   _    _  = pure $ text "_"
 prettyPat' path (AsP p)     prec kt = h <$> varPP (leafPP path)
                                         <*> prettyPat' path p 12 kt
  where h l r = parensIf (prec > 12) $ l <> text "@" <> r
-prettyPat' path (StrictP p) prec kt = h <$> prettyPat' path p 13 kt
+prettyPat' path (StrictP _) prec _  = h <$> varPP (leafPP path)
  where h l = parensIf (prec > 13) $ text "!" <> l
 prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' path p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
