@@ -31,7 +31,6 @@ import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax
 import Ermine.Syntax.Global
-import Ermine.Syntax.ModuleName
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -53,7 +52,8 @@ varP = termIdentifier <&> sigp ?? anyType
 -- | Parse a single pattern part (e.g. an argument to a lambda)
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0
-   = varP
+   = conp 0 nothingg [] <$ symbol "Nothing"
+ <|> varP
  <|> strictp <$ symbol "!" <*> pattern0
  <|> _p <$ symbol "_"
  <|> litp <$> literal
@@ -64,16 +64,13 @@ sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 -- TODO: remove this when constructor patterns really work.
 eP :: (Monad m, TokenParsing m) => m PP
-eP = conp 0 nm <$ symbol "E" <*> many pattern1 where
-  nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
+eP = conp 0 eg <$ symbol "E" <*> many pattern1
 
 justP :: (Monad m, TokenParsing m) => m PP
-justP = conp 0 nm <$ symbol "Just" <*> many pattern1 where
-  nm = glob Idfix (mkModuleName "ermine" "Ermine") "Just"
+justP = conp 0 justg <$ symbol "Just" <*> many pattern1
 
 nothingP :: (Monad m, TokenParsing m) => m PP
-nothingP = conp 0 nm <$ symbol "Nothing" <*> many pattern1 where
-  nm = glob Idfix (mkModuleName "ermine" "Ermine") "Nothing"
+nothingP = conp 0 nothingg <$ symbol "Nothing" <*> many pattern1
 
 -- as patterns
 pattern1 :: (Monad m, TokenParsing m) => m PP

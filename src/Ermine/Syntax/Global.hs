@@ -29,6 +29,7 @@ module Ermine.Syntax.Global
   , tupleg
   , trueg
   , falseg
+  , eg
   , literalg
   ) where
 
@@ -200,11 +201,12 @@ builtin f = glob f (mkModuleName_ "Prelude")
 builtin_ :: Text -> Global
 builtin_ = builtin Idfix
 
-nilg, consg, nothingg, justg :: Global
+nilg, consg, nothingg, justg, eg :: Global
 nilg     = builtin_ "[]"
 consg    = builtin (Infix R 5) "(:)"
 nothingg = builtin (Infix R 5) "Nothing"
 justg    = builtin_ "Just"
+eg       = builtin_ "E"
 
 tupleg :: Word8 -> Global
 tupleg w8 = builtin_ $ Data.Text.pack $ "(" ++ Prelude.replicate (if n == 0 then 0 else n-1) ',' ++ ")"

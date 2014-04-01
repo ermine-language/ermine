@@ -31,10 +31,8 @@ import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
 import Data.Set (Set)
 import qualified Data.Set as S
-import Data.Text as SText (pack)
 import Data.Word
 import Ermine.Syntax.Global
-import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Pattern
 
 #ifdef HLINT
@@ -57,14 +55,10 @@ newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global W
 
 dummyPatternEnv :: PatternEnv
 dummyPatternEnv = PatternEnv $
-  HM.fromList [(en, esig), (justn, maybesig), (nonen, maybesig)]
+  HM.fromList [(eg, esig), (justg, maybesig), (nothingg, maybesig)]
  where
-  ermine = mkModuleName (pack "ermine") (pack "Ermine")
-  en = glob Idfix ermine (pack "E")
-  esig = HM.singleton en 0
-  justn = glob Idfix ermine (pack "Just")
-  nonen = glob Idfix ermine (pack "Nothing")
-  maybesig = HM.fromList [(nonen, 0), (justn, 1)]
+  esig = HM.singleton eg 0
+  maybesig = HM.fromList [(nothingg, 0), (justg, 1)]
 
 -- | Monads that allow us to perform pattern compilation, by providing
 -- a PatternEnv.
