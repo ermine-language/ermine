@@ -393,10 +393,7 @@ inferPatternType d WildcardP   =
 inferPatternType d (AsP p)     =
   inferPatternType d p <&> \(sks, ty, pcxt) ->
     (sks, ty, \ xs -> case xs of LeafPP -> ty ; pp -> pcxt pp)
-inferPatternType d (StrictP ann) = do
-  ty <- instantiateAnnot d ann
-  checkKind (view metaValue <$> ty) star
-  return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
+inferPatternType d (StrictP p) = inferPatternType d p
 inferPatternType d (LazyP p)   = inferPatternType d p
 inferPatternType d (TupP ps)   =
   unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->

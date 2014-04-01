@@ -43,9 +43,9 @@ module Ermine.Syntax.Pattern
   , Alt(..)
   , bitraverseAlt
   , patternHead
+  , prune
   , forces
   , irrefutable
-  , destructures
   -- , getAlt, putAlt, getPat, putPat
   , serializeAlt3
   , deserializeAlt3
@@ -78,7 +78,7 @@ data Pattern t
   = SigP t
   | WildcardP
   | AsP (Pattern t)
-  | StrictP t
+  | StrictP (Pattern t)
   | LazyP (Pattern t)
   | LitP Literal
   | ConP Global [Pattern t]
@@ -136,7 +136,7 @@ paths = go mempty
  where
  go pp (SigP    _) = [leafPP pp]
  go pp (AsP     p) = leafPP pp : go pp p
- go pp (StrictP _) = [leafPP pp]
+ go pp (StrictP p) = go pp p
  go pp (LazyP   p) = go pp p
  go pp (ConP _ ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
  go pp (TupP   ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
@@ -168,11 +168,17 @@ patternHead :: Fold (Pattern t) PatternHead
 patternHead f p@(ConP g ps) = p <$ f (ConH (fromIntegral $ length ps) g)
 patternHead f p@(TupP ps)   = p <$ f (TupH . fromIntegral $ length ps)
 patternHead f (AsP p)       = patternHead f p
+patternHead f (StrictP p)   = patternHead f p
 patternHead _ p             = pure p
 
 traverseHead :: PatternHead -> Traversal' (Pattern t) [Pattern t]
 traverseHead (ConH _ g) = _ConP' g
 traverseHead (TupH _)   = _TupP
+
+prune :: Pattern t -> Pattern t
+prune (AsP p)     = prune p
+prune (StrictP p) = prune p
+prune p           = p
 
 forces :: Pattern t -> Bool
 forces ConP{}    = True
@@ -209,12 +215,6 @@ irrefutable WildcardP = True
 irrefutable (LazyP _) = True
 irrefutable (AsP p)   = irrefutable p
 irrefutable _         = False
-
-destructures :: Pattern t -> Bool
-destructures (AsP p)    = destructures p
-destructures (TupP _)   = True
-destructures (ConP _ _) = True
-destructures _          = False
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   _Tup = prism TupP $ \p -> case p of
@@ -270,7 +270,7 @@ instance Serial1 Pattern where
   serializeWith pt (SigP t)    = putWord8 0 >> pt t
   serializeWith _  WildcardP   = putWord8 1
   serializeWith pt (AsP p)     = putWord8 2 >> serializeWith pt p
-  serializeWith pt (StrictP t) = putWord8 3 >> pt t
+  serializeWith pt (StrictP p) = putWord8 3 >> serializeWith pt p
   serializeWith pt (LazyP p)   = putWord8 4 >> serializeWith pt p
   serializeWith _  (LitP l)    = putWord8 5 >> serialize l
   serializeWith pt (ConP g ps) = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
@@ -280,7 +280,7 @@ instance Serial1 Pattern where
     0 -> liftM SigP gt
     1 -> return WildcardP
     2 -> liftM AsP $ deserializeWith gt
-    3 -> liftM StrictP gt
+    3 -> liftM StrictP $ deserializeWith gt
     4 -> liftM LazyP $ deserializeWith gt
     5 -> liftM LitP deserialize
     6 -> liftM2 ConP deserialize $ deserializeWith (deserializeWith gt)

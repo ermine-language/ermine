@@ -82,8 +82,9 @@ promote = fmap . fmap $ F . pure
 -- the specified column.
 defaultOn :: Applicative c => Int -> PatternMatrix t c a -> PatternMatrix t c (Var () (c a))
 defaultOn i (PatternMatrix ps cs)
-  | (ls, c:rs) <- splitAt i ps = let
-      select c' = map snd . filter (not.destructures.fst) $ zip c c'
+  | (ls, c0:rs) <- splitAt i ps = let
+      c = prune <$> c0
+      select c' = map snd . filter (irrefutable.fst) $ zip c c'
     in PatternMatrix (map select $ ls ++ rs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
@@ -92,15 +93,14 @@ defaultOn i (PatternMatrix ps cs)
 splitOn :: Applicative c
         => Int -> PatternHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
 splitOn i hd (PatternMatrix ps cs)
-  | (ls, c:rs) <- splitAt i ps = let
+  | (ls, c0:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat
-      prune (AsP r) = prune r
-      prune r = r
-      p (pat, _) = has con (prune pat) || not (destructures pat)
+      c = prune <$> c0
+      p (pat, _) = has con pat || irrefutable pat
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat -> case () of
         _ | Just ps' <- preview con pat -> [ps']
-          | not $ destructures pat      -> [replicate (fromIntegral $ hd^.arity) WildcardP]
+          | irrefutable pat             -> [replicate (fromIntegral $ hd^.arity) WildcardP]
           | otherwise                   -> []
     in PatternMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select cs)
