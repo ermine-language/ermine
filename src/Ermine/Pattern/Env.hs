@@ -66,8 +66,6 @@ dummyPatternEnv = PatternEnv $
   nonen = glob Idfix ermine (pack "Nothing")
   maybesig = HM.fromList [(nonen, 0), (justn, 1)]
 
-
-
 -- | Monads that allow us to perform pattern compilation, by providing
 -- a PatternEnv.
 class (Applicative m, Monad m) => MonadPattern m where

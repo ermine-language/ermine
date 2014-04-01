@@ -42,6 +42,7 @@ import Bound.Scope
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Trans (lift)
+import Data.Either (partitionEithers)
 import Data.Foldable
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
@@ -201,13 +202,21 @@ compile m pm@(PatternMatrix ps (b:bs))
       heads = patternHeads col
       dm = defaultOn i pm
     in do sig <- isSignature heads
-          sms <- for (toListOf folded heads) $ \h -> do
-                   let n = arity h
-                       u = unboxedArity h
-                   (,) <$> constructorTag h
-                       <*> (Match n u (constructorGlobal h) . Scope <$> compile (expand i n m) (splitOn i h pm))
-          caze ((m^.colCores) !! i) (M.fromList sms) <$>
-            if sig then pure Nothing else Just . Scope <$> compile (remove i m) dm
+          sms <- for (toListOf folded heads) $ \h -> case h of
+             LitH _l -> error "TODO: compile LitH unimplemented"
+             _ | n <- arity h
+               , u <- unboxedArity h ->
+               (\t c -> Right (t , Match n u (constructorGlobal h) $ Scope c))
+                 <$> constructorTag h
+                 <*> compile (expand i n m) (splitOn i h pm)
+          case partitionEithers sms of
+            ([],xs) -> caze ((m^.colCores) !! i) (M.fromList xs) <$>
+              if sig then pure Nothing
+                     else Just . Scope <$> compile (remove i m) dm
+            (xs,[]) -> cazeHash ((m^.colCores) !! i) (M.fromList xs) <$>
+              if sig then pure Nothing
+                     else Just . Scope <$> compile (remove i m) dm
+            _ -> error "PANIC: pattern compile: mixed patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
 
 bodyVar :: BodyBound -> Var (Var PatternPath Word32) Word32
