@@ -164,13 +164,13 @@ coreData t g fds = angles $
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCase dv prec de dbs mdd = parensIf (prec>=0) $
   nest 2 $ text "case" <+> de <+> text "of" <+> dv <$$> coreBlock dbs'
- where dbs' | Just dd <- mdd = text "__DEFAULT__ ->" <+> dd : dbs
+ where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 
 coreCaseHash :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCaseHash dv prec de dbs mdd = parensIf (prec>=0) $
   nest 2 $ text "case#" <+> de <+> text "of" <+> dv <$$> coreBlock dbs'
- where dbs' | Just dd <- mdd = text "__DEFAULT__ ->" <+> dd : dbs
+ where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 
 coreBlock :: [Doc] -> Doc
