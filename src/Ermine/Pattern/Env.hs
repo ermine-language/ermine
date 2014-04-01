@@ -75,7 +75,7 @@ isSignature :: MonadPattern m => Set PatternHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
   Just (TupH _)   -> pure True
-  Just (ConH _ g) -> askPattern <&> \env -> case HM.lookup g $ signatures env of
+  Just (ConH _ _ g) -> askPattern <&> \env -> case HM.lookup g $ signatures env of
     Nothing -> error "PANIC: isSignature: unknown constructor"
     Just hm -> iall (\g' _ -> S.member g' ns) hm
  where ns = S.map _name ps
@@ -84,7 +84,7 @@ isSignature ps = case preview folded ps of
 -- always 0, but constructors must consult the compilation environment.
 constructorTag :: MonadPattern m => PatternHead -> m Word8
 constructorTag (TupH _) = pure 0
-constructorTag (ConH _ g) = askPattern <&> \env ->
+constructorTag (ConH _ _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error "PANIC: constructorTag: unknown constructor"
     Just i  -> i
@@ -93,4 +93,4 @@ constructorTag (ConH _ g) = askPattern <&> \env ->
 -- always 0, but constructors must consult the compilation environment.
 constructorGlobal :: PatternHead -> Global
 constructorGlobal (TupH n) = tupleg n
-constructorGlobal (ConH _ g) = g
+constructorGlobal (ConH _ _ g) = g

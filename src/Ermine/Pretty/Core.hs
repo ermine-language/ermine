@@ -62,8 +62,8 @@ prettyCore :: Applicative f
            => [String] -> Int -> (a -> Int -> f Doc) -> Core a -> f Doc
 prettyCore _  prec k (Var v) = k v prec
 prettyCore _  prec _ (HardCore h) = pure $ prettyHardCore prec h
-prettyCore vs _    k (Data t g fs) =
-  coreData t g <$> traverse (prettyCore vs (-1) k) fs
+prettyCore vs _    k (Data t u g fs) =
+  coreData t u g <$> traverse (prettyCore vs (-1) k) fs
 prettyCore vs prec k (App f x) =
   (\df dx -> parensIf (prec>10) $ df <+> dx)
     <$> prettyCore vs 10 k f <*> prettyCore vs 11 k x
@@ -94,12 +94,12 @@ prettyCore (v:vs) prec k (Case e m d) =
  l (B _) _ = pure dv
  l (F c) p = prettyCore vs p k c
  dv = text v
- branches = for (itoList m) $ \(t, (n, g, Scope b)) ->
+ branches = for (itoList m) $ \(t, Match n u g (Scope b)) ->
    let (ws,rest) = first (fmap text) $ splitAt (fromIntegral n) vs
        k' (B 0) _ = pure dv
        k' (B i) _ = pure $ ws !! fromIntegral (i-1)
        k' (F c) p = prettyCore rest p k c
-    in (\bd -> nest 2 $ coreData t g ws <+> text "->" <+> bd)
+    in (\bd -> nest 2 $ coreData t u g ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b
 
 prettyCore (v:vs) prec k (CaseHash e m d) =
@@ -157,9 +157,10 @@ coreLamHash :: Int -> [Doc] -> Doc -> Doc
 coreLamHash prec ws e = parensIf (prec>=0) $
   text "\\" <> encloseSep lbrace rbrace comma ws <+> text "->#" <+> e
 
-coreData :: Word8 -> Global -> [Doc] -> Doc
-coreData t g fds = angles $
-  int (fromIntegral t) <> text "|" <> text (g^.name.unpacked) <> align (cat $ prePunctuate' (text "|") (text ",") fds)
+coreData :: Word8 -> Word8 -> Global -> [Doc] -> Doc
+coreData t u g fds = angles $
+  int (fromIntegral t) <> text "|" <> 
+  int (fromIntegral u) <> text "|" <> text (g^.name.unpacked) <> align (cat $ prePunctuate' (text "|") (text ",") fds)
 
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCase dv prec de dbs mdd = parensIf (prec>=0) $

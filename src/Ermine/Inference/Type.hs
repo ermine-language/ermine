@@ -330,7 +330,7 @@ inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon n 0 (tupleg n)
+  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon 0 n 0 (tupleg n)
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
@@ -412,8 +412,8 @@ inferPatternType _ (LitP l)    =
 --
 -- data E = forall x. E x
 -- E : forall (x : *). x -> E
-inferPatternType d (ConP g ps)
-  | g^.name == "E" =
+inferPatternType d (ConP _u g ps)
+  | g^.name == "E" = -- TODO: also check u = 0
     newShallowSkolem d star >>= \x ->
     case ps of
       [p] -> do (sks, ty, f) <- inferPatternType d p
@@ -425,7 +425,7 @@ inferPatternType d (ConP g ps)
                          _ -> error "panic: bad pattern path"
                        )
       _ -> fail "over-applied constructor"
-inferPatternType _ (ConP _ _)  = error "unimplemented"
+inferPatternType _ (ConP _ _ _)  = error "unimplemented"
 
 instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d (Annot ks sc) = do
