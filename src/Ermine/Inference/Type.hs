@@ -393,10 +393,7 @@ inferPatternType d WildcardP   =
 inferPatternType d (AsP p)     =
   inferPatternType d p <&> \(sks, ty, pcxt) ->
     (sks, ty, \ xs -> case xs of LeafPP -> ty ; pp -> pcxt pp)
-inferPatternType d (StrictP ann) = do
-  ty <- instantiateAnnot d ann
-  checkKind (view metaValue <$> ty) star
-  return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
+inferPatternType d (StrictP p) = inferPatternType d p
 inferPatternType d (LazyP p)   = inferPatternType d p
 inferPatternType d (TupP ps)   =
   unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->
@@ -416,6 +413,7 @@ inferPatternType d (ConP _u g ps)
   | g^.name == "E" = -- TODO: also check u = 0
     newShallowSkolem d star >>= \x ->
     case ps of
+      [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p
                 uncaring $ unifyType (pure x) ty
                 return ( x:sks
@@ -424,6 +422,19 @@ inferPatternType d (ConP _u g ps)
                          FieldPP 0 pp -> f pp
                          _ -> error "panic: bad pattern path"
                        )
+      _ -> fail "over-applied constructor"
+  | g^.name == "Just" =
+    case ps of
+      [ ] -> fail "under-applied constructor"
+      [p] -> do (sks, ty, f) <- inferPatternType d p
+                return (sks, maybe_ ty, \xs -> case xs of
+                          FieldPP 0 pp -> f pp
+                          _ -> error "panic: bad pattern path")
+      _ -> fail "over-applied constructor"
+  | g^.name == "Nothing" =
+    case ps of
+      [] -> newShallowMeta d star >>= \x ->
+              return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
 inferPatternType _ (ConP _ _ _)  = error "unimplemented"
 

@@ -56,8 +56,16 @@ newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global W
   deriving (Eq, Show)
 
 dummyPatternEnv :: PatternEnv
-dummyPatternEnv = PatternEnv $ HM.singleton n (HM.singleton n 0) where
-  n = glob Idfix (mkModuleName (pack "ermine") (pack "Ermine")) (pack "E")
+dummyPatternEnv = PatternEnv $
+  HM.fromList [(en, esig), (justn, maybesig), (nonen, maybesig)]
+ where
+  ermine = mkModuleName (pack "ermine") (pack "Ermine")
+  en = glob Idfix ermine (pack "E")
+  esig = HM.singleton en 0
+  justn = glob Idfix ermine (pack "Just")
+  nonen = glob Idfix ermine (pack "Nothing")
+  maybesig = HM.fromList [(nonen, 0), (justn, 1)]
+
 
 
 -- | Monads that allow us to perform pattern compilation, by providing

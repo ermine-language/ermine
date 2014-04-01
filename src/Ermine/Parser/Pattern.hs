@@ -53,6 +53,7 @@ varP = termIdentifier <&> sigp ?? anyType
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0
    = varP
+ <|> strictp <$ symbol "!" <*> pattern0
  <|> _p <$ symbol "_"
  <|> litp <$> literal
  <|> parens (tup' <$> patterns)
@@ -65,6 +66,14 @@ eP :: (Monad m, TokenParsing m) => m PP
 eP = conp 0 nm <$ symbol "E" <*> many pattern1 where
   nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
 
+justP :: (Monad m, TokenParsing m) => m PP
+justP = conp 0 nm <$ symbol "Just" <*> many pattern1 where
+  nm = glob Idfix (mkModuleName "ermine" "Ermine") "Just"
+
+nothingP :: (Monad m, TokenParsing m) => m PP
+nothingP = conp 0 nm <$ symbol "Nothing" <*> many pattern1 where
+  nm = glob Idfix (mkModuleName "ermine" "Ermine") "Nothing"
+
 -- as patterns
 pattern1 :: (Monad m, TokenParsing m) => m PP
 pattern1
@@ -75,6 +84,8 @@ pattern1
 pattern2 :: (Monad m, TokenParsing m) => m PP
 pattern2
     = eP
+  <|> justP
+  <|> nothingP
   <|> pattern1
 
 -- existentials sigP
