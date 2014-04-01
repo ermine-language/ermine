@@ -100,7 +100,7 @@ splitOn i hd (PatternMatrix ps cs)
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat -> case () of
         _ | Just ps' <- preview con pat -> [ps']
-          | irrefutable pat             -> [replicate (fromIntegral $ hd^.arity) WildcardP]
+          | irrefutable pat             -> [replicate (fromIntegral $ arity hd) WildcardP]
           | otherwise                   -> []
     in PatternMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select cs)

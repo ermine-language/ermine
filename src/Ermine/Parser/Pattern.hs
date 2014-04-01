@@ -63,15 +63,15 @@ sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 -- TODO: remove this when constructor patterns really work.
 eP :: (Monad m, TokenParsing m) => m PP
-eP = conp nm <$ symbol "E" <*> many pattern1 where
+eP = conp 0 nm <$ symbol "E" <*> many pattern1 where
   nm = glob Idfix (mkModuleName "ermine" "Ermine") "E"
 
 justP :: (Monad m, TokenParsing m) => m PP
-justP = conp nm <$ symbol "Just" <*> many pattern1 where
+justP = conp 0 nm <$ symbol "Just" <*> many pattern1 where
   nm = glob Idfix (mkModuleName "ermine" "Ermine") "Just"
 
 nothingP :: (Monad m, TokenParsing m) => m PP
-nothingP = conp nm <$ symbol "Nothing" <*> many pattern1 where
+nothingP = conp 0 nm <$ symbol "Nothing" <*> many pattern1 where
   nm = glob Idfix (mkModuleName "ermine" "Ermine") "Nothing"
 
 -- as patterns

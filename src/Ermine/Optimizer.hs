@@ -54,7 +54,7 @@ rewriteCoreDown opt = go
  go :: forall e. Core e -> m (Core e)
  go c = sharing c (opt c) >>= \ xs -> case xs of
    l@(Lam n e) -> sharing l $ Lam n <$> goS e
-   d@(Data n g l) -> sharing d $ Data n g <$> traverse go l
+   d@(Data n u g l) -> sharing d $ Data n u g <$> traverse go l
    a@(App f x) -> sharing a $ App <$> go f <*> go x
    l@(Let d b) -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    l@(LamDict n e) -> sharing l $ LamDict n <$> goS e
@@ -63,7 +63,7 @@ rewriteCoreDown opt = go
    a@(AppHash f d) -> sharing a $ AppHash <$> go f <*> go d
    s@(Case e b d) ->
      sharing s $ Case <$> go e
-                      <*> sharing b ((traverse._3) goS b)
+                      <*> sharing b ((traverse.matchBody) goS b)
                       <*> sharing d (traverse goS d)
    s@(CaseHash e b d) ->
      sharing s $ CaseHash <$> go e
@@ -83,7 +83,7 @@ rewriteCore opt = go
  go :: forall e. Core e -> m (Core e)
  go c = sharing c $ opt =<< case c of
    l@(Lam n e) -> sharing l $ Lam n <$> goS e
-   d@(Data n g l) -> sharing d $ Data n g <$> traverse go l
+   d@(Data n u g l) -> sharing d $ Data n u g <$> traverse go l
    a@(App f x) -> sharing a $ App <$> go f <*> go x
    l@(Let d b) -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    l@(LamDict n e) -> sharing l $ LamDict n <$> goS e
@@ -92,7 +92,7 @@ rewriteCore opt = go
    a@(AppHash f d) -> sharing a $ AppHash <$> go f <*> go d
    s@(Case e b d) ->
      sharing s $ Case <$> go e
-                      <*> sharing b ((traverse._3) goS b)
+                      <*> sharing b ((traverse.matchBody) goS b)
                       <*> sharing d (traverse goS d)
    s@(CaseHash e b d) ->
      sharing s $ CaseHash <$> go e
@@ -143,9 +143,10 @@ betaVar = collapse []
 
 -- | Specializes a case expression to a known constructor.
 specCase :: forall m c. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
-specCase (Case dat@(Data n g as) bs d)
-  | Just (arity, _, body) <- bs ^. at n =
-    Let ((Scope . Data n g $ pure . B <$> [1..fromIntegral arity]) : map lift as)
+specCase (Case dat@(Data n 0 g as) bs d)
+  -- TODO: Use a LamHash around this for all the unboxed arguments, and AppHash each to an argument.
+  | Just (Match arity 0 _ body) <- bs ^. at n =
+    Let ((Scope . Data n 0 g $ pure . B <$> [1..fromIntegral arity]) : map lift as)
         (mapBound fromIntegral body)
       <$ tell (Any True)
   | Just e <- d = Let [lift dat] (mapBound (const 0) e) <$ tell (Any True)

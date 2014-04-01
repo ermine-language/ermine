@@ -181,8 +181,8 @@ compileManyGuards m pm ((g,b):gbs) =
     (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
   caze (inst g) ?? Nothing $
     M.fromList
-      [(1, (0, trueg, Scope . fmap (F . pure) $ inst b))
-      ,(0, (0, falseg, Scope f))
+      [ (1, Match 0 0 trueg  $ Scope . fmap (F . pure) $ inst b)
+      , (0, Match 0 0 falseg $ Scope f)
       ]
  where inst = instantiate (instantiation m)
 
@@ -202,9 +202,10 @@ compile m pm@(PatternMatrix ps (b:bs))
       dm = defaultOn i pm
     in do sig <- isSignature heads
           sms <- for (toListOf folded heads) $ \h -> do
-                   let n = h^.arity
+                   let n = arity h
+                       u = unboxedArity h
                    (,) <$> constructorTag h
-                       <*> ((,,) n (constructorGlobal h) . Scope <$> compile (expand i n m) (splitOn i h pm))
+                       <*> (Match n u (constructorGlobal h) . Scope <$> compile (expand i n m) (splitOn i h pm))
           caze ((m^.colCores) !! i) (M.fromList sms) <$>
             if sig then pure Nothing else Just . Scope <$> compile (remove i m) dm
   | otherwise = error "PANIC: pattern compile: No column selected."
