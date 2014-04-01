@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -37,7 +38,8 @@ import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import Data.Foldable (for_)
 import Data.Void
-import Ermine.Builtin.Type as Type (lame)
+import Ermine.Builtin.Term as Term (dataCon)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Inference.Kind as Kind
@@ -55,6 +57,7 @@ import Ermine.Pretty.Term
 import Ermine.Syntax
 import Ermine.Syntax.Data (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
+import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Name
@@ -143,7 +146,7 @@ dkindsBody dts = do
 
 checkAndCompile :: MonadConstraint s m
                 => Term Ann Text -> m (Maybe (Type t k, Core c))
-checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
+checkAndCompile syn = traverse closedOrLame (syn >>= predefs) `for` \syn' -> do
   tm <- bitraverse (prepare (newMeta ())
                           (const $ newMeta ())
                           (const $ newMeta () >>= newMeta . pure))
@@ -157,6 +160,19 @@ checkAndCompile syn = traverse closedOrLame syn `for` \syn' -> do
  tyLame :: Type k t
  tyLame = Forall [] [Unhinted $ Scope star]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
+ predefs "Nothing" =
+   Term.dataCon Idfix "Ermine" "Nothing" $
+     Forall [] [Unhinted $ Scope star]
+            (Scope $ And []) (Scope . maybe_ . pure $ B 0)
+ predefs "Just"    =
+   Term.dataCon Idfix "Ermine" "Just" $
+     Forall [] [Unhinted $ Scope star]
+            (Scope $ And []) (Scope $ pure (B 0) ~> maybe_ (pure $ B 0))
+ predefs "E"       =
+   Term.dataCon Idfix "Ermine" "E" $
+     Forall [] [Unhinted $ Scope star]
+            (Scope $ And []) (Scope $ pure (B 0) ~> ee)
+ predefs  x = pure x
  closedOrLame :: Text -> Maybe (Core c)
  closedOrLame txt | txt == "lame" =
    Just (HardCore $ Slot 0)

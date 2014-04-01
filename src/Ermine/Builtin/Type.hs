@@ -36,6 +36,7 @@ module Ermine.Builtin.Type
   -- ** Containers
   , list
   , maybe_
+  , ee
   -- ** Type Equality
   , equality
   -- ** Classes
@@ -189,6 +190,12 @@ list = builtin (star ~> star) "List"
 -- *
 maybe_ :: Builtin t => t
 maybe_ = builtin (star ~> star) "Maybe"
+
+-- |
+-- >>> infer ee
+-- *
+ee :: Builtin t => t
+ee = builtin_ "E"
 
 -- |
 -- >>> infer equality
