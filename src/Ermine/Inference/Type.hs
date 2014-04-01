@@ -400,7 +400,8 @@ inferPatternType d (TupP ps)   =
     ( join sks
     , apps (tuple $ length ps) tys
     , \ xs -> case xs of
-       FieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
+       FieldPP i pp        | Just f <- cxts ^? ix (fromIntegral i) -> f pp
+       UnboxedFieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
        _ -> error "panic: bad pattern path"
     )
 inferPatternType _ (LitP l)    =
@@ -409,8 +410,8 @@ inferPatternType _ (LitP l)    =
 --
 -- data E = forall x. E x
 -- E : forall (x : *). x -> E
-inferPatternType d (ConP _u g ps)
-  | g^.name == "E" = -- TODO: also check u = 0
+inferPatternType d (ConP 0 g ps)
+  | g^.name == "E" =
     newShallowSkolem d star >>= \x ->
     case ps of
       [ ] -> fail "under-applied constructor"
