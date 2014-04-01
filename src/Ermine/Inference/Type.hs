@@ -337,9 +337,9 @@ inferHardType Hole = do
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType (DataCon g t)
-  | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon 0 0 g
-  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon 1 1 g
-  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon 1 0 g
+  | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon 0 0 0 g
+  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon 0 1 1 g
+  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon 0 1 0 g
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
