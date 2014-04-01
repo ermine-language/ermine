@@ -265,7 +265,7 @@ instance Serialize HardCore where
 class (Applicative c, Monad c) => Cored c where
   core :: Core a -> c a
   caze :: c a -> Map Word8 (Match c a) -> Maybe (Scope () c a) -> c a
-  cazeHash :: c a -> Map Word64 (Scope () c a) -> Maybe (Scope () c a) -> c a
+  cazeHash :: c a -> Map Literal (Scope () c a) -> Maybe (Scope () c a) -> c a
   lambda :: Word8 -> Scope Word8 c a -> c a
   lambdaDict :: Word8 -> Scope Word8 c a -> c a
   letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
@@ -333,7 +333,7 @@ data Core a
   | AppDict !(Core a) !(Core a)
   | LamHash !Word8 !(Scope Word8 Core a)
   | AppHash !(Core a) !(Core a)
-  | CaseHash !(Core a) (Map Word64 (Scope () Core a)) (Maybe (Scope () Core a))
+  | CaseHash !(Core a) (Map Literal (Scope () Core a)) (Maybe (Scope () Core a))
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 data Match c a = Match
