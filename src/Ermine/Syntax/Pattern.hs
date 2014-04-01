@@ -26,6 +26,7 @@ module Ermine.Syntax.Pattern
   , _ConP
   , _TupP
   , _ConP'
+  , _LitP'
   , PatternHead(..)
   , _TupH
   , _ConH
@@ -91,6 +92,11 @@ makePrisms ''Pattern
 _ConP' :: Word8 -> Global -> Prism' (Pattern t) [Pattern t]
 _ConP' u g = prism (ConP u g) $ \ xs -> case xs of
   ConP u' g' ps | u == u' && g == g' -> Right ps
+  p -> Left p
+
+_LitP' :: Literal -> Prism' (Pattern t) [Pattern t]
+_LitP' l = prism (\[] -> LitP l) $ \xs -> case xs of
+  LitP l' | l == l' -> Right []
   p -> Left p
 
 -- | Paths into a pattern tree. These will be used as the bound variables
@@ -163,6 +169,7 @@ data PatternHead
     { arity, _unboxedArity :: {-# UNPACK #-} !Word8
     , _name :: Global
     }
+  | LitH !Literal
   deriving (Eq, Ord, Show)
 
 makePrisms ''PatternHead
@@ -170,21 +177,24 @@ makePrisms ''PatternHead
 unboxedArity :: PatternHead -> Word8
 unboxedArity TupH{} = 0
 unboxedArity (ConH _ u _) = u
+unboxedArity LitH{} = error "unboxedArity: LitH"
 
 headName :: Traversal' PatternHead Global
 headName f (ConH a u g) = ConH a u <$> f g
-headName _ h          = pure h
+headName _ h            = pure h
 
 patternHead :: Fold (Pattern t) PatternHead
 patternHead f p@(ConP u g ps) = p <$ f (ConH (fromIntegral $ length ps) u g)
 patternHead f p@(TupP ps)   = p <$ f (TupH . fromIntegral $ length ps)
 patternHead f (AsP p)       = patternHead f p
 patternHead f (StrictP p)   = patternHead f p
+patternHead f p@(LitP l)    = p <$ f (LitH l)
 patternHead _ p             = pure p
 
 traverseHead :: PatternHead -> Traversal' (Pattern t) [Pattern t]
 traverseHead (ConH _ u g) = _ConP' u g
-traverseHead (TupH _)   = _TupP
+traverseHead (TupH _)     = _TupP
+traverseHead (LitH l)     = _LitP' l
 
 prune :: Pattern t -> Pattern t
 prune (AsP p)     = prune p
@@ -195,6 +205,7 @@ forces :: Pattern t -> Bool
 forces ConP{}    = True
 forces TupP{}    = True
 forces StrictP{} = True
+forces LitP{}    = True
 forces (AsP p)   = forces p
 forces _         = False
 

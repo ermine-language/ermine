@@ -82,6 +82,7 @@ instance MonadPattern ((->) PatternEnv) where
 isSignature :: MonadPattern m => Set PatternHead -> m Bool
 isSignature ps = case preview folded ps of
   Nothing         -> pure False
+  Just (LitH _)   -> pure False -- too big, assume no
   Just (TupH _)   -> pure True
   Just (ConH _ _ g) -> askPattern <&> \env -> case HM.lookup g $ signatures env of
     Nothing -> error "PANIC: isSignature: unknown constructor"
@@ -91,14 +92,14 @@ isSignature ps = case preview folded ps of
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
 constructorTag :: MonadPattern m => PatternHead -> m Word8
+constructorTag (LitH _) = error "PANIC: constructorTag: literal head"
 constructorTag (TupH _) = pure 0
 constructorTag (ConH _ _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error "PANIC: constructorTag: unknown constructor"
     Just i  -> i
 
--- | Looks up the constructor tag for a pattern head. For tuples this is
--- always 0, but constructors must consult the compilation environment.
 constructorGlobal :: PatternHead -> Global
-constructorGlobal (TupH n) = tupleg n
+constructorGlobal (TupH n)     = tupleg n
 constructorGlobal (ConH _ _ g) = g
+constructorGlobal LitH{}       = error "PANIC: constructorGlobal: literal head"
