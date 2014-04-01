@@ -117,7 +117,7 @@ asp v (Binder vs p) = Binder (v:vs) $ AsP p
 conp :: Word8 -> Global -> [P t v] -> P t v
 conp u g ps = ConP u g <$> sequenceA ps
 
--- | A pattern that matches a literal value
+-- | A pattern that matches a literal unboxed value
 litp :: Literal -> P t v
 litp = pure . LitP
 

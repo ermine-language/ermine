@@ -113,16 +113,16 @@ class Lit a where
   lits = Prelude.foldr (Lens.cons . lit) nil
 
 instance Lit Int64 where
-  lit l = Data 0 1 int64g [HardCore $ Lit $ Long l]
+  lit l = Data 0 1 literalg [HardCore $ Lit $ Long l]
 instance Lit Int32 where
-  lit i = Data 0 1 int32g [HardCore $ Lit $ Int i]
+  lit i = Data 0 1 literalg [HardCore $ Lit $ Int i]
 instance Lit Char where
-  lit c  = Data 0 1 charg [HardCore $ Lit $ Char c]
+  lit c  = Data 0 1 literalg [HardCore $ Lit $ Char c]
   lits s = HardCore $ Lit $ String (Strict.pack s)
 instance Lit Int8 where
-  lit b = Data 0 1 int8g [HardCore $ Lit $ Byte b]
+  lit b = Data 0 1 literalg [HardCore $ Lit $ Byte b]
 instance Lit Int16 where
-  lit s = Data 0 1 int16g [HardCore $ Lit $ Short s]
+  lit s = Data 0 1 literalg [HardCore $ Lit $ Short s]
 instance (Lit a, Lit b) => Lit (a, b) where
   lit (a,b) = Data 0 0 (tupleg 2) [lit a, lit b]
 instance Lit a => Lit [a] where
@@ -265,7 +265,7 @@ instance Serialize HardCore where
 class (Applicative c, Monad c) => Cored c where
   core :: Core a -> c a
   caze :: c a -> Map Word8 (Match c a) -> Maybe (Scope () c a) -> c a
-  cazeHash :: c a -> Map Literal (Scope () c a) -> Maybe (Scope () c a) -> c a
+  cazeHash :: c a -> Map Literal (c a) -> Maybe (c a) -> c a
   lambda :: Word8 -> Scope Word8 c a -> c a
   lambdaDict :: Word8 -> Scope Word8 c a -> c a
   letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
@@ -308,10 +308,7 @@ instance Cored m => Cored (Scope b m) where
     caze (unscope e)
          (fmap (over matchBody expandScope) bs)
          (fmap expandScope d)
-  cazeHash e bs d = Scope $
-    cazeHash (unscope e)
-         (fmap expandScope bs)
-         (fmap expandScope d)
+  cazeHash e bs d = Scope $ cazeHash (unscope e) (unscope <$> bs) (unscope <$> d)
   lambda w e = Scope . lambda w $ expandScope e
   lambdaDict w e = Scope . lambdaDict w $ expandScope e
   letrec ds body = Scope $ letrec (expandScope <$> ds) (expandScope body)
@@ -333,7 +330,7 @@ data Core a
   | AppDict !(Core a) !(Core a)
   | LamHash !Word8 !(Scope Word8 Core a)
   | AppHash !(Core a) !(Core a)
-  | CaseHash !(Core a) (Map Literal (Scope () Core a)) (Maybe (Scope () Core a))
+  | CaseHash !(Core a) (Map Literal (Core a)) (Maybe (Core a))
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 data Match c a = Match
@@ -482,7 +479,7 @@ instance Monad Core where
   AppDict x y     >>= f = AppDict (x >>= f) (y >>= f)
   LamHash i e     >>= f = LamHash i (e >>>= f)
   AppHash x y     >>= f = AppHash (x >>= f) (y >>= f)
-  CaseHash e as d >>= f = CaseHash (e >>= f) (boundBy f <$> as) ((>>>= f) <$> d)
+  CaseHash e as d >>= f = CaseHash (e >>= f) ((>>= f) <$> as) ((>>= f) <$> d)
 
 instance Eq1 Core
 instance Show1 Core

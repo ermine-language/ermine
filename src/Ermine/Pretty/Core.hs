@@ -102,19 +102,14 @@ prettyCore (v:vs) prec k (Case e m d) =
     in (\bd -> nest 2 $ coreData t u g ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b
 
-prettyCore (v:vs) prec k (CaseHash e m d) =
-  coreCaseHash dv prec
+prettyCore vs prec k (CaseHash e m d) =
+  coreCaseHash prec
     <$> prettyCore vs (-1) k e
     <*> branches
-    <*> traverse (prettyCore vs (-1) l . unscope) d
+    <*> traverse (prettyCore vs (-1) k) d
  where
- l (B _) _ = pure dv
- l (F c) p = prettyCore vs p k c
- dv = text v
- branches = for (itoList m) $ \ (t, Scope b) ->
-   let k' (B ()) _ = pure dv
-       k' (F c) p = prettyCore vs p k c
-    in (\bd -> nest 2 $ text (show t) <+> text "->" <+> bd) <$> prettyCore vs (-1) k' b
+   branches = for (itoList m) $ \ (t, b) ->
+     (\bd -> nest 2 $ text (show t) <+> text "->" <+> bd) <$> prettyCore vs (-1) k b
 
 prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  where
@@ -168,9 +163,9 @@ coreCase dv prec de dbs mdd = parensIf (prec>=0) $
  where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 
-coreCaseHash :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
-coreCaseHash dv prec de dbs mdd = parensIf (prec>=0) $
-  nest 2 $ text "case#" <+> de <+> text "of" <+> dv <$$> coreBlock dbs'
+coreCaseHash :: Int -> Doc -> [Doc] -> Maybe Doc -> Doc
+coreCaseHash prec de dbs mdd = parensIf (prec>=0) $
+  nest 2 $ text "case#" <+> de <+> text "of" <$$> coreBlock dbs'
  where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 

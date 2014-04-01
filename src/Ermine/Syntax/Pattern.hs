@@ -30,6 +30,7 @@ module Ermine.Syntax.Pattern
   , PatternHead(..)
   , _TupH
   , _ConH
+  , arity
   , unboxedArity
   , headName
   , traverseHead
@@ -83,7 +84,7 @@ data Pattern t
   | StrictP (Pattern t)
   | LazyP (Pattern t)
   | LitP !Literal
-  | ConP {-# UNPACK #-} !Word8 !Global [Pattern t] -- # of unboxed arguments, the construcotr name, and patterns
+  | ConP {-# UNPACK #-} !Word8 !Global [Pattern t] -- # of unboxed arguments, the constructor name, and patterns
   | TupP [Pattern t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -163,10 +164,10 @@ instance Hashable PatternPath
 
 data PatternHead
   = TupH
-    { arity :: {-# UNPACK #-} !Word8
+    { _arity :: {-# UNPACK #-} !Word8
     }
   | ConH
-    { arity, _unboxedArity :: {-# UNPACK #-} !Word8
+    { _arity, _unboxedArity :: {-# UNPACK #-} !Word8
     , _name :: Global
     }
   | LitH !Literal
@@ -174,10 +175,15 @@ data PatternHead
 
 makePrisms ''PatternHead
 
+arity :: PatternHead -> Word8
+arity (TupH n) = n
+arity (ConH n _ _) = n
+arity LitH{} = 0
+
 unboxedArity :: PatternHead -> Word8
 unboxedArity TupH{} = 0
 unboxedArity (ConH _ u _) = u
-unboxedArity LitH{} = error "unboxedArity: LitH"
+unboxedArity LitH{} = 0
 
 headName :: Traversal' PatternHead Global
 headName f (ConH a u g) = ConH a u <$> f g
@@ -192,9 +198,9 @@ patternHead f p@(LitP l)    = p <$ f (LitH l)
 patternHead _ p             = pure p
 
 traverseHead :: PatternHead -> Traversal' (Pattern t) [Pattern t]
-traverseHead (ConH _ u g) = _ConP' u g
-traverseHead (TupH _)     = _TupP
-traverseHead (LitH l)     = _LitP' l
+traverseHead (ConH _ u g)    = _ConP' u g
+traverseHead (TupH _)        = _TupP
+traverseHead (LitH l)        = _LitP' l
 
 prune :: Pattern t -> Pattern t
 prune (AsP p)     = prune p

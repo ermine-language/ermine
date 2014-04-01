@@ -29,13 +29,7 @@ module Ermine.Syntax.Global
   , tupleg
   , trueg
   , falseg
-  , int8g
-  , int16g
-  , int32g
-  , int64g
-  , floatg
-  , doubleg
-  , charg
+  , literalg
   ) where
 
 import Control.Applicative
@@ -201,7 +195,7 @@ glob f m n = _Global # Global d f m n where
   d = MD5.finalize $ digest MD5.init f `digest` m `digest` n
 
 builtin :: Fixity -> Text -> Global
-builtin f = glob f (mkModuleName_ "Builtin")
+builtin f = glob f (mkModuleName_ "Prelude")
 
 builtin_ :: Text -> Global
 builtin_ = builtin Idfix
@@ -220,11 +214,5 @@ trueg, falseg :: Global
 trueg  = builtin_ "True"
 falseg = builtin_ "False"
 
-int8g, int16g, int32g, int64g, floatg, doubleg, charg :: Global
-int8g   = builtin_ "Int8"
-int16g  = builtin_ "Int16"
-int32g  = builtin_ "Int32"
-int64g  = builtin_ "Int64"
-floatg  = builtin_ "Float"
-doubleg = builtin_ "Double"
-charg   = builtin_ "Char"
+literalg :: Global
+literalg = builtin_ "Literal"

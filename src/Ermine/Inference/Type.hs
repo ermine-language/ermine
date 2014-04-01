@@ -444,7 +444,7 @@ inferPatternType d (ConP 0 g ps)
       [] -> newShallowMeta d star >>= \x ->
               return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
-inferPatternType _ (ConP _ _ _)  = error "unimplemented"
+inferPatternType _ c@(ConP _ _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
 
 instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d (Annot ks sc) = do

@@ -13,7 +13,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
-
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Dan Doel and Edward Kmett 2013-2014
@@ -39,6 +38,7 @@ import Prelude hiding (all)
 
 import Bound
 import Bound.Scope
+import Bound.Var
 import Control.Applicative
 import Control.Lens
 import Control.Monad.Trans (lift)
@@ -79,7 +79,7 @@ data Matching c a = Matching
   { _pathMap  :: HashMap PatternPath (c a)
   , _colCores :: [c a]
   , _colPaths :: [PatternPaths]
-  }
+  } deriving (Functor, Foldable, Traversable)
 
 makeClassy ''Matching
 
@@ -196,26 +196,30 @@ compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exh
 compile m pm@(PatternMatrix ps (b:bs))
   | all (irrefutable . head) ps =
      compileClaused m (PatternMatrix (drop 1 <$> ps) bs) b
-
   | Just i <- selectCol ps = let
       col = ps !! i
       heads = patternHeads col
       dm = defaultOn i pm
     in do sig <- isSignature heads
           sms <- for (toListOf folded heads) $ \h -> case h of
-             LitH _l -> error "TODO: compile LitH unimplemented"
-             _ | n <- arity h
-               , u <- unboxedArity h ->
-               (\t c -> Right (t , Match n u (constructorGlobal h) $ Scope c))
-                 <$> constructorTag h
-                 <*> compile (expand i n m) (splitOn i h pm)
+            LitH l -> do
+              c <- compile (expand i 1 m) (splitOn i h pm)
+              return $ Left $ (l, c)
+            _ | n <- arity h
+              , u <- unboxedArity h -> do
+              t <- constructorTag h
+              c <- compile (expand i n m) (splitOn i h pm)
+              return $ Right (t , Match n u (constructorGlobal h) $ Scope c)
           case partitionEithers sms of
             ([],xs) -> caze ((m^.colCores) !! i) (M.fromList xs) <$>
               if sig then pure Nothing
                      else Just . Scope <$> compile (remove i m) dm
-            (xs,[]) -> cazeHash ((m^.colCores) !! i) (M.fromList xs) <$>
-              if sig then pure Nothing
-                     else Just . Scope <$> compile (remove i m) dm
+            (xs,[]) -> do
+               dflt <- if sig then pure Nothing
+                              else Just . set (mapped._B) 0 <$> compile (remove i m) dm
+               return $ caze ((m^.colCores) !! i) ?? Nothing $ M.fromList
+                 [ (0, Match 1 1 literalg $ Scope $ cazeHash (pure $ B 1) (M.fromList xs) dflt)
+                 ]
             _ -> error "PANIC: pattern compile: mixed patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
 

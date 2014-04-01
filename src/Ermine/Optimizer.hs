@@ -67,8 +67,8 @@ rewriteCoreDown opt = go
                       <*> sharing d (traverse goS d)
    s@(CaseHash e b d) ->
      sharing s $ CaseHash <$> go e
-                          <*> sharing b (traverse goS b)
-                          <*> sharing d (traverse goS d)
+                          <*> sharing b (traverse go b)
+                          <*> sharing d (traverse go d)
    d@(Dict su sl) ->
      sharing d $ Dict <$> sharing su (traverse go su)
                       <*> sharing sl (traverse goS sl)
@@ -96,8 +96,8 @@ rewriteCore opt = go
                       <*> sharing d (traverse goS d)
    s@(CaseHash e b d) ->
      sharing s $ CaseHash <$> go e
-                          <*> sharing b (traverse goS b)
-                          <*> sharing d (traverse goS d)
+                          <*> sharing b (traverse go b)
+                          <*> sharing d (traverse go d)
    d@(Dict su sl) ->
      sharing d $ Dict <$> sharing su (traverse go su)
                       <*> sharing sl (traverse goS sl)
