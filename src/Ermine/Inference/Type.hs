@@ -335,6 +335,7 @@ inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
+inferHardType (Term.String l) = return $ Witness [] Type.string $ _HardCore # Core.String l
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -342,7 +343,6 @@ literalType Int{}    = Type.int
 literalType Long{}   = long
 literalType Byte{}   = byte
 literalType Short{}  = short
-literalType String{} = Type.string
 literalType Char{}   = Type.char
 literalType Float{}  = Type.float
 literalType Double{} = Type.double

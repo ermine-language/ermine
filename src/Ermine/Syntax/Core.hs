@@ -118,7 +118,7 @@ instance Lit Int32 where
   lit i = Data 0 1 int32g [HardCore $ Lit $ Int i]
 instance Lit Char where
   lit c  = Data 0 1 charg [HardCore $ Lit $ Char c]
-  lits s = HardCore $ Lit $ String (Strict.pack s)
+  lits s = HardCore $ String (Strict.pack s)
 instance Lit Int8 where
   lit b = Data 0 1 int8g [HardCore $ Lit $ Byte b]
 instance Lit Int16 where
@@ -179,6 +179,7 @@ data HardCore
   | Error      !Strict.Text
   | GlobalId   !Global
   | InstanceId !Head
+  | String     !Text
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 -- | This class describes things that could be 'HardCore'.
@@ -209,6 +210,9 @@ class AsHardCore c where
   _InstanceId :: Prism' c Head
   _InstanceId = _HardCore._InstanceId
 
+  _String :: Prism' c Text
+  _String = _HardCore._String
+
 instance f ~ Core => AsHardCore (Scope b f a) where
   _HardCore = prism (Scope . HardCore) $ \ t@(Scope b) -> case b of
     HardCore k           -> Right k
@@ -226,6 +230,7 @@ instance AsHardCore HardCore where
   _Foreign    = prism Foreign    $ \ xs -> case xs of Foreign l -> Right l ; hc -> Left hc
   _GlobalId   = prism GlobalId   $ \ xs -> case xs of GlobalId l -> Right l; hc -> Left hc
   _InstanceId = prism InstanceId $ \ xs -> case xs of InstanceId l -> Right l; hc -> Left hc
+  _String     = prism String     $ \ xs -> case xs of String l -> Right l; hc -> Left hc
 
 instance Hashable HardCore
 
@@ -238,6 +243,7 @@ instance Serial HardCore where
   serialize (Error s)      = putWord8 5 >> serialize s
   serialize (GlobalId g)   = putWord8 6 >> serialize g
   serialize (InstanceId i) = putWord8 7 >> serialize i
+  serialize (String l)     = putWord8 8 >> serialize l
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Super      deserialize
@@ -248,6 +254,7 @@ instance Serial HardCore where
     5 -> liftM Error      deserialize
     6 -> liftM GlobalId   deserialize
     7 -> liftM InstanceId deserialize
+    8 -> liftM String     deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where

@@ -47,6 +47,7 @@ prettyHardCore :: Int -> HardCore -> Doc
 prettyHardCore _ (Super   i)    = text $ "super{" ++ show i ++ "}"
 prettyHardCore _ (Slot    i)    = text $ "slot{"  ++ show i ++ "}"
 prettyHardCore _ (Lit     l)    = prettyLiteral l
+prettyHardCore _ (String  l)    = text $ show l
 prettyHardCore _ (PrimOp  s)    = text $ "primop{" ++ show s ++ "}"
 prettyHardCore _ (Foreign f)    = prettyForeign f
 prettyHardCore n (Error   s)    = parensIf (n>10) . text $ "error " ++ show s

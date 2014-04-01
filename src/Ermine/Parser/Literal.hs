@@ -19,5 +19,5 @@ import Text.Parser.Token
 -- | Parse a 'literal' number, string or character.
 literal :: (Monad m, TokenParsing m) => m Literal
 literal = either (Int . fromIntegral) Double <$> naturalOrDouble
-      <|> String <$> stringLiteral
       <|> Char <$> charLiteral
+   -- <|> String <$> stringLiteral

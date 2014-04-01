@@ -24,7 +24,6 @@ import Data.Serialize (Serialize)
 import Data.Data hiding (Fixity(..))
 import Data.Hashable
 import Data.Int
-import Data.Text as SText
 import GHC.Generics
 
 -- | Primitive literal values used by patterns, terms and core.
@@ -33,7 +32,6 @@ data Literal
   | Long    !Int64
   | Byte    !Int8
   | Short   !Int16
-  | String  SText.Text
   | Char    !Char
   | Float   !Float
   | Double  !Double
@@ -46,7 +44,6 @@ instance Serial Literal where
   serialize (Long   i) = putWord8 1 >> serialize i
   serialize (Byte   i) = putWord8 2 >> serialize i
   serialize (Short  i) = putWord8 3 >> serialize i
-  serialize (String i) = putWord8 4 >> serialize i
   serialize (Char   i) = putWord8 5 >> serialize i
   serialize (Float  i) = putWord8 6 >> serialize i
   serialize (Double i) = putWord8 7 >> serialize i
@@ -56,7 +53,6 @@ instance Serial Literal where
     1 -> liftM Long   deserialize
     2 -> liftM Byte   deserialize
     3 -> liftM Short  deserialize
-    4 -> liftM String deserialize
     5 -> liftM Char   deserialize
     6 -> liftM Float  deserialize
     7 -> liftM Double deserialize
