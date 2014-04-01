@@ -14,6 +14,7 @@ module Ermine.Parser.Pattern
   ( validate
   , pattern
   , pattern0
+  , pattern1
   , PP
   ) where
 

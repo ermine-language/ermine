@@ -70,7 +70,7 @@ term2 :: (Monad m, TokenParsing m) => m Tm
 term2 = lambda <|> sig
 
 patterns :: (Monad m, TokenParsing m) => m (Binder Text [Pattern Ann])
-patterns = do pps <- sequenceA <$> some pattern
+patterns = do pps <- sequenceA <$> some pattern1
               validate pps $ \n ->
                   unexpected $ "duplicate bindings in pattern for: " ++ unpack n
               return pps
