@@ -413,6 +413,7 @@ inferPatternType d (ConP g ps)
   | g^.name == "E" =
     newShallowSkolem d star >>= \x ->
     case ps of
+      [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p
                 uncaring $ unifyType (pure x) ty
                 return ( x:sks
@@ -421,6 +422,19 @@ inferPatternType d (ConP g ps)
                          FieldPP 0 pp -> f pp
                          _ -> error "panic: bad pattern path"
                        )
+      _ -> fail "over-applied constructor"
+  | g^.name == "Just" =
+    case ps of
+      [ ] -> fail "under-applied constructor"
+      [p] -> do (sks, ty, f) <- inferPatternType d p
+                return (sks, maybe_ ty, \xs -> case xs of
+                          FieldPP 0 pp -> f pp
+                          _ -> error "panic: bad pattern path")
+      _ -> fail "over-applied constructor"
+  | g^.name == "Nothing" =
+    case ps of
+      [] -> newShallowMeta d star >>= \x ->
+              return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
 inferPatternType _ (ConP _ _)  = error "unimplemented"
 
