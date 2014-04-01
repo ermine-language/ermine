@@ -83,7 +83,7 @@ promote = fmap . fmap $ F . pure
 defaultOn :: Applicative c => Int -> PatternMatrix t c a -> PatternMatrix t c (Var () (c a))
 defaultOn i (PatternMatrix ps cs)
   | (ls, c:rs) <- splitAt i ps = let
-      select c' = map snd . filter (matchesTrivially . fst) $ zip c c'
+      select c' = map snd . filter (not.destructures.fst) $ zip c c'
     in PatternMatrix (map select $ ls ++ rs) (promote $ select cs)
   | otherwise = error "PANIC: defaultOn: bad column reference"
 
@@ -96,11 +96,11 @@ splitOn i hd (PatternMatrix ps cs)
       con pat = traverseHead hd pat
       prune (AsP r) = prune r
       prune r = r
-      p (pat, _) = has con (prune pat) || matchesTrivially pat
+      p (pat, _) = has con (prune pat) || not (destructures pat)
       select c' = map snd . filter p $ zip c c'
       newcs = transpose $ c >>= \pat -> case () of
         _ | Just ps' <- preview con pat -> [ps']
-          | matchesTrivially pat        -> [replicate (fromIntegral $ hd^.arity) WildcardP]
+          | not $ destructures pat      -> [replicate (fromIntegral $ hd^.arity) WildcardP]
           | otherwise                   -> []
     in PatternMatrix (map select ls ++ newcs ++ map select rs)
                (promote $ select cs)

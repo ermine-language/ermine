@@ -44,7 +44,8 @@ module Ermine.Syntax.Pattern
   , bitraverseAlt
   , patternHead
   , forces
-  , matchesTrivially
+  , irrefutable
+  , destructures
   -- , getAlt, putAlt, getPat, putPat
   , serializeAlt3
   , deserializeAlt3
@@ -202,12 +203,18 @@ bitraverseAlt :: (Bitraversable k, Applicative f) => (t -> f t') -> (a -> f b) -
 bitraverseAlt f g (Alt p b) =
   Alt <$> traverse f p <*> traverse (bitraverseScope f g) b
 
-matchesTrivially :: Pattern t -> Bool
-matchesTrivially (SigP _)  = True
-matchesTrivially WildcardP = True
-matchesTrivially (LazyP _) = True
-matchesTrivially (AsP p)   = matchesTrivially p
-matchesTrivially _         = False
+irrefutable :: Pattern t -> Bool
+irrefutable (SigP _)  = True
+irrefutable WildcardP = True
+irrefutable (LazyP _) = True
+irrefutable (AsP p)   = irrefutable p
+irrefutable _         = False
+
+destructures :: Pattern t -> Bool
+destructures (AsP p)    = destructures p
+destructures (TupP _)   = True
+destructures (ConP _ _) = True
+destructures _          = False
 
 instance (Bifunctor p, Choice p, Applicative f) => Tup p f (Pattern t) where
   _Tup = prism TupP $ \p -> case p of

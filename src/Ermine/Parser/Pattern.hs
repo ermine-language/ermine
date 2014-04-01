@@ -49,10 +49,14 @@ type PP = P Ann Text
 varP :: (Monad m, TokenParsing m) => m PP
 varP = termIdentifier <&> sigp ?? anyType
 
+strictP :: (Monad m, TokenParsing m) => m PP
+strictP = symbol "!" *> termIdentifier <&> strictp ?? anyType
+
 -- | Parse a single pattern part (e.g. an argument to a lambda)
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0
    = varP
+ <|> strictP
  <|> _p <$ symbol "_"
  <|> litp <$> literal
  <|> parens (tup' <$> patterns)

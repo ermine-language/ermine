@@ -193,7 +193,7 @@ compileManyGuards m pm ((g,b):gbs) =
 compile :: (MonadPattern m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
 compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile m pm@(PatternMatrix ps (b:bs))
-  | all (matchesTrivially . head) ps =
+  | all (irrefutable . head) ps =
      compileClaused m (PatternMatrix (drop 1 <$> ps) bs) b
 
   | Just i <- selectCol ps = let
