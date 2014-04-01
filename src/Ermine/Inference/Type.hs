@@ -43,6 +43,7 @@ import qualified Data.Set as Set
 import Data.Set.Lens
 import Data.STRef
 import Data.Text as SText (pack)
+import Data.Void
 import Data.Word
 import Data.Traversable
 import Ermine.Builtin.Type as Type
@@ -157,7 +158,7 @@ inferBindings d cxt bgs = do
 
 inferType :: MonadConstraint s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
-inferType _ cxt (Term.Var v) = unfurl (cxt v) v
+inferType _ cxt (Term.Var v) = unfurl_ (cxt v) v
 inferType _ _   (HardTerm t) = inferHardType t
 inferType d cxt (Loc r tm)   = localMeta (metaRendering .~ r) $ inferType d cxt tm
 inferType d cxt (Remember i t) = do
@@ -335,6 +336,10 @@ inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
+inferHardType (DataCon g t)
+  | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon 0 0 g
+  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon 1 1 g
+  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon 1 0 g
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -359,15 +364,17 @@ skolemize _ (Forall ks ts cs bd) = do
   return (sks, sts, tcs, inst bd)
 skolemize _ t = return ([], [], [], t)
 
-unfurl :: MonadMeta s m => TypeM s -> a -> m (WitnessM s a)
+unfurl :: MonadMeta s m => TypeM s -> Scope a Core (TypeM s) -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ newMeta . extract
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
-  return $ Witness rcs (inst bd) $ appDicts (Scope . pure $ B co) (pure <$> tcs)
-unfurl t co = pure $ Witness [] t (Scope . pure $ B co)
+  return $ Witness rcs (inst bd) $ appDicts co (pure <$> tcs)
+unfurl t co = pure $ Witness [] t co
 
+unfurl_ :: MonadMeta s m => TypeM s -> a -> m (WitnessM s a)
+unfurl_ ty v = unfurl ty . Scope . pure . B $ v
 
 partConstraints :: TypeM s -> ([TypeM s], [TypeM s])
 partConstraints (And l) = List.partition isRowConstraint l
@@ -417,7 +424,7 @@ inferPatternType d (ConP g ps)
       [p] -> do (sks, ty, f) <- inferPatternType d p
                 uncaring $ unifyType (pure x) ty
                 return ( x:sks
-                       , builtin_ "E"
+                       , ee
                        , \xs -> case xs of
                          FieldPP 0 pp -> f pp
                          _ -> error "panic: bad pattern path"
