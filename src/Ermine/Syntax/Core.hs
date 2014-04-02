@@ -86,9 +86,9 @@ import Prelude
 -- | The built-in '::' constructor for a list.
 --
 -- >>> putStrLn $ groom $ lit (1 :: Int32) `cons` nil
--- Data 1 (glob (Infix R 5) (mkModuleName "ermine" "Builtin") "(:)")
---   [HardCore (Lit (Int 1)),
---    Data 0 (glob Idfix (mkModuleName "ermine" "Builtin") "[]") []]
+-- Data 1 (glob (Infix R 5) (mkModuleName "ermine" "Prelude") "(:)")
+--   [Array False [HardCore (Lit (Int 1))],
+--    Data 0 (glob Idfix (mkModuleName "ermine" "Prelude") "[]") []]
 instance Cons (Core a) (Core a) (Core a) (Core a) where
   _Cons = prism (\(a, as) -> Data 1 consg [a,as]) $ \ s -> case s of
     Data 1 _ [x,xs] -> Right (x,xs)
