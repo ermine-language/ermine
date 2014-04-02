@@ -54,7 +54,7 @@ rewriteCoreDown opt = go
  where
  go :: forall e. Core e -> m (Core e)
  go c = sharing c (opt c) >>= \ xs -> case xs of
-   l@(Lam cc r e)       -> sharing l $ Lam cc r <$> goS e
+   l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
@@ -72,7 +72,7 @@ rewriteCore opt = go
  where
  go :: forall e. Core e -> m (Core e)
  go c = sharing c $ opt =<< case c of
-   l@(Lam cc r e)       -> sharing l $ Lam cc r <$> goS e
+   l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
@@ -86,18 +86,18 @@ rewriteCore opt = go
 
 -- | Turns @\{x..} -> \{y..} -> ...@ into @\{x.. y..} -> ...@ for all lambda variants
 lamlam :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
-lamlam (Lam cc0 r0 e0) = slurp False cc0 r0 (fromScope e0)
+lamlam (Lam cc0 e0) = slurp False cc0 (fromScope e0)
  where
- slurp :: forall e. Bool -> [Convention] -> Convention -> Core (Var Word8 e) -> m (Core e)
- slurp _ m _ (Lam n r' b) | j <- fromIntegral $ length m = slurp True (m ++ n) r' (instantiate (\i -> pure $ B $ j + i) b)
- slurp b m r c = Lam m r (toScope c) <$ tell (Any b)
+ slurp :: forall e. Bool -> [Convention] -> Core (Var Word8 e) -> m (Core e)
+ slurp _ m (Lam n b) | j <- fromIntegral $ length m = slurp True (m ++ n) (instantiate (\i -> pure $ B $ j + i) b)
+ slurp b m c = Lam m (toScope c) <$ tell (Any b)
 lamlam c = return c
 
 -- | 'Lam D' is strict, so η-reduction for it is sound. η-reduce.
 --
 -- Todo: generalize this to larger lambdas and also extend it to cover other strict lambdas like U and N
 etaDict :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
-etaDict c@(Lam [D] _ (Scope (App D f (Var (B 0))))) = case sequenceA f of
+etaDict c@(Lam [D] (Scope (App D f (Var (B 0))))) = case sequenceA f of
   B _ -> return c
   F g -> join g <$ tell (Any True)
 etaDict c = return c
@@ -108,13 +108,13 @@ betaVar = collapse []
  where
  collapse stk (App C f x)
    | has _Var x || has _Slot x || has _Super x || has _Lit x = collapse (x:stk) f
- collapse stk (Lam cc r body@(Scope body'))
+ collapse stk (Lam cc body@(Scope body'))
    | len < n = do
      tell (Any True)
      let replace i
            | i < len   = F $ stk `genericIndex` i
            | otherwise = B $ i - len
-     return $ Lam (drop (fromIntegral len) cc) r $ Scope $ fmap (unvar replace F) body'
+     return $ Lam (drop (fromIntegral len) cc) $ Scope $ fmap (unvar replace F) body'
    | (args, stk') <- genericSplitAt n stk = do
      tell (Any True)
      collapse stk' $ instantiate (genericIndex args) body

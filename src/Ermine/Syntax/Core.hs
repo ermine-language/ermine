@@ -274,7 +274,7 @@ class (Variable c, AppHash c, AppDict c, App c, Applicative c, Monad c) => Cored
   core :: Core a -> c a
   case_ :: c a -> Map Word8 (Match c a) -> Maybe (Scope () c a) -> c a
   caseLit :: Bool -> c a -> Map Literal (c a) -> Maybe (c a) -> c a
-  lambda :: [Convention] -> Convention -> Scope Word8 c a -> c a
+  lambda :: [Convention] -> Scope Word8 c a -> c a
   letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
   hardCore :: HardCore -> c a
   hardCore = core . HardCore
@@ -285,8 +285,8 @@ instance Cored Core where
   {-# INLINE core #-}
   case_ = Case
   caseLit = CaseLit
-  lambda [] _ s = instantiate (error "lambda: impossible argument") s
-  lambda cc r s = Lam cc r s
+  lambda [] s = instantiate (error "lambda: impossible argument") s
+  lambda cc s = Lam cc s
   letrec = Let
 
 instance Cored m => Cored (Scope b m) where
@@ -294,7 +294,7 @@ instance Cored m => Cored (Scope b m) where
   {-# INLINE core #-}
   case_ e bs d = Scope $ case_ (unscope e) (fmap (over matchBody expandScope) bs) (fmap expandScope d)
   caseLit n e bs d = Scope $ caseLit n (unscope e) (unscope <$> bs) (unscope <$> d)
-  lambda cc r e = Scope . lambda cc r $ expandScope e
+  lambda cc e = Scope . lambda cc $ expandScope e
   letrec ds body = Scope $ letrec (expandScope <$> ds) (expandScope body)
 
 expandScope :: forall t b1 b2 a. (Applicative t, Monad t)
@@ -323,7 +323,7 @@ data Core a
   | HardCore !HardCore
   | Data [Convention] !Word8 !Global [Core a] -- convention, tag #, associated global for display purposes, cores
   | App !Convention !(Core a) !(Core a)
-  | Lam [Convention] Convention !(Scope Word8 Core a)
+  | Lam [Convention] !(Scope Word8 Core a)
   | Let [Scope Word32 Core a] !(Scope Word32 Core a)
   | Case !(Core a) (Map Word8 (Match Core a)) (Maybe (Scope () Core a))
   | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
@@ -373,7 +373,7 @@ instance Serial1 Core where
   serializeWith _  (HardCore h)       = putWord8 1 >> serialize h
   serializeWith pa (Data cc i g cs)   = putWord8 2 >> serialize cc >> serialize i >> serialize g >> serializeWith (serializeWith pa) cs
   serializeWith pa (App cc c1 c2)     = putWord8 3 >> serialize cc >> serializeWith pa c1 >> serializeWith pa c2
-  serializeWith pa (Lam cc r s)       = putWord8 4 >> serialize cc >> serialize r >> serializeWith pa s
+  serializeWith pa (Lam cc s)         = putWord8 4 >> serialize cc >> serializeWith pa s
   serializeWith pa (Let ss s)         = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
   serializeWith pa (Case c bs d)      = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
   serializeWith pa (Dict sups slts)   = putWord8 7 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
@@ -384,7 +384,7 @@ instance Serial1 Core where
     1 -> liftM HardCore deserialize
     2 -> liftM4 Data deserialize deserialize deserialize (deserializeWith $ deserializeWith ga)
     3 -> liftM3 App deserialize (deserializeWith ga) (deserializeWith ga)
-    4 -> liftM3 Lam deserialize deserialize (deserializeWith ga)
+    4 -> liftM2 Lam deserialize (deserializeWith ga)
     5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
     6 -> liftM3 Case (deserializeWith ga) (deserializeWith $ deserializeWith ga) (deserializeWith $ deserializeWith ga)
     7 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith $ deserializeWith ga)
@@ -421,7 +421,7 @@ instance Hashable a => Hashable (Core a) where
   hashWithSalt n (HardCore c)        = hashWithSalt n c                                                      `hashWithSalt` distHardCore
   hashWithSalt n (Data cc i g cs)    = hashWithSalt n cc `hashWithSalt` i `hashWithSalt` g `hashWithSalt` cs `hashWithSalt` distData
   hashWithSalt n (App cc x y)        = hashWithSalt n cc `hashWithSalt` x `hashWithSalt` y                   `hashWithSalt` distApp
-  hashWithSalt n (Lam cc r b)        = hashWithSalt n cc `hashWithSalt` r `hashWithSalt` b                   `hashWithSalt` distLam
+  hashWithSalt n (Lam cc b)          = hashWithSalt n cc `hashWithSalt` b                                    `hashWithSalt` distLam
   hashWithSalt n (Let ts b)          = hashWithSalt n ts `hashWithSalt` b                                    `hashWithSalt` distLet
   hashWithSalt n (Case c bs d)       = hashWithSalt n c  `hashWithSalt` bs `hashWithSalt` d                  `hashWithSalt` distCase
   hashWithSalt n (Dict s ss)         = hashWithSalt n s  `hashWithSalt` ss                                   `hashWithSalt` distDict
@@ -451,7 +451,7 @@ instance Monad Core where
   HardCore h       >>= _ = HardCore h
   Data cc tg g xs  >>= f = Data cc tg g ((>>= f) <$> xs)
   App cc x y       >>= f = App cc (x >>= f) (y >>= f)
-  Lam cc r e       >>= f = Lam cc r (boundBy f e)
+  Lam cc e         >>= f = Lam cc (boundBy f e)
   Let bs e         >>= f = Let (boundBy f <$> bs) (boundBy f e)
   Case e as d      >>= f = Case (e >>= f) (over matchBody (boundBy f) <$> as) ((>>>= f) <$> d)
   Dict xs ys       >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
@@ -461,8 +461,8 @@ instance Eq1 Core
 instance Show1 Core
 
 -- | Smart 'Lam' constructor
-lam :: (Cored m, Eq a) => Convention -> Convention -> [a] -> Core a -> m a
-lam c r as t = core $ Lam (c <$ as) r (abstract (fmap fromIntegral . flip List.elemIndex as) t)
+lam :: (Cored m, Eq a) => Convention -> [a] -> Core a -> m a
+lam c as t = core $ Lam (c <$ as) (abstract (fmap fromIntegral . flip List.elemIndex as) t)
 
 -- | Smart 'Let' constructor
 let_ :: (Cored m, Eq a) => [(a, Core a)] -> Core a -> m a
@@ -473,7 +473,7 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
 -- | Builds an n-ary data constructor
 dataCon :: Cored m => [Convention] -> Word8 -> Global -> m a
 dataCon [] tg g = core $ Data [] tg g []
-dataCon cc tg g = core $ Lam cc C $ Scope $ Data cc tg g $ pure.B <$> [0..fromIntegral (length cc-1)]
+dataCon cc tg g = core $ Lam cc $ Scope $ Data cc tg g $ pure.B <$> [0..fromIntegral (length cc-1)]
 
 -- * Match instances
 

@@ -245,7 +245,7 @@ whereVar (WherePat p) = B p
 compileBinding
   :: (MonadPattern m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
-compileBinding ps gds ws = lambda (C <$ head ps) C <$> compile m pm where
+compileBinding ps gds ws = lambda (C <$ head ps) <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
   clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                          (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)

@@ -182,7 +182,7 @@ inferType d cxt (Term.Lam ps e) = do
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-  return $ Witness rcs rt (lambda (C <$ ps) C cc)
+  return $ Witness rcs rt (lambda (C <$ ps) cc)
 
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
@@ -251,7 +251,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
     checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
-      ((rs, ty), lambda (D <$ cs) C $ abstract (fmap fromIntegral . flip elemIndex cs) co')
+      ((rs, ty), lambda (D <$ cs) $ abstract (fmap fromIntegral . flip elemIndex cs) co')
   pure $ Witness rs' ty' co''
 
 -- TODO: write this correctly
@@ -318,7 +318,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
         t)
     $ if n == 0
       then c
-      else toScope $ Core.Lam (D <$ cc') C $ abstract (cabs cc') $ fromScope c
+      else toScope $ Core.Lam (D <$ cc') $ abstract (cabs cc') $ fromScope c
 
 generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
 generalizeType w = do

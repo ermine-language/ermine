@@ -68,8 +68,8 @@ prettyCore vs _    k (Data cc tg g fs) =
 prettyCore vs prec k (App _ f x) =
   (\df dx -> parensIf (prec>10) $ df <+> dx)
     <$> prettyCore vs 10 k f <*> prettyCore vs 11 k x
-prettyCore vs prec k (Lam cc r (Scope e)) =
-  coreLam cc r prec ws <$> prettyCore rest (-1) k' e
+prettyCore vs prec k (Lam cc (Scope e)) =
+  coreLam cc prec ws <$> prettyCore rest (-1) k' e
  where
  (ws, rest) = first (fmap text) $ splitAt (length cc) vs
  k' (B i) _ = pure $ ws !! fromIntegral i
@@ -122,9 +122,9 @@ prettyCore vs _ k (Dict sups sls) =
 prettyCore [] _ _ _ = error "panic: prettyCore ran out of variable names"
 
 -- \{a,b} [C,C]->C body
-coreLam :: [Convention] -> Convention -> Int -> [Doc] -> Doc -> Doc
-coreLam cc r prec ws e = parensIf (prec>=0) $
-  text "\\" <> encloseSep lbrace rbrace comma ws <+> encloseSep lbracket rbracket comma (text.show<$>cc) <> text "->" <> text (show r) <+> e
+coreLam :: [Convention] -> Int -> [Doc] -> Doc -> Doc
+coreLam cc prec ws e = parensIf (prec>=0) $
+  text "\\" <> encloseSep lbrace rbrace comma ws <+> encloseSep lbracket rbracket comma (text.show<$>cc) <> text "->" <+> e
 
 -- Nothing<0,[]>
 -- Just<1,[C]> a
