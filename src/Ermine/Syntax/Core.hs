@@ -13,7 +13,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2012
+-- Copyright :  (c) Edward Kmett and Dan Doel 2012-2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
