@@ -36,9 +36,18 @@ instance Arbitrary a => Arbitrary (Kind a) where
   arbitrary = genKind $ Just arbitrary
 
 instance Arbitrary Assoc where
-  arbitrary = Test.QuickCheck.elements [L, R, N]
+  arbitrary = Test.QuickCheck.elements [Global.L, Global.R, Global.N]
 
 genPrecedence = choose (0, 9) :: Gen Int
+
+instance Arbitrary Convention where
+  arbitrary = oneof $ return <$> [ Core.C, Core.U, Core.D, Core.N ]
+
+instance (Functor c, Arbitrary1 c) => Arbitrary1 (Match c) where
+  arbitrary1 = Match <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance (Functor c, Arbitrary1 c, Arbitrary a) => Arbitrary (Match c a) where
+  arbitrary = arbitrary1
 
 instance Arbitrary Fixity where
   arbitrary = oneof
@@ -254,16 +263,14 @@ instance Arbitrary a => Arbitrary (Core a) where
     core' n = smaller $ oneof
       [ Core.Var      <$> arbitrary
       , HardCore      <$> arbitrary
-      , Core.App      <$> arbitrary <*> arbitrary
-      , Core.Lam      <$> arbitrary <*> arbitrary
+      , Core.App      <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.Lam      <$> arbitrary <*> arbitrary <*> arbitrary
       , Core.Let      <$> arbitrary <*> arbitrary
       , Core.Case     <$> arbitrary <*> arbitrary <*> arbitrary
       , Core.Dict     <$> arbitrary <*> arbitrary
-      , Core.LamDict  <$> arbitrary <*> arbitrary
-      , Core.AppDict  <$> arbitrary <*> arbitrary
-      , Core.LamHash  <$> arbitrary <*> arbitrary
-      , Core.AppHash  <$> arbitrary <*> arbitrary
-      , Core.CaseHash <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.Lam      <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.App      <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.CaseLit  <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
       ]
 
 instance (Arbitrary k, Arbitrary t) => Arbitrary (Constructor.Constructor k t) where
