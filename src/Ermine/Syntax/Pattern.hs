@@ -30,7 +30,7 @@ module Ermine.Syntax.Pattern
   , PatternHead(..)
   , _TupH
   , _ConH
-  , arity
+  , conventions
   , headName
   , traverseHead
   , PatternPath(..)
@@ -69,6 +69,7 @@ import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.Word
 import Ermine.Syntax
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
@@ -158,23 +159,23 @@ instance Hashable PatternPath
 
 data PatternHead
   = TupH !Word8
-  | ConH !Word8 !Global
+  | ConH [Convention] !Global
   | LitH !Literal
   deriving (Eq, Ord, Show)
 
 makePrisms ''PatternHead
 
-arity :: PatternHead -> Word8
-arity (TupH n) = n
-arity (ConH n _) = n
-arity LitH{} = 0
+conventions :: PatternHead -> [Convention]
+conventions (TupH n)    = replicate (fromIntegral n) C
+conventions (ConH cc _) = cc
+conventions LitH{}      = []
 
 headName :: Traversal' PatternHead Global
 headName f (ConH a g) = ConH a <$> f g
 headName _ h          = pure h
 
 patternHead :: Fold (Pattern t) PatternHead
-patternHead f p@(ConP g ps) = p <$ f (ConH (fromIntegral $ length ps) g)
+patternHead f p@(ConP g ps) = p <$ f (ConH (C <$ ps) g)
 patternHead f p@(TupP ps)   = p <$ f (TupH . fromIntegral $ length ps)
 patternHead f (AsP p)       = patternHead f p
 patternHead f (StrictP p)   = patternHead f p
@@ -279,14 +280,14 @@ deserializeAlt3 gt gf gv =
   Alt <$> deserializeWith gt <*> deserializeWith (deserializeScope3 deserialize gf gv)
 
 instance Serial1 Pattern where
-  serializeWith pt (SigP t)      = putWord8 0 >> pt t
-  serializeWith _  WildcardP     = putWord8 1
-  serializeWith pt (AsP p)       = putWord8 2 >> serializeWith pt p
-  serializeWith pt (StrictP p)   = putWord8 3 >> serializeWith pt p
-  serializeWith pt (LazyP p)     = putWord8 4 >> serializeWith pt p
-  serializeWith _  (LitP l)      = putWord8 5 >> serialize l
-  serializeWith pt (ConP g ps)   = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
-  serializeWith pt (TupP ps)     = putWord8 7 >> serializeWith (serializeWith pt) ps
+  serializeWith pt (SigP t)    = putWord8 0 >> pt t
+  serializeWith _  WildcardP   = putWord8 1
+  serializeWith pt (AsP p)     = putWord8 2 >> serializeWith pt p
+  serializeWith pt (StrictP p) = putWord8 3 >> serializeWith pt p
+  serializeWith pt (LazyP p)   = putWord8 4 >> serializeWith pt p
+  serializeWith _  (LitP l)    = putWord8 5 >> serialize l
+  serializeWith pt (ConP g ps) = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
+  serializeWith pt (TupP ps)   = putWord8 7 >> serializeWith (serializeWith pt) ps
 
   deserializeWith gt = getWord8 >>= \b -> case b of
     0 -> liftM SigP gt

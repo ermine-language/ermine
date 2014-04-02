@@ -21,7 +21,7 @@ module Ermine.Syntax.Global
   -- * Lenses
   , unpackFixity
   , packFixity
-  -- * Common globals
+  -- * Builtin globals
   , nilg
   , consg
   , nothingg
@@ -31,6 +31,7 @@ module Ermine.Syntax.Global
   , falseg
   , eg
   , literalg
+  , stringg
   ) where
 
 import Control.Applicative
@@ -218,3 +219,6 @@ falseg = builtin_ "False"
 
 literalg :: Global
 literalg = builtin_ "Literal"
+
+stringg :: Global
+stringg = builtin_ "String"

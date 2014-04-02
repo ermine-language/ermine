@@ -47,7 +47,7 @@ import Data.Foldable
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as M
-import Data.List (transpose)
+import Data.List (transpose, genericLength)
 import Data.Maybe
 import Data.Monoid
 import Data.Ord
@@ -59,6 +59,7 @@ import Data.Word
 import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
 import Ermine.Syntax
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Literal
@@ -184,8 +185,8 @@ compileManyGuards m pm ((g,b):gbs) =
     (over (traverse.both) (fmap $ F . pure) gbs) <&> \f ->
   case_ (inst g) ?? Nothing $
     M.fromList
-      [ (1, Match 0 trueg  $ Scope . fmap (F . pure) $ inst b)
-      , (0, Match 0 falseg $ Scope f)
+      [ (1, Match [] trueg  $ Scope . fmap (F . pure) $ inst b)
+      , (0, Match [] falseg $ Scope f)
       ]
  where inst = instantiate (instantiation m)
 
@@ -207,10 +208,10 @@ compile m pm@(PatternMatrix ps (b:bs))
             LitH l -> do
                 c <- compile (expand i 1 m) (splitOn i h pm)
                 return $ Left (l, c)
-            _ | n <- arity h -> do
-                t <- constructorTag h
-                c <- compile (expand i n m) (splitOn i h pm)
-                return $ Right (t, Match n (constructorGlobal h) $ Scope c)
+            _ -> do
+                (cc, tg) <- constructorTag h
+                c <- compile (expand i (genericLength cc) m) (splitOn i h pm)
+                return $ Right (tg, Match cc (constructorGlobal h) $ Scope c)
           case partitionEithers sms of
             ([],xs) -> case_ ((m^.colCores) !! i) (M.fromList xs) <$>
               if sig then pure Nothing
@@ -219,9 +220,13 @@ compile m pm@(PatternMatrix ps (b:bs))
                dflt <- if sig then pure Nothing
                               else Just . set (mapped._B) 0 <$> compile (remove i m) dm
                let cc = case fst (head xs) of String{} -> True; _ -> False
-               return $ ((lambda C 1 (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
+               return $ ((lambda [C] C (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
             _ -> error "PANIC: pattern compile: mixed literal and constructor patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
+
+-- wrong, placeholder
+--unbox :: Bool -> c a -> c a
+-- unbox _ = id
 
 bodyVar :: BodyBound -> Var (Var PatternPath Word32) Word32
 bodyVar (BodyDecl w) = F w
@@ -240,7 +245,7 @@ whereVar (WherePat p) = B p
 compileBinding
   :: (MonadPattern m, Cored c)
   => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
-compileBinding ps gds ws = lambda C (fromIntegral $ length $ head ps) <$> compile m pm where
+compileBinding ps gds ws = lambda (C <$ head ps) C <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
   clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                          (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)

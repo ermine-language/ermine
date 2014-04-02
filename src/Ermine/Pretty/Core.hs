@@ -27,6 +27,7 @@ import Data.Word
 import Ermine.Pretty
 import Ermine.Pretty.Literal
 import Ermine.Pretty.Type
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Head
@@ -51,8 +52,6 @@ prettyHardCore _ (PrimOp  s)     = text $ "primop{" ++ show s ++ "}"
 prettyHardCore _ (Foreign f)     = prettyForeign f
 prettyHardCore n (Error   s)     = parensIf (n>10) . text $ "error " ++ show s
 prettyHardCore _ (GlobalId g)    = text $ "global{" ++ show g ++ "}"
-prettyHardCore _ (Entry True i)  = text $ "entry{N," ++ show i ++ "}"
-prettyHardCore _ (Entry False i) = text $ "entry{U," ++ show i ++ "}"
 prettyHardCore _ (InstanceId i)  =
   text ("instance{" ++ (i^.headClass.name.unpacked))
      <+> hsep ((prettyType ?? repeat "_" ?? 1000) . bimap (const "_") (const "_")
@@ -64,17 +63,15 @@ prettyCore :: Applicative f
            => [String] -> Int -> (a -> Int -> f Doc) -> Core a -> f Doc
 prettyCore _  prec k (Var v) = k v prec
 prettyCore _  prec _ (HardCore h) = pure $ prettyHardCore prec h
-prettyCore vs _    k (Data t g fs) =
-  coreData t g <$> traverse (prettyCore vs (-1) k) fs
-prettyCore vs _    k (Array cc fs) =
-  coreArray cc <$> traverse (prettyCore vs (-1) k) fs
+prettyCore vs _    k (Data cc tg g fs) =
+  coreData cc tg g <$> traverse (prettyCore vs 11 k) fs
 prettyCore vs prec k (App _ f x) =
   (\df dx -> parensIf (prec>10) $ df <+> dx)
     <$> prettyCore vs 10 k f <*> prettyCore vs 11 k x
-prettyCore vs prec k (Lam cc n (Scope e)) =
-  coreLam cc prec ws <$> prettyCore rest (-1) k' e
+prettyCore vs prec k (Lam cc r (Scope e)) =
+  coreLam cc r prec ws <$> prettyCore rest (-1) k' e
  where
- (ws, rest) = first (fmap text) $ splitAt (fromIntegral n) vs
+ (ws, rest) = first (fmap text) $ splitAt (length cc) vs
  k' (B i) _ = pure $ ws !! fromIntegral i
  k' (F c) p = prettyCore rest p k c
 prettyCore (v:vs) prec k (Case e m d) =
@@ -86,12 +83,12 @@ prettyCore (v:vs) prec k (Case e m d) =
  l (B _) _ = pure dv
  l (F c) p = prettyCore vs p k c
  dv = text v
- branches = for (itoList m) $ \(t, Match n g (Scope b)) ->
-   let (ws,rest) = first (fmap text) $ splitAt (fromIntegral n) vs
+ branches = for (itoList m) $ \(tg, Match cc g (Scope b)) ->
+   let (ws,rest) = first (fmap text) $ splitAt (length cc) vs
        k' (B 0) _ = pure dv
        k' (B i) _ = pure $ ws !! fromIntegral (i-1)
        k' (F c) p = prettyCore rest p k c
-    in (\bd -> nest 2 $ coreData t g ws <+> text "->" <+> bd)
+    in (\bd -> nest 2 $ coreData cc tg g ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b
 
 prettyCore vs prec k (CaseLit cc e m d) =
@@ -101,7 +98,7 @@ prettyCore vs prec k (CaseLit cc e m d) =
     <*> traverse (prettyCore vs (-1) k) d
  where
    branches = for (itoList m) $ \ (t, b) ->
-     (\bd -> nest 2 $ text (show t) <+> text "->" <+> bd) <$> prettyCore vs (-1) k b
+     (\bd -> nest 2 $ text (show t) <+> text "->" <+> bd) <$> prettyCore vs 11 k b
 
 prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  where
@@ -124,16 +121,15 @@ prettyCore vs _ k (Dict sups sls) =
   k' (F c) p = prettyCore rest p k c
 prettyCore [] _ _ _ = error "panic: prettyCore ran out of variable names"
 
-coreLam :: Convention -> Int -> [Doc] -> Doc -> Doc
-coreLam cc prec ws e = parensIf (prec>=0) $
-  text "\\" <> encloseSep lbrace rbrace comma ws <+> text "->" <> text (show cc) <+> e
+-- \{a,b} [C,C]->C body
+coreLam :: [Convention] -> Convention -> Int -> [Doc] -> Doc -> Doc
+coreLam cc r prec ws e = parensIf (prec>=0) $
+  text "\\" <> encloseSep lbrace rbrace comma ws <+> encloseSep lbracket rbracket comma (text.show<$>cc) <> text "->" <> text (show r) <+> e
 
-coreData :: Word8 -> Global -> [Doc] -> Doc
-coreData t g fds = angles $
-  int (fromIntegral t) <> text "|" <> text (g^.name.unpacked) <> align (cat $ prePunctuate' (text "|") (text ",") fds)
-
-coreArray :: Bool -> [Doc] -> Doc
-coreArray cc fds = text (show cc) <> brackets (align (cat $ prePunctuate (text ",") fds))
+-- Nothing<0,[]>
+-- Just<1,[C]> a
+coreData :: [Convention] -> Word8 -> Global -> [Doc] -> Doc
+coreData cc tg g fds = text (g^.name.unpacked) <> text "<" <> int (fromIntegral tg) <> text "," <> text (show cc) <> text ">" <+> hsep fds
 
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCase dv prec de dbs mdd = parensIf (prec>=0) $
@@ -143,7 +139,7 @@ coreCase dv prec de dbs mdd = parensIf (prec>=0) $
 
 coreCaseLit :: Bool -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCaseLit cc prec de dbs mdd = parensIf (prec>=0) $
-  nest 2 $ text (if cc then "case{N}" else "case{U}") <+> de <+> text "of" <$$> coreBlock dbs'
+  nest 2 $ text (if cc then "case[N]" else "case[U]") <+> de <+> text "of" <$$> coreBlock dbs'
  where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 

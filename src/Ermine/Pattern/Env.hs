@@ -32,6 +32,7 @@ import qualified Data.HashMap.Lazy as HM
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Word
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern
 
@@ -50,15 +51,15 @@ import Ermine.Syntax.Pattern
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
 -- maps from globals to integer tags.
-newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global Word8) }
+newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global ([Convention], Word8)) }
   deriving (Eq, Show)
 
 dummyPatternEnv :: PatternEnv
 dummyPatternEnv = PatternEnv $
   HM.fromList [(eg, esig), (justg, maybesig), (nothingg, maybesig)]
  where
-  esig = HM.singleton eg 0
-  maybesig = HM.fromList [(nothingg, 0), (justg, 1)]
+  esig = HM.singleton eg ([C], 0)
+  maybesig = HM.fromList [(nothingg, ([], 0)), (justg, ([C], 1))]
 
 -- | Monads that allow us to perform pattern compilation, by providing
 -- a PatternEnv.
@@ -83,9 +84,9 @@ isSignature ps = case preview folded ps of
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadPattern m => PatternHead -> m Word8
+constructorTag :: MonadPattern m => PatternHead -> m ([Convention], Word8)
 constructorTag (LitH _)   = error "PANIC: constructorTag: literal head"
-constructorTag (TupH _)   = pure 0
+constructorTag (TupH n)   = pure (replicate (fromIntegral n) C, 0)
 constructorTag (ConH _ g) = askPattern <&> \env ->
   case HM.lookup g (signatures env) >>= HM.lookup g of
     Nothing -> error "PANIC: constructorTag: unknown constructor"

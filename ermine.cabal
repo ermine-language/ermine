@@ -130,6 +130,7 @@ library
     Ermine.Syntax
     Ermine.Syntax.Class
     Ermine.Syntax.Constructor
+    Ermine.Syntax.Convention
     Ermine.Syntax.Core
     Ermine.Syntax.Data
     Ermine.Syntax.Digest
