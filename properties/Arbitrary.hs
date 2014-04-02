@@ -265,12 +265,10 @@ instance Arbitrary a => Arbitrary (Core a) where
       [ Core.Var      <$> arbitrary
       , HardCore      <$> arbitrary
       , Core.App      <$> arbitrary <*> arbitrary <*> arbitrary
-      , Core.Lam      <$> arbitrary <*> arbitrary <*> arbitrary
+      , Core.Lam      <$> arbitrary <*> arbitrary
       , Core.Let      <$> arbitrary <*> arbitrary
       , Core.Case     <$> arbitrary <*> arbitrary <*> arbitrary
       , Core.Dict     <$> arbitrary <*> arbitrary
-      , Core.Lam      <$> arbitrary <*> arbitrary <*> arbitrary
-      , Core.App      <$> arbitrary <*> arbitrary <*> arbitrary
       , Core.CaseLit  <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
       ]
 
