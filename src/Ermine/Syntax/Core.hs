@@ -29,7 +29,6 @@ module Ermine.Syntax.Core
   , matchGlobal
   , matchBody
   , Convention(..)
-  , Conversion(..)
   , Cored(..)
   , JavaLike(..)
   , Foreign(..)
@@ -334,28 +333,6 @@ instance Binary Convention where
   get = deserialize
 
 instance Serialize Convention where
-  put = serialize
-  get = deserialize
-
-data Conversion
-  = BoxHash
-  | BoxNative
-  | UnboxHash
-  | UnboxNative
-  deriving (Eq,Ord,Show,Read,Enum,Bounded,Typeable,Data)
-
-instance Hashable Conversion where
-  hashWithSalt n i = n `hashWithSalt` fromEnum i
-
-instance Serial Conversion where
-  serialize = serialize . fromEnum
-  deserialize = toEnum <$> deserialize
-
-instance Binary Conversion where
-  put = serialize
-  get = deserialize
-
-instance Serialize Conversion where
   put = serialize
   get = deserialize
 
