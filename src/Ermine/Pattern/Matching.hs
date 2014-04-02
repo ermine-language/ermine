@@ -58,10 +58,9 @@ import Data.Traversable
 import Data.Word
 import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
-import Ermine.Syntax
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
-import Ermine.Syntax.Global
+import Ermine.Syntax.Global hiding (N)
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
@@ -219,8 +218,9 @@ compile m pm@(PatternMatrix ps (b:bs))
             (xs,[]) -> do
                dflt <- if sig then pure Nothing
                               else Just . set (mapped._B) 0 <$> compile (remove i m) dm
-               let cc = case fst (head xs) of String{} -> True; _ -> False
-               return $ ((lambda [C] C (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
+               let (cc,nt) = case fst (head xs) of String{} -> (Match [N] stringg, True); _ -> (Match [U] literalg, False)
+               -- return $ ((lambda [C] C (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
+               return $ case_ ((m^.colCores)!!i) (M.singleton 0 $ cc $ Scope $ caseLit nt (pure $ B 1) (M.fromList xs) dflt) Nothing
             _ -> error "PANIC: pattern compile: mixed literal and constructor patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
 
