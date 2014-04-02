@@ -8,8 +8,9 @@ import Control.Applicative
 import Data.Map
 import Data.Monoid
 import Data.Void
-import Ermine.Syntax.Core        as Core
 import Ermine.Syntax.Constructor as Constructor
+import Ermine.Syntax.Convention  as Convention
+import Ermine.Syntax.Core        as Core
 import Ermine.Syntax.Data        as Data
 import Ermine.Syntax.Global      as Global
 import Ermine.Syntax.Hint        as Hint
@@ -41,7 +42,7 @@ instance Arbitrary Assoc where
 genPrecedence = choose (0, 9) :: Gen Int
 
 instance Arbitrary Convention where
-  arbitrary = oneof $ return <$> [ Core.C, Core.U, Core.D, Core.N ]
+  arbitrary = oneof $ return <$> [ Convention.C, Convention.U, Convention.D, Convention.N ]
 
 instance (Functor c, Arbitrary1 c) => Arbitrary1 (Match c) where
   arbitrary1 = Match <$> arbitrary <*> arbitrary <*> arbitrary
