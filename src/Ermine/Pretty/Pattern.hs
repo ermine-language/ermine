@@ -55,7 +55,7 @@ prettyPat' path (StrictP _) prec _  = h <$> varPP (leafPP path)
 prettyPat' path (LazyP p)   prec kt = h <$> prettyPat' path p 13 kt
  where h l = parensIf (prec > 13) $ text "!" <> l
 prettyPat' _    (LitP l)    _    _  = pure $ prettyLiteral l
-prettyPat' path (ConP _ g ps) prec kt =
+prettyPat' path (ConP g ps) prec kt =
   h <$> traverse (\(i,o) -> prettyPat' (path <> fieldPP i) ?? 11 ?? kt $ o) (zip [0..] ps)
  where h l = parensIf (prec > 10) $ prettyGlobal g <+> hsep l
 prettyPat' path (TupP ps)   _    kt =

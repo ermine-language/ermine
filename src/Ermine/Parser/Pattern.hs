@@ -52,7 +52,7 @@ varP = termIdentifier <&> sigp ?? anyType
 -- | Parse a single pattern part (e.g. an argument to a lambda)
 pattern0 :: (Monad m, TokenParsing m) => m PP
 pattern0
-   = conp 0 nothingg [] <$ symbol "Nothing"
+   = conp nothingg [] <$ symbol "Nothing"
  <|> varP
  <|> strictp <$ symbol "!" <*> pattern0
  <|> _p <$ symbol "_"
@@ -64,13 +64,13 @@ sigP = sigp <$> try (termIdentifier <* colon) <*> annotation
 
 -- TODO: remove this when constructor patterns really work.
 eP :: (Monad m, TokenParsing m) => m PP
-eP = conp 0 eg <$ symbol "E" <*> many pattern1
+eP = conp eg <$ symbol "E" <*> many pattern1
 
 justP :: (Monad m, TokenParsing m) => m PP
-justP = conp 0 justg <$ symbol "Just" <*> many pattern1
+justP = conp justg <$ symbol "Just" <*> many pattern1
 
 nothingP :: (Monad m, TokenParsing m) => m PP
-nothingP = conp 0 nothingg <$ symbol "Nothing" <*> many pattern1
+nothingP = conp nothingg <$ symbol "Nothing" <*> many pattern1
 
 -- as patterns
 pattern1 :: (Monad m, TokenParsing m) => m PP

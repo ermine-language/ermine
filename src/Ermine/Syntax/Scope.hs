@@ -28,12 +28,14 @@ module Ermine.Syntax.Scope
   , splitScope
   , rebind
   , inScope
+  , _Scope
   ) where
 
 import Bound
 import Bound.Scope
 import Bound.Var
 import Control.Applicative
+import Control.Lens
 import Control.Monad (liftM)
 import Control.Monad.Trans
 import Data.Bytes.Serial
@@ -84,3 +86,6 @@ rebind f = Scope . fmap (unvar f F) . unscope
 inScope :: (Functor f, Monad t)
         => (t (Var b a) -> f (t (Var b a))) -> Scope b t a -> f (Scope b t a)
 inScope action = fmap toScope . action . fromScope
+
+_Scope :: Iso (Scope b f a) (Scope b' f' a') (f (Var b (f a))) (f' (Var b' (f' a')))
+_Scope = iso unscope Scope

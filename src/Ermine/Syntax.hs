@@ -35,8 +35,10 @@ module Ermine.Syntax
   ) where
 
 import Bound
+import Bound.Var
 import Control.Lens
 import Data.Tagged
+import Ermine.Syntax.Scope
 
 --------------------------------------------------------------------
 -- Variable
@@ -62,6 +64,9 @@ instance Variable [] where
 
 instance Variable (Either b) where
   _Var = _Right
+
+instance Variable m => Variable (Scope b m) where
+  _Var = _Scope._Var._F._Var
 
 --------------------------------------------------------------------
 -- App

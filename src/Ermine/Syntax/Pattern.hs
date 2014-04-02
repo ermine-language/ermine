@@ -31,13 +31,11 @@ module Ermine.Syntax.Pattern
   , _TupH
   , _ConH
   , arity
-  , unboxedArity
   , headName
   , traverseHead
   , PatternPath(..)
   , PatternPaths
   , fieldPP
-  , unboxedFieldPP
   , argPP
   , leafPP
   , paths
@@ -84,15 +82,15 @@ data Pattern t
   | StrictP (Pattern t)
   | LazyP (Pattern t)
   | LitP !Literal
-  | ConP {-# UNPACK #-} !Word8 !Global [Pattern t] -- # of unboxed arguments, the constructor name, and patterns
+  | ConP !Global [Pattern t] -- # of unboxed arguments, the constructor name, and patterns
   | TupP [Pattern t]
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 makePrisms ''Pattern
 
-_ConP' :: Word8 -> Global -> Prism' (Pattern t) [Pattern t]
-_ConP' u g = prism (ConP u g) $ \ xs -> case xs of
-  ConP u' g' ps | u == u' && g == g' -> Right ps
+_ConP' :: Global -> Prism' (Pattern t) [Pattern t]
+_ConP' g = prism (ConP g) $ \ xs -> case xs of
+  ConP g' ps | g == g' -> Right ps
   p -> Left p
 
 _LitP' :: Literal -> Prism' (Pattern t) [Pattern t]
@@ -123,14 +121,10 @@ _LitP' l = prism (\[] -> LitP l) $ \xs -> case xs of
 data PatternPath
   = LeafPP -- ^ refer to a variable
   | FieldPP {-# UNPACK #-} !Word8 PatternPath -- ^ refer to the n-th subpattern of a constructor
-  | UnboxedFieldPP {-# UNPACK #-} !Word8 PatternPath
   | ArgPP {-# UNPACK #-} !Word8 PatternPath -- ^ refer to the n-th pattern of many top-level patterns
   deriving (Eq, Ord, Show, Read, Generic)
 
 type PatternPaths = Endo PatternPath
-
-unboxedFieldPP :: Word8 -> PatternPaths
-unboxedFieldPP = Endo . UnboxedFieldPP
 
 fieldPP :: Word8 -> PatternPaths
 fieldPP = Endo . FieldPP
@@ -146,13 +140,13 @@ leafPP = flip appEndo LeafPP
 paths :: Pattern t -> [PatternPath]
 paths = go mempty
  where
- go pp (SigP    _)   = [leafPP pp]
- go pp (AsP     p)   = leafPP pp : go pp p
- go pp (StrictP p)   = go pp p
- go pp (LazyP   p)   = go pp p
- go pp (ConP u _ ps) = join $ zipWith (\i -> go $ pp <> (if i < u then unboxedFieldPP i else fieldPP i)) [0..] ps
- go pp (TupP   ps)   = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
- go _  _             = []
+ go pp (SigP    _) = [leafPP pp]
+ go pp (AsP     p) = leafPP pp : go pp p
+ go pp (StrictP p) = go pp p
+ go pp (LazyP   p) = go pp p
+ go pp (ConP _ ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
+ go pp (TupP   ps) = join $ zipWith (\i -> go $ pp <> fieldPP i) [0..] ps
+ go _  _           = []
 
 -- | Returns all the paths pointing to variables in a series of patterns.
 -- The list is assumed to contain patterns in left-to-right order, and the
@@ -163,13 +157,8 @@ manyPaths = join . zipWith (\i -> map (ArgPP i) . paths) [0..]
 instance Hashable PatternPath
 
 data PatternHead
-  = TupH
-    { _arity :: {-# UNPACK #-} !Word8
-    }
-  | ConH
-    { _arity, _unboxedArity :: {-# UNPACK #-} !Word8
-    , _name :: Global
-    }
+  = TupH !Word8
+  | ConH !Word8 !Global
   | LitH !Literal
   deriving (Eq, Ord, Show)
 
@@ -177,20 +166,15 @@ makePrisms ''PatternHead
 
 arity :: PatternHead -> Word8
 arity (TupH n) = n
-arity (ConH n _ _) = n
+arity (ConH n _) = n
 arity LitH{} = 0
 
-unboxedArity :: PatternHead -> Word8
-unboxedArity TupH{} = 0
-unboxedArity (ConH _ u _) = u
-unboxedArity LitH{} = 0
-
 headName :: Traversal' PatternHead Global
-headName f (ConH a u g) = ConH a u <$> f g
-headName _ h            = pure h
+headName f (ConH a g) = ConH a <$> f g
+headName _ h          = pure h
 
 patternHead :: Fold (Pattern t) PatternHead
-patternHead f p@(ConP u g ps) = p <$ f (ConH (fromIntegral $ length ps) u g)
+patternHead f p@(ConP g ps) = p <$ f (ConH (fromIntegral $ length ps) g)
 patternHead f p@(TupP ps)   = p <$ f (TupH . fromIntegral $ length ps)
 patternHead f (AsP p)       = patternHead f p
 patternHead f (StrictP p)   = patternHead f p
@@ -198,9 +182,9 @@ patternHead f p@(LitP l)    = p <$ f (LitH l)
 patternHead _ p             = pure p
 
 traverseHead :: PatternHead -> Traversal' (Pattern t) [Pattern t]
-traverseHead (ConH _ u g)    = _ConP' u g
-traverseHead (TupH _)        = _TupP
-traverseHead (LitH l)        = _LitP' l
+traverseHead (ConH _ g) = _ConP' g
+traverseHead (TupH _)   = _TupP
+traverseHead (LitH l)   = _LitP' l
 
 prune :: Pattern t -> Pattern t
 prune (AsP p)     = prune p
@@ -301,7 +285,7 @@ instance Serial1 Pattern where
   serializeWith pt (StrictP p)   = putWord8 3 >> serializeWith pt p
   serializeWith pt (LazyP p)     = putWord8 4 >> serializeWith pt p
   serializeWith _  (LitP l)      = putWord8 5 >> serialize l
-  serializeWith pt (ConP u g ps) = putWord8 6 >> serialize u >> serialize g >> serializeWith (serializeWith pt) ps
+  serializeWith pt (ConP g ps)   = putWord8 6 >> serialize g >> serializeWith (serializeWith pt) ps
   serializeWith pt (TupP ps)     = putWord8 7 >> serializeWith (serializeWith pt) ps
 
   deserializeWith gt = getWord8 >>= \b -> case b of
@@ -311,7 +295,7 @@ instance Serial1 Pattern where
     3 -> liftM StrictP $ deserializeWith gt
     4 -> liftM LazyP $ deserializeWith gt
     5 -> liftM LitP deserialize
-    6 -> liftM3 ConP deserialize deserialize (deserializeWith $ deserializeWith gt)
+    6 -> liftM2 ConP deserialize (deserializeWith $ deserializeWith gt)
     7 -> liftM TupP $ deserializeWith (deserializeWith gt)
     _ -> fail $ "get Pattern: unexpected constructor tag: " ++ show b
 

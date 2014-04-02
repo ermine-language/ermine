@@ -42,7 +42,6 @@ import Data.Monoid
 import Data.String
 import Data.Tagged
 import Data.Traversable
-import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Global
 import Ermine.Syntax.Kind
@@ -114,8 +113,8 @@ asp :: v -> P t v -> P t v
 asp v (Binder vs p) = Binder (v:vs) $ AsP p
 
 -- | A pattern that matches a constructor expression, with a specified number of unboxed arguments.
-conp :: Word8 -> Global -> [P t v] -> P t v
-conp u g ps = ConP u g <$> sequenceA ps
+conp :: Global -> [P t v] -> P t v
+conp g ps = ConP g <$> sequenceA ps
 
 -- | A pattern that matches a literal unboxed value
 litp :: Literal -> P t v

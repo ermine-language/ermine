@@ -181,7 +181,7 @@ inferType d cxt (Term.Lam ps e) = do
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-  return $ Witness rcs rt (lambda (fromIntegral $ length ps) cc)
+  return $ Witness rcs rt (lambda C (fromIntegral $ length ps) cc)
 
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
@@ -250,7 +250,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
     checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
-      ((rs, ty), lambdaDict (fromIntegral $ length cs) $ abstract (fmap fromIntegral . flip elemIndex cs) co')
+      ((rs, ty), lambda D (fromIntegral $ length cs) $ abstract (fmap fromIntegral . flip elemIndex cs) co')
   pure $ Witness rs' ty' co''
 
 -- TODO: write this correctly
@@ -317,7 +317,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
         t)
     $ if n == 0
       then c
-      else toScope $ LamDict (fromIntegral $ length cc') $ abstract (cabs cc') $ fromScope c
+      else toScope $ Core.Lam D (fromIntegral $ length cc') $ abstract (cabs cc') $ fromScope c
 
 generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
 generalizeType w = do
@@ -331,15 +331,15 @@ inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (_Lit # l)
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon 0 n 0 (tupleg n)
+  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon n 0 (tupleg n)
 inferHardType Hole = do
   tv <- newMeta star
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType (DataCon g t)
-  | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon 0 0 0 g
-  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon 0 1 1 g
-  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon 0 1 0 g
+  | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon 0 0 g
+  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon 1 1 g
+  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon 1 0 g
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -408,7 +408,6 @@ inferPatternType d (TupP ps)   =
     , apps (tuple $ length ps) tys
     , \ xs -> case xs of
        FieldPP i pp        | Just f <- cxts ^? ix (fromIntegral i) -> f pp
-       UnboxedFieldPP i pp | Just f <- cxts ^? ix (fromIntegral i) -> f pp
        _ -> error "panic: bad pattern path"
     )
 inferPatternType _ (LitP l)    =
@@ -417,7 +416,7 @@ inferPatternType _ (LitP l)    =
 --
 -- data E = forall x. E x
 -- E : forall (x : *). x -> E
-inferPatternType d (ConP 0 g ps)
+inferPatternType d (ConP g ps)
   | g^.name == "E" =
     newShallowSkolem d star >>= \x ->
     case ps of
@@ -444,7 +443,7 @@ inferPatternType d (ConP 0 g ps)
       [] -> newShallowMeta d star >>= \x ->
               return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
-inferPatternType _ c@(ConP _ _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
+inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
 
 instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d (Annot ks sc) = do

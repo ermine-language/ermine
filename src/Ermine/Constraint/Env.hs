@@ -9,7 +9,7 @@
 
 module Ermine.Constraint.Env
   ( MonadConstraint(..)
-  , D(..)
+  , CM(..)
   , ConstraintEnv(..)
   , HasConstraintEnv(..)
   , dummyConstraintEnv
@@ -69,30 +69,30 @@ instance MonadConstraint s m => MonadConstraint s (MaybeT m) where
   localConstraint f = MaybeT . localConstraint f . runMaybeT
 
 
-newtype D s a = D { discharging :: ConstraintEnv -> M s a }
+newtype CM s a = CM { runCM :: ConstraintEnv -> M s a }
 
-instance Functor (D s) where
-  fmap f (D e) = D $ fmap f <$> e
+instance Functor (CM s) where
+  fmap f (CM e) = CM $ fmap f <$> e
 
-instance Applicative (D s) where
-  pure = D . pure . pure
-  D f <*> D x = D $ liftM2 (<*>) f x
+instance Applicative (CM s) where
+  pure = CM . pure . pure
+  CM f <*> CM x = CM $ liftM2 (<*>) f x
 
-instance Monad (D s) where
+instance Monad (CM s) where
   return = pure
-  D m >>= f = D $ \e -> m e >>= \x -> discharging (f x) e
+  CM m >>= f = CM $ \e -> m e >>= \x -> runCM (f x) e
 
-instance MonadST (D s) where
-  type World (D s) = s
-  liftST m = D . const $ liftST m
+instance MonadST (CM s) where
+  type World (CM s) = s
+  liftST m = CM . const $ liftST m
 
-instance MonadMeta s (D s) where
-  askMeta = D $ const askMeta
-  localMeta f (D m) = D $ localMeta f . m
+instance MonadMeta s (CM s) where
+  askMeta = CM $ const askMeta
+  localMeta f (CM m) = CM $ localMeta f . m
 
-instance MonadConstraint s (D s) where
-  askConstraint = D $ \de -> pure de
-  localConstraint f (D m) = D $ \de -> m $ f de
+instance MonadConstraint s (CM s) where
+  askConstraint = CM $ \de -> pure de
+  localConstraint f (CM m) = CM $ \de -> m $ f de
 
 viewConstraint :: MonadConstraint s m => Getting a ConstraintEnv a -> m a
 viewConstraint g = view g <$> askConstraint
