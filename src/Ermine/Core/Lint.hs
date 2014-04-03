@@ -169,6 +169,11 @@ inferCore (Case b ms md) = do
   for_ ms $ \ (Match cc _ m) -> checkScope m C `with` bindings (C:cc)
   for_ md $ \ d -> checkScope d C `with` binding C
   return $ Form [] C
+inferCore (Let bgs bdy) = do
+  for_ bgs (checkScope ?? C) `with` bindings (C <$ bgs)
+  checkScope bdy C `with` bindings (C <$ bgs)
+  return $ Form [] C
+
 
 inferScope :: Scope b Core a -> Lint (Var b a) Form
 inferScope = inferCore . fromScope
