@@ -73,6 +73,10 @@ import GHC.Generics
 import Prelude.Extras
 import Prelude
 
+----------------------------------------------------------------------------
+-- JavaLike
+----------------------------------------------------------------------------
+
 data JavaLike
   -- | Java methods: static, class name, method name, arg class names
   = Method !Bool !Strict.Text !Strict.Text [Strict.Text]
@@ -95,6 +99,10 @@ instance Serial JavaLike where
     2 -> Value       <$> deserialize <*> deserialize <*> deserialize
     _ -> fail $ "get JavaLike: Unexpected constructor code: " ++ show b
 
+----------------------------------------------------------------------------
+-- Foreign
+----------------------------------------------------------------------------
+
 data Foreign
   = JavaLike !JavaLike
   | Unknown !Strict.Text
@@ -110,6 +118,10 @@ instance Serial Foreign where
     _ -> fail $ "get Foreign: Unexpected constructor code: " ++ show b
 
 instance Hashable Foreign
+
+----------------------------------------------------------------------------
+-- HardCore
+----------------------------------------------------------------------------
 
 -- | 'HardCore' is the subset of 'Core' terms that can be unified with value equality.
 data HardCore
@@ -200,6 +212,10 @@ instance Serialize HardCore where
   put = serialize
   get = deserialize
 
+----------------------------------------------------------------------------
+-- Cored
+----------------------------------------------------------------------------
+
 -- | Instances of this are things we can both construct from a 'Core' expression,
 -- and perform case analysis upon.
 --
@@ -248,6 +264,53 @@ expandScope (Scope e) = Scope e'''
  e''' :: t (Var b2 (t (Var b1 (t a))))
  e''' = (fmap.fmap) (unvar (pure . B) unscope) e''
 
+----------------------------------------------------------------------------
+-- Match
+----------------------------------------------------------------------------
+
+data Match c a = Match
+  { _matchArgs   :: [Convention]
+  , _matchGlobal :: !Global
+  , _matchBody   :: Scope Word8 c a
+  } deriving (Eq,Show,Functor,Foldable,Traversable)
+
+instance (Monad c, Hashable1 c, Hashable a) => Hashable (Match c a) where
+  hashWithSalt n (Match cc g b) = (n `hashWithSalt` cc `hashWithSalt` g) `hashWithSalt1` b
+
+instance Monad c => BoundBy (Match c) c where
+  boundBy f (Match cc g b) = Match cc g (b >>>= f)
+
+instance (Monad c, Hashable1 c) => Hashable1 (Match c)
+
+instance Serial1 c => Serial1 (Match c) where
+  serializeWith pa (Match cc g b) = serialize cc >> serialize g >> serializeWith pa b
+  deserializeWith ga = liftM3 Match deserialize deserialize (deserializeWith ga)
+
+instance (Serial1 c, Serial a) => Serial (Match c a) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
+
+instance (Serial1 c, Binary a) => Binary (Match c a) where
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance (Serial1 c, Serialize a) => Serialize (Match c a) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
+matchArgs :: Lens' (Match c a) [Convention]
+matchArgs f (Match a g b) = f a <&> \a' -> Match a' g b
+
+matchGlobal :: Lens' (Match c a) Global
+matchGlobal f (Match a g b) = f g <&> \g' -> Match a g' b
+
+matchBody :: Lens (Match c a) (Match d b) (Scope Word8 c a) (Scope Word8 d b)
+matchBody f (Match a g b) = Match a g <$> f b
+
+----------------------------------------------------------------------------
+-- Core
+----------------------------------------------------------------------------
+
 -- | 'Core' values are the output of the compilation process.
 --
 -- They are terms where the dictionary passing has been made explicit
@@ -264,33 +327,10 @@ data Core a
   | CaseLit !Bool !(Core a) (Map Literal (Core a)) (Maybe (Core a)) -- set True for native for strings
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
-data Match c a = Match
-  { _matchArgs   :: [Convention]
-  , _matchGlobal :: !Global
-  , _matchBody   :: Scope Word8 c a
-  } deriving (Eq,Show,Functor,Foldable,Traversable)
-
-matchArgs :: Lens' (Match c a) [Convention]
-matchArgs f (Match a g b) = f a <&> \a' -> Match a' g b
-
-matchGlobal :: Lens' (Match c a) Global
-matchGlobal f (Match a g b) = f g <&> \g' -> Match a g' b
-
-matchBody :: Lens (Match c a) (Match d b) (Scope Word8 c a) (Scope Word8 d b)
-matchBody f (Match a g b) = Match a g <$> f b
-
 instance AsHardCore (Core a) where
   _HardCore = prism HardCore $ \c -> case c of
     HardCore hc -> Right hc
     _           -> Left c
-
--- | ask for the @n@th the superclass of a given dictionary as a core expression
-super :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
-super i c = _AppDict # (_Super # i, c)
-
--- | ask for the @n@th slot of a given dictionary as a core expression
-slot :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
-slot i c = _AppDict # (_Slot # i, c)
 
 instance AppDict Core where
   _AppDict = prism (uncurry $ App D) $ \ xs -> case xs of App D f d -> Right (f, d) ; c -> Left c
@@ -298,8 +338,6 @@ instance AppDict Core where
 instance AppHash Core where
   _AppHash = prism (uncurry $ App U) $ \ xs -> case xs of App U f d -> Right (f, d) ; c -> Left c
 
-instance (Hashable a, Hashable b) => Hashable (Map a b) where
-  hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
 
 instance Serial1 Core where
   -- | Binary serialization of a 'Core', given serializers for its parameter.
@@ -394,6 +432,19 @@ instance Monad Core where
 instance Eq1 Core
 instance Show1 Core
 
+----------------------------------------------------------------------------
+-- Core Combinators
+----------------------------------------------------------------------------
+
+-- | ask for the @n@th the superclass of a given dictionary as a core expression
+super :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
+super i c = _AppDict # (_Super # i, c)
+
+-- | ask for the @n@th slot of a given dictionary as a core expression
+slot :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
+slot i c = _AppDict # (_Slot # i, c)
+
+
 -- | Smart 'Lam' constructor
 lam :: (Cored m, Eq a) => Convention -> [a] -> Core a -> m a
 lam c as t = core $ Lam (c <$ as) (abstract (fmap fromIntegral . flip List.elemIndex as) t)
@@ -409,28 +460,10 @@ dataCon :: Cored m => [Convention] -> Word8 -> Global -> m a
 dataCon [] tg g = core $ Data [] tg g []
 dataCon cc tg g = core $ Lam cc $ Scope $ Data cc tg g $ pure.B <$> [0..fromIntegral (length cc-1)]
 
--- * Match instances
+----------------------------------------------------------------------------
+-- Orphan Instances
+----------------------------------------------------------------------------
 
-instance (Monad c, Hashable1 c, Hashable a) => Hashable (Match c a) where
-  hashWithSalt n (Match cc g b) = (n `hashWithSalt` cc `hashWithSalt` g) `hashWithSalt1` b
+instance (Hashable a, Hashable b) => Hashable (Map a b) where
+  hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
 
-instance Monad c => BoundBy (Match c) c where
-  boundBy f (Match cc g b) = Match cc g (b >>>= f)
-
-instance (Monad c, Hashable1 c) => Hashable1 (Match c)
-
-instance Serial1 c => Serial1 (Match c) where
-  serializeWith pa (Match cc g b) = serialize cc >> serialize g >> serializeWith pa b
-  deserializeWith ga = liftM3 Match deserialize deserialize (deserializeWith ga)
-
-instance (Serial1 c, Serial a) => Serial (Match c a) where
-  serialize = serializeWith serialize
-  deserialize = deserializeWith deserialize
-
-instance (Serial1 c, Binary a) => Binary (Match c a) where
-  put = serializeWith Binary.put
-  get = deserializeWith Binary.get
-
-instance (Serial1 c, Serialize a) => Serialize (Match c a) where
-  put = serializeWith Serialize.put
-  get = deserializeWith Serialize.get
