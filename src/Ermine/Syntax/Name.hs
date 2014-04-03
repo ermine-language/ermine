@@ -1,4 +1,15 @@
-module Ermine.Syntax.Name where
+--------------------------------------------------------------------
+-- |
+-- Copyright :  (c) Edward Kmett and Dan Doel 2014
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+----------------------------------------------------------------------
+module Ermine.Syntax.Name
+  ( HasName(..)
+  ) where
 
 import Control.Lens
 import Data.Text
