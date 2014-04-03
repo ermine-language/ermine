@@ -54,7 +54,7 @@ withUnicode m = m
 main :: IO ()
 main = withUnicode $ getSources >>= \sources -> doctest $
     "-isrc"
-  : "-isrc-opt/no-ekg"
+  : "-iopt/no-ekg"
   : "-idist/build/autogen"
   : "-Ldist/build"
   : "-optP-include"

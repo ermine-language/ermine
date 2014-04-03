@@ -35,12 +35,14 @@ extra-source-files:
   .travis.yml
   .vim.custom
   .gitignore
-  images/overview.png
-  scripts/overview.sh
   README.markdown
   CHANGELOG.markdown
-  data/logo.txt
-  data/logos.txt
+  bin/overview.sh
+  etc/logo.txt
+  etc/logos.txt
+  etc/overview.png
+  opt/ekg/Ermine/Monitor.hs
+  opt/no-ekg/Ermine/Monitor.hs
 
 source-repository head
   type: git
@@ -216,9 +218,9 @@ library
 
   if flag(ekg)
     build-depends: ekg >= 0.3     && < 0.4
-    hs-source-dirs: src-opt/ekg
+    hs-source-dirs: opt/ekg
   else
-    hs-source-dirs: src-opt/no-ekg
+    hs-source-dirs: opt/no-ekg
 
   other-modules: Paths_ermine
   ghc-options: -Wall
@@ -236,7 +238,7 @@ library
 
 executable core-echo
   default-language: Haskell2010
-  hs-source-dirs: echo
+  hs-source-dirs: exec/core-echo
   main-is: Main.hs
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
 
@@ -266,7 +268,7 @@ executable core-echo
 
 executable ermine
   default-language: Haskell2010
-  hs-source-dirs: repl
+  hs-source-dirs: exec/repl
   main-is: Main.hs
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -v0
 
@@ -302,7 +304,7 @@ test-suite properties
   type:             exitcode-stdio-1.0
   main-is:          properties.hs
   ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N -v0
-  hs-source-dirs:   . properties
+  hs-source-dirs:   tests tests/properties
 
   if flag(j) && impl(ghc >= 7.8)
     ghc-options: -j3

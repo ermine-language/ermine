@@ -23,8 +23,8 @@ main = defaultMainWithHooks simpleUserHooks
      generateBuildModule (fromFlag (buildVerbosity flags)) pkg lbi
      buildHook simpleUserHooks pkg lbi hooks flags
   , postHaddock = \args flags pkg lbi -> do
-     _ <- readProcessWithExitCode "sh" ["scripts/overview.sh"] ""
-     copyFiles normal (haddockOutputDir flags pkg) [("images","overview.png")]
+     _ <- readProcessWithExitCode "sh" ["bin/overview.sh"] ""
+     copyFiles normal (haddockOutputDir flags pkg) [("data/images","overview.png")]
      postHaddock simpleUserHooks args flags pkg lbi
   }
 

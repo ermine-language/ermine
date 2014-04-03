@@ -44,9 +44,7 @@ allrights = "All Rights Reserved"
 logos :: IO String
 logos = do
   let txt = filter ((>3).length)
-          . splitOn [""] . lines . toString $ $(embedFile $ "data" </> "logos.txt")
-  -- file <- Paths_ermine.getDataFileName $ "data" </> "logos.txt"
-  -- txt <- splitOn [""] . lines <$> readFile file
+          . splitOn [""] . lines . toString $ $(embedFile $ "etc" </> "logos.txt")
   nm:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
   let n = maximum (map length xs)
   let pad ys = ys ++ replicate (n - length ys) ' '
@@ -58,4 +56,4 @@ logos = do
     ] ++ rest
 
 rat :: String
-rat = toString $ $(embedFile $ "data" </> "logo.txt")
+rat = toString $ $(embedFile $ "etc" </> "logo.txt")
