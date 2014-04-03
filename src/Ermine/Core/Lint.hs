@@ -29,8 +29,9 @@ import Control.Lens
 import Data.Data
 import Data.Foldable (for_)
 import Data.Hashable
+import Data.List (group)
 import Data.Map as Map
-import Data.Text hiding (replicate, length, zipWith)
+import Data.Text hiding (replicate, length, zipWith, group)
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
@@ -177,12 +178,14 @@ inferCore (Dict sups slts) = do
   for_ slts (checkScope C) `with` bindings (C <$ slts)
   return $ Form [] D
 inferCore (CaseLit nt b ms md) = do
-  let arg | nt        = N
-          | otherwise = U
-  checkCore arg b
+  let cc | nt        = N
+         | otherwise = U
+  checkCore cc b
   for_ ms (checkCore C)
-  for_ md (checkCore C)
-  -- TODO: lint that all patterns are N or U and all literals are of the same type
+  ifor_ md $ \l d -> do
+    when (inferLiteral l /= cc) $ fail "bad literal pattern"
+    checkCore C d
+  -- when (length (group $ constrIndex . toConstr <$> keys md) > 1) $ fail "bad mix of literal types"
   return $ Form [] U
 
 inferScope :: Scope b Core a -> Lint (Var b a) Form
@@ -190,3 +193,8 @@ inferScope = inferCore . fromScope
 
 checkScope :: Convention -> Scope b Core a -> Lint (Var b a) ()
 checkScope cc = checkCore cc . fromScope
+
+inferLiteral :: Literal -> Convention
+inferLiteral String{} = N
+inferLiteral _        = U
+
