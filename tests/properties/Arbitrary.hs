@@ -1,7 +1,9 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Arbitrary where
+module Arbitrary
+  ( Arbitrary1(..)
+  ) where
 
 import Bound
 import Control.Applicative
