@@ -29,6 +29,7 @@ module Ermine.Monitor
 import Control.Lens hiding (Setting)
 import Control.Monad.Trans
 import Control.Monad.Reader
+import Data.Foldable as F
 import Data.Text
 import Data.ByteString (ByteString)
 import Ermine.Monitor.Combinators
@@ -47,9 +48,7 @@ instance HasMonitorOptions Monitor where
   monitorOptions = _monitorOptions
 
 withServer :: HasMonitor t => t -> (Server -> IO ()) -> IO ()
-withServer t k = case t^.monitorServer of
-  Nothing -> return ()
-  Just s  -> k s
+withServer t = F.forM_ $ t^.monitorServer
 
 forkServer :: ByteString -> Int -> IO Server
 forkServer _ _ = return Server
