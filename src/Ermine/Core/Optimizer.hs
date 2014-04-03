@@ -13,7 +13,7 @@
 -- Portability: non-portable
 --------------------------------------------------------------------
 
-module Ermine.Optimizer
+module Ermine.Core.Optimizer
   ( optimize
   , rewriteCore
   , rewriteCoreDown

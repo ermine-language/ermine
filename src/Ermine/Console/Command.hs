@@ -42,9 +42,9 @@ import Ermine.Builtin.Term as Term (dataCon)
 import Ermine.Builtin.Type as Type (lame, maybe_, ee)
 import Ermine.Console.State
 import Ermine.Constraint.Env
+import Ermine.Core.Optimizer
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
-import Ermine.Optimizer
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type

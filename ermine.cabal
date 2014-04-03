@@ -101,12 +101,12 @@ library
     Ermine.Builtin.Type
     Ermine.Constraint.Env
     Ermine.Constraint.Simplification
+    Ermine.Core.Optimizer
     Ermine.Diagnostic
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
     Ermine.Monitor
-    Ermine.Optimizer
     Ermine.Parser.Data
     Ermine.Parser.Global
     Ermine.Parser.Keywords
