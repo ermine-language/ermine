@@ -46,6 +46,7 @@ import Data.Text as SText (pack)
 import Data.Void
 import Data.Word
 import Data.Traversable
+import Ermine.Builtin.Global
 import Ermine.Builtin.Type as Type
 import Ermine.Constraint.Env
 import Ermine.Constraint.Simplification
@@ -54,7 +55,6 @@ import Ermine.Pattern.Matching as Pattern
 import Ermine.Syntax
 import Ermine.Syntax.Convention as Convention
 import Ermine.Syntax.Core as Core
-import Ermine.Syntax.Global
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Literal

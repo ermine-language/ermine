@@ -33,17 +33,12 @@ module Ermine.Syntax.Core
   , Foreign(..)
   , HardCore(..)
   , AsHardCore(..)
-  , Lit(..)
   , super
   , slot
   -- * Smart constructors
   , lam
   , let_
   , dataCon
-  -- * Common built-in terms
-  , cons
-  , nil
-  , just, nothing
   ) where
 
 import Bound
@@ -58,7 +53,6 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.Data
-import Data.Int
 import Data.List as List
 import Data.Foldable
 import Data.Hashable
@@ -69,6 +63,7 @@ import Data.Serialize (Serialize)
 import Data.String
 import Data.Text as Strict hiding (cons, length)
 import Data.Word
+import Ermine.Builtin.Global
 import Ermine.Syntax
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Head
@@ -95,49 +90,6 @@ instance Cons (Core a) (Core a) (Core a) (Core a) where
   _Cons = prism (\(a, as) -> Data [C,C] 1 consg [a,as]) $ \ s -> case s of
     Data [C,C] 1 _ [x,xs] -> Right (x,xs)
     _                     -> Left s
-
--- | The built-in '[]' constructor for a list.
-nil :: Core a
-nil = Data [] 0 nilg []
-
--- | The built-in 'Just' constructor for 'Maybe'.
-just :: Core a -> Core a
-just a = Data [C] 1 justg [a]
-
--- | The built-in 'Nothing' constructor for 'Maybe'.
-nothing :: Core a
-nothing = Data [] 0 nothingg []
-
--- | Lifting of literal values to core.
-class Lit a where
-  lit  :: a   -> Core b
-  lits :: [a] -> Core b
-  lits = Prelude.foldr (Lens.cons . lit) nil
-
-instance Lit Int64 where
-  lit l = Data [U] 0 literalg [HardCore $ Lit $ Long l]
-
-instance Lit Int32 where
-  lit i = Data [U] 0 literalg [HardCore $ Lit $ Int i]
-
-instance Lit Char where
-  lit c  = Data [U] 0 literalg [HardCore $ Lit $ Char c]
-  lits s = Data [N] 0 stringg [HardCore $ Lit $ String (Strict.pack s)]
-
-instance Lit Int8 where
-  lit b = Data [U] 0 literalg [HardCore $ Lit $ Byte b]
-
-instance Lit Int16 where
-  lit s = Data [U] 0 literalg [HardCore $ Lit $ Short s]
-
-instance (Lit a, Lit b) => Lit (a, b) where
-  lit (a,b) = Data [C,C] 0 (tupleg 2) [lit a, lit b]
-
-instance Lit a => Lit [a] where
-  lit = lits
-
-instance Lit a => Lit (Maybe a) where
-  lit = maybe nothing (just . lit)
 
 data JavaLike
   -- | Java methods: static, class name, method name, arg class names

@@ -24,13 +24,13 @@ import Data.Foldable as Foldable
 import Data.Text (Text)
 import Data.Void
 import qualified Data.Set as Set
+import Ermine.Builtin.Global
 import Ermine.Builtin.Pattern
 import Ermine.Builtin.Type (anyType)
 import Ermine.Parser.Literal
 import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax
-import Ermine.Syntax.Global
 import Text.Parser.Combinators
 import Text.Parser.Token
 

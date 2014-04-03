@@ -32,6 +32,7 @@ import qualified Data.HashMap.Lazy as HM
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Word
+import Ermine.Builtin.Global
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Global
 import Ermine.Syntax.Pattern

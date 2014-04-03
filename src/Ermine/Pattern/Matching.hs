@@ -56,11 +56,11 @@ import Data.Set.Lens
 import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
+import Ermine.Builtin.Global
 import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
-import Ermine.Syntax.Global hiding (N)
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope

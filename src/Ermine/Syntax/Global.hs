@@ -21,17 +21,6 @@ module Ermine.Syntax.Global
   -- * Lenses
   , unpackFixity
   , packFixity
-  -- * Builtin globals
-  , nilg
-  , consg
-  , nothingg
-  , justg
-  , tupleg
-  , trueg
-  , falseg
-  , eg
-  , literalg
-  , stringg
   ) where
 
 import Control.Applicative
@@ -195,30 +184,3 @@ instance AsGlobal Global where
 glob :: AsGlobal t => Fixity -> ModuleName -> Text -> t
 glob f m n = _Global # Global d f m n where
   d = MD5.finalize $ digest MD5.init f `digest` m `digest` n
-
-builtin :: Fixity -> Text -> Global
-builtin f = glob f (mkModuleName_ "Prelude")
-
-builtin_ :: Text -> Global
-builtin_ = builtin Idfix
-
-nilg, consg, nothingg, justg, eg :: Global
-nilg     = builtin_ "[]"
-consg    = builtin (Infix R 5) "(:)"
-nothingg = builtin (Infix R 5) "Nothing"
-justg    = builtin_ "Just"
-eg       = builtin_ "E"
-
-tupleg :: Word8 -> Global
-tupleg w8 = builtin_ $ Data.Text.pack $ "(" ++ Prelude.replicate (if n == 0 then 0 else n-1) ',' ++ ")"
-  where n = fromIntegral w8
-
-trueg, falseg :: Global
-trueg  = builtin_ "True"
-falseg = builtin_ "False"
-
-literalg :: Global
-literalg = builtin_ "Literal"
-
-stringg :: Global
-stringg = builtin_ "String"
