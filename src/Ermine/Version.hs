@@ -12,7 +12,6 @@
 --------------------------------------------------------------------
 module Ermine.Version
   ( logo
-  , copyright
   , version
   ) where
 
@@ -34,13 +33,6 @@ logo = unsafePerformIO $ randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos 
 version :: String
 version = showVersion Paths_ermine.version { versionTags = ["α"] }
 
--- | Grab the copyright message
-copyright :: String
-copyright = "© 2010-2014 McGraw Hill Financial"
-
-allrights :: String
-allrights = "All Rights Reserved"
-
 logos :: IO String
 logos = do
   let txt = filter ((>3).length)
@@ -51,8 +43,8 @@ logos = do
   return $ unlines $
     [ l1
     , pad l2 ++ ' ' : nm ++ ' ' : version
-    , pad l3 ++ ' ' : copyright
-    , pad l4 ++ ' ' : allrights
+    , pad l3
+    , pad l4
     ] ++ rest
 
 rat :: String
