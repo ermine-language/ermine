@@ -11,16 +11,19 @@
 --
 --------------------------------------------------------------------
 module Ermine.Syntax.Global
-  ( Global(Global)
+  (
+  -- * Globals
+    Global(Global)
   , HasGlobal(..)
   , AsGlobal(..)
-  , glob
+  -- * Fixity
   , Assoc(..)
   , Fixity(..)
   , _Fixity
-  -- * Lenses
   , unpackFixity
   , packFixity
+  -- * Combinators
+  , glob
   ) where
 
 import Control.Applicative
@@ -46,8 +49,18 @@ import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 import GHC.Generics (Generic)
 
+------------------------------------------------------------------------------
+-- Associativity
+------------------------------------------------------------------------------
+
 -- | The associativity of an infix identifier
 data Assoc = L | R | N deriving (Eq,Ord,Show,Read,Enum,Data,Typeable,Generic)
+
+instance Digestable Assoc
+
+------------------------------------------------------------------------------
+-- Fixity
+------------------------------------------------------------------------------
 
 -- | The fixity of an identifier
 data Fixity
@@ -112,8 +125,11 @@ instance Serialize Fixity where
   put = serialize
   get = deserialize
 
-instance Digestable Assoc
 instance Digestable Fixity
+
+------------------------------------------------------------------------------
+-- Global
+------------------------------------------------------------------------------
 
 -- | A 'Global' is a full qualified top level name.
 --
@@ -128,8 +144,8 @@ data Global = Global
 instance Show Global where
   showsPrec d (Global _ f m n) = showParen (d > 10) $
     showString "glob " . showsPrec 11 f .
-            showChar ' ' . showsPrec 11 m .
-            showChar ' ' . showsPrec 11 n
+      showChar ' ' . showsPrec 11 m .
+      showChar ' ' . showsPrec 11 n
 
 instance Read Global where
   readsPrec d = readParen (d > 10) $ \r -> do
@@ -153,6 +169,10 @@ instance HasModuleName Global where
 instance HasName Global where
   name g (Global _ f m n) = g n <&> \n' -> glob f m n'
 
+------------------------------------------------------------------------------
+-- HasGlobal
+------------------------------------------------------------------------------
+
 class HasGlobal t where
   global :: Lens' t Global
   -- | A lens that will read or update the fixity (and compute a new digest)
@@ -174,11 +194,19 @@ instance Digestable Global where
 instance Hashable Global where
   hashWithSalt s c = hashWithSalt s (_globalDigest c)
 
+------------------------------------------------------------------------------
+-- AsGlobal
+------------------------------------------------------------------------------
+
 class AsGlobal t where
   _Global :: Prism' t Global
 
 instance AsGlobal Global where
   _Global = id
+
+------------------------------------------------------------------------------
+-- Combinators
+------------------------------------------------------------------------------
 
 -- | Construct a 'Global' with a correct digest.
 glob :: AsGlobal t => Fixity -> ModuleName -> Text -> t
