@@ -273,6 +273,37 @@ instance Variable Schema where
     Var (F (Var k)) -> Right k
     _               -> Left  t
 
+instance Kindly (Schema a) where
+  hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
+    HardKind k           -> Right k
+    Var (F (HardKind k)) -> Right k
+    _                    -> Left t
+
+instance HasKindVars (Schema a) (Schema b) a b where
+  kindVars = traverse
+
+instance BoundBy Schema Kind where
+  boundBy f (Schema i b) = Schema i (boundBy f b)
+
+instance Serial1 Schema where
+  serializeWith pk (Schema n body) = serialize n >> serializeWith pk body
+  {-# INlINE serializeWith #-}
+
+  deserializeWith gk = liftM2 Schema deserialize (deserializeWith gk)
+  {-# INLINE deserializeWith #-}
+
+instance Binary k => Binary (Schema k) where
+  put = serializeWith Binary.put
+  get = deserializeWith Binary.get
+
+instance Serialize k => Serialize (Schema k) where
+  put = serializeWith Serialize.put
+  get = deserializeWith Serialize.get
+
+instance Serial k => Serial (Schema k) where
+  serialize = serializeWith serialize
+  deserialize = deserializeWith deserialize
+
 -- | Lift a kind into a kind schema
 --
 -- >>> schema (star ~> star)
@@ -305,34 +336,3 @@ general k0 h = Schema (reverse hs) (Scope r) where
  go mhn@(m, hl, n) k = case m^.at k of
    Just b  -> (mhn, B b)
    Nothing -> let n' = n + 1 in n' `seq` ((m & at k ?~ n, h k : hl, n'), B n)
-
-instance Kindly (Schema a) where
-  hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
-    HardKind k           -> Right k
-    Var (F (HardKind k)) -> Right k
-    _                    -> Left t
-
-instance HasKindVars (Schema a) (Schema b) a b where
-  kindVars = traverse
-
-instance BoundBy Schema Kind where
-  boundBy f (Schema i b) = Schema i (boundBy f b)
-
-instance Serial1 Schema where
-  serializeWith pk (Schema n body) = serialize n >> serializeWith pk body
-  {-# INlINE serializeWith #-}
-
-  deserializeWith gk = liftM2 Schema deserialize (deserializeWith gk)
-  {-# INLINE deserializeWith #-}
-
-instance Binary k => Binary (Schema k) where
-  put = serializeWith Binary.put
-  get = deserializeWith Binary.get
-
-instance Serialize k => Serialize (Schema k) where
-  put = serializeWith Serialize.put
-  get = deserializeWith Serialize.get
-
-instance Serial k => Serial (Schema k) where
-  serialize = serializeWith serialize
-  deserialize = deserializeWith deserialize
