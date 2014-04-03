@@ -14,6 +14,7 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Convention
   ( Convention(..)
+  , strict
   ) where
 
 import Control.Applicative
@@ -49,3 +50,11 @@ instance Binary Convention where
 instance Serialize Convention where
   put = serialize
   get = deserialize
+
+strict :: Convention -> Bool
+strict C = False
+strict D = True
+strict U = True
+strict N = True
+
+
