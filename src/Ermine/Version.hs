@@ -43,8 +43,8 @@ logos = do
   return $ unlines $
     [ l1
     , pad l2 ++ ' ' : nm ++ ' ' : version
-    , pad l3
-    , pad l4
+    , l3
+    , l4
     ] ++ rest
 
 rat :: String
