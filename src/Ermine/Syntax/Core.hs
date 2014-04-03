@@ -75,7 +75,7 @@ import Prelude.Extras
 import Prelude
 
 -- $setup
--- >>> import Text.Groom
+-- >>> :m + Text.Groom Ermine.Builtin.Core Data.Int
 
 -- | The built-in '::' constructor for a list.
 --
