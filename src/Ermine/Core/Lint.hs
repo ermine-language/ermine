@@ -20,13 +20,14 @@ module Ermine.Core.Lint
   , with
   ) where
 
+import Bound
 import Bound.Var
-import Bound.Scope
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Lens
 import Data.Data
+import Data.Foldable (for_)
 import Data.Hashable
 import Data.Map as Map
 import Data.Text hiding (replicate, length, zipWith)
@@ -136,13 +137,19 @@ checkCore c cc = do
   cc' <- convention <$> inferCore c
   when (cc' /= cc) $ fail $ "type mismatch: expected " ++ show cc ++ ", received " ++ show cc'
 
+bindings :: Integral i => [Convention] -> LintEnv a -> LintEnv (Var i a)
+bindings cs = variables %~ unvar (\i -> liftMaybe "illegal bound variable" $ cs^?ix (fromIntegral i))
+
+binding :: Convention -> LintEnv a -> LintEnv (Var () a)
+binding cc = variables %~ unvar (\_ -> Right cc)
+
 inferCore :: Core a -> Lint a Form
 inferCore (Var a) = do
   v <- view variables
   Form [] <$> liftEither (v a)
 inferCore (HardCore hc) = inferHardCore hc
 inferCore (Lam cc body) = do
-  r <- inferCore (fromScope body) `with` variables %~ unvar (\i -> liftMaybe "illegal bound variable" $ cc^?ix (fromIntegral i))
+  r <- inferScope body `with` bindings cc
   when (convention r /= C) $ fail "bad lambda"
   return $ Form cc C
 inferCore (App cc x y) = do
@@ -157,3 +164,14 @@ inferCore (Data cc _ _ ps) = do
   when (length cc /= length ps) $ fail "bad data arguments"
   sequence_ $ zipWith checkCore ps cc
   return $ Form [] C
+inferCore (Case b ms md) = do
+  checkCore b C
+  for_ ms $ \ (Match cc _ m) -> checkScope m C `with` bindings (C:cc)
+  for_ md $ \ d -> checkScope d C `with` binding C
+  return $ Form [] C
+
+inferScope :: Scope b Core a -> Lint (Var b a) Form
+inferScope = inferCore . fromScope
+
+checkScope :: Scope b Core a -> Convention -> Lint (Var b a) ()
+checkScope = checkCore . fromScope
