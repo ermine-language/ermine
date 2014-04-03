@@ -107,6 +107,9 @@ library
     Ermine.Inference.Type
     Ermine.Inference.Witness
     Ermine.Monitor
+    Ermine.Monitor.Combinators
+    Ermine.Monitor.Exception
+    Ermine.Monitor.Options
     Ermine.Parser.Data
     Ermine.Parser.Global
     Ermine.Parser.Keywords

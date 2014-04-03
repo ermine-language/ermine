@@ -3,14 +3,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module Ermine.Monitor
-  ( MonitorOptions(..)
-  , HasMonitorOptions(..)
-  , parseMonitorOptions
-  , withMonitor
+  ( withMonitor
   -- * The Monitor
   , Monitor(..)
   , HasMonitor(..)
-  , monitorUri
   -- * Gauges
   , Gauge(..)
   , gauge, gaugeM
@@ -20,45 +16,23 @@ module Ermine.Monitor
   -- * Labels
   , Label(..)
   , label, labelM
-  -- * Modifiers
-  , Setting(..)
-  , Incremental(..)
-  , dec
-  , sub
   -- * Compatibilty with EKG
   , Server
   , withServer
   , forkServer
+  -- * Options
+  , module Ermine.Monitor.Options
+  -- * Modifiers
+  , module Ermine.Monitor.Combinators
   ) where
 
-import Control.Exception
 import Control.Lens hiding (Setting)
 import Control.Monad.Trans
 import Control.Monad.Reader
-import Data.Data
 import Data.Text
 import Data.ByteString (ByteString)
-import Options.Applicative
-
-data MonitorOptions = MonitorOptions
-  { _monitorHost    :: String
-  , _monitorPort    :: Int
-  , _monitorEnabled :: Bool
-  , _monitorOpen    :: Bool
-  } deriving (Eq,Ord,Show,Read,Data,Typeable)
-
-makeClassy ''MonitorOptions
-
-monitorUri :: HasMonitorOptions t => t -> String
-monitorUri t = "http://" ++ t^.monitorHost ++ ":" ++ show (t^.monitorPort) ++ "/"
-
--- | Parse EKG configuration
-parseMonitorOptions :: Parser MonitorOptions
-parseMonitorOptions = pure $ MonitorOptions "localhost" 5616 False False
-
-data ShutdownMonitor = ShutdownMonitor deriving (Typeable, Show)
-
-instance Exception ShutdownMonitor
+import Ermine.Monitor.Combinators
+import Ermine.Monitor.Options
 
 data Server = Server
 
@@ -80,34 +54,14 @@ withServer t k = case t^.monitorServer of
 forkServer :: ByteString -> Int -> IO Server
 forkServer _ _ = return Server
 
-class Setting t a | t -> a where
-  assign :: MonadIO m => t -> a -> m ()        -- set
-  assign _ _ = return ()
-  update :: MonadIO m => t -> (a -> a) -> m () -- modify
-  update _ _ = return ()
-
 data Gauge = Gauge Text
 data Label = Label Text
 data Counter = Counter Text
 
 instance Setting Label Text
 instance Setting Gauge Int
-
-dec :: (MonadIO m, Setting t a, Num a) => t -> m ()
-dec t = update t (subtract 1)
-
-sub :: (MonadIO m, Setting t a, Num a) => t -> a -> m ()
-sub t n = update t (subtract n)
-
-class Incremental t where
-  inc :: MonadIO m => t -> m ()
-  inc _ = return ()
-
-  add :: MonadIO m => t -> Int -> m ()
-  add _ _ = return ()
-
-instance Incremental Gauge where
-instance Incremental Counter where
+instance Incremental Gauge
+instance Incremental Counter
 
 gauge :: (MonadIO m, HasMonitor t) => Text -> t -> m Gauge
 gauge = runReaderT . gaugeM
