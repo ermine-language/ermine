@@ -42,7 +42,7 @@ builtin_ = builtin Idfix
 
 nilg, consg, nothingg, justg, eg :: Global
 nilg     = builtin_ "[]"
-consg    = builtin (Infix R 5) "(:)"
+consg    = builtin (Infix R 5) "(::)"
 nothingg = builtin (Infix R 5) "Nothing"
 justg    = builtin_ "Just"
 eg       = builtin_ "E"

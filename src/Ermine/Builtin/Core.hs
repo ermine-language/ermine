@@ -7,11 +7,21 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
+-- $setup
+-- >>> :m + Text.Groom Ermine.Builtin.Core Data.Int
+--
+-- >>> putStrLn $ groom $ lit (1 :: Int32) `cons` nil
+-- Data [C, C] 1
+--   (glob (Infix R 5) (mkModuleName "ermine" "Prelude") "(::)")
+--   [Data [U] 0
+--      (glob Idfix (mkModuleName "ermine" "Prelude") "Literal")
+--      [HardCore (Lit (Int 1))],
+--    Data [] 0 (glob Idfix (mkModuleName "ermine" "Prelude") "[]") []]
 --------------------------------------------------------------------
 module Ermine.Builtin.Core
-  ( plam
+  (
   -- * Host Literals
-  , Lit(..)
+    Lit(..)
   -- * Lists
   , cons
   , nil
@@ -20,36 +30,20 @@ module Ermine.Builtin.Core
   , nothing
   ) where
 
-import Bound
-import Control.Applicative
-import Control.Comonad
-import Control.Lens.Cons
-import qualified Data.HashMap.Lazy as HM
 import Data.Int
 import Data.Text hiding (zip, length, concatMap, cons)
-import Data.Word
 import Ermine.Builtin.Global
-import Ermine.Builtin.Pattern
-import Ermine.Pattern.Env
-import Ermine.Pattern.Matrix
-import Ermine.Pattern.Matching
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Pattern
-
-plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
-plam ps body = Lam (C <$ ps) . Scope <$> compile ci pm
- where
- n = fromIntegral $ length ps :: Word8
- assocs = concatMap (\(i,Binder vs p) -> zip vs . fmap (ArgPP i) $ paths p) (zip [0..] ps)
- pm = PatternMatrix (pure . extract <$> ps)
-              [Raw . Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
- ci = Matching HM.empty (pure . B <$> [0..n-1]) (argPP <$> [0..n-1])
 
 -- | The built-in '[]' constructor for a list.
 nil :: Core a
 nil = Data [] 0 nilg []
+
+-- | The built-in '::' constructor for a list.
+cons :: Core a -> Core a -> Core a
+cons a as = Data [C,C] 1 consg [a,as]
 
 -- | The built-in 'Just' constructor for 'Maybe'.
 just :: Core a -> Core a

@@ -32,6 +32,8 @@ module Ermine.Pattern.Matching
   , compileBinding
   , compileLambda
   , compileCase
+  -- * builtin lambda using patterns
+  , plam
   ) where
 
 import Prelude hiding (all)
@@ -40,10 +42,11 @@ import Bound
 import Bound.Scope
 import Bound.Var
 import Control.Applicative
+import Control.Comonad
 import Control.Lens
 import Control.Monad.Trans (lift)
 import Data.Either (partitionEithers)
-import Data.Foldable
+import Data.Foldable hiding (concatMap)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map as M
@@ -57,10 +60,11 @@ import Data.Text as SText (pack)
 import Data.Traversable
 import Data.Word
 import Ermine.Builtin.Global
+import Ermine.Builtin.Pattern
 import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
 import Ermine.Syntax.Convention
-import Ermine.Syntax.Core
+import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
@@ -269,3 +273,12 @@ compileCase
 compileCase ps disc bs = compile m pm where
  pm = PatternMatrix [ps] (Raw <$> bs)
  m = Matching HM.empty [disc] [mempty]
+
+plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
+plam ps body = Core.Lam (C <$ ps) . Scope <$> compile ci pm
+ where
+ n = fromIntegral $ length ps :: Word8
+ assocs = concatMap (\(i,Binder vs p) -> zip vs . fmap (ArgPP i) $ paths p) (zip [0..] ps)
+ pm = PatternMatrix (pure . extract <$> ps)
+              [Raw . Unguarded $ F . pure <$> abstract (`lookup` assocs) body]
+ ci = Matching HM.empty (pure . B <$> [0..n-1]) (argPP <$> [0..n-1])
