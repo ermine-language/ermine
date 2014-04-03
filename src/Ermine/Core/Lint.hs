@@ -31,7 +31,7 @@ import Data.Foldable (for_)
 import Data.Hashable
 import Data.List (group)
 import Data.Map as Map
-import Data.Text hiding (replicate, length, zipWith, group)
+import Data.Text hiding (replicate, length, zipWith, group, any)
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
@@ -162,7 +162,7 @@ inferCore (App cc x y) = do
     _ -> fail "bad application"
 inferCore (Data cc _ _ ps) = do
   when (length cc /= length ps) $ fail "bad data arguments"
-  sequence_ $ zipWith checkCore cc ps
+  zipWithM_ checkCore cc ps
   return $ Form [] C
 inferCore (Case b ms md) = do
   checkCore C b
@@ -182,10 +182,9 @@ inferCore (CaseLit nt b ms md) = do
          | otherwise = U
   checkCore cc b
   for_ ms (checkCore C)
-  ifor_ md $ \l d -> do
-    when (inferLiteral l /= cc) $ fail "bad literal pattern"
-    checkCore C d
-  -- when (length (group $ constrIndex . toConstr <$> keys md) > 1) $ fail "bad mix of literal types"
+  for_ md (checkCore C)
+  when (any (\l -> inferLiteral l /= cc) (keys ms)) $ fail "bad literal pattern"
+  when (length (group $ constrIndex . toConstr <$> keys ms) > 1) $ fail "mismatched literals"
   return $ Form [] U
 
 inferScope :: Scope b Core a -> Lint (Var b a) Form
