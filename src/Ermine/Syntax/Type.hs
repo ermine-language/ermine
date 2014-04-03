@@ -110,6 +110,10 @@ import Prelude.Extras
 -- | A placeholder for a more complicated database fieldname.
 type FieldName = Text
 
+------------------------------------------------------------------------------
+-- HardType
+------------------------------------------------------------------------------
+
 -- | A 'Type' that can be compared with mere structural equality.
 data HardType
   = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
@@ -120,7 +124,37 @@ data HardType
   deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
 
 instance Hashable HardType
+
 instance Digestable HardType
+
+instance Serial HardType where
+  serialize (Tuple n)        = putWord8 0 *> serialize n
+  serialize Arrow            = putWord8 1
+  serialize (Con g s)        = putWord8 2 *> serialize g *> serializeWith absurd s
+  serialize (ConcreteRho fs) = putWord8 3 *> serialize fs
+  serialize ArrowHash        = putWord8 4
+
+  deserialize = getWord8 >>= \b -> case b of
+    0 -> Tuple <$> deserialize
+    1 -> pure Arrow
+    2 -> Con <$> deserialize
+             <*> deserializeWith
+                   (fail "deserialize: HardType: getting schema with variables")
+    3 -> ConcreteRho <$> deserialize
+    4 -> pure ArrowHash
+    _ -> fail $ "deserialize: HardType: unexpected constructor tag: " ++ show b
+
+instance Binary HardType where
+  put = serialize
+  get = deserialize
+
+instance Serialize HardType where
+  put = serialize
+  get = deserialize
+
+------------------------------------------------------------------------------
+-- Typical
+------------------------------------------------------------------------------
 
 -- | Smart constructors that allows us to pun various 'HardType' constructor names for 'Type'.
 class Typical t where
@@ -150,25 +184,9 @@ instance Typical HardType where
   hardType = id
   {-# INLINE hardType #-}
 
-instance Fun (Type k) where
-  -- TODO: make this preserve invariants about 'Forall'.
-  _Fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
-    HardType Arrow `App` l `App` r -> Right (l, r)
-    _                              -> Left t
-  {-# INLINE _Fun #-}
-
-instance App (Type k) where
-  _App = prism (uncurry App) $ \t -> case t of
-    App l r -> Right (l,r)
-    _       -> Left t
-  {-# INLINE _App #-}
-
-infixl 9 `App`
-
-instance (p ~ Tagged, f ~ Identity) => Tup p f (Type k t) where
-  _Tup = unto hither
-   where hither [x] = x
-         hither l = apps (HardType . Tuple $ length l) l
+------------------------------------------------------------------------------
+-- Types
+------------------------------------------------------------------------------
 
 -- | Ermine types, parameterized by their free kind variables and free type variables
 --
@@ -221,6 +239,31 @@ data Type k a
   | And [Type k a]
   deriving (Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
 
+infixl 9 `App`
+
+------------------------------------------------------------------------------
+-- Type Instances
+------------------------------------------------------------------------------
+
+instance Fun (Type k) where
+  -- TODO: make this preserve invariants about 'Forall'.
+  _Fun = prism (\(l,r) -> arrow `App` l `App` r) $ \t -> case t of
+    HardType Arrow `App` l `App` r -> Right (l, r)
+    _                              -> Left t
+  {-# INLINE _Fun #-}
+
+instance App (Type k) where
+  _App = prism (uncurry App) $ \t -> case t of
+    App l r -> Right (l,r)
+    _       -> Left t
+  {-# INLINE _App #-}
+
+
+instance (p ~ Tagged, f ~ Identity) => Tup p f (Type k t) where
+  _Tup = unto hither
+   where hither [x] = x
+         hither l = apps (HardType . Tuple $ length l) l
+
 instance (Data k, Data a) => Data (Type k a) where
   gfoldl f z (Var a) = z Var `f` a
   gfoldl f z (App l r) = z App `f` l `f` r
@@ -264,6 +307,128 @@ instance (Digestable k, Digestable t) => Digestable (Type k t) where
   digest c (Loc _ ty)          = digest c ty
   digest c (Exists k tvs cs)   = digest c (5 :: Word8) `digest` k `digest` tvs `digest` cs
   digest c (And xs)            = digest c (6 :: Word8) `digest` xs
+
+instance IsString a => IsString (Type k a) where
+  fromString = Var . fromString
+  {-# INLINE fromString #-}
+
+instance Variable (Type k) where
+  _Var = prism Var $ \t -> case t of
+    Var a -> Right a
+    _     -> Left  t
+  {-# INLINE _Var #-}
+
+instance Typical (Type k a) where
+  hardType = prism HardType $ \ s -> case s of
+    HardType a -> Right a
+    _          -> Left s
+  {-# INLINE hardType #-}
+
+instance (Eq k, Eq a) => Eq (Type k a) where
+  Loc _ l          == r                    = l == r
+  l                == Loc _ r              = l == r
+  Var a            == Var b                = a == b
+  App l r          == App l' r'            = l == l' && r == r'
+  HardType x       == HardType y           = x == y
+  Forall n ks cs b == Forall n' ks' cs' b' = n == n' && ks == ks' && cs == cs' && b == b'
+  Exists n ks cs   == Exists n' ks' cs'    = n == n' && ks == ks' && cs == cs'
+  And cs           == And cs'              = cs == cs'
+  _                == _                    = False
+
+instance Bifunctor Type where
+  bimap = bimapDefault
+  {-# INLINE bimap #-}
+
+instance Bifoldable Type where
+  bifoldMap = bifoldMapDefault
+  {-# INLINE bifoldMap #-}
+
+instance Bitraversable Type where
+  bitraverse _ g (Var a)            = Var <$> g a
+  bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
+  bitraverse _ _ (HardType t)       = pure $ HardType t
+  bitraverse f g (Forall n ks cs b) =
+    Forall n <$> traverse (traverse (traverse f)) ks
+             <*> bitraverseScope (traverse f) g cs
+             <*> bitraverseScope (traverse f) g b
+  bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
+  bitraverse f g (Exists n ks cs)   =
+    Exists n <$> traverse (traverse (traverse f)) ks
+             <*> bitraverseScope (traverse f) g cs
+  bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
+
+instance HasKindVars (Type k a) (Type k' a) k k' where
+  kindVars f = bitraverse f pure
+  {-# INLINE kindVars #-}
+
+instance Eq k => Eq1 (Type k)
+instance Show k => Show1 (Type k)
+instance Read k => Read1 (Type k)
+
+instance Eq2 Type
+instance Show2 Type
+instance Read2 Type
+
+instance Applicative (Type k) where
+  pure = Var
+  {-# INLINE pure #-}
+  (<*>) = ap
+  {-# INLINE (<*>) #-}
+
+instance Monad (Type k) where
+  return = Var
+  {-# INLINE return #-}
+  m >>= g = bindType Kind.Var g m
+  {-# INLINE (>>=) #-}
+
+instance Serial2 Type where
+  serializeWith2 _  pt (Var v)              = putWord8 0 *> pt v
+  serializeWith2 _  _  (HardType h)         = putWord8 1 *> serialize h
+  serializeWith2 pk pt (Loc _r t)           = putWord8 2 *> serializeWith2 pk pt t
+  serializeWith2 pk pt (App f x)            =
+    putWord8 3 *> serializeWith2 pk pt f *> serializeWith2 pk pt x
+  serializeWith2 pk pt (Forall n ks c body) =
+    putWord8 4 *> serialize n *>
+    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
+    serializeScope3 serialize (serializeTK pk) pt c *>
+    serializeScope3 serialize (serializeTK pk) pt body
+  serializeWith2 pk pt (Exists n ks body)   =
+    putWord8 5 *> serialize n *>
+    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
+    serializeScope3 serialize (serializeTK pk) pt body
+  serializeWith2 pk pt (And ls)             =
+    putWord8 6 *> serializeWith (serializeWith2 pk pt) ls
+
+  deserializeWith2 gk gt = getWord8 >>= \b -> case b of
+    0 -> Var <$> gt
+    1 -> HardType <$> deserialize
+    2 -> Loc mempty <$> deserializeWith2 gk gt
+    3 -> App <$> deserializeWith2 gk gt <*> deserializeWith2 gk gt
+    4 -> Forall <$> deserialize
+                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+    5 -> Exists <$> deserialize
+                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
+                <*> deserializeScope3 deserialize (deserializeTK gk) gt
+    6 -> And <$> deserializeWith (deserializeWith2 gk gt)
+    _ -> fail $ "deserializeWith2: Unexpected constructor tag: " ++ show b
+
+instance Serial k => Serial1 (Type k) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial k, Serial t) => Serial (Type k t) where
+  serialize = serializeWith2 serialize serialize
+  deserialize = deserializeWith2 deserialize deserialize
+
+instance (Binary k, Binary t) => Binary (Type k t) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+------------------------------------------------------------------------------
+-- Combinators
+------------------------------------------------------------------------------
 
 -- A helper function for the forall smart constructor. Given a lens to a
 -- map of variable ids, abstracts over a variable, choosing a new id in
@@ -421,67 +586,6 @@ isTrivialConstraint _               = False
 isRowConstraint :: Type k a -> Bool
 isRowConstraint _ = False
 
-instance IsString a => IsString (Type k a) where
-  fromString = Var . fromString
-  {-# INLINE fromString #-}
-
-instance Variable (Type k) where
-  _Var = prism Var $ \t -> case t of
-    Var a -> Right a
-    _     -> Left  t
-  {-# INLINE _Var #-}
-
-instance Typical (Type k a) where
-  hardType = prism HardType $ \ s -> case s of
-    HardType a -> Right a
-    _          -> Left s
-  {-# INLINE hardType #-}
-
-instance (Eq k, Eq a) => Eq (Type k a) where
-  Loc _ l          == r                    = l == r
-  l                == Loc _ r              = l == r
-  Var a            == Var b                = a == b
-  App l r          == App l' r'            = l == l' && r == r'
-  HardType x       == HardType y           = x == y
-  Forall n ks cs b == Forall n' ks' cs' b' = n == n' && ks == ks' && cs == cs' && b == b'
-  Exists n ks cs   == Exists n' ks' cs'    = n == n' && ks == ks' && cs == cs'
-  And cs           == And cs'              = cs == cs'
-  _                == _                    = False
-
-instance Bifunctor Type where
-  bimap = bimapDefault
-  {-# INLINE bimap #-}
-
-instance Bifoldable Type where
-  bifoldMap = bifoldMapDefault
-  {-# INLINE bifoldMap #-}
-
-instance Bitraversable Type where
-  bitraverse _ g (Var a)            = Var <$> g a
-  bitraverse f g (App l r)          = App <$> bitraverse f g l <*> bitraverse f g r
-  bitraverse _ _ (HardType t)       = pure $ HardType t
-  bitraverse f g (Forall n ks cs b) =
-    Forall n <$> traverse (traverse (traverse f)) ks
-             <*> bitraverseScope (traverse f) g cs
-             <*> bitraverseScope (traverse f) g b
-  bitraverse f g (Loc r as)         = Loc r <$> bitraverse f g as
-  bitraverse f g (Exists n ks cs)   =
-    Exists n <$> traverse (traverse (traverse f)) ks
-             <*> bitraverseScope (traverse f) g cs
-  bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
-
-instance HasKindVars (Type k a) (Type k' a) k k' where
-  kindVars f = bitraverse f pure
-  {-# INLINE kindVars #-}
-
-instance Eq k => Eq1 (Type k)
-instance Show k => Show1 (Type k)
-instance Read k => Read1 (Type k)
-
-instance Eq2 Type
-instance Show2 Type
-instance Read2 Type
-
 -- | Perform simultaneous substitution on kinds and types in a 'Type'.
 bindType :: (k -> Kind k') -> (a -> Type k' b) -> Type k a -> Type k' b
 bindType _ g (Var a)             = g a
@@ -496,17 +600,14 @@ bindType f g (Exists n ks cs)    =
   Exists n (fmap (>>>= f) <$> ks) (hoistScope (bindTK f) cs >>>= liftTK . g)
 bindType f g (And cs)            = And $ bindType f g <$> cs
 
-instance Applicative (Type k) where
-  pure = Var
-  {-# INLINE pure #-}
-  (<*>) = ap
-  {-# INLINE (<*>) #-}
+-- | If a type has no free type or kind variables, the parameters can freely be
+-- changed. This function performs that test. See also Bound.close.
+closedType :: Type k t -> Maybe (Type k' t')
+closedType = bitraverse (const Nothing) (const Nothing)
 
-instance Monad (Type k) where
-  return = Var
-  {-# INLINE return #-}
-  m >>= g = bindType Kind.Var g m
-  {-# INLINE (>>=) #-}
+------------------------------------------------------------------------------
+-- HasTypeVars
+------------------------------------------------------------------------------
 
 -- | Provide a 'Traversal' of type variables that can be used to extract them or substitute them for other type variables.
 class HasTypeVars s t a b | s -> a, t -> b, s b -> t, t a -> s where
@@ -536,6 +637,14 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
+instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
+  typeVars = traverse.typeVars
+  {-# INLINE typeVars #-}
+
+------------------------------------------------------------------------------
+-- TK
+------------------------------------------------------------------------------
+
 -- | 'TK' is a handy alias for dealing with type scopes that bind kind variables. It's a
 -- dumber version than the Bound Scope, as we are unsure that the extra nesting pays off
 -- relative to the extra effort.
@@ -551,6 +660,12 @@ bindTK :: (k -> Kind k') -> TK k a -> TK k' a
 bindTK f = bindType (traverse f) Var
 {-# INLINE bindTK #-}
 
+serializeTK :: MonadPut m => (k -> m ()) -> (t -> m ()) -> TK k t -> m ()
+serializeTK = serializeWith2 . serializeWith
+
+deserializeTK :: MonadGet m => m k -> m t -> m (TK k t)
+deserializeTK = deserializeWith2 . deserializeWith
+
 -- | Bind some of the kinds referenced by a 'Type'.
 -- N.B. This doesn't do any checking to assure that the integers given
 -- are in any kind of canonical order, so this should not be used unless
@@ -561,6 +676,19 @@ abstractKinds f = first k where
     Just z  -> B z
     Nothing -> F y
 {-# INLINE abstractKinds #-}
+
+-- | Abstract all the unique variables out of a type with ordered type variables and
+-- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
+-- kind variables and verifiably no type variables. Also returned are the number of
+-- unique kind and type variables
+abstractAll :: (Ord k, Ord a)
+            => (k -> Hint) -> (a -> Hint)
+            -> Type (Maybe k) a -> (Scope Int (TK ()) b, ([Hint], [Hint]))
+abstractAll kh th = flip runState ([], []) . fmap Scope . prepare unk kv tv
+ where
+ unk = pure $ F ()
+ kv s = B . length <$> (_1 <<%= (kh s:))
+ tv s = B . length <$> (_2 <<%= (th s:))
 
 -- | Instantiate the kinds bound by a 'TK' obtaining a 'Type'.
 instantiateKinds :: (Int -> Kind k) -> TK k a -> Type k a
@@ -574,8 +702,12 @@ instantiateKindVars :: [k] -> TK k a -> Type k a
 instantiateKindVars as = first (unvar (as!!) id)
 {-# INLINE instantiateKindVars #-}
 
+------------------------------------------------------------------------------
+-- Utilities
+------------------------------------------------------------------------------
+
 -- A local helper function for use with memoverse
-memoizing :: (Functor f) => (a -> f b) -> a -> f (Bool, b)
+memoizing :: Functor f => (a -> f b) -> a -> f (Bool, b)
 memoizing f = fmap ((,) True) . f
 
 -- | A version of bitraverse that allows the functions used to specify whether
@@ -593,37 +725,27 @@ memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed 
                  when memo $ l.at v ?= v'
                  return v'
 
--- | If a type has no free type or kind variables, the parameters can freely be
--- changed. This function performs that test. See also Bound.close.
-closedType :: Type k t -> Maybe (Type k' t')
-closedType = bitraverse (const Nothing) (const Nothing)
-
 -- | A function for preparing the sort of type that comes out of parsing for
 -- the inference process. Actions for kind and type variables of types 'k' and
 -- 't' will only be performed once for each unique value, then memoized and the
 -- result re-used. The default action for 'Nothing' kinds will be used at every
 -- occurrence, however.
-prepare :: forall t f k a l b. (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
+prepare :: (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
         => f l -> (k -> f l) -> (a -> f b)
         -> t (Maybe k) a -> f (t l b)
 prepare unk knd typ =
   memoverse (maybe ((,) False <$> unk) (memoizing knd)) (memoizing typ)
 
--- | Abstract all the unique variables out of a type with ordered type variables and
--- ordered, possibly unknown kind variables. This yields a scope with possibly unknown
--- kind variables and verifiably no type variables. Also returned are the number of
--- unique kind and type variables
-abstractAll :: (Ord k, Ord a)
-            => (k -> Hint) -> (a -> Hint)
-            -> Type (Maybe k) a -> (Scope Int (TK ()) b, ([Hint], [Hint]))
-abstractAll kh th = flip runState ([], []) . fmap Scope . prepare unk kv tv
- where
- unk = pure $ F ()
- kv s = B . length <$> (_1 <<%= (kh s:))
- tv s = B . length <$> (_2 <<%= (th s:))
+------------------------------------------------------------------------------
+-- Annot
+------------------------------------------------------------------------------
 
 -- | A type annotation
 data Annot k a = Annot [Kind k] !(Scope Int (Type k) a) deriving Show
+
+annot :: Type k a -> Annot k a
+annot = Annot [] . lift
+{-# INLINE annot #-}
 
 instance Functor (Annot k) where
   fmap f (Annot ks b) = Annot ks (fmap f b)
@@ -657,10 +779,6 @@ instance HasKindVars (Annot k a) (Annot k' a) k k' where
 instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
-
-annot :: Type k a -> Annot k a
-annot = Annot [] . lift
-{-# INLINE annot #-}
 
 instance Fun (Annot k) where
   _Fun = prism hither yon
@@ -717,87 +835,6 @@ instance Typical (Annot k a) where
     _                    -> Left t
   {-# INLINE hardType #-}
 
-
---------------------------------------------------------------------
--- Serialization
---------------------------------------------------------------------
-
-instance Serial HardType where
-  serialize (Tuple n)        = putWord8 0 *> serialize n
-  serialize Arrow            = putWord8 1
-  serialize (Con g s)        = putWord8 2 *> serialize g *> serializeWith absurd s
-  serialize (ConcreteRho fs) = putWord8 3 *> serialize fs
-  serialize ArrowHash        = putWord8 4
-
-  deserialize = getWord8 >>= \b -> case b of
-    0 -> Tuple <$> deserialize
-    1 -> pure Arrow
-    2 -> Con <$> deserialize
-             <*> deserializeWith
-                   (fail "deserialize: HardType: getting schema with variables")
-    3 -> ConcreteRho <$> deserialize
-    4 -> pure ArrowHash
-    _ -> fail $ "deserialize: HardType: unexpected constructor tag: " ++ show b
-
-instance Binary HardType where
-  put = serialize
-  get = deserialize
-
-instance Serialize HardType where
-  put = serialize
-  get = deserialize
-
-serializeTK :: MonadPut m => (k -> m ()) -> (t -> m ()) -> TK k t -> m ()
-serializeTK = serializeWith2 . serializeWith
-
-deserializeTK :: MonadGet m => m k -> m t -> m (TK k t)
-deserializeTK = deserializeWith2 . deserializeWith
-
-instance Serial2 Type where
-  serializeWith2 _  pt (Var v)              = putWord8 0 *> pt v
-  serializeWith2 _  _  (HardType h)         = putWord8 1 *> serialize h
-  serializeWith2 pk pt (Loc _r t)           = putWord8 2 *> serializeWith2 pk pt t
-  serializeWith2 pk pt (App f x)            =
-    putWord8 3 *> serializeWith2 pk pt f *> serializeWith2 pk pt x
-  serializeWith2 pk pt (Forall n ks c body) =
-    putWord8 4 *> serialize n *>
-    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
-    serializeScope3 serialize (serializeTK pk) pt c *>
-    serializeScope3 serialize (serializeTK pk) pt body
-  serializeWith2 pk pt (Exists n ks body)   =
-    putWord8 5 *> serialize n *>
-    serializeWith (serializeWith (serializeScope serialize pk)) ks *>
-    serializeScope3 serialize (serializeTK pk) pt body
-  serializeWith2 pk pt (And ls)             =
-    putWord8 6 *> serializeWith (serializeWith2 pk pt) ls
-
-  deserializeWith2 gk gt = getWord8 >>= \b -> case b of
-    0 -> Var <$> gt
-    1 -> HardType <$> deserialize
-    2 -> Loc mempty <$> deserializeWith2 gk gt
-    3 -> App <$> deserializeWith2 gk gt <*> deserializeWith2 gk gt
-    4 -> Forall <$> deserialize
-                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
-                <*> deserializeScope3 deserialize (deserializeTK gk) gt
-                <*> deserializeScope3 deserialize (deserializeTK gk) gt
-    5 -> Exists <$> deserialize
-                <*> deserializeWith (deserializeWith (deserializeScope deserialize gk))
-                <*> deserializeScope3 deserialize (deserializeTK gk) gt
-    6 -> And <$> deserializeWith (deserializeWith2 gk gt)
-    _ -> fail $ "deserializeWith2: Unexpected constructor tag: " ++ show b
-
-instance Serial k => Serial1 (Type k) where
-  serializeWith = serializeWith2 serialize
-  deserializeWith = deserializeWith2 deserialize
-
-instance (Serial k, Serial t) => Serial (Type k t) where
-  serialize = serializeWith2 serialize serialize
-  deserialize = deserializeWith2 deserialize deserialize
-
-instance (Binary k, Binary t) => Binary (Type k t) where
-  put = serializeWith2   Binary.put Binary.put
-  get = deserializeWith2 Binary.get Binary.get
-
 instance Serial2 Annot where
   serializeWith2 pk pt (Annot ks s) =
     serializeWith (serializeWith pk) ks *>
@@ -819,5 +856,3 @@ instance (Binary k, Binary t) => Binary (Annot k t) where
   put = serializeWith2   Binary.put Binary.put
   get = deserializeWith2 Binary.get Binary.get
 
-instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
-  typeVars = traverse.typeVars
