@@ -27,11 +27,9 @@ import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Lens
 import Data.Data
-import Data.Functor.Contravariant
 import Data.Hashable
 import Data.Map as Map
-import Data.Profunctor
-import Data.Text hiding (replicate)
+import Data.Text hiding (replicate, length, zipWith)
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
@@ -106,8 +104,8 @@ instance Monad (Lint a) where
 instance MonadPlus (Lint a) where
   mzero = Lint $ \_ -> Left "lint: failed"
   Lint ma `mplus` Lint mb = Lint $ \c -> case ma c of
-    Left e -> mb c
     Right a -> Right a
+    _       -> mb c
 
 instance MonadReader (LintEnv a) (Lint a) where
   ask = Lint Right
@@ -127,15 +125,15 @@ inferHardCore Super{}         = return $ Form [D] D
 inferHardCore Slot{}          = return $ Form [D] C
 inferHardCore (Lit String {}) = return $ Form [] N
 inferHardCore Lit{}           = return $ Form [] U
-inferHardCore (Error t)       = return $ Form [] U
-inferHardCore (GlobalId g)    = return $ Form [] U
+inferHardCore Error{}         = return $ Form [] U
+inferHardCore GlobalId{}      = return $ Form [] U
 inferHardCore (PrimOp p)      = preview (primCxt.ix p)     >>= liftMaybe "unknown prim"
 inferHardCore (Foreign p)     = preview (foreignCxt.ix p)  >>= liftMaybe "unknown foreign"
 inferHardCore (InstanceId h)  = preview (instanceCxt.ix h) >>= (liftMaybe "unknown instance head" >=> \n -> return $ Form (replicate n D) D)
 
 checkCore :: Core a -> Convention -> Lint a ()
-checkCore core cc = do
-  cc' <- convention <$> inferCore core
+checkCore c cc = do
+  cc' <- convention <$> inferCore c
   when (cc' /= cc) $ fail $ "type mismatch: expected " ++ show cc ++ ", received " ++ show cc'
 
 inferCore :: Core a -> Lint a Form
@@ -155,3 +153,7 @@ inferCore (App cc x y) = do
     Form (c:cs) r
       | c == cc   -> return $ Form cs r
       | otherwise -> fail "bad application"
+inferCore (Data cc _ _ ps) = do
+  when (length cc /= length ps) $ fail "bad data arguments"
+  sequence_ $ zipWith checkCore ps cc
+  return $ Form [] C
