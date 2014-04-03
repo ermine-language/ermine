@@ -132,8 +132,8 @@ inferHardCore (PrimOp p)      = preview (primCxt.ix p)     >>= liftMaybe "unknow
 inferHardCore (Foreign p)     = preview (foreignCxt.ix p)  >>= liftMaybe "unknown foreign"
 inferHardCore (InstanceId h)  = preview (instanceCxt.ix h) >>= (liftMaybe "unknown instance head" >=> \n -> return $ Form (replicate n D) D)
 
-checkCore :: Core a -> Convention -> Lint a ()
-checkCore c cc = do
+checkCore :: Convention -> Core a -> Lint a ()
+checkCore cc c = do
   cc' <- convention <$> inferCore c
   when (cc' /= cc) $ fail $ "type mismatch: expected " ++ show cc ++ ", received " ++ show cc'
 
@@ -153,30 +153,40 @@ inferCore (Lam cc body) = do
   when (convention r /= C) $ fail "bad lambda"
   return $ Form cc C
 inferCore (App cc x y) = do
-  checkCore y cc
+  checkCore cc y
   xs <- inferCore x
   case xs of
-    f@(Form [] C) -> return f -- unchecked application
-    Form (c:cs) r
-      | c == cc   -> return $ Form cs r
-      | otherwise -> fail "bad application"
+    f@(Form [] C)            -> return f -- unchecked application
+    Form (c:cs) r | c == cc  -> return $ Form cs r
+    _ -> fail "bad application"
 inferCore (Data cc _ _ ps) = do
   when (length cc /= length ps) $ fail "bad data arguments"
-  sequence_ $ zipWith checkCore ps cc
+  sequence_ $ zipWith checkCore cc ps
   return $ Form [] C
 inferCore (Case b ms md) = do
-  checkCore b C
-  for_ ms $ \ (Match cc _ m) -> checkScope m C `with` bindings (C:cc)
-  for_ md $ \ d -> checkScope d C `with` binding C
+  checkCore C b
+  for_ ms $ \ (Match cc _ m) -> checkScope C m `with` bindings (C:cc)
+  for_ md $ \ d -> checkScope C d `with` binding C
   return $ Form [] C
 inferCore (Let bgs bdy) = do
-  for_ bgs (checkScope ?? C) `with` bindings (C <$ bgs)
-  checkScope bdy C `with` bindings (C <$ bgs)
+  for_ bgs (checkScope C) `with` bindings (C <$ bgs)
+  checkScope C bdy `with` bindings (C <$ bgs)
   return $ Form [] C
-
+inferCore (Dict sups slts) = do
+  for_ sups (checkCore D)
+  for_ slts (checkScope C) `with` bindings (C <$ slts)
+  return $ Form [] D
+inferCore (CaseLit nt b ms md) = do
+  let arg | nt        = N
+          | otherwise = U
+  checkCore arg b
+  for_ ms (checkCore C)
+  for_ md (checkCore C)
+  -- TODO: lint that all patterns are N or U and all literals are of the same type
+  return $ Form [] U
 
 inferScope :: Scope b Core a -> Lint (Var b a) Form
 inferScope = inferCore . fromScope
 
-checkScope :: Scope b Core a -> Convention -> Lint (Var b a) ()
-checkScope = checkCore . fromScope
+checkScope :: Convention -> Scope b Core a -> Lint (Var b a) ()
+checkScope cc = checkCore cc . fromScope
