@@ -23,7 +23,7 @@ module Ermine.Interpreter
 import Control.Applicative hiding (empty)
 import Control.Monad.State
 import Control.Lens
-import Data.Map hiding (null)
+import Data.Map hiding (null, update)
 import Data.Maybe
 import Data.Word
 import Prelude hiding (lookup)
