@@ -55,6 +55,9 @@ data LambdaForm = LForm
                 , _body :: Code
                 }
 
+standardConstructor :: Word32 -> Tag -> LambdaForm
+standardConstructor w t = LForm w 0 False . App (Con t) $ Local <$> [0..w-1]
+
 data Code
   = Case Code Continuation
   | App Func [Var]
@@ -67,7 +70,7 @@ data Continuation = Cont (Map Tag Code) (Maybe Code)
 data Func = Var Var | Con Tag
 
 data Frame s = Branch Continuation (LEnv s)
-             | Update (Address s)
+             | Update (Address s) [Value s]
 
 data MachineState s
   = ST { _args :: [Value s]
@@ -100,8 +103,11 @@ allocRecursive gl lo ccs = state $ \heap ->
 buildClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Closure s
 buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
 
-follow :: Address s -> Exec s (Closure s)
-follow addr = state $ \heap -> (heap ! addr, heap)
+poke :: Address s -> Closure s -> Exec s ()
+poke addr c = modify $ ix addr .~ c
+
+peek :: Address s -> Exec s (Closure s)
+peek addr = state $ \heap -> (heap ! addr, heap)
 
 resolve :: GEnv s -> LEnv s -> Var -> Value s
 resolve gl _  (Global gw) = Addr $ gl ! gw
@@ -112,6 +118,9 @@ makeLenses ''MachineState
 
 pushArgs :: [Value s] -> MachineState s -> MachineState s
 pushArgs as = over args (as ++)
+
+pushUpdate :: Address s -> MachineState s -> MachineState s
+pushUpdate addr ms = push (Update addr $ ms^.args) ms & args .~ []
 
 push :: Frame s -> MachineState s -> MachineState s
 push frame = stack %~ (frame:)
@@ -148,10 +157,18 @@ eval ms (Case code k) lo = eval (push (Branch k lo) ms) code lo
 eval ms (Lit l) _ = returnLit ms l
 
 enter :: MachineState s -> Address s -> Exec s ()
-enter ms addr = follow addr >>= \case
+enter ms addr = peek addr >>= \case
   Closure co da
+    | co^.update -> eval (pushUpdate addr ms) (co^.body) (fromList $ zip [0..] da)
     | ar <= length argz -> eval (ms & args .~ rest) (co^.body) lenv
-    | otherwise -> error "enter: unimplemented"
+    | otherwise -> case pop ms of
+      Just (Update ad st, ms') -> do
+        let nf = co^.freeArity + fromIntegral (length argz)
+            nb = co^.boundArity - fromIntegral (length argz)
+        poke ad $ Closure (LForm nf nb False $ co^.body) (Addr addr : argz)
+        enter (ms' & args %~ (++st)) addr
+      Just (Branch _ _,_) -> error "under-applied function in branch"
+      Nothing -> return ()
    where
    argz = ms^.args
    ar = fromIntegral $ co^.boundArity
@@ -161,7 +178,11 @@ enter ms addr = follow addr >>= \case
 returnCon :: MachineState s -> Tag -> [Value s] -> Exec s ()
 returnCon ms t vs = case pop ms of
   Just (Branch k lo, ms') -> eval ms' (select k t) (extend lo vs)
-  Just (Update _, _  ) -> error "returnCon: unimplemented"
+  Just (Update ad st, ms')
+    | null $ ms'^.args -> do
+      poke ad (Closure (standardConstructor (fromIntegral $ length vs) t) vs)
+      returnCon (ms' & args .~ st) t vs
+    | otherwise -> error "PANIC: update with non-empty arg stack"
   Nothing -> return ()
 
 returnLit :: MachineState s -> Word64 -> Exec s ()
