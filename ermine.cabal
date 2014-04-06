@@ -201,6 +201,7 @@ library
     optparse-applicative      >= 0.8,
     parsers                   >= 0.8,
     prelude-extras            >= 0.3,
+    primitive                 >= 0.5.2.1,
     process                   >= 1.1,
     profunctors               >= 4,
     random                    >= 1.0.0.3,
