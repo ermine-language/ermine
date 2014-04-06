@@ -116,18 +116,16 @@ fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
 
 allocClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Exec s (Address s)
 allocClosure gl lo cc = state $ \heap -> case fresh heap of
-  Address w -> (Address $ w+1, insert (Address $ w+1) cl heap)
+  addr -> (addr, insert addr cl heap)
  where cl = buildClosure gl lo cc
 
 allocRecursive :: GEnv s -> LEnv s -> [([Var], LambdaForm)] -> Exec s (LEnv s)
 allocRecursive gl lo ccs = state $ \heap ->
   case (fresh heap, fresh lo) of
-    (Address w0, n0) -> (lo', alloced `union` heap)
+    (addr, n) -> (lo', alloced `union` heap)
      where
-     w = w0+1
-     n = n0+1
-     addrs = zipWith (const . Address) [w ..] ccs
-     lo' = fromList (zip [n..] . fmap Addr $ addrs) `union` lo
+     addrs = zipWith const [addr ..] ccs
+     lo' = fromList (zip [n..] $ Addr <$> addrs) `union` lo
      alloced = fromList . zip addrs $ buildClosure gl lo' <$> ccs
 
 buildClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Closure s
@@ -170,7 +168,7 @@ select (Cont bs df) t =
   fromMaybe (error "PANIC: missing default case in branch") $ lookup t bs <|> df
 
 extend :: Integral k => Map k a -> [a] -> Map k a
-extend lo vs = fromList ([w+1 ..] `zip` vs) `union` lo
+extend lo vs = fromList ([w ..] `zip` vs) `union` lo
  where w = fresh lo
 
 eval :: MachineState s -> Code -> LEnv s -> Exec s (Either (Closure s) Word64)
@@ -186,7 +184,7 @@ eval ms (App f xs0) lo = case f of
 eval ms (Let bs e) lo = do
   cs <- traverse (allocClosure (ms^.genv) lo) bs
   let w = fresh lo
-  eval ms e (fromList (zip [w+1 ..] . fmap Addr $ cs) `union` lo)
+  eval ms e (fromList (zip [w ..] . fmap Addr $ cs) `union` lo)
 eval ms (LetRec bs e) lo = do
   lo' <- allocRecursive (ms^.genv) lo bs
   eval ms e lo'
