@@ -16,14 +16,38 @@
 --------------------------------------------------------------------
 
 module Ermine.Interpreter
-  ( eval
+  ( Address
+  , Closure
+  , code
+  , frame
+  , Value(..)
+  , GEnv
+  , LEnv
+  , Var(..)
+  , Tag
+  , LambdaForm(LForm)
+  , Func(..)
+  , freeArity
+  , boundArity
+  , update
+  , body
+  , standardConstructor
+  , Code(..)
+  , Frame(..)
+  , MachineState
+  , emptyMS
+  , args
+  , stack
+  , genv
+  , Exec
   , exec
+  , eval
   ) where
 
 import Control.Applicative hiding (empty)
 import Control.Monad.State
 import Control.Lens
-import Data.Map hiding (null)
+import Data.Map hiding (null, update)
 import Data.Maybe
 import Data.Word
 import Prelude hiding (lookup)
@@ -33,7 +57,7 @@ newtype Address s = Address Word64
   deriving (Eq, Ord, Show, Read, Num, Real, Enum, Integral)
 
 data Closure s = Closure { _code :: LambdaForm
-                         , _data :: [Value s]
+                         , _frame :: [Value s]
                          }
 
 data Value s = Addr (Address s) | Prim Word64
@@ -78,20 +102,26 @@ data MachineState s
        , _genv :: GEnv s
        }
 
+emptyMS :: MachineState s
+emptyMS = ST [] [] empty
+
 newtype Exec s a = Exec { _exec :: State (Heap s) a }
   deriving (Functor, Applicative, Monad, MonadState (Heap s))
 
 exec :: (forall s. Exec s a) -> a
 exec m = evalState (_exec m) empty
 
+fresh :: Integral k => Map k a -> k
+fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
+
 allocClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Exec s (Address s)
-allocClosure gl lo cc = state $ \heap -> case findMax heap of
-  (Address w, _) -> (Address $ w+1, insert (Address $ w+1) cl heap)
+allocClosure gl lo cc = state $ \heap -> case fresh heap of
+  Address w -> (Address $ w+1, insert (Address $ w+1) cl heap)
  where cl = buildClosure gl lo cc
 
 allocRecursive :: GEnv s -> LEnv s -> [([Var], LambdaForm)] -> Exec s (LEnv s)
 allocRecursive gl lo ccs = state $ \heap ->
-  case (fst $ findMax heap, fst $ findMax lo) of
+  case (fresh heap, fresh lo) of
     (Address w0, n0) -> (lo', alloced `union` heap)
      where
      w = w0+1
@@ -107,12 +137,19 @@ poke :: Address s -> Closure s -> Exec s ()
 poke addr c = modify $ ix addr .~ c
 
 peek :: Address s -> Exec s (Closure s)
-peek addr = state $ \heap -> (heap ! addr, heap)
+peek addr = state $ \heap -> case lookup addr heap of
+  Nothing -> error "PANIC: value missing in heap"
+  Just cl -> (cl, heap)
 
 resolve :: GEnv s -> LEnv s -> Var -> Value s
-resolve gl _  (Global gw) = Addr $ gl ! gw
-resolve _  lo (Local  lw) = lo ! lw
+resolve gl _  (Global gw) = case lookup gw gl of
+  Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
+  Just ad -> Addr ad
+resolve _  lo (Local  lw) = case lookup lw lo of
+  Nothing -> error $ "PANIC: bad local name reference: " ++ show lw
+  Just va -> va
 
+makeLenses ''Closure
 makeLenses ''LambdaForm
 makeLenses ''MachineState
 
@@ -123,7 +160,7 @@ pushUpdate :: Address s -> MachineState s -> MachineState s
 pushUpdate addr ms = push (Update addr $ ms^.args) ms & args .~ []
 
 push :: Frame s -> MachineState s -> MachineState s
-push frame = stack %~ (frame:)
+push fr = stack %~ (fr:)
 
 pop :: MachineState s -> Maybe (Frame s, MachineState s)
 pop ms = case ms^.stack of f:fs -> Just (f, ms & stack .~ fs) ; [] -> Nothing
@@ -134,9 +171,9 @@ select (Cont bs df) t =
 
 extend :: Integral k => Map k a -> [a] -> Map k a
 extend lo vs = fromList ([w+1 ..] `zip` vs) `union` lo
- where w = fst $ findMax lo
+ where w = fresh lo
 
-eval :: MachineState s -> Code -> LEnv s -> Exec s ()
+eval :: MachineState s -> Code -> LEnv s -> Exec s (Either (Closure s) Word64)
 eval ms (App f xs0) lo = case f of
   Var v -> case resolve gl lo v of
     Addr a -> enter (pushArgs xs ms) a
@@ -148,17 +185,17 @@ eval ms (App f xs0) lo = case f of
  xs = resolve gl lo <$> xs0
 eval ms (Let bs e) lo = do
   cs <- traverse (allocClosure (ms^.genv) lo) bs
-  let (w, _) = findMax lo
+  let w = fresh lo
   eval ms e (fromList (zip [w+1 ..] . fmap Addr $ cs) `union` lo)
 eval ms (LetRec bs e) lo = do
   lo' <- allocRecursive (ms^.genv) lo bs
   eval ms e lo'
-eval ms (Case code k) lo = eval (push (Branch k lo) ms) code lo
+eval ms (Case co k) lo = eval (push (Branch k lo) ms) co lo
 eval ms (Lit l) _ = returnLit ms l
 
-enter :: MachineState s -> Address s -> Exec s ()
+enter :: MachineState s -> Address s -> Exec s (Either (Closure s) Word64)
 enter ms addr = peek addr >>= \case
-  Closure co da
+  cl@(Closure co da)
     | co^.update -> eval (pushUpdate addr ms) (co^.body) (fromList $ zip [0..] da)
     | ar <= length argz -> eval (ms & args .~ rest) (co^.body) lenv
     | otherwise -> case pop ms of
@@ -168,14 +205,14 @@ enter ms addr = peek addr >>= \case
         poke ad $ Closure (LForm nf nb False $ co^.body) (Addr addr : argz)
         enter (ms' & args %~ (++st)) addr
       Just (Branch _ _,_) -> error "under-applied function in branch"
-      Nothing -> return ()
+      Nothing -> return $ Left cl
    where
    argz = ms^.args
    ar = fromIntegral $ co^.boundArity
    (first, rest) = splitAt ar argz
    lenv = fromList $ zip [0..] (da ++ first)
 
-returnCon :: MachineState s -> Tag -> [Value s] -> Exec s ()
+returnCon :: MachineState s -> Tag -> [Value s] -> Exec s (Either (Closure s) Word64)
 returnCon ms t vs = case pop ms of
   Just (Branch k lo, ms') -> eval ms' (select k t) (extend lo vs)
   Just (Update ad st, ms')
@@ -183,7 +220,8 @@ returnCon ms t vs = case pop ms of
       poke ad (Closure (standardConstructor (fromIntegral $ length vs) t) vs)
       returnCon (ms' & args .~ st) t vs
     | otherwise -> error "PANIC: update with non-empty arg stack"
-  Nothing -> return ()
+  Nothing -> return . Left $
+    Closure (standardConstructor (fromIntegral $ length vs) t) vs
 
-returnLit :: MachineState s -> Word64 -> Exec s ()
+returnLit :: MachineState s -> Word64 -> Exec s (Either (Closure s) Word64)
 returnLit _ _ = error "returnLit: unimplemented"
