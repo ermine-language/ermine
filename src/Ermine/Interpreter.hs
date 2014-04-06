@@ -25,7 +25,7 @@ module Ermine.Interpreter
   , LEnv
   , Var(..)
   , Tag
-  , LambdaForm(LForm)
+  , LambdaForm(LambdaForm)
   , Func(..)
   , freeArity
   , boundArity
@@ -35,7 +35,6 @@ module Ermine.Interpreter
   , Code(..)
   , Frame(..)
   , MachineState
-  , emptyMS
   , args
   , stack
   , genv
@@ -45,6 +44,7 @@ module Ermine.Interpreter
 import Control.Applicative hiding (empty)
 import Control.Monad.Primitive
 import Control.Lens
+import Data.Default
 import Data.Map hiding (null, update)
 import Data.Maybe
 import Data.Primitive.MutVar
@@ -52,8 +52,66 @@ import Data.Traversable
 import Data.Word
 import Prelude hiding (lookup)
 
+------------------------------------------------------------------------------
+-- Syntax
+------------------------------------------------------------------------------
+
+data Var = Global Word32 | Local Word32
+  deriving Show
+
+data Code
+  = Case Code Continuation
+  | App Func [Var]
+  | Let [([Var], LambdaForm)] Code
+  | LetRec [([Var], LambdaForm)] Code
+  | Lit Word64
+  deriving Show
+
+type Tag = Word8
+
+data Continuation = Cont (Map Tag Code) (Maybe Code)
+  deriving Show
+
+data Func = Var Var | Con Tag
+  deriving Show
+
+data LambdaForm = LambdaForm
+  { _freeArity :: Word32
+  , _boundArity :: Word8
+  , _update :: Bool
+  , _body :: Code
+  } deriving Show
+
+standardConstructor :: Word32 -> Tag -> LambdaForm
+standardConstructor w t = LambdaForm w 0 False . App (Con t) $ Local <$> [0..w-1]
+
+------------------------------------------------------------------------------
+-- Evaluation
+------------------------------------------------------------------------------
+
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
+
+data Value m = Addr (Address m) | Prim Word64
+
+data Closure m = Closure
+  { _code :: LambdaForm
+  , _frame :: [Value m]
+  }
+
+type LEnv m = Map Word32 (Value m)
+
+type GEnv m = Map Word32 (Address m)
+
+data Frame m
+  = Branch Continuation (LEnv m)
+  | Update (Address m) [Value m]
+
+data MachineState m = MachineState
+  { _args :: [Value m]
+  , _stack :: [Frame m]
+  , _genv :: GEnv m
+  }
 
 allocClosure :: (Functor m, PrimMonad m)
              => GEnv m -> LEnv m -> ([Var], LambdaForm) -> m (Address m)
@@ -75,16 +133,6 @@ poke (Address r) c = writeMutVar r c
 peek :: PrimMonad m => Address m -> m (Closure m)
 peek (Address r) = readMutVar r
 
-data Closure m = Closure { _code :: LambdaForm
-                         , _frame :: [Value m]
-                         }
-
-data Value m = Addr (Address m) | Prim Word64
-
-type GEnv m = Map Word32 (Address m)
-
-type LEnv m = Map Word32 (Value m)
-
 extend :: Integral k => Map k a -> [a] -> Map k a
 extend lo vs = fromList ([w ..] `zip` vs) `union` lo
  where w = fresh lo
@@ -97,42 +145,8 @@ resolve _  lo (Local  lw) = case lookup lw lo of
   Nothing -> error $ "PANIC: bad local name reference: " ++ show lw
   Just va -> va
 
-data Var = Global Word32 | Local Word32
-
-type Tag = Word8
-
-data LambdaForm = LForm
-                { _freeArity :: Word32
-                , _boundArity :: Word8
-                , _update :: Bool
-                , _body :: Code
-                }
-
-standardConstructor :: Word32 -> Tag -> LambdaForm
-standardConstructor w t = LForm w 0 False . App (Con t) $ Local <$> [0..w-1]
-
-data Code
-  = Case Code Continuation
-  | App Func [Var]
-  | Let [([Var], LambdaForm)] Code
-  | LetRec [([Var], LambdaForm)] Code
-  | Lit Word64
-
-data Continuation = Cont (Map Tag Code) (Maybe Code)
-
-data Func = Var Var | Con Tag
-
-data Frame m = Branch Continuation (LEnv m)
-             | Update (Address m) [Value m]
-
-data MachineState m
-  = ST { _args :: [Value m]
-       , _stack :: [Frame m]
-       , _genv :: GEnv m
-       }
-
-emptyMS :: MachineState m
-emptyMS = ST [] [] empty
+instance Default (MachineState m) where
+  def = MachineState [] [] empty
 
 fresh :: Integral k => Map k a -> k
 fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
@@ -188,7 +202,7 @@ enter ms addr = peek addr >>= \case
       Just (Update ad st, ms') -> do
         let nf = co^.freeArity + fromIntegral (length argz)
             nb = co^.boundArity - fromIntegral (length argz)
-        poke ad $ Closure (LForm nf nb False $ co^.body) (Addr addr : argz)
+        poke ad $ Closure (LambdaForm nf nb False $ co^.body) (Addr addr : argz)
         enter (ms' & args %~ (++st)) addr
       Just (Branch _ _,_) -> error "under-applied function in branch"
       Nothing -> return $ Left cl
