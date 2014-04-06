@@ -102,6 +102,11 @@ library
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type
+    Ermine.Console.Command
+    Ermine.Console.Completion
+    Ermine.Console.Options
+    Ermine.Console.State
+    Ermine.Console.Unicode
     Ermine.Constraint.Env
     Ermine.Constraint.Simplification
     Ermine.Core.Lint
@@ -163,14 +168,6 @@ library
     Ermine.Unification.Sharing
     Ermine.Unification.Type
     Ermine.Version
-
-  -- console haddocks
-  exposed-modules:
-    Ermine.Console.Command
-    Ermine.Console.Completion
-    Ermine.Console.Options
-    Ermine.Console.State
-    Ermine.Console.Unicode
 
   build-depends:
     ansi-terminal             >= 0.6,
