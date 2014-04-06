@@ -39,34 +39,63 @@ module Ermine.Interpreter
   , args
   , stack
   , genv
-  , Exec
-  , exec
   , eval
   ) where
 
 import Control.Applicative hiding (empty)
-import Control.Monad.State
+import Control.Monad.Primitive
 import Control.Lens
 import Data.Map hiding (null, update)
 import Data.Maybe
+import Data.Primitive.MutVar
+import Data.Traversable
 import Data.Word
 import Prelude hiding (lookup)
 
--- newtype Address s = Address (STRef s Closure)
-newtype Address s = Address Word64
-  deriving (Eq, Ord, Show, Read, Num, Real, Enum, Integral)
+newtype Address m = Address (MutVar (PrimState m) (Closure m))
+  deriving Eq
 
-data Closure s = Closure { _code :: LambdaForm
-                         , _frame :: [Value s]
+allocClosure :: (Functor m, PrimMonad m)
+             => GEnv m -> LEnv m -> ([Var], LambdaForm) -> m (Address m)
+allocClosure gl lo cc = Address <$> (newMutVar $ buildClosure gl lo cc)
+
+allocRecursive :: (Applicative m, PrimMonad m)
+               => GEnv m -> LEnv m -> [([Var], LambdaForm)] -> m (LEnv m)
+allocRecursive gl lo ccs = do
+  addrs <- for ccs $ \_ -> Address <$> newMutVar undefined
+  let lo' = extend lo $ Addr <$> addrs
+  (lo<$) . sequence_ $ zipWith (flip poke . buildClosure gl lo') ccs addrs
+
+buildClosure :: GEnv m -> LEnv m -> ([Var], LambdaForm) -> Closure m
+buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
+
+poke :: PrimMonad m => Address m -> Closure m -> m ()
+poke (Address r) c = writeMutVar r c
+
+peek :: PrimMonad m => Address m -> m (Closure m)
+peek (Address r) = readMutVar r
+
+data Closure m = Closure { _code :: LambdaForm
+                         , _frame :: [Value m]
                          }
 
-data Value s = Addr (Address s) | Prim Word64
+data Value m = Addr (Address m) | Prim Word64
 
-type GEnv s = Map Word32 (Address s)
+type GEnv m = Map Word32 (Address m)
 
-type LEnv s = Map Word32 (Value s)
+type LEnv m = Map Word32 (Value m)
 
-type Heap s = Map (Address s) (Closure s)
+extend :: Integral k => Map k a -> [a] -> Map k a
+extend lo vs = fromList ([w ..] `zip` vs) `union` lo
+ where w = fresh lo
+
+resolve :: GEnv m -> LEnv m -> Var -> Value m
+resolve gl _  (Global gw) = case lookup gw gl of
+  Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
+  Just ad -> Addr ad
+resolve _  lo (Local  lw) = case lookup lw lo of
+  Nothing -> error $ "PANIC: bad local name reference: " ++ show lw
+  Just va -> va
 
 data Var = Global Word32 | Local Word32
 
@@ -93,85 +122,43 @@ data Continuation = Cont (Map Tag Code) (Maybe Code)
 
 data Func = Var Var | Con Tag
 
-data Frame s = Branch Continuation (LEnv s)
-             | Update (Address s) [Value s]
+data Frame m = Branch Continuation (LEnv m)
+             | Update (Address m) [Value m]
 
-data MachineState s
-  = ST { _args :: [Value s]
-       , _stack :: [Frame s]
-       , _genv :: GEnv s
+data MachineState m
+  = ST { _args :: [Value m]
+       , _stack :: [Frame m]
+       , _genv :: GEnv m
        }
 
-emptyMS :: MachineState s
+emptyMS :: MachineState m
 emptyMS = ST [] [] empty
-
-newtype Exec s a = Exec { _exec :: State (Heap s) a }
-  deriving (Functor, Applicative, Monad, MonadState (Heap s))
-
-exec :: (forall s. Exec s a) -> a
-exec m = evalState (_exec m) empty
 
 fresh :: Integral k => Map k a -> k
 fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
-
-allocClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Exec s (Address s)
-allocClosure gl lo cc = state $ \heap -> case fresh heap of
-  addr -> (addr, insert addr cl heap)
- where cl = buildClosure gl lo cc
-
-allocRecursive :: GEnv s -> LEnv s -> [([Var], LambdaForm)] -> Exec s (LEnv s)
-allocRecursive gl lo ccs = state $ \heap ->
-  case (fresh heap, fresh lo) of
-    (addr, n) -> (lo', alloced `union` heap)
-     where
-     addrs = zipWith const [addr ..] ccs
-     lo' = fromList (zip [n..] $ Addr <$> addrs) `union` lo
-     alloced = fromList . zip addrs $ buildClosure gl lo' <$> ccs
-
-buildClosure :: GEnv s -> LEnv s -> ([Var], LambdaForm) -> Closure s
-buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
-
-poke :: Address s -> Closure s -> Exec s ()
-poke addr c = modify $ ix addr .~ c
-
-peek :: Address s -> Exec s (Closure s)
-peek addr = state $ \heap -> case lookup addr heap of
-  Nothing -> error "PANIC: value missing in heap"
-  Just cl -> (cl, heap)
-
-resolve :: GEnv s -> LEnv s -> Var -> Value s
-resolve gl _  (Global gw) = case lookup gw gl of
-  Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
-  Just ad -> Addr ad
-resolve _  lo (Local  lw) = case lookup lw lo of
-  Nothing -> error $ "PANIC: bad local name reference: " ++ show lw
-  Just va -> va
 
 makeLenses ''Closure
 makeLenses ''LambdaForm
 makeLenses ''MachineState
 
-pushArgs :: [Value s] -> MachineState s -> MachineState s
+pushArgs :: [Value m] -> MachineState m -> MachineState m
 pushArgs as = over args (as ++)
 
-pushUpdate :: Address s -> MachineState s -> MachineState s
+pushUpdate :: Address m -> MachineState m -> MachineState m
 pushUpdate addr ms = push (Update addr $ ms^.args) ms & args .~ []
 
-push :: Frame s -> MachineState s -> MachineState s
+push :: Frame m -> MachineState m -> MachineState m
 push fr = stack %~ (fr:)
 
-pop :: MachineState s -> Maybe (Frame s, MachineState s)
+pop :: MachineState m -> Maybe (Frame m, MachineState m)
 pop ms = case ms^.stack of f:fs -> Just (f, ms & stack .~ fs) ; [] -> Nothing
 
 select :: Continuation -> Tag -> Code
 select (Cont bs df) t =
   fromMaybe (error "PANIC: missing default case in branch") $ lookup t bs <|> df
 
-extend :: Integral k => Map k a -> [a] -> Map k a
-extend lo vs = fromList ([w ..] `zip` vs) `union` lo
- where w = fresh lo
-
-eval :: MachineState s -> Code -> LEnv s -> Exec s (Either (Closure s) Word64)
+eval :: (Applicative m, PrimMonad m)
+     => MachineState m -> Code -> LEnv m -> m (Either (Closure m) Word64)
 eval ms (App f xs0) lo = case f of
   Var v -> case resolve gl lo v of
     Addr a -> enter (pushArgs xs ms) a
@@ -191,7 +178,8 @@ eval ms (LetRec bs e) lo = do
 eval ms (Case co k) lo = eval (push (Branch k lo) ms) co lo
 eval ms (Lit l) _ = returnLit ms l
 
-enter :: MachineState s -> Address s -> Exec s (Either (Closure s) Word64)
+enter :: (Applicative m, PrimMonad m)
+      => MachineState m -> Address m -> m (Either (Closure m) Word64)
 enter ms addr = peek addr >>= \case
   cl@(Closure co da)
     | co^.update -> eval (pushUpdate addr ms) (co^.body) (fromList $ zip [0..] da)
@@ -210,7 +198,8 @@ enter ms addr = peek addr >>= \case
    (first, rest) = splitAt ar argz
    lenv = fromList $ zip [0..] (da ++ first)
 
-returnCon :: MachineState s -> Tag -> [Value s] -> Exec s (Either (Closure s) Word64)
+returnCon :: (Applicative m, PrimMonad m)
+          => MachineState m -> Tag -> [Value m] -> m (Either (Closure m) Word64)
 returnCon ms t vs = case pop ms of
   Just (Branch k lo, ms') -> eval ms' (select k t) (extend lo vs)
   Just (Update ad st, ms')
@@ -221,5 +210,5 @@ returnCon ms t vs = case pop ms of
   Nothing -> return . Left $
     Closure (standardConstructor (fromIntegral $ length vs) t) vs
 
-returnLit :: MachineState s -> Word64 -> Exec s (Either (Closure s) Word64)
+returnLit :: PrimMonad m => MachineState m -> Word64 -> m (Either (Closure m) Word64)
 returnLit _ _ = error "returnLit: unimplemented"
