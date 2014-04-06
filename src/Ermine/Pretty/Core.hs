@@ -98,7 +98,7 @@ prettyCore vs prec k (CaseLit cc e m d) =
     <*> traverse (prettyCore vs (-1) k) d
  where
    branches = for (itoList m) $ \ (t, b) ->
-     (\bd -> nest 2 $ text (show t) <+> text "->" <+> bd) <$> prettyCore vs 11 k b
+     (\bd -> nest 2 $ prettyLiteral t <+> text "->" <+> bd) <$> prettyCore vs 11 k b
 
 prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  where
