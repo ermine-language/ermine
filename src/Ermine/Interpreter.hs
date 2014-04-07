@@ -41,7 +41,7 @@ import Data.Maybe
 import Data.Primitive.MutVar
 import Data.Traversable
 import Data.Word
-import Ermine.Syntax.Crux
+import Ermine.Syntax.G
 import Prelude hiding (lookup)
 
 

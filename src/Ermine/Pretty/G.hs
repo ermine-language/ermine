@@ -1,5 +1,5 @@
 
-module Ermine.Pretty.Crux
+module Ermine.Pretty.G
   ( prettyG
   ) where
 
@@ -8,7 +8,7 @@ import Data.Maybe
 import Data.Map
 import Data.Word
 import Ermine.Pretty
-import Ermine.Syntax.Crux
+import Ermine.Syntax.G
 
 prettyG :: [String] -> Word32 -> (Ref -> Doc) -> G -> Doc
 prettyG vs i pr (Case e bs) =

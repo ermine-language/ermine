@@ -135,7 +135,7 @@ library
     Ermine.Pattern.Matrix
     Ermine.Pretty
     Ermine.Pretty.Core
-    Ermine.Pretty.Crux
+    Ermine.Pretty.G
     Ermine.Pretty.Global
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
@@ -144,7 +144,7 @@ library
     Ermine.Pretty.Type
     Ermine.Syntax
     Ermine.Syntax.Class
-    Ermine.Syntax.Crux
+    Ermine.Syntax.G
     Ermine.Syntax.Constructor
     Ermine.Syntax.Convention
     Ermine.Syntax.Core

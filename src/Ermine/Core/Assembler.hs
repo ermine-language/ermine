@@ -25,7 +25,7 @@ import Data.Functor
 import Data.List (elemIndex, nub)
 import Data.Map hiding (null, filter, toList)
 import Data.Word
-import Ermine.Syntax.Crux
+import Ermine.Syntax.G
 import Ermine.Syntax.Core (Core, HardCore, Match(..))
 import qualified Ermine.Syntax.Core as Core
 

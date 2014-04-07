@@ -51,7 +51,7 @@ import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
 import Ermine.Pretty
-import Ermine.Pretty.Crux
+import Ermine.Pretty.G
 import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type

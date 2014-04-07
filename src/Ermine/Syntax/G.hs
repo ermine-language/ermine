@@ -10,7 +10,7 @@
 -- Portability: non-portable
 --
 --------------------------------------------------------------------
-module Ermine.Syntax.Crux
+module Ermine.Syntax.G
   ( Ref(..)
   , _Global
   , _Local
