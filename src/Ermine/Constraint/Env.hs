@@ -49,9 +49,10 @@ data ConstraintEnv = ConstraintEnv
 makeClassy ''ConstraintEnv
 
 dummyConstraintEnv :: ConstraintEnv
-dummyConstraintEnv = ConstraintEnv { _classes = singleton lame clame
-                                 , _instances = singleton lame [ilame]
-                                 }
+dummyConstraintEnv = ConstraintEnv
+  { _classes = singleton lame clame
+  , _instances = singleton lame [ilame]
+  }
  where
  -- class Lame a where lame :: a
  -- instance Lame Int where lame = 5

@@ -1,12 +1,5 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011-2014
@@ -60,7 +53,9 @@ import Ermine.Pretty.Kind
 -- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = a -> b
-kindOccurs :: (MonadMeta s m, MonadWriter Any m) => Depth -> KindM s -> (MetaK s -> Bool) -> m (KindM s)
+kindOccurs
+  :: (MonadMeta s m, MonadWriter Any m)
+  => Depth -> KindM s -> (MetaK s -> Bool) -> m (KindM s)
 kindOccurs depth1 k p = zonkWith k tweak where
   tweak m
     | p m = do
@@ -96,7 +91,9 @@ generalizeOver sks k0 = do
 -- | Returns the a unified form if different from the left argument.
 --
 -- The writer is used to track if any interesting edits have been made
-unifyKind :: (MonadMeta s m, MonadWriter Any m) => KindM s -> KindM s -> m (KindM s)
+unifyKind
+  :: (MonadMeta s m, MonadWriter Any m)
+  => KindM s -> KindM s -> m (KindM s)
 unifyKind k1 k2 = do
   k1' <- semiprune k1
   k2' <- semiprune k2
@@ -120,7 +117,10 @@ unifyKind k1 k2 = do
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-depthInf rank for annotations, and annotations do
 -- not, at least at this time, bind kinds.
-unifyKV :: (MonadMeta s m, MonadWriter Any m) => Bool -> Int -> STRef s (Maybe (KindM s)) -> STRef s Depth -> KindM s -> ST s () -> m (KindM s)
+unifyKV
+  :: (MonadMeta s m, MonadWriter Any m)
+  => Bool -> Int -> STRef s (Maybe (KindM s)) -> STRef s Depth
+  -> KindM s -> ST s () -> m (KindM s)
 unifyKV interesting i r d k bump = liftST (readSTRef r) >>= \mb -> case mb of
   Just j -> do
     (k', Any m) <- listen $ unifyKind j k
@@ -143,7 +143,9 @@ unifyKV interesting i r d k bump = liftST (readSTRef r) >>= \mb -> case mb of
       zt <$ liftST (writeSTRef r (Just zt))
 
 -- | Unify a known 'Meta' variable with a kind that isn't a 'Var'.
-unifyKindVar :: (MonadMeta s m, MonadWriter Any m) => MetaK s -> KindM s -> m (KindM s)
+unifyKindVar
+  :: (MonadMeta s m, MonadWriter Any m)
+  => MetaK s -> KindM s -> m (KindM s)
 unifyKindVar (Meta _ i r d _) kv = unifyKV True i r d kv $ return ()
 unifyKindVar Skolem{} _ = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
