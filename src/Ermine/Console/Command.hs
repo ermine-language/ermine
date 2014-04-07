@@ -190,11 +190,11 @@ coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \
   Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 
-cruxBody :: Term Ann Text -> Console ()
-cruxBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
+gBody :: Term Ann Text -> Console ()
+gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
     Just (_, c) ->
-      sayLn . prettyCrux names 0 (error "global reference") $ assemble 0 absurd c
+      sayLn . prettyG names 0 (error "global reference") $ assemble 0 absurd c
     Nothing     -> sayLn "Unbound variables detected"
 
 commands :: [Command]
@@ -222,9 +222,9 @@ commands =
       & body .~ parsing term typeBody
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ parsing term coreBody
-  , cmd "crux"
+  , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
-      & body .~ parsing term cruxBody
+      & body .~ parsing term gBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody

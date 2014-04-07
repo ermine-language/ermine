@@ -1,6 +1,6 @@
 
 module Ermine.Pretty.Crux
-  ( prettyCrux
+  ( prettyG
   ) where
 
 import Data.Functor
@@ -10,16 +10,16 @@ import Data.Word
 import Ermine.Pretty
 import Ermine.Syntax.Crux
 
-prettyCrux :: [String] -> Word32 -> (Ref -> Doc) -> Crux -> Doc
-prettyCrux vs i pr (Case e bs) =
+prettyG :: [String] -> Word32 -> (Ref -> Doc) -> G -> Doc
+prettyG vs i pr (Case e bs) =
       text "case"
-  <+> prettyCrux vs i pr e
+  <+> prettyG vs i pr e
   <+> text "of"
   <+> prettyContinuation vs i pr bs
-prettyCrux _  _ pr (App f xs) = prettyFunc pr f <+> semiBraces (pr <$> xs)
-prettyCrux vs i pr (Let bs e) = prettyLet vs i pr False bs e
-prettyCrux vs i pr (LetRec bs e) = prettyLet vs i pr True bs e
-prettyCrux _  _ _  (Lit w) = text $ show w
+prettyG _  _ pr (App f xs) = prettyFunc pr f <+> semiBraces (pr <$> xs)
+prettyG vs i pr (Let bs e) = prettyLet vs i pr False bs e
+prettyG vs i pr (LetRec bs e) = prettyLet vs i pr True bs e
+prettyG _  _ _  (Lit w) = text $ show w
 
 prettyFunc :: (Ref -> Doc) -> Func -> Doc
 prettyFunc pr (Ref r) = pr r
@@ -28,21 +28,21 @@ prettyFunc _  (Con t) = text $ "<" ++ show t ++ ">"
 prettyContinuation :: [String] -> Word32 -> (Ref -> Doc) -> Continuation -> Doc
 prettyContinuation vs i pr (Cont bs d) = block $ (f <$> toList bs) ++ ldd
  where
- ldd = maybeToList $ (\c -> text "_ ->" <+> prettyCrux vs i pr c) <$> d
+ ldd = maybeToList $ (\c -> text "_ ->" <+> prettyG vs i pr c) <$> d
  f (t, (n, c)) = let (ws, rest) = splitAt (fromIntegral n) vs
                      pr' (Local m) | m >= i = text $ ws !! fromIntegral (m - i)
                      pr' r = pr r
                   in text ("<" ++ show t ++ ">")
                        <+> hsep (text <$> ws)
                        <+> text "->"
-                       <+> prettyCrux rest (i+fromIntegral n) pr' c
+                       <+> prettyG rest (i+fromIntegral n) pr' c
 
-prettyLet :: [String] -> Word32 -> (Ref -> Doc) -> Bool -> [PreClosure] -> Crux -> Doc
+prettyLet :: [String] -> Word32 -> (Ref -> Doc) -> Bool -> [PreClosure] -> G -> Doc
 prettyLet vs i pr rec bs e =
       text "let"
   <+> block (zipWith (\w bd -> text (w ++ " =") <+> bd) ws bds)
   <+> text "in"
-  <+> prettyCrux rest (i+fromIntegral bl) pr' e
+  <+> prettyG rest (i+fromIntegral bl) pr' e
  where
  bl = length bs
  (ws, rest) = splitAt bl vs
@@ -53,7 +53,7 @@ prettyLet vs i pr rec bs e =
 prettyPreClosure :: [String] -> (Ref -> Doc) -> PreClosure -> Doc
 prettyPreClosure vs pr (fvs, LambdaForm fa ba up bo) =
       dfvs <+> dl <+> dws <+> text "->"
-  <+> prettyCrux rest (fa + fromIntegral ba) pr' bo
+  <+> prettyG rest (fa + fromIntegral ba) pr' bo
  where
  dl = text $ "\\" ++ if up then "u" else "n"
  dfvs = semiBraces $ pr <$> fvs

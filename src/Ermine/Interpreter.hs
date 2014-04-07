@@ -125,13 +125,13 @@ push fr = stack %~ (fr:)
 pop :: MachineState m -> Maybe (Frame m, MachineState m)
 pop ms = case ms^.stack of f:fs -> Just (f, ms & stack .~ fs) ; [] -> Nothing
 
-select :: Continuation -> Tag -> Crux
+select :: Continuation -> Tag -> G
 select (Cont bs df) t =
   fromMaybe (error "PANIC: missing default case in branch") $
     snd <$> lookup t bs <|> df
 
 eval :: (Applicative m, PrimMonad m)
-     => MachineState m -> Crux -> LEnv m -> m (Either (Closure m) Word64)
+     => MachineState m -> G -> LEnv m -> m (Either (Closure m) Word64)
 eval ms (App f xs0) lo = case f of
   Ref r -> case resolve gl lo r of
     Addr a -> enter (pushArgs xs ms) a

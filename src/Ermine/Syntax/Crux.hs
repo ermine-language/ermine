@@ -14,7 +14,7 @@ module Ermine.Syntax.Crux
   ( Ref(..)
   , _Global
   , _Local
-  , Crux(..)
+  , G(..)
   , _Ref
   , PreClosure
   , Tag
@@ -40,15 +40,15 @@ data Ref = Global Word32 | Local Word32
 
 makePrisms ''Ref
 
-data Crux
-  = Case Crux Continuation
+data G
+  = Case G Continuation
   | App Func [Ref]
-  | Let [PreClosure] Crux
-  | LetRec [PreClosure] Crux
+  | Let [PreClosure] G
+  | LetRec [PreClosure] G
   | Lit Word64
   deriving Show
 
-_Ref :: Prism' Crux Ref
+_Ref :: Prism' G Ref
 _Ref = prism (\r -> App (Ref r) []) $ \case
   App (Ref r) [] -> Right r
   co             -> Left co
@@ -57,7 +57,7 @@ type PreClosure = ([Ref], LambdaForm)
 
 type Tag = Word8
 
-data Continuation = Cont (Map Tag (Word8, Crux)) (Maybe Crux)
+data Continuation = Cont (Map Tag (Word8, G)) (Maybe G)
   deriving Show
 
 data Func = Ref Ref | Con Tag
@@ -67,15 +67,15 @@ data LambdaForm = LambdaForm
   { _freeArity :: Word32
   , _boundArity :: Word8
   , _update :: Bool
-  , _body :: Crux
+  , _body :: G
   } deriving Show
 
 makeLenses ''LambdaForm
 
-noUpdate :: Word32 -> Word8 -> Crux -> LambdaForm
+noUpdate :: Word32 -> Word8 -> G -> LambdaForm
 noUpdate f b e = LambdaForm f b False e
 
-doUpdate :: Word32 -> Crux -> LambdaForm
+doUpdate :: Word32 -> G -> LambdaForm
 doUpdate f e = LambdaForm f 0 True e
 
 standardConstructor :: Word32 -> Tag -> LambdaForm

@@ -53,7 +53,7 @@ assembleBinding cxt co = (,) vs $ case co of
  cxt' v | Just n <- genericElemIndex v fvs = Local n
         | otherwise                        = cxt v
 
-assemble :: Eq v => Word32 -> (v -> Ref) -> Core v -> Crux
+assemble :: Eq v => Word32 -> (v -> Ref) -> Core v -> G
 assemble _ cxt (Core.Var v) = App (Ref $ cxt v) []
 assemble _ _   (Core.HardCore hc) = assembleHardCore hc
 assemble n cxt (Core.App _   f x) = assembleApp n cxt [x] f
@@ -103,11 +103,11 @@ anf n cxt ll s = runState (ll assemblePiece s) (n, [])
    let bnd = assembleBinding cxt co
     in (Local k,(k+1,bnd:l))
 
-assembleApp :: Eq v => Word32 -> (v -> Ref) -> [Core v] -> Core v -> Crux
+assembleApp :: Eq v => Word32 -> (v -> Ref) -> [Core v] -> Core v -> G
 assembleApp n cxt xs (Core.App _ f x) = assembleApp n cxt (x:xs) f
 assembleApp n cxt xs f = (if null bs then id else Let bs) $ App (Ref f') xs'
  where
  ((f', xs'), (_, bs)) = anf n cxt (beside id traverse) (f, xs)
 
-assembleHardCore :: HardCore -> Crux
+assembleHardCore :: HardCore -> G
 assembleHardCore _ = undefined
