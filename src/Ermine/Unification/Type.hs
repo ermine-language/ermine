@@ -50,7 +50,9 @@ import Ermine.Unification.Sharing
 -- This rules out infinite circular type signatures.
 --
 -- This returns the fully zonked 'Type' as a consequence, since it needs it anyways.
-typeOccurs :: (MonadWriter Any m, MonadMeta s m) => Depth -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
+typeOccurs
+  :: (MonadWriter Any m, MonadMeta s m)
+  => Depth -> TypeM s -> (MetaT s -> Bool) -> m (TypeM s)
 typeOccurs depth1 t p = zonkKindsAndTypesWith t tweakDepth tweakType where
   tweakDepth :: MonadST m => Meta (World m) f a -> m ()
   tweakDepth m = liftST $ forMOf_ metaDepth m $ \d -> do
@@ -74,10 +76,14 @@ typeOccurs depth1 t p = zonkKindsAndTypesWith t tweakDepth tweakType where
     | otherwise = tweakDepth m
 
 
-zonkKindsAndTypes :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> m (TypeM s)
+zonkKindsAndTypes
+  :: (MonadMeta s m, MonadWriter Any m)
+  => TypeM s -> m (TypeM s)
 zonkKindsAndTypes t = zonkKindsAndTypesWith t (const $ return ()) (const $ return ())
 
-zonkKindsAndTypesWith :: (MonadMeta s m, MonadWriter Any m) => TypeM s -> (MetaK s -> m ()) -> (MetaT s -> m ()) -> m (TypeM s)
+zonkKindsAndTypesWith
+  :: (MonadMeta s m, MonadWriter Any m)
+  => TypeM s -> (MetaK s -> m ()) -> (MetaT s -> m ()) -> m (TypeM s)
 zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where
   go fs = bindType id id <$> bitraverse handleKind handleType fs
   handleType m = do
@@ -103,7 +109,9 @@ zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where
 -- | Check for escaped Skolem variables in any container full of types.
 --
 -- Dies due to an escaped Skolem or returns the container with all of its types fully zonked.
-checkSkolemEscapes :: MonadMeta s m => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
+checkSkolemEscapes
+  :: MonadMeta s m
+  => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
 checkSkolemEscapes md trav sks ts = do
   for_ md $ \d -> for_ sks $ \s ->
     liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
@@ -116,7 +124,9 @@ checkSkolemEscapes md trav sks ts = do
 -- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
 --
 -- This returns the result of unification with any modifications expanded, as we calculated it in passing
-unifyType :: (MonadWriter Any m, MonadMeta s m) => TypeM s -> TypeM s -> m (TypeM s)
+unifyType
+  :: (MonadWriter Any m, MonadMeta s m)
+  => TypeM s -> TypeM s -> m (TypeM s)
 unifyType t1 t2 = do
   t1' <- semiprune t1
   t2' <- semiprune t2
@@ -164,10 +174,10 @@ unifyType t1 t2 = do
 {-# INLINE unifyType #-}
 
 -- | Unify with (the guts of) a type variable.
-unifyTV :: (MonadWriter Any m, MonadMeta s m)
-        => Bool
-        -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth
-        -> TypeM s -> ST s () -> m (TypeM s)
+unifyTV
+  :: (MonadWriter Any m, MonadMeta s m)
+  => Bool -> Int -> STRef s (Maybe (TypeM s)) -> STRef s Depth
+  -> TypeM s -> ST s () -> m (TypeM s)
 unifyTV interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
   Just j -> do
     (t', Any m) <- listen $ unifyType j t
