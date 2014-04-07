@@ -111,6 +111,7 @@ library
     Ermine.Constraint.Simplification
     Ermine.Core.Lint
     Ermine.Core.Optimizer
+    Ermine.Core.Assembler
     Ermine.Diagnostic
     Ermine.Inference.Kind
     Ermine.Inference.Type
@@ -134,6 +135,7 @@ library
     Ermine.Pattern.Matrix
     Ermine.Pretty
     Ermine.Pretty.Core
+    Ermine.Pretty.Crux
     Ermine.Pretty.Global
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
@@ -142,6 +144,7 @@ library
     Ermine.Pretty.Type
     Ermine.Syntax
     Ermine.Syntax.Class
+    Ermine.Syntax.Crux
     Ermine.Syntax.Constructor
     Ermine.Syntax.Convention
     Ermine.Syntax.Core

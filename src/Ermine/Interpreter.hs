@@ -23,18 +23,6 @@ module Ermine.Interpreter
   , Value(..)
   , GEnv
   , LEnv
-  , Ref(..)
-  , Tag
-  , LambdaForm(LambdaForm)
-  , Func(..)
-  , freeArity
-  , boundArity
-  , update
-  , body
-  , standardConstructor
-  , assembleBinding
-  , assemble
-  , Code(..)
   , Frame(..)
   , MachineState
   , args
@@ -43,157 +31,22 @@ module Ermine.Interpreter
   , eval
   ) where
 
-import Bound
-import Bound.Var
 import Control.Applicative hiding (empty)
 import Control.Monad.Primitive
 import Control.Monad.State
 import Control.Lens
 import Data.Default
-import Data.Foldable (toList)
-import Data.List (elemIndex, nub)
-import Data.Map hiding (null, update, toList, filter)
+import Data.Map hiding (null, update, filter)
 import Data.Maybe
 import Data.Primitive.MutVar
 import Data.Traversable
 import Data.Word
-import Ermine.Syntax.Core (Core, HardCore, Match(..))
-import qualified Ermine.Syntax.Core as Core
+import Ermine.Syntax.Crux
 import Prelude hiding (lookup)
 
-------------------------------------------------------------------------------
--- Syntax
-------------------------------------------------------------------------------
-
-data Ref = Global Word32 | Local Word32
-  deriving Show
-
-makePrisms ''Ref
-
-data Code
-  = Case Code Continuation
-  | App Func [Ref]
-  | Let [PreClosure] Code
-  | LetRec [PreClosure] Code
-  | Lit Word64
-  deriving Show
-
-_Ref :: Prism' Code Ref
-_Ref = prism (\r -> App (Ref r) []) $ \case
-  App (Ref r) [] -> Right r
-  co             -> Left co
-
-type PreClosure = ([Ref], LambdaForm)
-
-type Tag = Word8
-
-data Continuation = Cont (Map Tag Code) (Maybe Code)
-  deriving Show
-
-data Func = Ref Ref | Con Tag
-  deriving Show
-
-data LambdaForm = LambdaForm
-  { _freeArity :: Word32
-  , _boundArity :: Word8
-  , _update :: Bool
-  , _body :: Code
-  } deriving Show
-
-noUpdate :: Word32 -> Word8 -> Code -> LambdaForm
-noUpdate f b e = LambdaForm f b False e
-
-doUpdate :: Word32 -> Code -> LambdaForm
-doUpdate f e = LambdaForm f 0 True e
-
-standardConstructor :: Word32 -> Tag -> LambdaForm
-standardConstructor w t = LambdaForm w 0 False . App (Con t) $ Local <$> [0..w-1]
 
 genericLength :: Num n => [a] -> n
 genericLength = fromIntegral . length
-
-genericElemIndex :: (Eq a, Num n) => a -> [a] -> Maybe n
-genericElemIndex x = fmap fromIntegral . elemIndex x
-
-assembleBinding :: Eq v => (v -> Ref) -> Core v -> PreClosure
-assembleBinding cxt co = (,) vs $ case co of
-  -- Assumes that core lambdas are never 0-arity
-  Core.Lam ccvs body ->
-    noUpdate fvn bvn (assemble (fvn + fromIntegral bvn) cxt'' $ fromScope body)
-   where bvn  = genericLength ccvs
-         cxt'' (F v) = cxt' v
-         cxt'' (B b) = Local $ fvn + fromIntegral b
-  -- TODO: this is naive
-  _ -> doUpdate fvn (assemble fvn cxt' $ co)
- where
- (fvs, vs) =
-   unzip . filter (has $ _2._Local) . fmap (\v -> (v, cxt v)) . nub . toList $ co
- fvn = genericLength vs
-
- cxt' v | Just n <- genericElemIndex v fvs = Local n
-        | otherwise                        = cxt v
-
-assemble :: Eq v => Word32 -> (v -> Ref) -> Core v -> Code
-assemble _ cxt (Core.Var v) = App (Ref $ cxt v) []
-assemble _ _   (Core.HardCore hc) = assembleHardCore hc
-assemble n cxt (Core.App _   f x) = assembleApp n cxt [x] f
-assemble n cxt l@Core.Lam{} =
-  Let [assembleBinding cxt l] (App (Ref $ Local n) [])
-assemble n cxt (Core.Case e bs d) =
-  (if null cs then id else Let cs) . Case e' $ assembleBranches n' ev cxt bs d
- where
- (cs, n', ev, e') = case e of
-   Core.Var v -> ([], n, cxt v, _Ref # cxt v)
-   _          -> ([assembleBinding cxt e], n+1, Local n, review _Ref . Local $ n)
-assemble n cxt (Core.Let bs e) =
-  Let bs' . assemble (n + genericLength bs) cxt' $ fromScope e
- where
- cxt' (F v) = cxt v
- cxt' (B b) = Local $ n + b
- bs' = assembleBinding cxt' . fromScope <$> bs
-assemble _ _   (Core.Data _    _ _ _ ) = error "assemble: Data"
-assemble _ _   (Core.Dict _ _) = error "assemble: Dict"
-assemble _ _   (Core.CaseLit _ _ _ _) = error "assemble: CaseLit"
-
--- TODO: handle calling conventions
-assembleBranches :: Eq v
-                 => Word32
-                 -> Ref
-                 -> (v -> Ref)
-                 -> Map Word8 (Match Core v)
-                 -> Maybe (Scope () Core v)
-                 -> Continuation
-assembleBranches n ev cxt bs d = Cont bs' d'
- where
- bs' = bs <&> \(Match ccvs _ e) ->
-   let cxt' = unvar bc cxt
-       bc 0 = ev
-       bc b = Local . (n-1+) . fromIntegral $ b
-    in assemble (n+genericLength ccvs) cxt' (fromScope e)
- d' = assemble n (unvar (const ev) cxt) . fromScope <$> d
-
-anf :: Eq v
-    => Word32 -> (v -> Ref)
-    -> LensLike (State (Word32, [PreClosure])) s t (Core v) Ref
-    -> s -> (t, (Word32, [PreClosure]))
-anf n cxt ll s = runState (ll assemblePiece s) (n, [])
- where
- assemblePiece (Core.Var v) = return $ cxt v
- assemblePiece co = state $ \(k,l) ->
-   let bnd = assembleBinding cxt co
-    in (Local k,(k+1,bnd:l))
-
-assembleApp :: Eq v => Word32 -> (v -> Ref) -> [Core v] -> Core v -> Code
-assembleApp n cxt xs (Core.App _ f x) = assembleApp n cxt (x:xs) f
-assembleApp n cxt xs f = (if null bs then id else Let bs) $ App (Ref f') xs'
- where
- ((f', xs'), (_, bs)) = anf n cxt (beside id traverse) (f, xs)
-assembleHardCore :: HardCore -> Code
-assembleHardCore _ = undefined
-
-------------------------------------------------------------------------------
--- Evaluation
-------------------------------------------------------------------------------
 
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
@@ -258,7 +111,6 @@ fresh :: Integral k => Map k a -> k
 fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
 
 makeLenses ''Closure
-makeLenses ''LambdaForm
 makeLenses ''MachineState
 
 pushArgs :: [Value m] -> MachineState m -> MachineState m
@@ -273,12 +125,13 @@ push fr = stack %~ (fr:)
 pop :: MachineState m -> Maybe (Frame m, MachineState m)
 pop ms = case ms^.stack of f:fs -> Just (f, ms & stack .~ fs) ; [] -> Nothing
 
-select :: Continuation -> Tag -> Code
+select :: Continuation -> Tag -> Crux
 select (Cont bs df) t =
-  fromMaybe (error "PANIC: missing default case in branch") $ lookup t bs <|> df
+  fromMaybe (error "PANIC: missing default case in branch") $
+    snd <$> lookup t bs <|> df
 
 eval :: (Applicative m, PrimMonad m)
-     => MachineState m -> Code -> LEnv m -> m (Either (Closure m) Word64)
+     => MachineState m -> Crux -> LEnv m -> m (Either (Closure m) Word64)
 eval ms (App f xs0) lo = case f of
   Ref r -> case resolve gl lo r of
     Addr a -> enter (pushArgs xs ms) a
