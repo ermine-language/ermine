@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
