@@ -21,7 +21,7 @@ module Ermine.Interpreter
   , code
   , frame
   , Value(..)
-  , GEnv
+  , GlobalEnv
   , LEnv
   , Frame(..)
   , MachineState
@@ -38,12 +38,19 @@ import Control.Lens
 import Data.Default
 import Data.Map hiding (null, update, filter)
 import Data.Maybe
+import Data.Vector (Vector)
+import qualified Data.Vector as B
+import qualified Data.Vector.Generic as G
+import Data.Vector.Generic.Mutable as GM
+import Data.Vector.Mutable as BM
+import qualified Data.Vector.Primitive as P
+import Data.Vector.Primitve.Mutable as PM
 import Data.Primitive.MutVar
 import Data.Traversable
 import Data.Word
 import Ermine.Syntax.G
+import GHC.Prim (Any)
 import Prelude hiding (lookup)
-
 
 genericLength :: Num n => [a] -> n
 genericLength = fromIntegral . length
@@ -51,39 +58,49 @@ genericLength = fromIntegral . length
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
 
-data Value m = Addr (Address m) | Prim Word64
-
-data Closure m = Closure
-  { _code :: LambdaForm
-  , _frame :: [Value m]
+data Dictionary m = Dictionary
+  { _supers :: Vector (Dictionary m)
+  , _slots  :: Vector (Address m)
   }
 
-type LEnv m = Map Word32 (Value m)
+data Value m = Addr (Address m) | Prim Word64
 
-type GEnv m = Map Word32 (Address m)
+data Env m = Env
+  { _envC :: Vector (Address m)
+  , _envU :: P.Vector Word64
+  , _envD :: Vector (Dictionary m)
+  , _envN :: Vector Any
+  }
+
+data Closure m = Closure
+  { _code       :: LambdaForm
+  , _closureEnv :: Env m
+  }
+
+type GlobalEnv m = Map Word32 (Address m)
 
 data Frame m
-  = Branch Continuation (LEnv m)
-  | Update (Address m) [Value m]
+  = Branch !Continuation !(Env m)
+  | Update !(Address m) [Value m]
 
 data MachineState m = MachineState
   { _args :: [Value m]
   , _stack :: [Frame m]
-  , _genv :: GEnv m
+  , _genv :: GlobalEnv m
   }
 
 allocClosure :: (Functor m, PrimMonad m)
-             => GEnv m -> LEnv m -> PreClosure -> m (Address m)
+             => GlobalEnv m -> LEnv m -> PreClosure -> m (Address m)
 allocClosure gl lo cc = Address <$> (newMutVar $ buildClosure gl lo cc)
 
 allocRecursive :: (Applicative m, PrimMonad m)
-               => GEnv m -> LEnv m -> [PreClosure] -> m (LEnv m)
+               => GlobalEnv m -> LEnv m -> [PreClosure] -> m (LEnv m)
 allocRecursive gl lo ccs = do
   addrs <- for ccs $ \_ -> Address <$> newMutVar undefined
   let lo' = extend lo $ Addr <$> addrs
   (lo<$) . sequence_ $ zipWith (flip poke . buildClosure gl lo') ccs addrs
 
-buildClosure :: GEnv m -> LEnv m -> PreClosure -> Closure m
+buildClosure :: GlobalEnv m -> LEnv m -> PreClosure -> Closure m
 buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
 
 poke :: PrimMonad m => Address m -> Closure m -> m ()
@@ -96,7 +113,7 @@ extend :: Integral k => Map k a -> [a] -> Map k a
 extend lo vs = fromList ([w ..] `zip` vs) `union` lo
  where w = fresh lo
 
-resolve :: GEnv m -> LEnv m -> Ref -> Value m
+resolve :: GlobalEnv m -> LEnv m -> Ref -> Value m
 resolve gl _  (Global gw) = case lookup gw gl of
   Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
   Just ad -> Addr ad

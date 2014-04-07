@@ -26,6 +26,7 @@ import Control.Applicative
 import Control.Lens hiding (strict)
 import Control.Monad.Fix
 import Control.Monad.Reader.Class
+import Control.Monad.Zip
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
 import Data.Bytes.Serial
