@@ -111,7 +111,7 @@ library
     Ermine.Constraint.Simplification
     Ermine.Core.Lint
     Ermine.Core.Optimizer
-    Ermine.Core.Assembler
+    Ermine.Core.Compiler
     Ermine.Diagnostic
     Ermine.Inference.Kind
     Ermine.Inference.Type

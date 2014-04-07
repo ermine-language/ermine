@@ -45,7 +45,7 @@ import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
-import Ermine.Core.Assembler
+import Ermine.Core.Compiler
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
@@ -194,7 +194,7 @@ gBody :: Term Ann Text -> Console ()
 gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
     Just (_, c) ->
-      sayLn . prettyG names 0 (error "global reference") $ assemble 0 absurd c
+      sayLn . prettyG names 0 (error "global reference") $ compile 0 absurd c
     Nothing     -> sayLn "Unbound variables detected"
 
 commands :: [Command]
