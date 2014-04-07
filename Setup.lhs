@@ -24,7 +24,7 @@ main = defaultMainWithHooks simpleUserHooks
      buildHook simpleUserHooks pkg lbi hooks flags
   , postHaddock = \args flags pkg lbi -> do
      _ <- readProcessWithExitCode "sh" ["bin/overview.sh"] ""
-     copyFiles normal (haddockOutputDir flags pkg) [("data/images","overview.png")]
+     copyFiles normal (haddockOutputDir flags pkg) [("etc","overview.png")]
      postHaddock simpleUserHooks args flags pkg lbi
   }
 
