@@ -23,16 +23,6 @@ module Ermine.Interpreter
   , Value(..)
   , GEnv
   , LEnv
-  , Var(..)
-  , Tag
-  , LambdaForm(LambdaForm)
-  , Func(..)
-  , freeArity
-  , boundArity
-  , update
-  , body
-  , standardConstructor
-  , Code(..)
   , Frame(..)
   , MachineState
   , args
@@ -43,51 +33,20 @@ module Ermine.Interpreter
 
 import Control.Applicative hiding (empty)
 import Control.Monad.Primitive
+import Control.Monad.State
 import Control.Lens
 import Data.Default
-import Data.Map hiding (null, update)
+import Data.Map hiding (null, update, filter)
 import Data.Maybe
 import Data.Primitive.MutVar
 import Data.Traversable
 import Data.Word
+import Ermine.Syntax.G
 import Prelude hiding (lookup)
 
-------------------------------------------------------------------------------
--- Syntax
-------------------------------------------------------------------------------
 
-data Var = Global Word32 | Local Word32
-  deriving Show
-
-data Code
-  = Case Code Continuation
-  | App Func [Var]
-  | Let [([Var], LambdaForm)] Code
-  | LetRec [([Var], LambdaForm)] Code
-  | Lit Word64
-  deriving Show
-
-type Tag = Word8
-
-data Continuation = Cont (Map Tag Code) (Maybe Code)
-  deriving Show
-
-data Func = Var Var | Con Tag
-  deriving Show
-
-data LambdaForm = LambdaForm
-  { _freeArity :: Word32
-  , _boundArity :: Word8
-  , _update :: Bool
-  , _body :: Code
-  } deriving Show
-
-standardConstructor :: Word32 -> Tag -> LambdaForm
-standardConstructor w t = LambdaForm w 0 False . App (Con t) $ Local <$> [0..w-1]
-
-------------------------------------------------------------------------------
--- Evaluation
-------------------------------------------------------------------------------
+genericLength :: Num n => [a] -> n
+genericLength = fromIntegral . length
 
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
@@ -114,17 +73,17 @@ data MachineState m = MachineState
   }
 
 allocClosure :: (Functor m, PrimMonad m)
-             => GEnv m -> LEnv m -> ([Var], LambdaForm) -> m (Address m)
+             => GEnv m -> LEnv m -> PreClosure -> m (Address m)
 allocClosure gl lo cc = Address <$> (newMutVar $ buildClosure gl lo cc)
 
 allocRecursive :: (Applicative m, PrimMonad m)
-               => GEnv m -> LEnv m -> [([Var], LambdaForm)] -> m (LEnv m)
+               => GEnv m -> LEnv m -> [PreClosure] -> m (LEnv m)
 allocRecursive gl lo ccs = do
   addrs <- for ccs $ \_ -> Address <$> newMutVar undefined
   let lo' = extend lo $ Addr <$> addrs
   (lo<$) . sequence_ $ zipWith (flip poke . buildClosure gl lo') ccs addrs
 
-buildClosure :: GEnv m -> LEnv m -> ([Var], LambdaForm) -> Closure m
+buildClosure :: GEnv m -> LEnv m -> PreClosure -> Closure m
 buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
 
 poke :: PrimMonad m => Address m -> Closure m -> m ()
@@ -137,7 +96,7 @@ extend :: Integral k => Map k a -> [a] -> Map k a
 extend lo vs = fromList ([w ..] `zip` vs) `union` lo
  where w = fresh lo
 
-resolve :: GEnv m -> LEnv m -> Var -> Value m
+resolve :: GEnv m -> LEnv m -> Ref -> Value m
 resolve gl _  (Global gw) = case lookup gw gl of
   Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
   Just ad -> Addr ad
@@ -152,7 +111,6 @@ fresh :: Integral k => Map k a -> k
 fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
 
 makeLenses ''Closure
-makeLenses ''LambdaForm
 makeLenses ''MachineState
 
 pushArgs :: [Value m] -> MachineState m -> MachineState m
@@ -167,14 +125,15 @@ push fr = stack %~ (fr:)
 pop :: MachineState m -> Maybe (Frame m, MachineState m)
 pop ms = case ms^.stack of f:fs -> Just (f, ms & stack .~ fs) ; [] -> Nothing
 
-select :: Continuation -> Tag -> Code
+select :: Continuation -> Tag -> G
 select (Cont bs df) t =
-  fromMaybe (error "PANIC: missing default case in branch") $ lookup t bs <|> df
+  fromMaybe (error "PANIC: missing default case in branch") $
+    snd <$> lookup t bs <|> df
 
 eval :: (Applicative m, PrimMonad m)
-     => MachineState m -> Code -> LEnv m -> m (Either (Closure m) Word64)
+     => MachineState m -> G -> LEnv m -> m (Either (Closure m) Word64)
 eval ms (App f xs0) lo = case f of
-  Var v -> case resolve gl lo v of
+  Ref r -> case resolve gl lo r of
     Addr a -> enter (pushArgs xs ms) a
     Prim w | null xs0  -> returnLit ms w
            | otherwise -> error "PANIC: primitive applied to arguments"
@@ -200,9 +159,9 @@ enter ms addr = peek addr >>= \case
     | ar <= length argz -> eval (ms & args .~ rest) (co^.body) lenv
     | otherwise -> case pop ms of
       Just (Update ad st, ms') -> do
-        let nf = co^.freeArity + fromIntegral (length argz)
-            nb = co^.boundArity - fromIntegral (length argz)
-        poke ad $ Closure (LambdaForm nf nb False $ co^.body) (Addr addr : argz)
+        let nf = co^.freeArity + genericLength argz
+            nb = co^.boundArity - genericLength argz
+        poke ad $ Closure (noUpdate nf nb $ co^.body) (Addr addr : argz)
         enter (ms' & args %~ (++st)) addr
       Just (Branch _ _,_) -> error "under-applied function in branch"
       Nothing -> return $ Left cl
@@ -218,11 +177,11 @@ returnCon ms t vs = case pop ms of
   Just (Branch k lo, ms') -> eval ms' (select k t) (extend lo vs)
   Just (Update ad st, ms')
     | null $ ms'^.args -> do
-      poke ad (Closure (standardConstructor (fromIntegral $ length vs) t) vs)
+      poke ad (Closure (standardConstructor (genericLength vs) t) vs)
       returnCon (ms' & args .~ st) t vs
     | otherwise -> error "PANIC: update with non-empty arg stack"
   Nothing -> return . Left $
-    Closure (standardConstructor (fromIntegral $ length vs) t) vs
+    Closure (standardConstructor (genericLength vs) t) vs
 
 returnLit :: PrimMonad m => MachineState m -> Word64 -> m (Either (Closure m) Word64)
 returnLit _ _ = error "returnLit: unimplemented"
