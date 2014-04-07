@@ -44,7 +44,7 @@ import qualified Data.Vector.Generic as G
 import Data.Vector.Generic.Mutable as GM
 import Data.Vector.Mutable as BM
 import qualified Data.Vector.Primitive as P
-import Data.Vector.Primitve.Mutable as PM
+import Data.Vector.Primitive.Mutable as PM
 import Data.Primitive.MutVar
 import Data.Traversable
 import Data.Word
@@ -73,20 +73,25 @@ data Env m = Env
   }
 
 data Closure m = Closure
-  { _code       :: LambdaForm
-  , _closureEnv :: Env m
+  { _closureCode :: LambdaForm
+  , _closureEnv  :: Env m
   }
 
-type GlobalEnv m = Map Word32 (Address m)
+data GlobalEnv m = GlobalEnv
+  { _globalC :: Map Word32 (Address m)
+  , _globalD :: Map Word32 (Dictionary m)
+  }
 
 data Frame m
   = Branch !Continuation !(Env m)
   | Update !(Address m) [Value m]
 
 data MachineState m = MachineState
-  { _args :: [Value m]
+  { _stackPointer :: !Int
+  , _framePointer :: !Int
+  , _args  :: Env m -- stack allocated eventually
   , _stack :: [Frame m]
-  , _genv :: GlobalEnv m
+  , _genv  :: GlobalEnv m
   }
 
 allocClosure :: (Functor m, PrimMonad m)

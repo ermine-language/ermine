@@ -13,10 +13,9 @@ module Ermine.Syntax.G
   ( Ref(..)
   , _Global
   , _Local
-  , HasRef(..)
   , G(..)
   , _Ref
-  , PreClosure
+  , PreClosure(..)
   , Tag
   , Continuation(..)
   , Func(..)
@@ -37,34 +36,37 @@ import Data.Map hiding (update)
 import Ermine.Syntax.Convention
 
 data Ref
-  = Global { _refConvention :: !Convention, _refId :: !Word32 }
-  | Local  { _refConvention :: !Convention, _refId :: !Word32 }
+  = Global !Word32
+  | Local  !Word32
+  | Arg    !Word8
   deriving Show
 
 makePrisms ''Ref
-makeClassy ''Ref
 
 data G
   = Case !G !Continuation
-  | App !Func [Ref]
-  | Let [PreClosure] !G
+  | App !Func !(Conventional [Ref])
+  | Let    [PreClosure] !G
   | LetRec [PreClosure] !G
   | Lit !Word64
   deriving Show
 
 _Ref :: Prism' G Ref
-_Ref = prism (\r -> App (Ref r) []) $ \case
-  App (Ref r) [] -> Right r
-  co             -> Left co
+_Ref = prism (\r -> App (Ref r) (Conventional [] [] [] [])) $ \case
+  App (Ref r) (Conventional [] [] [] []) -> Right r
+  co                                     -> Left co
 
-type PreClosure = ([Ref], LambdaForm)
+data PreClosure = PreClosure !(Conventional [Ref]) !LambdaForm
+  deriving Show
 
 type Tag = Word8
 
 data Continuation = Cont (Map Tag (Conventional Word8, G)) (Maybe G)
   deriving Show
 
-data Func = Ref Ref | Con Tag
+data Func
+  = Ref !Ref -- closure ref
+  | Con !Tag
   deriving Show
 
 data LambdaForm = LambdaForm
@@ -83,4 +85,4 @@ doUpdate :: Conventional Word32 -> G -> LambdaForm
 doUpdate f e = LambdaForm f 0 True e
 
 standardConstructor :: Conventional Word32 -> Tag -> LambdaForm
-standardConstructor f t = LambdaForm f 0 False $ App (Con t) $ ifoldMap (\i n -> Local i <$> [0..n-1]) f
+standardConstructor f t = LambdaForm f 0 False $ App (Con t) $ fmap (\n -> Arg <$> [0..fromIntegral n-1]) f
