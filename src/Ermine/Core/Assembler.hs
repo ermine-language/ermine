@@ -1,4 +1,14 @@
 
+--------------------------------------------------------------------
+-- |
+-- Copyright :  (c) Dan Doel 2014
+-- License   :  BSD3
+-- Maintainer:  Dan Doel <dan.doel@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+--------------------------------------------------------------------
+
 module Ermine.Core.Assembler
   ( assemble
   , assembleBinding
