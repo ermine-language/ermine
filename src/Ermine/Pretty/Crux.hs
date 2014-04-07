@@ -10,11 +10,6 @@ import Data.Word
 import Ermine.Pretty
 import Ermine.Syntax.Crux
 
-  -- = Case Crux Continuation
-  -- | App Func [Ref]
-  -- | Let [PreClosure] Crux
-  -- | LetRec [PreClosure] Crux
-  -- | Lit Word64
 prettyCrux :: [String] -> Word32 -> (Ref -> Doc) -> Crux -> Doc
 prettyCrux vs i pr (Case e bs) =
       text "case"
