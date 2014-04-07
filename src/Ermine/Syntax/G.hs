@@ -1,8 +1,7 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Dan Doel 2014
+-- Copyright :  (c) Edward Kmett and Dan Doel 2014
 -- License   :  BSD3
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
@@ -52,7 +51,7 @@ data G
   deriving Show
 
 _Ref :: Prism' G Ref
-_Ref = prism (\r -> App (Ref r) (Conventional [] [] [] [])) $ \case
+_Ref = prism (\r -> App (Ref r) (Conventional [] [] [] [])) $ \ xs -> case xs of
   App (Ref r) (Conventional [] [] [] []) -> Right r
   co                                     -> Left co
 
