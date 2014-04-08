@@ -58,55 +58,52 @@ genericLength = fromIntegral . length
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
 
-data Dictionary m = Dictionary
-  { _supers :: Vector (Dictionary m)
-  , _slots  :: Vector (Address m)
-  }
-
-data Value m = Addr (Address m) | Prim Word64
+-- data Value m = Addr (Address m) | Prim Word64
 
 data Env m = Env
-  { _envC :: Vector (Address m)
+  { _envB :: Vector (Address m)
   , _envU :: P.Vector Word64
-  , _envD :: Vector (Dictionary m)
   , _envN :: Vector Any
   }
 
-data Closure m = Closure
-  { _closureCode :: LambdaForm
-  , _closureEnv  :: Env m
+makeClassy ''Env
+
+data Closure m
+  = Closure
+    { _closureCode :: !LambdaForm
+    , _closureEnv  :: !(Env m)
+    }
+  | PartialApplication
+    { _closureCode :: !LambdaForm
+    , _closureEnv  :: !(Env m)
+    , _papArity    :: !Sorted Int -- remaining args
+    }
+  | BlackHole
+  | Branch Continuation
+
+data Frame m
+  = Branch
+  { _frameContinuaton :: Continuation
+  , _framePointer :: !(Sorted Int)
+  }
+  | Update
+  { _frameAddress :: Address m
+  , _framePointer :: !(Sorted Int)
   }
 
 data GlobalEnv m = GlobalEnv
-  { _globalC :: Map Word32 (Address m)
-  , _globalD :: Map Word32 (Dictionary m)
+  { _globalB :: Vector (Address m)
   }
-
-data Frame m
-  = Branch !Continuation !(Env m)
-  | Update !(Address m) [Value m]
 
 data MachineState m = MachineState
-  { _stackPointer :: !Int
-  , _framePointer :: !Int
-  , _args  :: Env m -- stack allocated eventually
-  , _stack :: [Frame m]
-  , _genv  :: GlobalEnv m
+  { _sp    :: !(Sorted Int)
+  , _fp    :: !(Sorted Int)
+  , _stackB :: MVector (PrimState m) (Address m)
+  , _stackU :: PM.MVector (PrimState m) Word64
+  , _stackN :: MVector (PrimState m) Any
+  , _stackF :: [Frame m]
+  , _genv  :: GlobalEnv m -- environment
   }
-
-allocClosure :: (Functor m, PrimMonad m)
-             => GlobalEnv m -> LEnv m -> PreClosure -> m (Address m)
-allocClosure gl lo cc = Address <$> (newMutVar $ buildClosure gl lo cc)
-
-allocRecursive :: (Applicative m, PrimMonad m)
-               => GlobalEnv m -> LEnv m -> [PreClosure] -> m (LEnv m)
-allocRecursive gl lo ccs = do
-  addrs <- for ccs $ \_ -> Address <$> newMutVar undefined
-  let lo' = extend lo $ Addr <$> addrs
-  (lo<$) . sequence_ $ zipWith (flip poke . buildClosure gl lo') ccs addrs
-
-buildClosure :: GlobalEnv m -> LEnv m -> PreClosure -> Closure m
-buildClosure gl lo (captures, code) = Closure code (resolve gl lo <$> captures)
 
 poke :: PrimMonad m => Address m -> Closure m -> m ()
 poke (Address r) c = writeMutVar r c
@@ -114,23 +111,48 @@ poke (Address r) c = writeMutVar r c
 peek :: PrimMonad m => Address m -> m (Closure m)
 peek (Address r) = readMutVar r
 
-extend :: Integral k => Map k a -> [a] -> Map k a
-extend lo vs = fromList ([w ..] `zip` vs) `union` lo
- where w = fresh lo
+resolveEnv
+  :: (Applicative m, PrimMonad m)
+  => GlobalEnv m -> Env m -> MachineState m -> Sorted [Ref] -> m (Env m)
+resolveEnv ge le ms (Sorted bs us ns) =
+  env <$> traverse resolveClosure bs
+      <*> traverse resolveUnboxed us
+      <*> traverse resolveNative ns
+  where
+    env a b c = Env (G.fromList a) (G.fromList b) (G.fromList c)
+    resolveClosure (Local l)  = return $ le^?!envB.ix l
+    resolveClosure (Stack s)  = GM.read (ms^?!stackB) (s + ms^.fp.sort B)
+    resolveClosure (Global g) = return $ ms^?!genv.ix g
+    resolveUnboxed (Local l)  = return $ le^?!envU.ix l
+    resolveUnboxed (Stack s)  = GM.read (ms^?!stackU) (s + ms^.fp.sort U)
+    resolveUnboxed (Global g) = error "resolveEnv: Global unboxed value"
+    resolveNative  (Local l)  = return $ le^?!envN.ix l
+    resolveNative  (Stack s)  = GM.read (ms^?!stackN) (s + ms^.fp.sort N)
+    resolveNative  (Global g) = error "resolveEnv: Global native value"
 
-resolve :: GlobalEnv m -> LEnv m -> Ref -> Value m
-resolve gl _  (Global gw) = case lookup gw gl of
-  Nothing -> error $ "PANIC: bad global name reference: " ++ show gw
-  Just ad -> Addr ad
-resolve _  lo (Local  lw) = case lookup lw lo of
-  Nothing -> error $ "PANIC: bad local name reference: " ++ show lw
-  Just va -> va
+-- extend :: Integral k => Map k a -> [a] -> Map k a
+-- extend lo vs = fromList ([w ..] `zip` vs) `union` lo
+-- where w = fresh lo
+
+buildClosure :: GlobalEnv m -> Env m -> PreClosure -> MachineState m -> m (Closure m)
+buildClosure ge lo (PreClosure captures code) ms = Closure code <$> resolveEnv ge le ms captures
+
+allocClosure
+  :: (Functor m, PrimMonad m)
+  => GlobalEnv m -> Env m -> PreClosure -> MachineState m -> m (Address m)
+allocClosure ge le cc ms = Address <$> (newMutVar buildClosure gl lo cc ms >>= newMutVar)
+
+-- needs a lot of updating
+allocRecursive
+  :: (Applicative m, PrimMonad m)
+  => GlobalEnv m -> Env m -> [PreClosure] -> MachineState m -> m (Env m)
+allocRecursive gl lo ccs ms = do
+  addrs <- for ccs $ \_ -> Address <$> newMutVar undefined
+  let lo' = extend lo $ Addr <$> addrs
+  (lo<$) . sequence_ $ zipWith (flip poke . buildClosure gl lo') ccs addrs
 
 instance Default (MachineState m) where
   def = MachineState [] [] empty
-
-fresh :: Integral k => Map k a -> k
-fresh m = case maxViewWithKey m of Nothing -> 0 ; Just ((w,_),_) -> w+1
 
 makeLenses ''Closure
 makeLenses ''MachineState
@@ -177,7 +199,7 @@ enter :: (Applicative m, PrimMonad m)
       => MachineState m -> Address m -> m (Either (Closure m) Word64)
 enter ms addr = peek addr >>= \case
   cl@(Closure co da)
-    | co^.update -> eval (pushUpdate addr ms) (co^.body) (fromList $ zip [0..] da)
+    | co^.update -> eval (pushUpdate addr ms) (co^.body) da -- (fromList $ zip [0..] da)
     | ar <= length argz -> eval (ms & args .~ rest) (co^.body) lenv
     | otherwise -> case pop ms of
       Just (Update ad st, ms') -> do

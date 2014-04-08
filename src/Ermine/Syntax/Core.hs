@@ -126,7 +126,7 @@ instance Hashable Foreign
 -- | 'HardCore' is the subset of 'Core' terms that can be unified with value equality.
 data HardCore
   = Super      !Word8
-  | Slot       !Word8
+  | Slot       !Word8 -- slot# + the number of supers
   | Lit        !Literal
   | PrimOp     !Strict.Text
   | Foreign    !Foreign

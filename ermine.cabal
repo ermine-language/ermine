@@ -163,6 +163,7 @@ library
     Ermine.Syntax.Pattern
     Ermine.Syntax.Literal
     Ermine.Syntax.Scope
+    Ermine.Syntax.Sort
     Ermine.Syntax.Term
     Ermine.Syntax.Type
     Ermine.Unification.Data
