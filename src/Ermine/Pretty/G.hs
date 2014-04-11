@@ -24,7 +24,12 @@ prettyG vs i pr (Case e bs) =
   <+> prettyG vs i pr e
   <+> "of"
   <+> prettyContinuation vs i pr bs
-prettyG _  _ pr (App f xs)    = hsep $ prettyFunc pr f : prettySorted (imap (fmap . pr) xs)
+prettyG vs i pr (CaseLit r bs) =
+      "case#"
+  <+> pr U r
+  <+> "of"
+  <+> prettyContinuation vs i pr bs
+prettyG _  _ pr (App f xs)    = hsep $ prettyFunc pr f : prettySorted (imap (fmap Foldable.toList . fmap . pr) xs)
 prettyG vs i pr (Let bs e)    = prettyLet vs i pr False bs e
 prettyG vs i pr (LetRec bs e) = prettyLet vs i pr True bs e
 prettyG _  _ _  (Lit w)       = text $ show w
@@ -55,7 +60,7 @@ splitSorted = runState . traverse (state . splitAt . fromIntegral)
 prettyLet :: [Doc] -> Sorted Word32 -> (Sort -> Ref -> Doc) -> Bool -> Vector PreClosure -> G -> Doc
 prettyLet vs i pr rec bs e =
       "let"
-  <+> block (zipWith (\w bd -> w <+> "=" <+> bd) ws bds)
+  <+> block (zipWith (\w bd -> w <+> "=" <+> bd) ws (Foldable.toList bds))
   <+> "in"
   <+> prettyG rest (i & sort B +~ fromIntegral bl) pr' e
  where
@@ -70,10 +75,10 @@ prettyPreClosure vs pr (PreClosure cfvs (LambdaForm fa ba up bo)) = hsep $
    dfvs : dl : prettySorted cbvs ++ ["->" <+> prettyG rest (fa + fmap fromIntegral ba) pr' bo]
  where
  dl = "\\" <> if up then "u" else "n"
- dfvs = semiBraces $ join $ Foldable.toList $ imap (fmap . pr) cfvs
+ dfvs = semiBraces $ join $ Foldable.toList $ imap (fmap Foldable.toList . fmap . pr) cfvs
  (cbvs, rest) = splitSorted ba vs
  pr' c (Local n)
-   | n < fac = pr c $ index cfvs c !! fromIntegral n
+   | n < fac = pr c $ index cfvs c V.! fromIntegral n
    | n < fac + bac  = index cbvs c !! fromIntegral (n-fac)
    | otherwise = error "PANIC: prettyPreClosure: Bad variable reference"
    where fac = index fa c

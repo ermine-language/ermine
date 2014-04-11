@@ -36,7 +36,7 @@ import Data.Foldable
 import Data.Functor.Rep
 import Data.Hashable
 import Data.Hashable.Extras
-import Data.Monoid
+import Data.Semigroup
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import GHC.Generics hiding (Rep)
@@ -99,6 +99,13 @@ instance Serialize a => Serialize (Sorted a) where
 instance Default a => Default (Sorted a) where
   def = Sorted def def def
 
+instance Semigroup a => Semigroup (Sorted a) where
+  (<>) = liftA2 (<>)
+
+instance Monoid a => Monoid (Sorted a) where
+  mempty = pure mempty
+  mappend = liftA2 mappend
+
 sort :: Sort -> Lens' (Sorted a) a
 sort B = \ f (Sorted b u n) -> f b <&> \b' -> Sorted b' u n
 sort U = \ f (Sorted b u n) -> f u <&> \u' -> Sorted b u' n
@@ -153,7 +160,7 @@ instance FunctorWithIndex Sort Sorted where
   imap f (Sorted b u n) = Sorted (f B b) (f U u) (f N n)
 
 instance FoldableWithIndex Sort Sorted where
-  ifoldMap f (Sorted b u n) = f B b <> f U u <> f N n
+  ifoldMap f (Sorted b u n) = f B b `mappend` f U u `mappend` f N n
 
 instance TraversableWithIndex Sort Sorted where
   itraverse f (Sorted b u n) = Sorted <$> f B b <*> f U u <*> f N n
