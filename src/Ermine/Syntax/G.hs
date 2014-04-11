@@ -29,9 +29,11 @@ module Ermine.Syntax.G
   ) where
 
 import Control.Lens
-import Data.Functor
+import Data.Foldable as F
 import Data.Word
 import Data.Map hiding (update)
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Ermine.Syntax.Sort
 
 data Ref
@@ -44,28 +46,29 @@ makePrisms ''Ref
 
 data G
   = Case !G !Continuation
-  | App !Func !(Sorted [Ref])
-  | Let    [PreClosure] !G
-  | LetRec [PreClosure] !G
+  | CaseLit Ref !Continuation
+  | App !Func !(Sorted (Vector Ref))
+  | Let    (Vector PreClosure) !G
+  | LetRec (Vector PreClosure) !G
   | Lit !Word64
   deriving Show
 
 _Ref :: Prism' G Ref
-_Ref = prism (\r -> App (Ref r) (Sorted [] [] [])) $ \ xs -> case xs of
-  App (Ref r) (Sorted [] [] []) -> Right r
-  co                            -> Left co
+_Ref = prism (\r -> App (Ref r) $ return V.empty) $ \ xs -> case xs of
+  App (Ref r) s | F.all V.null s -> Right r
+  co                             -> Left co
 
-data PreClosure = PreClosure !(Sorted [Ref]) !LambdaForm
+data PreClosure = PreClosure !(Sorted (Vector Ref)) !LambdaForm
   deriving Show
 
-type Tag = Word8
+type Tag = Word64
 
-data Continuation = Cont (Map Tag (Sorted Word8, G)) (Maybe G)
-  deriving Show
+data Continuation = Continuation (Map Tag (Sorted Word8, G)) (Maybe G) deriving Show
 
 data Func
   = Ref !Ref -- closure ref
   | Con !Tag
+  -- prim
   deriving Show
 
 data LambdaForm = LambdaForm
@@ -84,4 +87,4 @@ doUpdate :: Sorted Word32 -> G -> LambdaForm
 doUpdate f e = LambdaForm f 0 True e
 
 standardConstructor :: Sorted Word32 -> Tag -> LambdaForm
-standardConstructor f t = LambdaForm f 0 False $ App (Con t) $ fmap (\n -> Local <$> [0..n-1]) f
+standardConstructor f t = LambdaForm f 0 False $ App (Con t) $ fmap (\i -> V.generate (fromIntegral i) $ Local . fromIntegral) f
