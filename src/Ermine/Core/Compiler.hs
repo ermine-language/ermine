@@ -9,7 +9,10 @@
 --
 --------------------------------------------------------------------
 
-module Ermine.Core.Compiler
+module Ermine.Core.Compiler where
+
+{-
+
   ( compile
   , compileBinding
   , compileBranches
@@ -84,7 +87,7 @@ compileBranches
   -> Map Word8 (Match Core v)
   -> Maybe (Scope () Core v)
   -> Continuation
-compileBranches n ev cxt bs d = Cont bs' d'
+compileBranches n ev cxt bs d = Continuation bs' d'
  where
  bs' = bs <&> \(Match ccvs _ e) ->
    let cxt' = unvar bc cxt
@@ -112,3 +115,5 @@ compileApp n cxt xs f = (if null bs then id else Let bs) $ App (Ref f') xs'
 
 compileHardCore :: HardCore -> G
 compileHardCore _ = undefined
+
+-}

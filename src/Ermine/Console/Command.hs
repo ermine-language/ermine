@@ -45,13 +45,13 @@ import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
-import Ermine.Core.Compiler
+--import Ermine.Core.Compiler
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
 import Ermine.Pretty
-import Ermine.Pretty.G
+--import Ermine.Pretty.G
 import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
@@ -190,12 +190,14 @@ coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \
   Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 
+{-
 gBody :: Term Ann Text -> Console ()
 gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
     Just (_, c) ->
       sayLn . prettyG names 0 (error "global reference") $ compile 0 absurd c
     Nothing     -> sayLn "Unbound variables detected"
+-}
 
 commands :: [Command]
 commands =
@@ -222,9 +224,9 @@ commands =
       & body .~ parsing term typeBody
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ parsing term coreBody
-  , cmd "g"
-      & desc .~ "dump the sub-core representation of a term after type checking."
-      & body .~ parsing term gBody
+--  , cmd "g"
+--      & desc .~ "dump the sub-core representation of a term after type checking."
+--      & body .~ parsing term gBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
