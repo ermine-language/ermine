@@ -29,7 +29,7 @@ prettyG vs i pr (CaseLit r bs) =
   <+> pr U r
   <+> "of"
   <+> prettyContinuation vs i pr bs
-prettyG _  _ pr (App f xs)    = hsep $ prettyFunc pr f : prettySorted (imap (fmap Foldable.toList . fmap . pr) xs)
+prettyG _  _ pr (App _n f xs) = hsep $ prettyFunc pr f : prettySorted (imap (fmap Foldable.toList . fmap . pr) xs)
 prettyG vs i pr (Let bs e)    = prettyLet vs i pr False bs e
 prettyG vs i pr (LetRec bs e) = prettyLet vs i pr True bs e
 prettyG _  _ _  (Lit w)       = text $ show w

@@ -13,7 +13,7 @@ module Ermine.Syntax.G
   , _Global
   , _Local
   , G(..)
-  , _Ref
+--  , _Ref
   , PreClosure(..)
   , Tag
   , Continuation(..)
@@ -29,7 +29,6 @@ module Ermine.Syntax.G
   ) where
 
 import Control.Lens
-import Data.Foldable as F
 import Data.Word
 import Data.Map hiding (update)
 import Data.Vector (Vector)
@@ -47,16 +46,18 @@ makePrisms ''Ref
 data G
   = Case !G !Continuation
   | CaseLit Ref !Continuation
-  | App !Func !(Sorted (Vector Ref))
-  | Let    (Vector PreClosure) !G
+  | App !(Sorted Word32) !Func !(Sorted (Vector Ref))
+  | Let (Vector PreClosure) !G
   | LetRec (Vector PreClosure) !G
   | Lit !Word64
   deriving Show
 
-_Ref :: Prism' G Ref
-_Ref = prism (\r -> App (Ref r) $ return V.empty) $ \ xs -> case xs of
-  App (Ref r) s | F.all V.null s -> Right r
-  co                             -> Left co
+{-
+_Ref :: Sorted Word32 -> Prism' G Ref
+_Ref w = prism (\r -> App w (Ref r) $ return V.empty) $ \ xs -> case xs of
+  App w' (Ref r) s | w == w' && F.all V.null s -> Right r
+  co                                          -> Left co
+-}
 
 data PreClosure = PreClosure !(Sorted (Vector Ref)) !LambdaForm
   deriving Show
@@ -87,4 +88,4 @@ doUpdate :: Sorted Word32 -> G -> LambdaForm
 doUpdate f e = LambdaForm f 0 True e
 
 standardConstructor :: Sorted Word32 -> Tag -> LambdaForm
-standardConstructor f t = LambdaForm f 0 False $ App (Con t) $ fmap (\i -> V.generate (fromIntegral i) $ Local . fromIntegral) f
+standardConstructor f t = LambdaForm f 0 False $ App 0 (Con t) $ fmap (\i -> V.generate (fromIntegral i) $ Local . fromIntegral) f

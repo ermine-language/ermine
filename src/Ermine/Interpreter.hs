@@ -74,10 +74,11 @@ data Closure m
 
 data Frame m
   = Branch !Continuation !(Env m)
-  | Update !(Address m) !(Sorted Int)
+  | Update !(Address m)
 
 data MachineState m = MachineState
   { _sp      :: !(Sorted Int)
+  , _fp      :: !(Sorted Int)
   , _stackF  :: [(Sorted Int, Frame m)]
   , _globalB :: Vector (Address m)
   , _stackB  :: BM.MVector (PrimState m) (Address m)
@@ -88,12 +89,15 @@ data MachineState m = MachineState
 makeClassy ''Env
 makeLenses ''MachineState
 
+nargs :: MachineState m -> Sorted Int
+nargs ms = ms^.fp -ms^.sp
+
 sentinel :: a
 sentinel = error "PANIC: access past end of stack"
 
 defaultMachineState :: (Applicative m, PrimMonad m) => Int -> Vector (Address m) -> m (MachineState m)
 defaultMachineState stackSize genv
-    = MachineState (pure stackSize-1) [] genv
+    = MachineState (pure stackSize-1) (pure stackSize-1) [] genv
   <$> GM.replicate stackSize sentinel
   <*> GM.replicate stackSize 0
   <*> GM.replicate stackSize sentinel
@@ -165,35 +169,35 @@ pushArgs le refs@(Sorted bs us ns) ms = do
   return $ ms'
 
 push :: Frame m -> MachineState m -> MachineState m
-push fr ms = ms & stackF %~ ((ms^.sp,fr):)
+push fr ms = ms & fp .~ ms^.sp & stackF %~ ((ms^.fp,fr):)
 
 copyArgs :: (PrimMonad m, GM.MVector v a) => v (PrimState m) a -> Int -> Int -> Int -> m ()
-copyArgs stk frm too len = GM.move (GM.unsafeSlice (too-len) len stk) (GM.unsafeSlice frm len stk)
-
-popWith :: PrimMonad m => Sorted Int -> MachineState m -> m (Maybe (Frame m, MachineState m))
-popWith args@(Sorted ab au an) ms = case ms^.stackF of
-  (osp@(Sorted osb osu osn),fr):fs -> do
-    let Sorted sb su sn = ms^.sp
-        stkB = ms^.stackB
-        stkU = ms^.stackU
-        stkN = ms^.stackN
-    copyArgs stkB sb osb ab
-    copyArgs stkU su osu au
-    copyArgs stkN sn osn an
-    GM.set (GM.unsafeSlice sb (osb-sb-ab) stkB) sentinel
-    GM.set (GM.unsafeSlice sn (osn-sn-an) stkN) sentinel
-    return $ Just (fr, ms & sp .~ osp - args & stackF .~ fs)
-  [] -> return Nothing
+copyArgs stk frm off len = GM.move (GM.unsafeSlice (frm+off-len) len stk) (GM.unsafeSlice frm len stk)
 
 pop :: PrimMonad m => MachineState m -> m (Maybe (Frame m, MachineState m))
-pop ms = case ms^.stackF of
-  (osp@(Sorted osb _ osn),fr):fs -> do
-    let Sorted sb _ sn = ms^.sp
-    GM.set (GM.unsafeSlice sb (osb-sb) (ms^.stackB)) sentinel
-    -- GM.set (GM.unsafeSlice su (osu-su) (ms^.stackU)) 0
-    GM.set (GM.unsafeSlice sn (osn-sn) (ms^.stackN)) sentinel
-    return $ Just (fr, ms & sp .~ osp & stackF .~ fs)
+pop = popWith 0
+
+popWith :: PrimMonad m => Sorted Int -> MachineState m -> m (Maybe (Frame m, MachineState m))
+popWith args ms = case ms^.stackF of
+  (ofp,fr):fs -> do
+    let f = ms^.fp
+    ms' <- squash (f - ms^.sp) args ms
+    return $ Just (fr,ms' & sp .~ f & fp .~ ofp & stackF .~ fs)
   [] -> return Nothing
+
+-- for tail calls or return
+squash :: PrimMonad m => Sorted Int -> Sorted Int -> MachineState m -> m (MachineState m)
+squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
+  let Sorted sb su sn = ms^.sp
+      stkB = ms^.stackB
+      stkU = ms^.stackU
+      stkN = ms^.stackN
+  copyArgs stkB sb zb ab
+  copyArgs stkU su zu au
+  copyArgs stkN sn zn an
+  GM.set (GM.unsafeSlice sb (zb-ab) stkB) sentinel
+  GM.set (GM.unsafeSlice sn (zn-an) stkN) sentinel
+  return $ ms & sp +~ sz - args
 
 select :: Continuation -> Tag -> G
 select (Continuation bs df) t =
@@ -201,20 +205,21 @@ select (Continuation bs df) t =
     snd <$> Map.lookup t bs <|> df
 
 eval :: (Applicative m, PrimMonad m) => G -> Env m -> MachineState m -> m ()
-eval (App f xs) le ms = case f of
+eval (App sz f xs) le ms = case f of
   Ref r -> do
     a <- resolveClosure le ms r
-    pushArgs le xs ms >>= enter a (G.length <$> xs)
-  Con t -> do
-    pushArgs le xs ms >>= returnCon t (G.length <$> xs)
+    ms'  <- pushArgs le xs ms
+    ms'' <- squash (fromIntegral <$> sz) (G.length <$> xs) ms'
+    enter a ms''
+  Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
 eval (Let bs e) le ms = do
   let stk = ms^.stackB
       sb = ms^.sp.sort B
       ms' = ms & sp.sort B +~ G.length bs
   ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
   eval e le ms'
-eval (LetRec bs e) le ms = allocRecursive le bs ms >>= eval e le
-eval (Case co k) le ms    = eval co le $ push (Branch k le) ms
+eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
+eval (Case co k) le ms     = eval co le $ push (Branch k le) ms
 eval (CaseLit ref k) le ms = do
   l <- resolveUnboxed le ms ref
   returnLit l $ push (Branch k le) ms
@@ -231,44 +236,44 @@ extendPayload d stk stp n = do
 pushPayload :: (PrimMonad m, G.Vector v a) => Int -> v a -> G.Mutable v (PrimState m) a -> Int -> m ()
 pushPayload f e stk stp = G.copy (GM.slice stp (G.length e - f) stk) (G.unsafeDrop f e)
 
-enter :: (Applicative m, PrimMonad m) => Address m -> Sorted Int -> MachineState m -> m ()
-enter addr args@(Sorted arb aru arn) ms@MachineState { _sp = Sorted sb su sn } = peek addr >>= \case
+pushPayloads :: PrimMonad m => Sorted Int -> Env m -> MachineState m -> m (MachineState m)
+pushPayloads (Sorted fb fu fn) (Env db du dn) ms = do
+  let Sorted sb su sn = ms^.sp
+  pushPayload fb db (ms^.stackB) sb
+  pushPayload fu du (ms^.stackU) su
+  pushPayload fn dn (ms^.stackN) sn
+  return $ ms & sp +~ Sorted (G.length db - fb) (G.length du - fu) (G.length dn - fn)
+
+extendPayloads :: (Applicative m, PrimMonad m) => Env m -> MachineState m -> m (Env m)
+extendPayloads (Env db du dn) ms =
+  Env <$> extendPayload db (ms^.stackB) sb arb
+      <*> extendPayload du (ms^.stackU) su aru
+      <*> extendPayload dn (ms^.stackN) sn arn
+  where
+    Sorted sb su sn = ms^.sp
+    Sorted arb aru arn = nargs ms
+
+enter :: (Applicative m, PrimMonad m) => Address m -> MachineState m -> m ()
+enter addr ms = peek addr >>= \case
   BlackHole -> fail "ermine <<loop>> detected"
-  PartialApplication co da@(Env db du dn) arity
-    | F.sum args < F.sum arity -> do
-      e <- Env <$> extendPayload db (ms^.stackB) sb arb
-               <*> extendPayload du (ms^.stackU) su aru
-               <*> extendPayload dn (ms^.stackN) sn arn
-      pop ms >>= \case
-        Just (Update ad args', ms') -> do
-          poke ad $ PartialApplication co e (arity - args)
-          enter ad args' ms'
-        Just (Branch (Continuation m (Just dflt)) le', ms') | Map.null m -> eval dflt le' ms'
-        Just _  -> error "bad frame after pap"
-        Nothing -> return ()
-    | otherwise -> do
-      let Sorted fb fu fn = fmap fromIntegral (co^.free)
-      pushPayload fb db (ms^.stackB) sb
-      pushPayload fu du (ms^.stackU) su
-      pushPayload fn dn (ms^.stackN) sn
-      eval (co^.body) da $ ms & sp +~ fmap fromIntegral (co^.bound) - arity
-  Closure co da@(Env db du dn)
-    | co^.update      -> eval (co^.body) da $ push (Update addr args) ms
-    | F.sum args < bd -> do
-      e <- Env <$> extendPayload db (ms^.stackB) sb arb
-               <*> extendPayload du (ms^.stackU) su aru
-               <*> extendPayload dn (ms^.stackN) sn arn
-      pop ms >>= \case
-        Just (Update ad args', ms') -> do
-          poke ad $ PartialApplication co e (fmap fromIntegral (co^.bound) - args)
-          enter ad args' ms'
-        Just (Branch (Continuation m (Just dflt)) le', ms') | Map.null m -> eval dflt le' ms'
-        Just _  -> error "bad frame after closure"
-        Nothing -> return ()
+  PartialApplication co da arity
+    | F.sum args < F.sum arity -> pap co da arity
+    | otherwise -> pushPayloads (fmap fromIntegral (co^.free)) da ms >>= eval (co^.body) da
+  Closure co da
+    | co^.update -> eval (co^.body) da $ push (Update addr) ms
+    | arity <- fmap fromIntegral (co^.bound), F.sum args < F.sum arity -> pap co da arity
     | otherwise -> eval (co^.body) da ms
-   where
-     Sorted bb bu bn = fmap fromIntegral (co^.bound)
-     bd = bb + bu + bn
+ where
+  args = nargs ms
+  pap co da arity = do
+    e <- extendPayloads da ms
+    pop ms >>= \case
+      Just (Update ad, ms') -> do
+        poke ad $ PartialApplication co e (arity - args)
+        enter ad ms'
+      Just (Branch (Continuation m (Just dflt)) le', ms') | Map.null m -> eval dflt le' ms'
+      Just _  -> error "bad frame after partial application"
+      Nothing -> return ()
 
 payload :: (PrimMonad m, G.Vector v a) => G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
 payload mv s n = do
@@ -279,7 +284,7 @@ payload mv s n = do
 returnCon :: (Applicative m, PrimMonad m) => Tag -> Sorted Int -> MachineState m -> m ()
 returnCon t args@(Sorted ab au an) ms = popWith args ms >>= \case
   Just (Branch k le, ms') -> eval (select k t) le ms'
-  Just (Update ad _st, ms') -> do -- ?
+  Just (Update ad, ms') -> do
     let Sorted sb su sn = ms'^.sp
     e <- Env <$> payload (ms^.stackB) sb ab <*> payload (ms^.stackU) su au <*> payload (ms^.stackN) sn an
     poke ad $ Closure (standardConstructor (fromIntegral <$> args) t) e
