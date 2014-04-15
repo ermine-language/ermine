@@ -69,7 +69,6 @@ data Continuation = Continuation (Map Tag (Sorted Word8, G)) (Maybe G) deriving 
 data Func
   = Ref !Ref -- closure ref
   | Con !Tag
-  -- prim
   deriving Show
 
 data LambdaForm = LambdaForm

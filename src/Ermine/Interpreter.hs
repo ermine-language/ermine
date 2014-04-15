@@ -51,14 +51,11 @@ import Prelude
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
 
--- data Value m = Addr (Address m) | Prim Word64
-
 data Env m = Env
   { _envB :: Vector (Address m)
   , _envU :: P.Vector Word64
   , _envN :: Vector Any
   }
-
 
 data Closure m
   = Closure
