@@ -52,12 +52,10 @@ data G
   | Lit !Word64
   deriving Show
 
-{-
 _Ref :: Sorted Word32 -> Prism' G Ref
 _Ref w = prism (\r -> App w (Ref r) $ return V.empty) $ \ xs -> case xs of
   App w' (Ref r) s | w == w' && F.all V.null s -> Right r
-  co                                          -> Left co
--}
+  co                                           -> Left co
 
 data PreClosure = PreClosure !(Sorted (Vector Ref)) !LambdaForm
   deriving Show
