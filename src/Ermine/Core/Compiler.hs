@@ -102,16 +102,16 @@ compile n cxt (Core.Var v) = case cxt v of
 compile _ _   (Core.HardCore hc) = compileHardCore hc
 compile n cxt (Core.App cc f x)  = compileApp n cxt [(cc,x)] f
 compile n cxt l@Core.Lam{} =
-  let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Local 0) mempty)
+  let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Stack 0) mempty)
 compile n cxt (Core.Case e bs d) = case e of
   Core.Var v ->                               Case (_Ref n # view sortRef (cxt v)) $ compileBranches n  (cxt v)                 cxt  bs d
-  _          -> let_ [compileBinding cxt e] $ Case (_Ref n' # Local 0)             $ compileBranches n' (SortRef S.B (Local 0)) cxt' bs d
+  _          -> let_ [compileBinding cxt e] $ Case (_Ref n' # Stack 0)             $ compileBranches n' (SortRef S.B (Stack 0)) cxt' bs d
     where n'   = n & sort S.B +~ 1
           cxt' = cxt & mapped._SortRef S.B ._Stack +~ 1
 compile n cxt (Core.Let bs e) = letRec bs' . compile (n & sort S.B +~ l) cxt' $ fromScope e where
   l = genericLength bs
-  cxt' (Var.F v) = cxt v & _SortRef S.B ._Local +~ l
-  cxt' (Var.B b) = _SortRef S.B . _Local # b
+  cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ l
+  cxt' (Var.B b) = _SortRef S.B . _Stack # b
   bs' = compileBinding cxt' . fromScope <$> bs
 compile _ _   (Core.Data _    _ _ _ ) = error "compile: Data"
 compile _ _   (Core.Dict _ _)         = error "compile: Dict"
