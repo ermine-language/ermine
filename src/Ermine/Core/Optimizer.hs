@@ -88,7 +88,7 @@ rewriteCore opt = go
 lamlam :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
 lamlam (Lam cc0 e0) = slurp False cc0 (fromScope e0)
  where
- slurp :: forall e. Bool -> [Convention] -> Core (Var Word8 e) -> m (Core e)
+ slurp :: forall e. Bool -> [Convention] -> Core (Var Word64 e) -> m (Core e)
  slurp _ m (Lam n b) | j <- fromIntegral $ length m = slurp True (m ++ n) (instantiate (\i -> pure $ B $ j + i) b)
  slurp b m c = Lam m (toScope c) <$ tell (Any b)
 lamlam c = return c

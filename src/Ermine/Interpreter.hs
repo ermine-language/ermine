@@ -117,16 +117,19 @@ resolveClosure :: PrimMonad m => Env m -> MachineState m -> Ref -> m (Address m)
 resolveClosure le _ (Local l)  = return $ le^?!envB.ix (fromIntegral l)
 resolveClosure _ ms (Stack s)  = GM.read (ms^.stackB) (fromIntegral s + ms^.sp.sort B)
 resolveClosure _ ms (Global g) = return $ ms^?!globalB.ix (fromIntegral g)
+resolveClosure _ _  Lit{}      = error "resolveClosure: Lit"
 
 resolveUnboxed :: PrimMonad m => Env m -> MachineState m -> Ref -> m Word64
 resolveUnboxed le _ (Local l)  = return $ le^?!envU.ix (fromIntegral l)
 resolveUnboxed _ ms (Stack s)  = GM.read (ms^.stackU) (fromIntegral s + ms^.sp.sort U)
-resolveUnboxed _ _  _          = error "resolveEnv: Global unboxed value"
+resolveUnboxed _ _  (Lit l)    = return l
+resolveUnboxed _ _  Global{}   = error "resolveUnboxed: Global"
 
 resolveNative :: PrimMonad m => Env m -> MachineState m -> Ref -> m Any
 resolveNative le _ (Local l) = return $ le^?!envN.ix (fromIntegral l)
 resolveNative _ ms (Stack s) = GM.read (ms^.stackN) (fromIntegral s + ms^.sp.sort N)
-resolveNative _ _ _          = error "resolveEnv: Global native value"
+resolveNative _ _ Lit{}      = error "resolveNative: Lit"
+resolveNative _ _ Global{}   = error "resolveNative: Global"
 
 buildClosure :: (PrimMonad m, Applicative m) => Env m -> PreClosure -> MachineState m -> m (Closure m)
 buildClosure le (PreClosure captures code) ms = Closure code <$> resolveEnv le captures ms
@@ -220,7 +223,6 @@ eval (Case co k) le ms     = eval co le $ push (Branch k le) ms
 eval (CaseLit ref k) le ms = do
   l <- resolveUnboxed le ms ref
   returnLit l $ push (Branch k le) ms
-eval (Lit l) _ ms = returnLit l ms
 
 extendPayload :: (PrimMonad m, G.Vector v a) => v a -> G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
 extendPayload d stk stp n = do

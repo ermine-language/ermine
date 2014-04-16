@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2014
@@ -12,8 +13,10 @@ module Ermine.Syntax.G
   ( Ref(..)
   , _Global
   , _Local
+  , _Stack
+  , _Lit
   , G(..)
---  , _Ref
+  , _Ref
   , PreClosure(..)
   , Tag
   , Continuation(..)
@@ -29,6 +32,7 @@ module Ermine.Syntax.G
   ) where
 
 import Control.Lens
+import Data.Foldable as F
 import Data.Word
 import Data.Map hiding (update)
 import Data.Vector (Vector)
@@ -36,9 +40,10 @@ import qualified Data.Vector as V
 import Ermine.Syntax.Sort
 
 data Ref
-  = Global !Word32
-  | Local  !Word32
-  | Stack  !Word32
+  = Global !Word64
+  | Local  !Word64
+  | Stack  !Word64
+  | Lit    !Word64
   deriving Show
 
 makePrisms ''Ref
@@ -46,13 +51,12 @@ makePrisms ''Ref
 data G
   = Case !G !Continuation
   | CaseLit Ref !Continuation
-  | App !(Sorted Word32) !Func !(Sorted (Vector Ref))
+  | App !(Sorted Word64) !Func !(Sorted (Vector Ref))
   | Let (Vector PreClosure) !G
   | LetRec (Vector PreClosure) !G
-  | Lit !Word64
   deriving Show
 
-_Ref :: Sorted Word32 -> Prism' G Ref
+_Ref :: Sorted Word64 -> Prism' G Ref
 _Ref w = prism (\r -> App w (Ref r) $ return V.empty) $ \ xs -> case xs of
   App w' (Ref r) s | w == w' && F.all V.null s -> Right r
   co                                           -> Left co
@@ -62,7 +66,7 @@ data PreClosure = PreClosure !(Sorted (Vector Ref)) !LambdaForm
 
 type Tag = Word64
 
-data Continuation = Continuation (Map Tag (Sorted Word8, G)) (Maybe G) deriving Show
+data Continuation = Continuation (Map Tag (Sorted Word64, G)) (Maybe G) deriving Show
 
 data Func
   = Ref !Ref -- closure ref
@@ -70,19 +74,19 @@ data Func
   deriving Show
 
 data LambdaForm = LambdaForm
-  { _free   :: !(Sorted Word32)
-  , _bound  :: !(Sorted Word32)
+  { _free   :: !(Sorted Word64)
+  , _bound  :: !(Sorted Word64)
   , _update :: !Bool
   , _body   :: !G
   } deriving Show
 
 makeLenses ''LambdaForm
 
-noUpdate :: Sorted Word32 -> Sorted Word32 -> G -> LambdaForm
+noUpdate :: Sorted Word64 -> Sorted Word64 -> G -> LambdaForm
 noUpdate f b e = LambdaForm f b False e
 
-doUpdate :: Sorted Word32 -> G -> LambdaForm
+doUpdate :: Sorted Word64 -> G -> LambdaForm
 doUpdate f e = LambdaForm f 0 True e
 
-standardConstructor :: Sorted Word32 -> Tag -> LambdaForm
+standardConstructor :: Sorted Word64 -> Tag -> LambdaForm
 standardConstructor f t = LambdaForm f 0 False $ App 0 (Con t) $ fmap (\i -> V.generate (fromIntegral i) $ Local . fromIntegral) f

@@ -47,7 +47,7 @@ nothingg = builtin (Infix R 5) "Nothing"
 justg    = builtin_ "Just"
 eg       = builtin_ "E"
 
-tupleg :: Word8 -> Global
+tupleg :: Word64 -> Global
 tupleg w8 = builtin_ $ pack $ "(" ++ Prelude.replicate (if n == 0 then 0 else n-1) ',' ++ ")"
   where n = fromIntegral w8
 

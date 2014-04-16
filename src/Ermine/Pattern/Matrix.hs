@@ -51,8 +51,8 @@ import Ermine.Syntax.Pattern
 
 -- * Claused
 
-data Claused c a = Localized [Scope PatternPath (Scope Word32 c) a]
-                             (Guarded (Scope PatternPath (Scope Word32 c) a))
+data Claused c a = Localized [Scope PatternPath (Scope Word64 c) a]
+                             (Guarded (Scope PatternPath (Scope Word64 c) a))
                  | Raw (Guarded (Scope PatternPath c a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -91,7 +91,7 @@ defaultOn i (PatternMatrix ps cs)
 -- | Computes the matrix that should be used recursively when defaulting on
 -- the specified column, with the given pattern head.
 splitOn :: Applicative c
-        => Int -> PatternHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word8 (c a))
+        => Int -> PatternHead -> PatternMatrix t c a -> PatternMatrix t c (Var Word64 (c a))
 splitOn i hd (PatternMatrix ps cs)
   | (ls, c0:rs) <- splitAt i ps = let
       con pat = traverseHead hd pat

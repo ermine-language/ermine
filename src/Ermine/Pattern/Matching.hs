@@ -104,7 +104,7 @@ remove i (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
 -- is for use when compiling a constructor case of a pattern, and thus the
 -- 'Matching' returned is prepared to be used in such a case.
 expand :: Applicative c
-       => Int -> Word8 -> Matching c a -> Matching c (Var Word8 (c a))
+       => Int -> Word64 -> Matching c a -> Matching c (Var Word64 (c a))
 expand i n (Matching m ccs cps) = case (splitAt i ccs, splitAt i cps) of
   ((cl, _:cr), (pl, p:pr)) ->
     Matching (HM.insert (leafPP p) (pure $ B 0) $ fmap (pure . F) m)
@@ -232,35 +232,35 @@ compile m pm@(PatternMatrix ps (b:bs))
 --unbox :: Bool -> c a -> c a
 -- unbox _ = id
 
-bodyVar :: BodyBound -> Var (Var PatternPath Word32) Word32
+bodyVar :: BodyBound -> Var (Var PatternPath Word64) Word64
 bodyVar (BodyDecl w) = F w
 bodyVar (BodyPat p) = B (B p)
 bodyVar (BodyWhere w) = B (F w)
 
-bodyVar_ :: BodyBound -> Var PatternPath Word32
+bodyVar_ :: BodyBound -> Var PatternPath Word64
 bodyVar_ (BodyDecl w) = F w
 bodyVar_ (BodyPat p) = B p
 bodyVar_ (BodyWhere _) = error "panic: reference to non-existent where clause detected"
 
-whereVar :: WhereBound -> Var PatternPath Word32
+whereVar :: WhereBound -> Var PatternPath Word64
 whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
 
 compileBinding
   :: (MonadPattern m, Cored c)
-  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word32) c a]] -> m (Scope Word32 c a)
+  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word64) c a]] -> m (Scope Word64 c a)
 compileBinding ps gds ws = lambda (C <$ head ps) <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
   clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                          (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
   pm = PatternMatrix (transpose ps) (zipWith clause gds ws)
   pps = zipWith (const . argPP) [0..] (head ps)
-  cs = zipWith (const . Scope . pure . B) [(0 :: Word8)..] (head ps)
+  cs = zipWith (const . Scope . pure . B) [(0 :: Word64)..] (head ps)
   m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileLambda
   :: (MonadPattern m, Cored c)
-  => [Pattern t] -> Scope PatternPath c a -> m (Scope Word8 c a)
+  => [Pattern t] -> Scope PatternPath c a -> m (Scope Word64 c a)
 compileLambda ps body = compile m pm where
  pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
  pps = zipWith (const . argPP) [0..] ps
@@ -277,7 +277,7 @@ compileCase ps disc bs = compile m pm where
 plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
 plam ps body = Core.Lam (C <$ ps) . Scope <$> compile ci pm
  where
- n = fromIntegral $ length ps :: Word8
+ n = fromIntegral $ length ps :: Word64
  assocs = concatMap (\(i,Binder vs p) -> zip vs . fmap (ArgPP i) $ paths p) (zip [0..] ps)
  pm = PatternMatrix (pure . extract <$> ps)
               [Raw . Unguarded $ F . pure <$> abstract (`lookup` assocs) body]

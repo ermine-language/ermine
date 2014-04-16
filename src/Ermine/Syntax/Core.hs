@@ -125,8 +125,8 @@ instance Hashable Foreign
 
 -- | 'HardCore' is the subset of 'Core' terms that can be unified with value equality.
 data HardCore
-  = Super      !Word8
-  | Slot       !Word8 -- slot# + the number of supers
+  = Super      !Word64
+  | Slot       !Word64 -- slot# + the number of supers
   | Lit        !Literal
   | PrimOp     !Strict.Text
   | Foreign    !Foreign
@@ -148,10 +148,10 @@ class AsHardCore c where
   _Error :: Prism' c Strict.Text
   _Error = _HardCore._Error
 
-  _Super :: Prism' c Word8
+  _Super :: Prism' c Word64
   _Super = _HardCore._Super
 
-  _Slot  :: Prism' c Word8
+  _Slot  :: Prism' c Word64
   _Slot = _HardCore._Slot
 
   _Foreign :: Prism' c Foreign
@@ -222,10 +222,10 @@ instance Serialize HardCore where
 -- e.g. 'Core' and @'Scope' b 'Core'@
 class (Variable c, AppHash c, AppDict c, App c, Applicative c, Monad c) => Cored c where
   core :: Core a -> c a
-  case_ :: c a -> Map Word8 (Match c a) -> Maybe (Scope () c a) -> c a
+  case_ :: c a -> Map Word64 (Match c a) -> Maybe (Scope () c a) -> c a
   caseLit :: Bool -> c a -> Map Literal (c a) -> Maybe (c a) -> c a
-  lambda :: [Convention] -> Scope Word8 c a -> c a
-  letrec :: [Scope Word32 c a] -> Scope Word32 c a -> c a
+  lambda :: [Convention] -> Scope Word64 c a -> c a
+  letrec :: [Scope Word64 c a] -> Scope Word64 c a -> c a
   hardCore :: HardCore -> c a
   hardCore = core . HardCore
   {-# INLINE hardCore #-}
@@ -271,7 +271,7 @@ expandScope (Scope e) = Scope e'''
 data Match c a = Match
   { _matchArgs   :: [Convention]
   , _matchGlobal :: !Global
-  , _matchBody   :: Scope Word8 c a
+  , _matchBody   :: Scope Word64 c a
   } deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance (Monad c, Hashable1 c, Hashable a) => Hashable (Match c a) where
@@ -304,7 +304,7 @@ matchArgs f (Match a g b) = f a <&> \a' -> Match a' g b
 matchGlobal :: Lens' (Match c a) Global
 matchGlobal f (Match a g b) = f g <&> \g' -> Match a g' b
 
-matchBody :: Lens (Match c a) (Match d b) (Scope Word8 c a) (Scope Word8 d b)
+matchBody :: Lens (Match c a) (Match d b) (Scope Word64 c a) (Scope Word64 d b)
 matchBody f (Match a g b) = Match a g <$> f b
 
 ----------------------------------------------------------------------------
@@ -318,12 +318,12 @@ matchBody f (Match a g b) = Match a g <$> f b
 data Core a
   = Var a
   | HardCore !HardCore
-  | Data [Convention] !Word8 !Global [Core a] -- convention, tag #, associated global for display purposes, cores
+  | Data [Convention] !Word64 !Global [Core a] -- convention, tag #, associated global for display purposes, cores
   | App !Convention !(Core a) !(Core a)
-  | Lam [Convention] !(Scope Word8 Core a)
-  | Let [Scope Word32 Core a] !(Scope Word32 Core a)
-  | Case !(Core a) (Map Word8 (Match Core a)) (Maybe (Scope () Core a))
-  | Dict { supers :: [Core a], slots :: [Scope Word8 Core a] }
+  | Lam [Convention] !(Scope Word64 Core a)
+  | Let [Scope Word64 Core a] !(Scope Word64 Core a)
+  | Case !(Core a) (Map Word64 (Match Core a)) (Maybe (Scope () Core a))
+  | Dict { supers :: [Core a], slots :: [Scope Word64 Core a] }
   | CaseLit !Bool !(Core a) (Map Literal (Core a)) (Maybe (Core a)) -- set True for native for strings
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
@@ -437,13 +437,12 @@ instance Show1 Core
 ----------------------------------------------------------------------------
 
 -- | ask for the @n@th the superclass of a given dictionary as a core expression
-super :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
+super :: (AsHardCore (c a), AppDict c) => Word64 -> c a -> c a
 super i c = _AppDict # (_Super # i, c)
 
 -- | ask for the @n@th slot of a given dictionary as a core expression
-slot :: (AsHardCore (c a), AppDict c) => Word8 -> c a -> c a
+slot :: (AsHardCore (c a), AppDict c) => Word64 -> c a -> c a
 slot i c = _AppDict # (_Slot # i, c)
-
 
 -- | Smart 'Lam' constructor
 lam :: (Cored m, Eq a) => Convention -> [a] -> Core a -> m a
@@ -456,7 +455,7 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
         abstr = abstract (fmap fromIntegral . flip List.elemIndex vs)
 
 -- | Builds an n-ary data constructor
-dataCon :: Cored m => [Convention] -> Word8 -> Global -> m a
+dataCon :: Cored m => [Convention] -> Word64 -> Global -> m a
 dataCon [] tg g = core $ Data [] tg g []
 dataCon cc tg g = core $ Lam cc $ Scope $ Data cc tg g $ pure.B <$> [0..fromIntegral (length cc-1)]
 

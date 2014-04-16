@@ -121,16 +121,16 @@ _LitP' l = prism (\[] -> LitP l) $ \xs -> case xs of
 -- pattern contains redundancies.
 data PatternPath
   = LeafPP -- ^ refer to a variable
-  | FieldPP {-# UNPACK #-} !Word8 PatternPath -- ^ refer to the n-th subpattern of a constructor
-  | ArgPP {-# UNPACK #-} !Word8 PatternPath -- ^ refer to the n-th pattern of many top-level patterns
+  | FieldPP {-# UNPACK #-} !Word64 PatternPath -- ^ refer to the n-th subpattern of a constructor
+  | ArgPP {-# UNPACK #-} !Word64 PatternPath -- ^ refer to the n-th pattern of many top-level patterns
   deriving (Eq, Ord, Show, Read, Generic)
 
 type PatternPaths = Endo PatternPath
 
-fieldPP :: Word8 -> PatternPaths
+fieldPP :: Word64 -> PatternPaths
 fieldPP = Endo . FieldPP
 
-argPP :: Word8 -> PatternPaths
+argPP :: Word64 -> PatternPaths
 argPP = Endo . ArgPP
 
 leafPP :: PatternPaths -> PatternPath
@@ -158,7 +158,7 @@ manyPaths = join . zipWith (\i -> map (ArgPP i) . paths) [0..]
 instance Hashable PatternPath
 
 data PatternHead
-  = TupH !Word8
+  = TupH !Word64
   | ConH [Convention] !Global
   | LitH !Literal
   deriving (Eq, Ord, Show)

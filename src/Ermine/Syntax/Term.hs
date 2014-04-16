@@ -83,8 +83,8 @@ import Prelude.Extras
 data HardTerm
   = Lit Literal
   | DataCon !Global (Type Void Void)
-  | Tuple !Word8    -- (,,)
-  | Hole            -- ^ A placeholder that can take any type. Easy to 'Remember'.
+  | Tuple !Word64 -- (,,)
+  | Hole          -- ^ A placeholder that can take any type. Easy to 'Remember'.
   deriving (Eq, Show, Generic)
 
 -- | This class provides a prism to match against or inject a 'HardTerm'.
@@ -112,17 +112,17 @@ data BindingType t
 --   2. Variables bound in a pattern
 --   3. Definitions in a where clause
 -- the 'DeclBound' type captures these three cases in the respective constructors.
-data BodyBound = BodyDecl Word32
+data BodyBound = BodyDecl Word64
                | BodyPat PatternPath
-               | BodyWhere Word32
+               | BodyWhere Word64
   deriving (Eq,Ord,Show,Read,Generic)
 
-data WhereBound = WhereDecl Word32
+data WhereBound = WhereDecl Word64
                 | WherePat PatternPath
   deriving (Eq,Ord,Show,Read,Generic)
 
 class AsDecl t where
-  _Decl :: Prism' t Word32
+  _Decl :: Prism' t Word64
 
 instance AsDecl BodyBound where
   _Decl = prism BodyDecl $ \ xs -> case xs of
@@ -144,7 +144,7 @@ data Body t a = Body
   , _bodyWhere    :: [Binding t (Var WhereBound a)]
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
-bodyDecls :: Traversal' (Body t a) Word32
+bodyDecls :: Traversal' (Body t a) Word64
 bodyDecls f (Body ps g bs) = Body ps <$> (traverse.traverseBound._Decl) f g <*> (traverse.traverse._B._Decl) f bs
 
 instance Bifunctor Body where
@@ -184,7 +184,7 @@ data Term t a
   | Sig !(Term t a) t
   | Lam [Pattern t] !(Scope PatternPath (Term t) a)
   | Case !(Term t a) [Alt t (Term t) a]
-  | Let [Binding t a] !(Scope Word32 (Term t) a)
+  | Let [Binding t a] !(Scope Word64 (Term t) a)
   | Loc !Rendering !(Term t a) -- ^ informational link to the location the term came from
   | Remember !Int !(Term t a) -- ^ Used to provide hole support.
   deriving (Show, Functor, Foldable, Traversable)

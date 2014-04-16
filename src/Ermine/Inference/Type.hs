@@ -90,14 +90,14 @@ matchFunType t = do
   y <- pure <$> newMeta star
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
-type WMap = Map.Map Word32
+type WMap = Map.Map Word64
 
 beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> LensLike f s3 t3 a b -> LensLike f (s1,s2,s3) (t1,t2,t3) a b
 beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
 inferBindingType
   :: MonadConstraint s m
-  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word32 v))
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word64 v))
 inferBindingType d cxt lcxt bdg = do
   let ps = bdg^..bindingBodies.traverse.bodyPatterns
   case compare (length (List.group $ map length ps)) 1 of
@@ -135,7 +135,7 @@ inferBindingType d cxt lcxt bdg = do
 
 inferBindingGroupTypes
   :: MonadConstraint s m
-  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word32 v)))
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d $ fromMaybe anyType $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
@@ -145,7 +145,7 @@ inferBindingGroupTypes d cxt lcxt bg = do
 
 inferBindings
   :: MonadConstraint s m
-  => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word32 v)]
+  => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word64 v)]
 inferBindings d cxt bgs = do
   (ws,_ts) <- foldlM step (Map.empty, Map.empty) sccs
   return $ toList ws
@@ -270,7 +270,7 @@ subsumesType d (Witness rs t1 c) t2 = do
   -- TODO: skolem kinds
   abstractedWitness d sts rs cs t2 c
 
-cabs :: Eq a => [a] -> Var b a -> Maybe Word8
+cabs :: Eq a => [a] -> Var b a -> Maybe Word64
 cabs cls (F ty) = fromIntegral <$> elemIndex ty cls
 cabs _   _      = Nothing
 

@@ -128,7 +128,7 @@ coreLam cc prec ws e = parensIf (prec>=0) $
 
 -- Nothing<0,[]>
 -- Just<1,[C]> a
-coreData :: [Convention] -> Word8 -> Global -> [Doc] -> Doc
+coreData :: [Convention] -> Word64 -> Global -> [Doc] -> Doc
 coreData cc tg g fds = text (g^.name.unpacked) <> text "<" <> int (fromIntegral tg) <> text "," <> text (show cc) <> text ">" <+> hsep fds
 
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc

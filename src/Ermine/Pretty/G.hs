@@ -18,7 +18,7 @@ import Ermine.Pretty
 import Ermine.Syntax.Sort
 import Ermine.Syntax.G
 
-prettyG :: [Doc] -> Sorted Word32 -> (Sort -> Ref -> Doc) -> G -> Doc
+prettyG :: [Doc] -> Sorted Word64 -> (Sort -> Ref -> Doc) -> G -> Doc
 prettyG vs i pr (Case e bs) =
       "case"
   <+> prettyG vs i pr e
@@ -32,13 +32,12 @@ prettyG vs i pr (CaseLit r bs) =
 prettyG _  _ pr (App _n f xs) = hsep $ prettyFunc pr f : prettySorted (imap (fmap Foldable.toList . fmap . pr) xs)
 prettyG vs i pr (Let bs e)    = prettyLet vs i pr False bs e
 prettyG vs i pr (LetRec bs e) = prettyLet vs i pr True bs e
-prettyG _  _ _  (Lit w)       = text $ show w
 
 prettyFunc :: (Sort -> Ref -> Doc) -> Func -> Doc
 prettyFunc pr (Ref r) = pr B r
 prettyFunc _  (Con t) = "<" <> text (show t) <> ">"
 
-prettyContinuation :: [Doc] -> Sorted Word32 -> (Sort -> Ref -> Doc) -> Continuation -> Doc
+prettyContinuation :: [Doc] -> Sorted Word64 -> (Sort -> Ref -> Doc) -> Continuation -> Doc
 prettyContinuation vs i pr (Continuation bs d) = block $ (f <$> Map.toList bs) ++ ldd
  where
  ldd = maybeToList $ (\c -> "_ ->" <+> prettyG vs i pr c) <$> d
@@ -57,7 +56,7 @@ prettySorted cvs = ifoldMap go cvs where
 splitSorted :: Integral i => Sorted i -> [a] -> (Sorted [a], [a])
 splitSorted = runState . traverse (state . splitAt . fromIntegral)
 
-prettyLet :: [Doc] -> Sorted Word32 -> (Sort -> Ref -> Doc) -> Bool -> Vector PreClosure -> G -> Doc
+prettyLet :: [Doc] -> Sorted Word64 -> (Sort -> Ref -> Doc) -> Bool -> Vector PreClosure -> G -> Doc
 prettyLet vs i pr rec bs e =
       "let"
   <+> block (zipWith (\w bd -> w <+> "=" <+> bd) ws (Foldable.toList bds))

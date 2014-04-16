@@ -52,7 +52,7 @@ import Ermine.Syntax.Pattern
 -- This is accomplished via a map of maps. The outer map should take each
 -- global to its associated signature, and signatures are represented as
 -- maps from globals to integer tags.
-newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global ([Convention], Word8)) }
+newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global ([Convention], Word64)) }
   deriving (Eq, Show)
 
 dummyPatternEnv :: PatternEnv
@@ -85,7 +85,7 @@ isSignature ps = case preview folded ps of
 
 -- | Looks up the constructor tag for a pattern head. For tuples this is
 -- always 0, but constructors must consult the compilation environment.
-constructorTag :: MonadPattern m => PatternHead -> m ([Convention], Word8)
+constructorTag :: MonadPattern m => PatternHead -> m ([Convention], Word64)
 constructorTag (LitH _)   = error "PANIC: constructorTag: literal head"
 constructorTag (TupH n)   = pure (replicate (fromIntegral n) C, 0)
 constructorTag (ConH _ g) = askPattern <&> \env ->
