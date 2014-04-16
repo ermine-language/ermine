@@ -71,6 +71,7 @@ import Ermine.Unification.Meta
 import Ermine.Version
 import System.Console.Haskeline
 import System.Exit
+import Text.Groom
 import Text.Parser.Combinators (eof)
 import Text.Parser.Token (semiSep1)
 import Text.Trifecta.Parser
@@ -193,8 +194,13 @@ coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \
 gBody :: Term Ann Text -> Console ()
 gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
-    Just (_, c) ->
-      sayLn . prettyG (text <$> names) 0 (error "global reference") $ compile 0 absurd c
+    Just (_, c) -> sayLn . prettyG (text <$> names) 0 (error "global reference") $ compile 0 absurd c
+    Nothing     -> sayLn "Unbound variables detected"
+
+ugBody :: Term Ann Text -> Console ()
+ugBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
+  case xs of
+    Just (_, c) -> sayLn $ text $ groom $ compile 0 absurd c
     Nothing     -> sayLn "Unbound variables detected"
 
 commands :: [Command]
@@ -225,6 +231,9 @@ commands =
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ parsing term gBody
+  , cmd "ug"
+      & desc .~ "show the internal STG representation of a term after type checking."
+      & body .~ parsing term ugBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
