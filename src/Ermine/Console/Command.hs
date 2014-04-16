@@ -209,10 +209,16 @@ commands =
   , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
   , cmd "ukind"
       & desc .~ "show the internal representation of a kind schema"
-      & body .~ parsing kind (liftIO . print . (Kind.general ?? stringHint))
+      & body .~ parsing kind (liftIO . putStrLn . groom . (Kind.general ?? stringHint))
   , cmd "utype"
       & desc .~ "show the internal representation of a type"
-      & body .~ parsing typ (liftIO . print . fst . Type.abstractAll stringHint stringHint)
+      & body .~ parsing typ (liftIO . putStrLn . groom . fst . Type.abstractAll stringHint stringHint)
+  , cmd "uterm"
+      & desc .~ "show the internal representation of a term"
+      & body .~ parsing term (liftIO . putStrLn . groom)
+  , cmd "ug"
+      & desc .~ "show the internal STG representation of a term after type checking."
+      & body .~ parsing term ugBody
   , cmd "pkind"
       & desc .~ "show the pretty printed representation of a kind schema"
       & body .~ parsing kind (\s -> sayLn $ prettySchema (Kind.general s stringHint) names)
@@ -231,15 +237,9 @@ commands =
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ parsing term gBody
-  , cmd "ug"
-      & desc .~ "show the internal STG representation of a term after type checking."
-      & body .~ parsing term ugBody
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
-  , cmd "uterm"
-      & desc .~ "show the internal representation of a term"
-      & body .~ parsing term (liftIO . print)
   , cmd "pterm"
       & desc .~ "show the pretty printed representation of a term"
       & body .~ parsing term (\tm ->
@@ -249,7 +249,7 @@ commands =
                     >>= sayLn)
   , cmd "udata"
       & desc .~ "show the internal representation of a data declaration"
-      & body .~ parsing dataType (liftIO . print)
+      & body .~ parsing dataType (liftIO . putStrLn . groom)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   , cmd "version"
       & desc .~ "show the compiler version number"
