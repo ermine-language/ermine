@@ -23,7 +23,7 @@ import Bound.Var as Var
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State
-import Data.Foldable
+import Data.Foldable as F
 import Data.List (nub)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Map hiding (null, filter, toList)
@@ -31,7 +31,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Traversable
-import Data.Vector as Vector (Vector, fromList)
+import Data.Vector as Vector (Vector, fromList, length)
 import Data.Word
 import Ermine.Syntax.G
 import Ermine.Syntax.Convention as C
@@ -61,7 +61,7 @@ sortRefs :: [SortRef] -> Sorted (Vector Ref)
 sortRefs = fmap Vector.fromList . Prelude.foldr (\(SortRef s r) -> sort s %~ (r:)) mempty
 
 genericLength :: Num n => [a] -> n
-genericLength = fromIntegral . length
+genericLength = fromIntegral . Prelude.length
 
 stackSorts :: [Sort] -> (Map Word64 SortRef, Sorted Word64)
 stackSorts xs = runState ?? 0 $ fmap Map.fromList $ ifor xs $ \ i srt -> do
@@ -113,7 +113,9 @@ compile n cxt (Core.Let bs e) = letRec bs' . compile (n & sort S.B +~ l) cxt' $ 
   cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ l
   cxt' (Var.B b) = _SortRef S.B . _Stack # b
   bs' = compileBinding cxt' . fromScope <$> bs
-compile _ _   (Core.Data _    _ _ _ ) = error "compile: Data"
+compile n cxt (Core.Data ccvs tag _ xs) | F.all (==C.C) ccvs = case anf cxt xs of
+  (refs, k, pcs) -> let_ (pcs ++ [PreClosure srefs $ standardConstructor (fromIntegral.Vector.length <$> srefs) tag]) $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
+    where srefs = sortRefs refs
 compile _ _   (Core.Dict _ _)         = error "compile: Dict"
 compile _ _   (Core.CaseLit _ _ _ _)  = error "compile: CaseLit"
 
@@ -137,10 +139,10 @@ compileBranches n ev cxt bs d = Continuation bs' d'
  d' = compile n (unvar (const ev) cxt) . fromScope <$> d
 
 -- TODO: literal handling
-anf :: Eq v
+anf :: (Traversable t, Eq v)
     => (v -> SortRef)
-    -> NonEmpty (Core v)
-    -> (NonEmpty SortRef, Word64, [PreClosure])
+    -> t (Core v)
+    -> (t SortRef, Word64, [PreClosure])
 anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
   cleanup (nebs,(n,pcs)) = (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
