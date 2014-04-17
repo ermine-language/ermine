@@ -194,7 +194,7 @@ coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \
 gBody :: Term Ann Text -> Console ()
 gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
-    Just (_, c) -> sayLn . prettyG (text <$> names) 0 (error "global reference") $ compile 0 absurd c
+    Just (_, c) -> sayLn . prettyG (text <$> names) (error "global reference") $ compile 0 absurd c
     Nothing     -> sayLn "Unbound variables detected"
 
 ugBody :: Term Ann Text -> Console ()

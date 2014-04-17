@@ -52,7 +52,7 @@ data G
   = Case !G !Continuation
   | CaseLit Ref !Continuation
   | App !(Sorted Word64) !Func !(Sorted (Vector Ref))
-  | Let (Vector PreClosure) !G
+  | Let    (Vector PreClosure) !G
   | LetRec (Vector PreClosure) !G
   deriving Show
 
