@@ -31,7 +31,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Traversable
-import Data.Vector as Vector (Vector, fromList, length)
+import Data.Vector as Vector (Vector, fromList, length, generate)
 import Data.Word
 import Ermine.Syntax.G
 import Ermine.Syntax.Convention as C
@@ -118,8 +118,16 @@ compile n cxt (Core.Data ccvs tag _ xs)
     (refs, k, pcs) -> let_ (pcs ++ [PreClosure srefs $ standardConstructor (fromIntegral.Vector.length <$> srefs) tag]) $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
       where srefs = sortRefs refs
   | otherwise = error "compile: exotic Data"
+compile n cxt (Core.Dict sups slts)   =
+  letRec (compileBinding cxt' . fromScope <$> slts) $
+  let_ (compileBinding (cxt'.F) <$> sups) $
+  let_ [PreClosure (Sorted (Vector.generate k $ Stack . fromIntegral) mempty mempty) (dictionary $ fromIntegral k)] $ _Ref (n & sort S.B +~ fromIntegral k + 1) # Stack 0
+  where
+    kslts = Prelude.length slts
+    k = Prelude.length sups + kslts
+    cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ fromIntegral kslts
+    cxt' (Var.B b) = _SortRef S.B . _Stack # b
 compile _ _   (Core.Prim _ _ _ _)     = error "compile: Prim"
-compile _ _   (Core.Dict _ _)         = error "compile: Dict"
 compile _ _   (Core.CaseLit _ _ _ _)  = error "compile: CaseLit"
 
 -- TODO: handle calling conventions
