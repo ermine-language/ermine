@@ -31,7 +31,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Traversable
-import Data.Vector as Vector (Vector, fromList, length, generate)
+import Data.Vector as Vector (Vector, fromList, length, generate, singleton)
 import Data.Word
 import Ermine.Syntax.G
 import Ermine.Syntax.Convention as C
@@ -99,7 +99,9 @@ compile :: Eq v => Sorted Word64 -> (v -> SortRef) -> Core v -> G
 compile n cxt (Core.Var v) = case cxt v of
   SortRef S.B r -> _Ref n # r
   _             -> error "compile: Core.Var with unexpected variable convention"
-compile _ _   (Core.HardCore hc) = compileHardCore hc
+compile n _ (Core.HardCore (Core.Slot i))  = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
+compile n _ (Core.HardCore (Core.Super i)) = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
+compile _ _ (Core.HardCore hc) = compileHardCore hc
 compile n cxt (Core.App cc f x)  = compileApp n cxt [(cc,x)] f
 compile n cxt l@Core.Lam{} =
   let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Stack 0) mempty)
