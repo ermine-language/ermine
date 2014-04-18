@@ -33,6 +33,7 @@ prettyG vs pr (CaseLit r bs) =
 prettyG _  pr (App _n f xs) = hsep $ prettyFunc pr f : prettySorted (imap (fmap Foldable.toList . fmap . pr) xs)
 prettyG vs pr (Let bs e)    = prettyLet vs pr False bs e
 prettyG vs pr (LetRec bs e) = prettyLet vs pr True bs e
+prettyG _ _   Slot          = text "slot"
 
 prettyFunc :: (Sort -> Ref -> Doc) -> Func -> Doc
 prettyFunc pr (Ref  r) = pr B r
