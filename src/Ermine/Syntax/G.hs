@@ -29,6 +29,7 @@ module Ermine.Syntax.G
   , noUpdate
   , doUpdate
   , standardConstructor
+  , dictionary
   ) where
 
 import Control.Lens
@@ -38,6 +39,7 @@ import Data.Map hiding (update)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Ermine.Syntax.Sort
+import Ermine.Syntax.Global (Global)
 
 data Ref
   = Global !Word64
@@ -50,10 +52,11 @@ makePrisms ''Ref
 
 data G
   = Case !G !Continuation
-  | CaseLit Ref !Continuation
+  | CaseLit !Ref !Continuation
   | App !(Sorted Word64) !Func !(Sorted (Vector Ref))
   | Let    (Vector PreClosure) !G
   | LetRec (Vector PreClosure) !G
+  | Slot
   deriving Show
 
 _Ref :: Sorted Word64 -> Prism' G Ref
@@ -69,8 +72,9 @@ type Tag = Word64
 data Continuation = Continuation (Map Tag (Sorted Word64, G)) (Maybe G) deriving Show
 
 data Func
-  = Ref !Ref -- closure ref
-  | Con !Tag
+  = Ref  !Ref -- closure ref
+  | Con  !Tag
+  | Prim !Global
   deriving Show
 
 data LambdaForm = LambdaForm
@@ -90,3 +94,6 @@ doUpdate f e = LambdaForm f 0 True e
 
 standardConstructor :: Sorted Word64 -> Tag -> LambdaForm
 standardConstructor f t = LambdaForm f 0 False $ App 0 (Con t) $ fmap (\i -> V.generate (fromIntegral i) $ Local . fromIntegral) f
+
+dictionary :: Word64 -> LambdaForm
+dictionary f = LambdaForm (Sorted f 0 0) (Sorted 0 1 0) False Slot

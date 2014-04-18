@@ -23,6 +23,7 @@ module Ermine.Interpreter
   , Env(..)
   , Frame(..)
   , MachineState(..)
+  , prims
   , eval
   , defaultMachineState
   ) where
@@ -31,9 +32,11 @@ import Control.Applicative hiding (empty)
 import Control.Monad.Primitive
 import Control.Monad.State
 import Control.Lens hiding (au)
+import Data.Default
 import qualified Data.Map as Map
 import qualified Data.Foldable as F
 import Data.Maybe
+import Data.Monoid hiding (Any)
 import Data.Primitive.MutVar
 import Data.Vector (Vector)
 import qualified Data.Vector as B
@@ -44,6 +47,7 @@ import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Primitive.Mutable as PM
 import Data.Word
 import Ermine.Syntax.G
+import Ermine.Syntax.Global (Global)
 import Ermine.Syntax.Sort
 import GHC.Prim (Any)
 import Prelude
@@ -56,6 +60,9 @@ data Env m = Env
   , _envU :: P.Vector Word64
   , _envN :: Vector Any
   }
+
+instance Default (Env m) where
+  def = Env mempty mempty mempty
 
 data Closure m
   = Closure
@@ -78,6 +85,7 @@ data MachineState m = MachineState
   , _fp      :: !(Sorted Int)
   , _stackF  :: [(Sorted Int, Frame m)]
   , _globalB :: Vector (Address m)
+  , _prims   :: Map.Map Global (MachineState m -> m ())
   , _stackB  :: BM.MVector (PrimState m) (Address m)
   , _stackU  :: PM.MVector (PrimState m) Word64
   , _stackN  :: BM.MVector (PrimState m) Any
@@ -92,9 +100,9 @@ nargs ms = ms^.fp -ms^.sp
 sentinel :: a
 sentinel = error "PANIC: access past end of stack"
 
-defaultMachineState :: (Applicative m, PrimMonad m) => Int -> Vector (Address m) -> m (MachineState m)
-defaultMachineState stackSize genv
-    = MachineState (pure stackSize-1) (pure stackSize-1) [] genv
+defaultMachineState :: (Applicative m, PrimMonad m) => Int -> Vector (Address m) -> Map.Map Global (MachineState m -> m ()) -> m (MachineState m)
+defaultMachineState stackSize genv ps
+    = MachineState (pure stackSize-1) (pure stackSize-1) [] genv ps
   <$> GM.replicate stackSize sentinel
   <*> GM.replicate stackSize 0
   <*> GM.replicate stackSize sentinel
@@ -204,26 +212,6 @@ select (Continuation bs df) t =
   fromMaybe (error "PANIC: missing default case in branch") $
     snd <$> Map.lookup t bs <|> df
 
-eval :: (Applicative m, PrimMonad m) => G -> Env m -> MachineState m -> m ()
-eval (App sz f xs) le ms = case f of
-  Ref r -> do
-    a <- resolveClosure le ms r
-    ms'  <- pushArgs le xs ms
-    ms'' <- squash (fromIntegral <$> sz) (G.length <$> xs) ms'
-    enter a ms''
-  Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
-eval (Let bs e) le ms = do
-  let stk = ms^.stackB
-      sb = ms^.sp.sort B
-      ms' = ms & sp.sort B +~ G.length bs
-  ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
-  eval e le ms'
-eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
-eval (Case co k) le ms     = eval co le $ push (Branch k le) ms
-eval (CaseLit ref k) le ms = do
-  l <- resolveUnboxed le ms ref
-  returnLit l $ push (Branch k le) ms
-
 extendPayload :: (PrimMonad m, G.Vector v a) => v a -> G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
 extendPayload d stk stp n = do
   let m = G.length d
@@ -252,6 +240,41 @@ extendPayloads (Env db du dn) ms =
     Sorted sb su sn = ms^.sp
     Sorted arb aru arn = nargs ms
 
+payload :: (PrimMonad m, G.Vector v a) => G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
+payload mv s n = do
+  me <- GM.new n
+  GM.unsafeCopy me (GM.unsafeSlice s n mv)
+  G.unsafeFreeze me
+
+------------------------------------------------------------------------------
+-- * The Spineless Tagless G-Machine
+------------------------------------------------------------------------------
+
+eval :: (Applicative m, PrimMonad m) => G -> Env m -> MachineState m -> m ()
+eval (App sz f xs) le ms = case f of
+  Ref r -> do
+    a <- resolveClosure le ms r
+    ms'  <- pushArgs le xs ms
+    ms'' <- squash (fromIntegral <$> sz) (G.length <$> xs) ms'
+    enter a ms''
+  Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
+  Prim g -> pushArgs le xs ms >>= (ms^?!prims.ix g)
+eval (Let bs e) le ms = do
+  let stk = ms^.stackB
+      sb = ms^.sp.sort B
+      ms' = ms & sp.sort B +~ G.length bs
+  ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
+  eval e le ms'
+eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
+eval (Case co k) le ms     = eval co le $ push (Branch k le) ms
+eval (CaseLit ref k) le ms = do
+  l <- resolveUnboxed le ms ref
+  returnLit l $ push (Branch k le) ms
+eval Slot le ms = do
+  pos <- resolveUnboxed le ms (Stack 0)
+  slot <- resolveClosure le ms (Local pos)
+  squash (Sorted 0 1 0) 0 ms >>= enter slot
+
 enter :: (Applicative m, PrimMonad m) => Address m -> MachineState m -> m ()
 enter addr ms = peek addr >>= \case
   BlackHole -> fail "ermine <<loop>> detected"
@@ -273,12 +296,6 @@ enter addr ms = peek addr >>= \case
       Just (Branch (Continuation m (Just dflt)) le', ms') | Map.null m -> eval dflt le' ms'
       Just _  -> error "bad frame after partial application"
       Nothing -> return ()
-
-payload :: (PrimMonad m, G.Vector v a) => G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
-payload mv s n = do
-  me <- GM.new n
-  GM.unsafeCopy me (GM.unsafeSlice s n mv)
-  G.unsafeFreeze me
 
 returnCon :: (Applicative m, PrimMonad m) => Tag -> Sorted Int -> MachineState m -> m ()
 returnCon t args@(Sorted ab au an) ms = popWith args ms >>= \case

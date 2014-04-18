@@ -15,6 +15,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.Word
 import Ermine.Pretty
+import Ermine.Pretty.Global
 import Ermine.Syntax.Sort
 import Ermine.Syntax.G
 
@@ -34,8 +35,9 @@ prettyG vs pr (Let bs e)    = prettyLet vs pr False bs e
 prettyG vs pr (LetRec bs e) = prettyLet vs pr True bs e
 
 prettyFunc :: (Sort -> Ref -> Doc) -> Func -> Doc
-prettyFunc pr (Ref r) = pr B r
-prettyFunc _  (Con t) = "<" <> text (show t) <> ">"
+prettyFunc pr (Ref  r) = pr B r
+prettyFunc _  (Con  t) = "<" <> text (show t) <> ">"
+prettyFunc _  (Prim g) = prettyGlobal g
 
 rummage :: [a] -> Word64 -> Either a Word64
 rummage []     n = Right n
