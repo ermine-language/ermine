@@ -39,6 +39,7 @@ module Ermine.Syntax.Core
   , lam
   , let_
   , dataCon
+  , prim
   ) where
 
 import Bound
@@ -128,7 +129,6 @@ data HardCore
   = Super      !Word64
   | Slot       !Word64 -- slot# + the number of supers
   | Lit        !Literal
-  | PrimOp     !Strict.Text
   | Foreign    !Foreign
   | Error      !Strict.Text
   | GlobalId   !Global
@@ -141,9 +141,6 @@ class AsHardCore c where
 
   _Lit :: Prism' c Literal
   _Lit = _HardCore._Lit
-
-  _PrimOp :: Prism' c Strict.Text
-  _PrimOp = _HardCore._PrimOp
 
   _Error :: Prism' c Strict.Text
   _Error = _HardCore._Error
@@ -173,7 +170,6 @@ instance AsHardCore HardCore where
   _HardCore = id
 
   _Lit        = prism Lit        $ \ xs -> case xs of Lit     l -> Right l ; hc -> Left hc
-  _PrimOp     = prism PrimOp     $ \ xs -> case xs of PrimOp  l -> Right l ; hc -> Left hc
   _Error      = prism Error      $ \ xs -> case xs of Error   l -> Right l ; hc -> Left hc
   _Super      = prism Super      $ \ xs -> case xs of Super   l -> Right l ; hc -> Left hc
   _Slot       = prism Slot       $ \ xs -> case xs of Slot    l -> Right l ; hc -> Left hc
@@ -187,21 +183,19 @@ instance Serial HardCore where
   serialize (Super i)      = putWord8 0 >> serialize i
   serialize (Slot g)       = putWord8 1 >> serialize g
   serialize (Lit i)        = putWord8 2 >> serialize i
-  serialize (PrimOp s)     = putWord8 3 >> serialize s
-  serialize (Foreign f)    = putWord8 4 >> serialize f
-  serialize (Error s)      = putWord8 5 >> serialize s
-  serialize (GlobalId g)   = putWord8 6 >> serialize g
-  serialize (InstanceId i) = putWord8 7 >> serialize i
+  serialize (Foreign f)    = putWord8 3 >> serialize f
+  serialize (Error s)      = putWord8 4 >> serialize s
+  serialize (GlobalId g)   = putWord8 5 >> serialize g
+  serialize (InstanceId i) = putWord8 6 >> serialize i
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Super      deserialize
     1 -> liftM Slot       deserialize
     2 -> liftM Lit        deserialize
-    3 -> liftM PrimOp     deserialize
-    4 -> liftM Foreign    deserialize
-    5 -> liftM Error      deserialize
-    6 -> liftM GlobalId   deserialize
-    7 -> liftM InstanceId deserialize
+    3 -> liftM Foreign    deserialize
+    4 -> liftM Error      deserialize
+    5 -> liftM GlobalId   deserialize
+    6 -> liftM InstanceId deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
@@ -319,6 +313,7 @@ data Core a
   = Var a
   | HardCore !HardCore
   | Data [Convention] !Word64 !Global [Core a] -- convention, tag #, associated global for display purposes, cores
+  | Prim [Convention] Convention !Global [Core a]
   | App !Convention !(Core a) !(Core a)
   | Lam [Convention] !(Scope Word64 Core a)
   | Let [Scope Word64 Core a] !(Scope Word64 Core a)
@@ -344,23 +339,25 @@ instance Serial1 Core where
   serializeWith pa (Var a)            = putWord8 0 >> pa a
   serializeWith _  (HardCore h)       = putWord8 1 >> serialize h
   serializeWith pa (Data cc i g cs)   = putWord8 2 >> serialize cc >> serialize i >> serialize g >> serializeWith (serializeWith pa) cs
-  serializeWith pa (App cc c1 c2)     = putWord8 3 >> serialize cc >> serializeWith pa c1 >> serializeWith pa c2
-  serializeWith pa (Lam cc s)         = putWord8 4 >> serialize cc >> serializeWith pa s
-  serializeWith pa (Let ss s)         = putWord8 5 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
-  serializeWith pa (Case c bs d)      = putWord8 6 >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
-  serializeWith pa (Dict sups slts)   = putWord8 7 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
-  serializeWith pa (CaseLit n c bs d) = putWord8 8 >> serialize n >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
+  serializeWith pa (Prim cc r g cs)   = putWord8 3 >> serialize cc >> serialize r >> serialize g >> serializeWith (serializeWith pa) cs
+  serializeWith pa (App cc c1 c2)     = putWord8 4 >> serialize cc >> serializeWith pa c1 >> serializeWith pa c2
+  serializeWith pa (Lam cc s)         = putWord8 5 >> serialize cc >> serializeWith pa s
+  serializeWith pa (Let ss s)         = putWord8 6 >> serializeWith (serializeWith pa) ss >> serializeWith pa s
+  serializeWith pa (Case c bs d)      = putWord8 7 >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
+  serializeWith pa (Dict sups slts)   = putWord8 8 >> serializeWith (serializeWith pa) sups >> serializeWith (serializeWith pa) slts
+  serializeWith pa (CaseLit n c bs d) = putWord8 9 >> serialize n >> serializeWith pa c >> serializeWith (serializeWith pa) bs >> serializeWith (serializeWith pa) d
 
   deserializeWith ga = getWord8 >>= \b -> case b of
     0 -> liftM Var ga
     1 -> liftM HardCore deserialize
     2 -> liftM4 Data deserialize deserialize deserialize (deserializeWith $ deserializeWith ga)
-    3 -> liftM3 App deserialize (deserializeWith ga) (deserializeWith ga)
-    4 -> liftM2 Lam deserialize (deserializeWith ga)
-    5 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
-    6 -> liftM3 Case (deserializeWith ga) (deserializeWith $ deserializeWith ga) (deserializeWith $ deserializeWith ga)
-    7 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith $ deserializeWith ga)
-    8 -> liftM4 CaseLit deserialize (deserializeWith ga) (deserializeWith $ deserializeWith ga) (deserializeWith $ deserializeWith ga)
+    3 -> liftM4 Prim deserialize deserialize deserialize (deserializeWith $ deserializeWith ga)
+    4 -> liftM3 App deserialize (deserializeWith ga) (deserializeWith ga)
+    5 -> liftM2 Lam deserialize (deserializeWith ga)
+    6 -> liftM2 Let (deserializeWith (deserializeWith ga)) (deserializeWith ga)
+    7 -> liftM3 Case (deserializeWith ga) (deserializeWith $ deserializeWith ga) (deserializeWith $ deserializeWith ga)
+    8 -> liftM2 Dict (deserializeWith (deserializeWith ga)) (deserializeWith $ deserializeWith ga)
+    9 -> liftM4 CaseLit deserialize (deserializeWith ga) (deserializeWith $ deserializeWith ga) (deserializeWith $ deserializeWith ga)
     _ -> fail $ "deserializeWith: Unexpected constructor code: " ++ show b
 
 instance Serial a => Serial (Core a) where
@@ -378,20 +375,22 @@ instance Serialize a => Serialize (Core a) where
 instance Hashable1 Core
 
 -- | Distinct primes used for salting the hash.
-distHardCore, distData, distApp, distLam, distLet, distCase, distDict, distCaseLit :: Word
+distHardCore, distData, distPrim, distApp, distLam, distLet, distCase, distDict, distCaseLit :: Word
 distHardCore = maxBound `quot` 3
 distData     = maxBound `quot` 5
-distApp      = maxBound `quot` 7
-distLam      = maxBound `quot` 11
-distLet      = maxBound `quot` 13
-distCase     = maxBound `quot` 17
-distDict     = maxBound `quot` 19
-distCaseLit  = maxBound `quot` 23
+distPrim     = maxBound `quot` 7
+distApp      = maxBound `quot` 11
+distLam      = maxBound `quot` 13
+distLet      = maxBound `quot` 17
+distCase     = maxBound `quot` 19
+distDict     = maxBound `quot` 23
+distCaseLit  = maxBound `quot` 29
 
 instance Hashable a => Hashable (Core a) where
   hashWithSalt n (Var a)             = hashWithSalt n a
   hashWithSalt n (HardCore c)        = hashWithSalt n c                                                      `hashWithSalt` distHardCore
   hashWithSalt n (Data cc i g cs)    = hashWithSalt n cc `hashWithSalt` i `hashWithSalt` g `hashWithSalt` cs `hashWithSalt` distData
+  hashWithSalt n (Prim cc r g cs)    = hashWithSalt n cc `hashWithSalt` r `hashWithSalt` g `hashWithSalt` cs `hashWithSalt` distPrim
   hashWithSalt n (App cc x y)        = hashWithSalt n cc `hashWithSalt` x `hashWithSalt` y                   `hashWithSalt` distApp
   hashWithSalt n (Lam cc b)          = hashWithSalt n cc `hashWithSalt` b                                    `hashWithSalt` distLam
   hashWithSalt n (Let ts b)          = hashWithSalt n ts `hashWithSalt` b                                    `hashWithSalt` distLet
@@ -422,6 +421,7 @@ instance Monad Core where
   Var a            >>= f = f a
   HardCore h       >>= _ = HardCore h
   Data cc tg g xs  >>= f = Data cc tg g ((>>= f) <$> xs)
+  Prim cc r g xs   >>= f = Prim cc r g ((>>= f) <$> xs)
   App cc x y       >>= f = App cc (x >>= f) (y >>= f)
   Lam cc e         >>= f = Lam cc (boundBy f e)
   Let bs e         >>= f = Let (boundBy f <$> bs) (boundBy f e)
@@ -458,6 +458,11 @@ let_ bs b = core $ Let (abstr . snd <$> bs) (abstr b)
 dataCon :: Cored m => [Convention] -> Word64 -> Global -> m a
 dataCon [] tg g = core $ Data [] tg g []
 dataCon cc tg g = core $ Lam cc $ Scope $ Data cc tg g $ pure.B <$> [0..fromIntegral (length cc-1)]
+
+-- | Builds an n-ary primop
+prim :: Cored m => [Convention] -> Convention -> Global -> m a
+prim [] r g = core $ Prim [] r g []
+prim cc r g = core $ Lam cc $ Scope $ Prim cc r g $ pure.B <$> [0..fromIntegral (length cc-1)]
 
 ----------------------------------------------------------------------------
 -- Orphan Instances

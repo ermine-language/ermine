@@ -10,7 +10,6 @@ module Ermine.Core.Lint
     LintEnv(..)
   , variables
   , foreignCxt
-  , primCxt
   , instanceCxt
   -- * The Lint Monad
   , Lint(..)
@@ -31,7 +30,6 @@ import Data.Foldable (for_)
 import Data.Hashable
 import Data.List (group)
 import Data.Map as Map
-import Data.Text hiding (replicate, length, zipWith, group, any)
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
@@ -58,7 +56,6 @@ convention _           = C
 
 data LintEnv a = LintEnv
   { _variables   :: a -> Either String Convention
-  , _primCxt     :: Map Text Form
   , _foreignCxt  :: Map Foreign Form
   , _instanceCxt :: Map Head Int     -- # of dictionaries this instance consumes
   } deriving Typeable
@@ -129,7 +126,6 @@ inferHardCore (Lit String {}) = return $ Form [] N
 inferHardCore Lit{}           = return $ Form [] U
 inferHardCore Error{}         = return $ Form [] U
 inferHardCore GlobalId{}      = return $ Form [] U
-inferHardCore (PrimOp p)      = preview (primCxt.ix p)     >>= liftMaybe "unknown prim"
 inferHardCore (Foreign p)     = preview (foreignCxt.ix p)  >>= liftMaybe "unknown foreign"
 inferHardCore (InstanceId h)  = preview (instanceCxt.ix h) >>= (liftMaybe "unknown instance head" >=> \n -> return $ Form (replicate n D) D)
 
@@ -164,6 +160,10 @@ inferCore (Data cc _ _ ps) = do
   when (length cc /= length ps) $ fail "bad data arguments"
   zipWithM_ checkCore cc ps
   return $ Form [] C
+inferCore (Prim cc r _ ps) = do
+  when (length cc /= length ps) $ fail "bad prim arguments"
+  zipWithM_ checkCore cc ps
+  return $ Form [] r
 inferCore (Case b ms md) = do
   checkCore C b
   for_ ms $ \ (Match cc _ m) -> checkScope C m `with` bindings (C:cc)

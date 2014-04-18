@@ -113,9 +113,12 @@ compile n cxt (Core.Let bs e) = letRec bs' . compile (n & sort S.B +~ l) cxt' $ 
   cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ l
   cxt' (Var.B b) = _SortRef S.B . _Stack # b
   bs' = compileBinding cxt' . fromScope <$> bs
-compile n cxt (Core.Data ccvs tag _ xs) | F.all (==C.C) ccvs = case anf cxt xs of
-  (refs, k, pcs) -> let_ (pcs ++ [PreClosure srefs $ standardConstructor (fromIntegral.Vector.length <$> srefs) tag]) $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
-    where srefs = sortRefs refs
+compile n cxt (Core.Data ccvs tag _ xs)
+  | F.all (==C.C) ccvs = case anf cxt xs of
+    (refs, k, pcs) -> let_ (pcs ++ [PreClosure srefs $ standardConstructor (fromIntegral.Vector.length <$> srefs) tag]) $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
+      where srefs = sortRefs refs
+  | otherwise = error "compile: exotic Data"
+compile _ _   (Core.Prim _ _ _ _)     = error "compile: Prim"
 compile _ _   (Core.Dict _ _)         = error "compile: Dict"
 compile _ _   (Core.CaseLit _ _ _ _)  = error "compile: CaseLit"
 

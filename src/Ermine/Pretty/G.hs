@@ -81,9 +81,7 @@ prettyPreClosure vs pr (PreClosure cfvs (LambdaForm fa ba up bo))
     dfvs = semiBraces $ join $ Foldable.toList $ imap (fmap Foldable.toList . fmap . pr) cfvs
     (cbvs, rest) = splitSorted ba vs
     pr' c (Local n)
-      | n < fac = pr c $ index cfvs c V.! fromIntegral n
+      | n < index fa c = pr c $ index cfvs c V.! fromIntegral n
       | otherwise = error "PANIC: prettyPreClosure: Bad variable reference"
       where
-        fac = index fa c
-        bac = fromIntegral $ index ba c
     pr' c r = push cbvs pr c r

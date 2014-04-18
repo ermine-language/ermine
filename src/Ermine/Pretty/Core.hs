@@ -48,7 +48,6 @@ prettyHardCore :: Int -> HardCore -> Doc
 prettyHardCore _ (Super   i)     = text $ "super{" ++ show i ++ "}"
 prettyHardCore _ (Slot    i)     = text $ "slot{"  ++ show i ++ "}"
 prettyHardCore _ (Lit     l)     = prettyLiteral l
-prettyHardCore _ (PrimOp  s)     = text $ "primop{" ++ show s ++ "}"
 prettyHardCore _ (Foreign f)     = prettyForeign f
 prettyHardCore n (Error   s)     = parensIf (n>10) . text $ "error " ++ show s
 prettyHardCore _ (GlobalId g)    = text $ "global{" ++ show g ++ "}"
@@ -65,6 +64,8 @@ prettyCore _  prec k (Var v) = k v prec
 prettyCore _  prec _ (HardCore h) = pure $ prettyHardCore prec h
 prettyCore vs _    k (Data cc tg g fs) =
   coreData cc tg g <$> traverse (prettyCore vs 11 k) fs
+prettyCore vs _    k (Prim cc r g fs) =
+  corePrim cc r g <$> traverse (prettyCore vs 11 k) fs
 prettyCore vs prec k (App _ f x) =
   (\df dx -> parensIf (prec>10) $ df <+> dx)
     <$> prettyCore vs 10 k f <*> prettyCore vs 11 k x
@@ -130,6 +131,9 @@ coreLam cc prec ws e = parensIf (prec>=0) $
 -- Just<1,[C]> a
 coreData :: [Convention] -> Word64 -> Global -> [Doc] -> Doc
 coreData cc tg g fds = text (g^.name.unpacked) <> text "<" <> int (fromIntegral tg) <> text "," <> text (show cc) <> text ">" <+> hsep fds
+
+corePrim :: [Convention] -> Convention -> Global -> [Doc] -> Doc
+corePrim cc tg g fds = text (g^.name.unpacked) <> text "<" <> text (show tg) <> text "," <> text (show cc) <> text ">" <+> hsep fds
 
 coreCase :: Doc -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
 coreCase dv prec de dbs mdd = parensIf (prec>=0) $

@@ -56,6 +56,7 @@ rewriteCoreDown opt = go
  go c = sharing c (opt c) >>= \ xs -> case xs of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
+   d@(Prim cc r g l)    -> sharing d $ Prim cc r g <$> traverse go l
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    s@(Case e b d)       -> sharing s $ Case <$> go e <*> sharing b ((traverse.matchBody) goS b) <*> sharing d (traverse goS d)
@@ -74,6 +75,7 @@ rewriteCore opt = go
  go c = sharing c $ opt =<< case c of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
+   d@(Prim cc r g l)    -> sharing d $ Prim cc r g <$> traverse go l
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    s@(Case e b d)       -> sharing s $ Case <$> go e <*> sharing b ((traverse.matchBody) goS b) <*> sharing d (traverse goS d)
