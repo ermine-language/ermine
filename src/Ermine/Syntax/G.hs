@@ -39,10 +39,10 @@ import Data.Map hiding (update)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Ermine.Syntax.Sort
-import Ermine.Syntax.Global (Global)
+import Ermine.Syntax.Id
 
 data Ref
-  = Global !Word64
+  = Global !Id
   | Local  !Word64
   | Stack  !Word64
   | Lit    !Word64
@@ -74,7 +74,6 @@ data Continuation = Continuation (Map Tag (Sorted Word64, G)) (Maybe G) deriving
 data Func
   = Ref  !Ref -- closure ref
   | Con  !Tag
-  | Prim !Global
   deriving Show
 
 data LambdaForm = LambdaForm

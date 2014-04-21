@@ -23,7 +23,6 @@ module Ermine.Interpreter
   , Env(..)
   , Frame(..)
   , MachineState(..)
-  , prims
   , eval
   , defaultMachineState
   ) where
@@ -33,9 +32,10 @@ import Control.Monad.Primitive
 import Control.Monad.State
 import Control.Lens hiding (au)
 import Data.Default
-import qualified Data.Map as Map
+import Data.HashMap.Strict (HashMap)
 import qualified Data.Foldable as F
 import Data.Maybe
+import qualified Data.Map as Map
 import Data.Monoid hiding (Any)
 import Data.Primitive.MutVar
 import Data.Vector (Vector)
@@ -47,7 +47,7 @@ import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Primitive.Mutable as PM
 import Data.Word
 import Ermine.Syntax.G
-import Ermine.Syntax.Global (Global)
+import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
 import GHC.Prim (Any)
 import Prelude
@@ -75,6 +75,7 @@ data Closure m
     , _papArity    :: !(Sorted Int) -- remaining args
     }
   | BlackHole
+  | PrimClosure (MachineState m -> m ())
 
 data Frame m
   = Branch !Continuation !(Env m)
@@ -84,8 +85,7 @@ data MachineState m = MachineState
   { _sp      :: !(Sorted Int)
   , _fp      :: !(Sorted Int)
   , _stackF  :: [(Sorted Int, Frame m)]
-  , _globalB :: Vector (Address m)
-  , _prims   :: Map.Map Global (MachineState m -> m ())
+  , _genv    :: HashMap Id (Address m)
   , _stackB  :: BM.MVector (PrimState m) (Address m)
   , _stackU  :: PM.MVector (PrimState m) Word64
   , _stackN  :: BM.MVector (PrimState m) Any
@@ -100,9 +100,9 @@ nargs ms = ms^.fp -ms^.sp
 sentinel :: a
 sentinel = error "PANIC: access past end of stack"
 
-defaultMachineState :: (Applicative m, PrimMonad m) => Int -> Vector (Address m) -> Map.Map Global (MachineState m -> m ()) -> m (MachineState m)
-defaultMachineState stackSize genv ps
-    = MachineState (pure stackSize-1) (pure stackSize-1) [] genv ps
+defaultMachineState :: (Applicative m, PrimMonad m) => Int -> HashMap Id (Address m) -> m (MachineState m)
+defaultMachineState stackSize ge
+    = MachineState (pure stackSize-1) (pure stackSize-1) [] ge
   <$> GM.replicate stackSize sentinel
   <*> GM.replicate stackSize 0
   <*> GM.replicate stackSize sentinel
@@ -124,7 +124,7 @@ resolveEnv le (Sorted bs us ns) ms =
 resolveClosure :: PrimMonad m => Env m -> MachineState m -> Ref -> m (Address m)
 resolveClosure le _ (Local l)  = return $ le^?!envB.ix (fromIntegral l)
 resolveClosure _ ms (Stack s)  = GM.read (ms^.stackB) (fromIntegral s + ms^.sp.sort B)
-resolveClosure _ ms (Global g) = return $ ms^?!globalB.ix (fromIntegral g)
+resolveClosure _ ms (Global g) = return $ ms^?!genv.ix g
 resolveClosure _ _  Lit{}      = error "resolveClosure: Lit"
 
 resolveUnboxed :: PrimMonad m => Env m -> MachineState m -> Ref -> m Word64
@@ -258,7 +258,6 @@ eval (App sz f xs) le ms = case f of
     ms'' <- squash (fromIntegral <$> sz) (G.length <$> xs) ms'
     enter a ms''
   Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
-  Prim g -> pushArgs le xs ms >>= (ms^?!prims.ix g)
 eval (Let bs e) le ms = do
   let stk = ms^.stackB
       sb = ms^.sp.sort B
@@ -285,6 +284,7 @@ enter addr ms = peek addr >>= \case
     | co^.update -> eval (co^.body) da $ push (Update addr) ms
     | arity <- fmap fromIntegral (co^.bound), F.sum args < F.sum arity -> pap co da arity
     | otherwise -> eval (co^.body) da ms
+  PrimClosure k -> k ms
  where
   args = nargs ms
   pap co da arity = do

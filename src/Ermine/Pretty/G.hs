@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Ermine.Pretty.G
   ( prettyG
+  , defaultCxt
   ) where
 
 import Control.Lens hiding (index)
@@ -15,9 +16,16 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.Word
 import Ermine.Pretty
-import Ermine.Pretty.Global
+import Ermine.Pretty.Id
 import Ermine.Syntax.Sort
 import Ermine.Syntax.G
+
+defaultCxt :: Sort -> Ref -> Doc
+defaultCxt U (Lit n) = int (fromIntegral n)
+defaultCxt s (Lit n) = "bad lit?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
+defaultCxt s (Global n) = "global?" <+> text (show s) <> "{" <> prettyId n <> "}"
+defaultCxt s (Stack n) = "stack?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
+defaultCxt s (Local n) = "local?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
 
 prettyG :: [Doc] -> (Sort -> Ref -> Doc) -> G -> Doc
 prettyG vs pr (Case e bs) =
@@ -38,7 +46,6 @@ prettyG _ _   Slot          = text "slot"
 prettyFunc :: (Sort -> Ref -> Doc) -> Func -> Doc
 prettyFunc pr (Ref  r) = pr B r
 prettyFunc _  (Con  t) = "<" <> text (show t) <> ">"
-prettyFunc _  (Prim g) = prettyGlobal g
 
 rummage :: [a] -> Word64 -> Either a Word64
 rummage []     n = Right n

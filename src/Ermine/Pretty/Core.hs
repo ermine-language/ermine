@@ -13,6 +13,7 @@
 
 module Ermine.Pretty.Core
  ( prettyHardCore
+ , prettyHead
  , prettyCore
  ) where
 
@@ -51,8 +52,10 @@ prettyHardCore _ (Lit     l)     = prettyLiteral l
 prettyHardCore _ (Foreign f)     = prettyForeign f
 prettyHardCore n (Error   s)     = parensIf (n>10) . text $ "error " ++ show s
 prettyHardCore _ (GlobalId g)    = text $ "global{" ++ show g ++ "}"
-prettyHardCore _ (InstanceId i)  =
-  text ("instance{" ++ (i^.headClass.name.unpacked))
+prettyHardCore _ (InstanceId i)  = prettyHead i
+
+prettyHead :: Head -> Doc
+prettyHead i = text ("instance{" ++ (i^.headClass.name.unpacked))
      <+> hsep ((prettyType ?? repeat "_" ?? 1000) . bimap (const "_") (const "_")
            <$> i^.headTypeArgs)
       <> text "}"

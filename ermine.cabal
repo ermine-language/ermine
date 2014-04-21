@@ -137,6 +137,7 @@ library
     Ermine.Pretty.Core
     Ermine.Pretty.G
     Ermine.Pretty.Global
+    Ermine.Pretty.Id
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
     Ermine.Pretty.Pattern

@@ -83,7 +83,7 @@ compileBinding cxt co = PreClosure (sortRefs $ snd <$> vs) $ case co of
          (m, args) = stackSorts (c2s <$> ccvs)
   _ -> doUpdate fvn (compile fvn cxt' co)
  where
- vs = filter (hasn't $ _2.sortRef.(_Global<>_Lit)) . fmap (\v -> (v, cxt v)) . nub . toList $ co
+ vs = filter (hasn't $ _2.sortRef.(_Global.united<>_Lit.united)) . fmap (\v -> (v, cxt v)) . nub . toList $ co
  (fvs, fvn) = localSorts vs
  cxt' v = fromMaybe (cxt v) $ Prelude.lookup v fvs
 
