@@ -58,7 +58,8 @@ c2s C.U = S.U
 c2s C.N = S.N
 
 sortRefs :: [SortRef] -> Sorted (Vector Ref)
-sortRefs = fmap Vector.fromList . Prelude.foldr (\(SortRef s r) -> sort s %~ (r:)) mempty
+sortRefs = fmap Vector.fromList
+         . Prelude.foldr (\(SortRef s r) -> sort s %~ (r:)) mempty
 
 genericLength :: Num n => [a] -> n
 genericLength = fromIntegral . Prelude.length
@@ -83,7 +84,8 @@ compileBinding cxt co = PreClosure (sortRefs $ snd <$> vs) $ case co of
          (m, args) = stackSorts (c2s <$> ccvs)
   _ -> doUpdate fvn (compile fvn cxt' co)
  where
- vs = filter (hasn't $ _2.sortRef.(_Global.united<>_Lit.united)) . fmap (\v -> (v, cxt v)) . nub . toList $ co
+ vs = filter (hasn't $ _2.sortRef.(_Global.united<>_Lit.united))
+    . fmap (\v -> (v, cxt v)) . nub . toList $ co
  (fvs, fvn) = localSorts vs
  cxt' v = fromMaybe (cxt v) $ Prelude.lookup v fvs
 
@@ -99,34 +101,45 @@ compile :: Eq v => Sorted Word64 -> (v -> SortRef) -> Core v -> G
 compile n cxt (Core.Var v) = case cxt v of
   SortRef S.B r -> _Ref n # r
   _             -> error "compile: Core.Var with unexpected variable convention"
-compile n _ (Core.HardCore (Core.Slot i))  = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
+compile n _ (Core.HardCore (Core.Slot i)) = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
 compile n _ (Core.HardCore (Core.Super i)) = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
 compile _ _ (Core.HardCore hc) = compileHardCore hc
 compile n cxt (Core.App cc f x)  = compileApp n cxt [(cc,x)] f
 compile n cxt l@Core.Lam{} =
   let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Stack 0) mempty)
 compile n cxt (Core.Case e bs d) = case e of
-  Core.Var v ->                               Case (_Ref n # view sortRef (cxt v)) $ compileBranches n  (cxt v)                 cxt  bs d
-  _          -> let_ [compileBinding cxt e] $ Case (_Ref n' # Stack 0)             $ compileBranches n' (SortRef S.B (Stack 0)) cxt' bs d
+  Core.Var v ->
+    Case (_Ref n # view sortRef (cxt v)) $ compileBranches n (cxt v) cxt bs d
+  _          ->
+     let_ [compileBinding cxt e]
+     $ Case (_Ref n' # Stack 0)
+       $ compileBranches n' (SortRef S.B (Stack 0)) cxt' bs d
     where n'   = n & sort S.B +~ 1
           cxt' = cxt & mapped._SortRef S.B ._Stack +~ 1
-compile n cxt (Core.Let bs e) = letRec bs' . compile (n & sort S.B +~ l) cxt' $ fromScope e where
+compile n cxt (Core.Let bs e) =
+  letRec bs' . compile (n & sort S.B +~ l) cxt' $ fromScope e
+ where
   l = genericLength bs
   cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ l
   cxt' (Var.B b) = _SortRef S.B . _Stack # b
   bs' = compileBinding cxt' . fromScope <$> bs
 compile n cxt (Core.Data ccvs tag _ xs)
   | F.all (==C.C) ccvs = case anf cxt xs of
-    (refs, k, pcs) -> let_ (pcs ++ [PreClosure srefs $ standardConstructor (fromIntegral.Vector.length <$> srefs) tag]) $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
+    (refs, k, pcs) ->
+        let_ (pcs ++ [PreClosure srefs con])
+        $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
       where srefs = sortRefs refs
+            con = standardConstructor (fromIntegral.Vector.length <$> srefs) tag
   | otherwise = error "compile: exotic Data"
 compile n cxt (Core.Dict sups slts)   =
   letRec (compileBinding cxt' . fromScope <$> slts) $
   let_ (compileBinding (cxt'.F) <$> sups) $
-  let_ [PreClosure (Sorted (Vector.generate k $ Stack . fromIntegral) mempty mempty) (dictionary $ fromIntegral k)] $ _Ref (n & sort S.B +~ fromIntegral k + 1) # Stack 0
+  let_ [PreClosure caps (dictionary $ fromIntegral k)] $
+    _Ref (n & sort S.B +~ fromIntegral k + 1) # Stack 0
   where
     kslts = Prelude.length slts
     k = Prelude.length sups + kslts
+    caps = Sorted (Vector.generate k $ Stack . fromIntegral) mempty mempty
     cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ fromIntegral kslts
     cxt' (Var.B b) = _SortRef S.B . _Stack # b
 compile _ _   (Core.Prim _ _ _ _)     = error "compile: Prim"
@@ -157,7 +170,8 @@ anf :: (Traversable t, Eq v)
     -> t (Core v)
     -> (t SortRef, Word64, [PreClosure])
 anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
-  cleanup (nebs,(n,pcs)) = (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
+  cleanup (nebs,(n,pcs)) =
+    (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
   compilePiece (Core.Var v) = return (True, cxt v)
   compilePiece (Core.HardCore (Core.Lit l)) = case literalRep l of
@@ -170,7 +184,8 @@ anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
 compileApp :: Eq v => Sorted Word64 -> (v -> SortRef) -> [(Convention, Core v)] -> Core v -> G
 compileApp n cxt xs (Core.App cc f x) = compileApp n cxt ((cc,x):xs) f
 compileApp n cxt xs f = case anf cxt (f :| fmap snd xs) of -- TODO: care about conventions
-  (SortRef S.B f' :| xs', k, bs) -> let_ bs $ App (n & sort S.B +~ k) (Ref f') (sortRefs xs')
+  (SortRef S.B f' :| xs', k, bs) ->
+    let_ bs $ App (n & sort S.B +~ k) (Ref f') (sortRefs xs')
   _ -> error "compileApp: unexpected sort"
 
 compileHardCore :: HardCore -> G
