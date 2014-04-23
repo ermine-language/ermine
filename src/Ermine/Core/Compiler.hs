@@ -75,14 +75,21 @@ localSorts xs = runState ?? 0 $ for xs $ \(v,SortRef srt _) -> do
   return (v, SortRef srt (Local sss))
 
 compileBinding :: Eq v => (v -> SortRef) -> Core v -> PreClosure
-compileBinding cxt co = PreClosure (sortRefs $ snd <$> vs) $ case co of
+compileBinding cxt co = case co of
   Core.Lam [] _   -> error "PANIC: 0 arity core lambda"
   Core.Lam ccvs e ->
-    noUpdate fvn args (compile (fvn + args) cxt'' $ fromScope e)
+    PreClosure (sortRefs $ snd <$> vs) $
+      noUpdate fvn args (compile (fvn + args) cxt'' $ fromScope e)
    where cxt'' (Var.F v) = cxt' v & sortRef._Stack %@~ \s n -> n + args^.sort s
          cxt'' (Var.B b) = m Map.! b
          (m, args) = stackSorts (c2s <$> ccvs)
-  _ -> doUpdate fvn (compile fvn cxt' co)
+  Core.Data [C.U] t _ [Core.HardCore (Core.Lit l)] | Just w <- literalRep l ->
+    PreClosure (Sorted mempty (Vector.singleton (Lit w)) mempty)
+               (standardConstructor (Sorted 0 1 0) t)
+  Core.Data [C.U] t _ [Core.Var v] | SortRef _ r <- cxt v ->
+    PreClosure (Sorted mempty (Vector.singleton r) mempty)
+               (standardConstructor (Sorted 0 1 0) t)
+  _ -> PreClosure (sortRefs $ snd <$> vs) $ doUpdate fvn (compile fvn cxt' co)
  where
  vs = filter (hasn't $ _2.sortRef.(_Global.united<>_Lit.united))
     . fmap (\v -> (v, cxt v)) . nub . toList $ co
@@ -123,14 +130,12 @@ compile n cxt (Core.Let bs e) =
   cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ l
   cxt' (Var.B b) = _SortRef S.B . _Stack # b
   bs' = compileBinding cxt' . fromScope <$> bs
-compile n cxt (Core.Data ccvs tag _ xs)
-  | F.all (==C.C) ccvs = case anf cxt xs of
+compile n cxt (Core.Data ccvs tag _ xs) = case anf cxt (zip ccvs xs) of
     (refs, k, pcs) ->
         let_ (pcs ++ [PreClosure srefs con])
         $ App (n & sort S.B +~ k + 1) (Ref $ Stack k) mempty
       where srefs = sortRefs refs
             con = standardConstructor (fromIntegral.Vector.length <$> srefs) tag
-  | otherwise = error "compile: exotic Data"
 compile n cxt (Core.Dict sups slts)   =
   letRec (compileBinding cxt' . fromScope <$> slts) $
   let_ (compileBinding (cxt'.F) <$> sups) $
@@ -167,29 +172,30 @@ compileBranches n ev cxt bs d = Continuation bs' d'
 -- TODO: literal handling
 anf :: (Traversable t, Eq v)
     => (v -> SortRef)
-    -> t (Core v)
+    -> t (Convention, Core v)
     -> (t SortRef, Word64, [PreClosure])
 anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
   cleanup (nebs,(n,pcs)) =
     (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
-  compilePiece (Core.Var v) = return (True, cxt v)
-  compilePiece (Core.HardCore (Core.Lit l)) = case literalRep l of
+  compilePiece (_, Core.Var v) = return (True, cxt v)
+  compilePiece (C.U, Core.HardCore (Core.Lit l)) = case literalRep l of
     Just r -> return (False, SortRef S.U (Lit r))
     _      -> error "anf: exotic literal"
-  compilePiece co = state $ \(k,l) ->
+  compilePiece (cv, co) | cv `F.elem` [C.C, C.D] = state $ \(k,l) ->
     let bnd = compileBinding cxt co
      in ((False,SortRef S.B $ Stack k),(k+1,bnd:l))
+  compilePiece (_, _) = error "anf: TODO"
 
 compileApp :: Eq v => Sorted Word64 -> (v -> SortRef) -> [(Convention, Core v)] -> Core v -> G
 compileApp n cxt xs (Core.App cc f x) = compileApp n cxt ((cc,x):xs) f
-compileApp n cxt xs f = case anf cxt (f :| fmap snd xs) of -- TODO: care about conventions
+compileApp n cxt xs f = case anf cxt ((C.C, f) :| xs) of
   (SortRef S.B f' :| xs', k, bs) ->
     let_ bs $ App (n & sort S.B +~ k) (Ref f') (sortRefs xs')
   _ -> error "compileApp: unexpected sort"
 
 compileHardCore :: HardCore -> G
-compileHardCore _ = undefined
+compileHardCore hc = error $ "TODO: compileHardCore: " ++ show hc
 
 -- physical storage of literals
 literalRep :: Literal -> Maybe Word64
