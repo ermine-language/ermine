@@ -65,8 +65,8 @@ prettyCore :: Applicative f
            => [String] -> Int -> (a -> Int -> f Doc) -> Core a -> f Doc
 prettyCore _  prec k (Var v) = k v prec
 prettyCore _  prec _ (HardCore h) = pure $ prettyHardCore prec h
-prettyCore vs _    k (Data cc tg g fs) =
-  coreData cc tg g <$> traverse (prettyCore vs 11 k) fs
+prettyCore vs prec k (Data cc tg g fs) =
+  parensIf (prec > 10) . coreData cc tg g <$> traverse (prettyCore vs 11 k) fs
 prettyCore vs _    k (Prim cc r g fs) =
   corePrim cc r g <$> traverse (prettyCore vs 11 k) fs
 prettyCore vs prec k (App _ f x) =
