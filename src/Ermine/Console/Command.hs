@@ -191,6 +191,11 @@ coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \
   Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
   Nothing           -> sayLn "Unbound variables detected"
 
+dumbCoreBody :: Term Ann Text -> Console ()
+dumbCoreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
+  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const c
+  Nothing           -> sayLn "Unbound variables detected"
+
 gBody :: Term Ann Text -> Console ()
 gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
@@ -234,6 +239,8 @@ commands =
       & body .~ parsing term typeBody
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ parsing term coreBody
+  , cmd "dcore" & desc .~ "dumb the core representation of a term after type checking, sans optimization."
+      & body .~ parsing term dumbCoreBody
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ parsing term gBody
