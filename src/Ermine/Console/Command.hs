@@ -148,10 +148,14 @@ kindBody args s = do
                   s
     k <- inferKind tm
     generalize k
-  sayLn $ prettySchema (vacuous gk) names
+  disp gk
+ where
+ disp = procArgs args $
+         ("pretty", sayLn . flip prettySchema names . vacuous)
+      :| [("ugly", sayLn . text . groom)]
 
 dkindsBody :: [String] -> [DataType () Text] -> Console ()
-dkindsBody args dts = do
+dkindsBody _ dts = do
   ckdts <- ioM mempty (checkDataTypeKinds dts)
   for_ ckdts $ \ckdt ->
     sayLn $ text (unpack $ ckdt^.name)
@@ -193,19 +197,23 @@ checkAndCompile syn = traverse closedOrLame (syn >>= predefs) `for` \syn' -> do
  closedOrLame _ = Nothing
 
 typeBody :: [String] -> Term Ann Text -> Console ()
-typeBody _ syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (ty, _) -> sayLn $ prettyType ty names (-1)
+typeBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
+  Just (ty, _) -> disp ty
   Nothing -> sayLn "Unbound variables detected"
+ where
+ disp = procArgs args $
+         ("pretty", \ty -> sayLn $ prettyType ty names (-1))
+      :| [("ugly", sayLn . text . groom)]
 
 coreBody :: [String] -> Term Ann Text -> Console ()
-coreBody _ syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
-  Nothing           -> sayLn "Unbound variables detected"
-
-dumbCoreBody :: [String] -> Term Ann Text -> Console ()
-dumbCoreBody _ syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const c
-  Nothing           -> sayLn "Unbound variables detected"
+coreBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
+  Just (_, c) -> disp (opt c)
+  Nothing     -> sayLn "Unbound variables detected"
+ where
+ disp = procArgs args $
+         ("pretty", sayLn . runIdentity . prettyCore names (-1) (const.pure))
+      :| [("ugly", sayLn . text . groom)]
+ opt = procArgs args $ ("opt", optimize) :| [("noopt", id)]
 
 gBody :: [String] -> Term Ann Text -> Console ()
 gBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
@@ -233,10 +241,10 @@ commands =
       & body .~ parsing term (const $ liftIO . putStrLn . groom)
   , cmd "pkind"
       & desc .~ "show the pretty printed representation of a kind schema"
-      & body .~ parsing kind (\args s -> sayLn $ prettySchema (Kind.general s stringHint) names)
+      & body .~ parsing kind (\_ s -> sayLn $ prettySchema (Kind.general s stringHint) names)
   , cmd "ptype"
       & desc .~ "show the pretty printed representation of a type schema"
-      & body .~ parsing typ (\args s ->
+      & body .~ parsing typ (\_ s ->
                   let (tsch, hs) = abstractAll stringHint stringHint s
                       stsch = hoistScope (first ("?" <$)) tsch
                    in sayLn $ prettyTypeSchema stsch hs names)
@@ -246,8 +254,6 @@ commands =
       & body .~ parsing term typeBody
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ parsing term coreBody
-  , cmd "dcore" & desc .~ "dumb the core representation of a term after type checking, sans optimization."
-      & body .~ parsing term dumbCoreBody
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ parsing term gBody
@@ -256,7 +262,7 @@ commands =
       & body .~ parsing (semiSep1 dataType) dkindsBody
   , cmd "pterm"
       & desc .~ "show the pretty printed representation of a term"
-      & body .~ parsing term (\args tm ->
+      & body .~ parsing term (\_ tm ->
                   let names' = filter ((`notMember` setOf traverse tm).pack) names in
                   prettyTerm tm names' (-1) (error "TODO: prettyAnn")
                              (pure . pure . text . unpack)
