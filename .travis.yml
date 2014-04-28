@@ -46,8 +46,7 @@ before_install:
       $CABAL install happy alex
       export PATH=$HOME/.cabal/bin:$PATH
     fi
-  # ensure we have an hlint executable
-  - $CABAL install hlint
+  - $CABAL install hlint packdeps packunused
 
 install:
   - $CABAL install --dependencies-only --enable-tests $MODE
@@ -56,6 +55,9 @@ install:
 script:
   - $CABAL build
   - $CABAL test --show-details=always
+  - packdeps ermine.cabal
+  - packunused
+  - hlint --cpp-define HLINT src
 
 notifications:
   irc:
