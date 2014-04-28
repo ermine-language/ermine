@@ -31,6 +31,8 @@ import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
 import Data.List as List
+import Data.List.NonEmpty (NonEmpty(..))
+import Data.List.Split (splitOn)
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
@@ -87,33 +89,34 @@ data Command = Command
   , _arg     :: Maybe String
   , _tabbed  :: Maybe (CompletionFunc Console)
   , _desc    :: String
-  , _body    :: String -> Console ()
+  , _body    :: [String] -> String -> Console ()
   }
 
 makeClassy ''Command
 
 cmd :: String -> Command
-cmd nm = Command nm [] Nothing Nothing "" $ \_ -> return ()
+cmd nm = Command nm [] Nothing Nothing "" $ \_ _ -> return ()
 
-getCommand :: String -> Maybe (Command, String)
+getCommand :: String -> Maybe (Command, [String], String)
 getCommand zs = commands ^?
     folded.
     filtered (\c -> isPrefixOf xs (c^.cmdName)
                  || anyOf (alts.folded) (isPrefixOf xs) c).
-    to (,ys')
+    to (,as,ys')
   where
-    (xs, ys) = break isSpace zs
+    (cs, ys) = break isSpace zs
+    xs:as = splitOn "+" cs
     ys' = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace ys
 
 executeCommand :: String -> Console ()
 executeCommand txt = case getCommand txt of
-  Just (c,args)  -> view body c args
+  Just (c,args,input)  -> view body c args input
   Nothing          -> do
     sayLn $ text "ermine: error: Unknown command:" <+> text (show txt)
-    showHelp txt
+    showHelp [] txt
 
-showHelp :: String -> Console ()
-showHelp _ = sayLn $ vsep (map format commands) where
+showHelp :: [String] -> String -> Console ()
+showHelp _ _ = sayLn $ vsep (map format commands) where
   format c = fill 18 (withArg c) <+> hang 18 (fillSep (text <$> words (c^.desc)))
   withArg c = case c^.arg of
     Nothing -> bold (char ':' <> text (c^.cmdName))
@@ -123,13 +126,21 @@ showHelp _ = sayLn $ vsep (map format commands) where
 -- commands
 ------------------------------------------------------------------------------
 
-parsing :: Parser a -> (a -> Console ()) -> String -> Console ()
-parsing p k s = case parseString (p <* eof) mempty s of
-  Success a   -> k a
+procArgs :: [String] -> NonEmpty (String, a) -> a
+procArgs args (x :| xs) = foldl f (snd x) args
+ where
+ m = x:xs
+ f r s | Just a <- lookup s m = a
+       | otherwise            = r
+
+parsing :: Parser a -> ([String] -> a -> Console ())
+        -> [String] -> String -> Console ()
+parsing p k args s = case parseString (p <* eof) mempty s of
+  Success a   -> k args a
   Failure doc -> sayLn doc
 
-kindBody :: Type (Maybe Text) Text -> Console ()
-kindBody s = do
+kindBody :: [String] -> Type (Maybe Text) Text -> Console ()
+kindBody args s = do
   gk <- ioM mempty $ do
     tm <- prepare (newMeta ())
                   (const $ newMeta ())
@@ -137,10 +148,14 @@ kindBody s = do
                   s
     k <- inferKind tm
     generalize k
-  sayLn $ prettySchema (vacuous gk) names
+  disp gk
+ where
+ disp = procArgs args $
+         ("pretty", sayLn . flip prettySchema names . vacuous)
+      :| [("ugly", sayLn . text . groom)]
 
-dkindsBody :: [DataType () Text] -> Console ()
-dkindsBody dts = do
+dkindsBody :: [String] -> [DataType () Text] -> Console ()
+dkindsBody _ dts = do
   ckdts <- ioM mempty (checkDataTypeKinds dts)
   for_ ckdts $ \ckdt ->
     sayLn $ text (unpack $ ckdt^.name)
@@ -181,55 +196,55 @@ checkAndCompile syn = traverse closedOrLame (syn >>= predefs) `for` \syn' -> do
    Just (HardCore $ Slot 0)
  closedOrLame _ = Nothing
 
-typeBody :: Term Ann Text -> Console ()
-typeBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (ty, _) -> sayLn $ prettyType ty names (-1)
+typeBody :: [String] -> Term Ann Text -> Console ()
+typeBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
+  Just (ty, _) -> disp ty
   Nothing -> sayLn "Unbound variables detected"
+ where
+ disp = procArgs args $
+         ("pretty", \ty -> sayLn $ prettyType ty names (-1))
+      :| [("ugly", sayLn . text . groom)]
 
-coreBody :: Term Ann Text -> Console ()
-coreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const (optimize c)
-  Nothing           -> sayLn "Unbound variables detected"
+coreBody :: [String] -> Term Ann Text -> Console ()
+coreBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
+  Just (_, c) -> disp (opt c)
+  Nothing     -> sayLn "Unbound variables detected"
+ where
+ disp = procArgs args $
+         ("pretty", sayLn . runIdentity . prettyCore names (-1) (const.pure))
+      :| [("ugly", sayLn . text . groom)]
+ opt = procArgs args $ ("opt", optimize) :| [("noopt", id)]
 
-dumbCoreBody :: Term Ann Text -> Console ()
-dumbCoreBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
-  Just (_, c) -> sayLn . runIdentity $ prettyCore names (-1) const c
-  Nothing           -> sayLn "Unbound variables detected"
-
-gBody :: Term Ann Text -> Console ()
-gBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
+gBody :: [String] -> Term Ann Text -> Console ()
+gBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
   case xs of
-    Just (_, c) -> sayLn . prettyG (text <$> names) defaultCxt $ compile 0 absurd c
+    Just (_, c) -> disp $ compile 0 absurd (opt c)
     Nothing     -> sayLn "Unbound variables detected"
-
-ugBody :: Term Ann Text -> Console ()
-ugBody syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \xs ->
-  case xs of
-    Just (_, c) -> sayLn $ text $ groom $ compile 0 absurd c
-    Nothing     -> sayLn "Unbound variables detected"
+ where
+ disp = procArgs args $
+         ("pretty", sayLn . prettyG (text <$> names) defaultCxt)
+      :| [("ugly", sayLn . text . groom)]
+ opt = procArgs args $ ("opt", optimize) :| [("noopt", id)]
 
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
-  , cmd "quit" & desc .~ "quit" & body.mapped .~ liftIO exitSuccess
+  , cmd "quit" & desc .~ "quit" & body.mapped .~ const (liftIO exitSuccess)
   , cmd "ukind"
       & desc .~ "show the internal representation of a kind schema"
-      & body .~ parsing kind (liftIO . putStrLn . groom . (Kind.general ?? stringHint))
+      & body .~ parsing kind (const $ liftIO . putStrLn . groom . (Kind.general ?? stringHint))
   , cmd "utype"
       & desc .~ "show the internal representation of a type"
-      & body .~ parsing typ (liftIO . putStrLn . groom . fst . Type.abstractAll stringHint stringHint)
+      & body .~ parsing typ (const $ liftIO . putStrLn . groom . fst . Type.abstractAll stringHint stringHint)
   , cmd "uterm"
       & desc .~ "show the internal representation of a term"
-      & body .~ parsing term (liftIO . putStrLn . groom)
-  , cmd "ug"
-      & desc .~ "show the internal STG representation of a term after type checking."
-      & body .~ parsing term ugBody
+      & body .~ parsing term (const $ liftIO . putStrLn . groom)
   , cmd "pkind"
       & desc .~ "show the pretty printed representation of a kind schema"
-      & body .~ parsing kind (\s -> sayLn $ prettySchema (Kind.general s stringHint) names)
+      & body .~ parsing kind (\_ s -> sayLn $ prettySchema (Kind.general s stringHint) names)
   , cmd "ptype"
       & desc .~ "show the pretty printed representation of a type schema"
-      & body .~ parsing typ (\s ->
+      & body .~ parsing typ (\_ s ->
                   let (tsch, hs) = abstractAll stringHint stringHint s
                       stsch = hoistScope (first ("?" <$)) tsch
                    in sayLn $ prettyTypeSchema stsch hs names)
@@ -239,8 +254,6 @@ commands =
       & body .~ parsing term typeBody
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ parsing term coreBody
-  , cmd "dcore" & desc .~ "dumb the core representation of a term after type checking, sans optimization."
-      & body .~ parsing term dumbCoreBody
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ parsing term gBody
@@ -249,17 +262,17 @@ commands =
       & body .~ parsing (semiSep1 dataType) dkindsBody
   , cmd "pterm"
       & desc .~ "show the pretty printed representation of a term"
-      & body .~ parsing term (\tm ->
+      & body .~ parsing term (\_ tm ->
                   let names' = filter ((`notMember` setOf traverse tm).pack) names in
                   prettyTerm tm names' (-1) (error "TODO: prettyAnn")
                              (pure . pure . text . unpack)
                     >>= sayLn)
-  , cmd "udata"
-      & desc .~ "show the internal representation of a data declaration"
-      & body .~ parsing dataType (liftIO . putStrLn . groom)
+  -- , cmd "udata"
+  --     & desc .~ "show the internal representation of a data declaration"
+  --     & body .~ parsing dataType (liftIO . putStrLn . groom)
   -- , cmd "load" & arg  ?~ "filename" & desc .~ "load a file" & body .~ \xs -> liftIO $ putStrLn =<< readFile xs
   , cmd "version"
       & desc .~ "show the compiler version number"
-      & body .~ \_ -> liftIO $ putStrLn version
+      & body .~ \_ _ -> liftIO $ putStrLn version
 
   ]
