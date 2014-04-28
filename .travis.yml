@@ -53,7 +53,7 @@ install:
   - $CABAL configure -flib-Werror --enable-tests $MODE
 
 script:
-  - $CABAL build
+  - $CABAL build --ghc-options=-ddump-minimal-imports
   - $CABAL test --show-details=always
   - packdeps ermine.cabal
   - packunused
