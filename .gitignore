@@ -19,3 +19,5 @@ wip
 ermine.iml
 .cabal-sandbox
 cabal.sandbox.config
+*.imports
+codex.tags
