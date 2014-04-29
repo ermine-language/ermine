@@ -10,7 +10,7 @@ module Ermine.Core.Lint
     LintEnv(..)
   , variables
   , foreignCxt
-  , instanceCxt
+  , globalCxt
   -- * The Lint Monad
   , Lint(..)
   -- * Checking and inference
@@ -32,7 +32,7 @@ import Data.List (group)
 import Data.Map as Map
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
-import Ermine.Syntax.Head
+import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 import GHC.Generics
 
@@ -57,7 +57,7 @@ convention _           = C
 data LintEnv a = LintEnv
   { _variables   :: a -> Either String Convention
   , _foreignCxt  :: Map Foreign Form
-  , _instanceCxt :: Map Head Int     -- # of dictionaries this instance consumes
+  , _globalCxt   :: Map Id Form
   } deriving Typeable
 
 makeLenses ''LintEnv
@@ -125,9 +125,8 @@ inferHardCore Slot{}          = return $ Form [D] C
 inferHardCore (Lit String {}) = return $ Form [] N
 inferHardCore Lit{}           = return $ Form [] U
 inferHardCore Error{}         = return $ Form [] U
-inferHardCore GlobalId{}      = return $ Form [] U
 inferHardCore (Foreign p)     = preview (foreignCxt.ix p)  >>= liftMaybe "unknown foreign"
-inferHardCore (InstanceId h)  = preview (instanceCxt.ix h) >>= (liftMaybe "unknown instance head" >=> \n -> return $ Form (replicate n D) D)
+inferHardCore (Id h)          = preview (globalCxt.ix h)   >>= liftMaybe "unknown global"
 
 checkCore :: Convention -> Core a -> Lint a ()
 checkCore cc c = do

@@ -12,9 +12,9 @@
 --------------------------------------------------------------------
 
 module Ermine.Pretty.Core
- ( prettyHardCore
- , prettyHead
- , prettyCore
+ ( prettyCore
+ , prettyHardCore
+ , prettyId
  ) where
 
 import Bound
@@ -26,12 +26,14 @@ import Data.Text.Lens hiding (text)
 import Data.Traversable
 import Data.Word
 import Ermine.Pretty
+import Ermine.Pretty.Global
 import Ermine.Pretty.Literal
 import Ermine.Pretty.Type
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Global
 import Ermine.Syntax.Head
+import Ermine.Syntax.Id
 import Ermine.Syntax.Name
 
 -- | Pretty print JavaLike FFI descrptions
@@ -51,8 +53,11 @@ prettyHardCore _ (Slot    i)     = text $ "slot{"  ++ show i ++ "}"
 prettyHardCore _ (Lit     l)     = prettyLiteral l
 prettyHardCore _ (Foreign f)     = prettyForeign f
 prettyHardCore n (Error   s)     = parensIf (n>10) . text $ "error " ++ show s
-prettyHardCore _ (GlobalId g)    = text $ "global{" ++ show g ++ "}"
-prettyHardCore _ (InstanceId i)  = prettyHead i
+prettyHardCore _ (Id      g)     = prettyId g
+
+prettyId :: Id -> Doc
+prettyId (GlobalId g)   = prettyGlobal g
+prettyId (InstanceId h) = prettyHead h
 
 prettyHead :: Head -> Doc
 prettyHead i = text ("instance{" ++ (i^.headClass.name.unpacked))

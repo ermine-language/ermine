@@ -16,7 +16,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.Word
 import Ermine.Pretty
-import Ermine.Pretty.Id
+import Ermine.Pretty.Core
 import Ermine.Syntax.Sort
 import Ermine.Syntax.G
 

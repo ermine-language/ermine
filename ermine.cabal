@@ -137,7 +137,6 @@ library
     Ermine.Pretty.Core
     Ermine.Pretty.G
     Ermine.Pretty.Global
-    Ermine.Pretty.Id
     Ermine.Pretty.Kind
     Ermine.Pretty.Literal
     Ermine.Pretty.Pattern
@@ -261,17 +260,7 @@ executable core-echo
       base < 5,
       binary,
       bytestring,
-      containers,
-      data-default,
-      exceptions,
-      ermine,
-      filepath,
-      haskeline,
-      lens,
-      mtl,
-      optparse-applicative,
-      text,
-      unordered-containers
+      ermine
 
 executable ermine
   default-language: Haskell2010

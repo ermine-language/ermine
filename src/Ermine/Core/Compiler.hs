@@ -110,7 +110,9 @@ compile n cxt (Core.Var v) = case cxt v of
   _             -> error "compile: Core.Var with unexpected variable convention"
 compile n _ (Core.HardCore (Core.Slot i)) = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
 compile n _ (Core.HardCore (Core.Super i)) = let_ [PreClosure mempty $ LambdaForm 0 (Sorted 1 0 0) False $ App (Sorted 1 0 0) (Ref $ Stack 0) $ Sorted mempty (Vector.singleton (Lit i)) mempty] $ _Ref (n & sort S.B +~ 1) # Stack 0
+compile n _ (Core.HardCore (Core.Id i)) = App n (Ref (Global i)) mempty
 compile _ _ (Core.HardCore hc) = compileHardCore hc
+
 compile n cxt (Core.App cc f x)  = compileApp n cxt [(cc,x)] f
 compile n cxt l@Core.Lam{} =
   let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Stack 0) mempty)

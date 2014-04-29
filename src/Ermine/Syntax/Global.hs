@@ -14,8 +14,8 @@ module Ermine.Syntax.Global
   (
   -- * Globals
     Global(Global)
-  , HasGlobal(..)
   , AsGlobal(..)
+  , HasGlobal(..)
   -- * Fixity
   , Assoc(..)
   , Fixity(..)
@@ -169,6 +169,17 @@ instance HasModuleName Global where
 instance HasName Global where
   name g (Global _ f m n) = g n <&> \n' -> glob f m n'
 
+
+------------------------------------------------------------------------------
+-- AsGlobal
+------------------------------------------------------------------------------
+
+class AsGlobal t where
+  _Global :: Prism' t Global
+
+instance AsGlobal Global where
+  _Global = id
+
 ------------------------------------------------------------------------------
 -- HasGlobal
 ------------------------------------------------------------------------------
@@ -193,16 +204,6 @@ instance Digestable Global where
 
 instance Hashable Global where
   hashWithSalt s c = hashWithSalt s (_globalDigest c)
-
-------------------------------------------------------------------------------
--- AsGlobal
-------------------------------------------------------------------------------
-
-class AsGlobal t where
-  _Global :: Prism' t Global
-
-instance AsGlobal Global where
-  _Global = id
 
 ------------------------------------------------------------------------------
 -- Combinators

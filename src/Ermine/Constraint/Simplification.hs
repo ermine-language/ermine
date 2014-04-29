@@ -26,6 +26,7 @@ import Data.Void
 import Ermine.Constraint.Env
 import Ermine.Syntax
 import Ermine.Syntax.Core as Core hiding (App, Var)
+import Ermine.Syntax.Id
 import Ermine.Syntax.Head
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Type as Type
@@ -92,7 +93,7 @@ byInstance = peel []
  peel _   _ = error "PANIC: Malformed class head"
 
  tryConstraint stk i = matchHead stk (i^.instanceHead) <&> \m ->
-   Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_InstanceId # (i^.instanceHead)) $ i^.instanceContext
+   Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_Id._InstanceId # (i^.instanceHead)) $ i^.instanceContext
 
 entails :: (Alternative m, MonadConstraint s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
 entails cs c =

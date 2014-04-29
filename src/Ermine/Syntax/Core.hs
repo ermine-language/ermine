@@ -66,8 +66,8 @@ import Data.Text as Strict hiding (cons, length)
 import Data.Word
 import Ermine.Syntax
 import Ermine.Syntax.Convention
-import Ermine.Syntax.Head
 import Ermine.Syntax.Global as Global hiding (N)
+import Ermine.Syntax.Id (Id, AsId(..))
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics
@@ -131,12 +131,11 @@ data HardCore
   | Lit        !Literal
   | Foreign    !Foreign
   | Error      !Strict.Text
-  | GlobalId   !Global
-  | InstanceId !Head
+  | Id         !Id
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 -- | This class describes things that could be 'HardCore'.
-class AsHardCore c where
+class AsId c => AsHardCore c where
   _HardCore :: Prism' c HardCore
 
   _Lit :: Prism' c Literal
@@ -154,17 +153,23 @@ class AsHardCore c where
   _Foreign :: Prism' c Foreign
   _Foreign = _HardCore._Foreign
 
-  _GlobalId :: Prism' c Global
-  _GlobalId = _HardCore._GlobalId
+instance f ~ Core => AsGlobal (Scope b f a) where
+  _Global = _Id._Global
 
-  _InstanceId :: Prism' c Head
-  _InstanceId = _HardCore._InstanceId
+instance f ~ Core => AsId (Scope b f a) where
+  _Id = _HardCore._Id
 
 instance f ~ Core => AsHardCore (Scope b f a) where
   _HardCore = prism (Scope . HardCore) $ \ t@(Scope b) -> case b of
     HardCore k           -> Right k
     Var (F (HardCore k)) -> Right k
     _                    -> Left t
+
+instance AsGlobal HardCore where
+  _Global     = _Id._Global
+
+instance AsId HardCore where
+  _Id         = prism Id         $ \ xs -> case xs of Id l      -> Right l ; hc -> Left hc
 
 instance AsHardCore HardCore where
   _HardCore = id
@@ -174,8 +179,6 @@ instance AsHardCore HardCore where
   _Super      = prism Super      $ \ xs -> case xs of Super   l -> Right l ; hc -> Left hc
   _Slot       = prism Slot       $ \ xs -> case xs of Slot    l -> Right l ; hc -> Left hc
   _Foreign    = prism Foreign    $ \ xs -> case xs of Foreign l -> Right l ; hc -> Left hc
-  _GlobalId   = prism GlobalId   $ \ xs -> case xs of GlobalId l -> Right l; hc -> Left hc
-  _InstanceId = prism InstanceId $ \ xs -> case xs of InstanceId l -> Right l; hc -> Left hc
 
 instance Hashable HardCore
 
@@ -185,17 +188,15 @@ instance Serial HardCore where
   serialize (Lit i)        = putWord8 2 >> serialize i
   serialize (Foreign f)    = putWord8 3 >> serialize f
   serialize (Error s)      = putWord8 4 >> serialize s
-  serialize (GlobalId g)   = putWord8 5 >> serialize g
-  serialize (InstanceId i) = putWord8 6 >> serialize i
+  serialize (Id g)         = putWord8 5 >> serialize g
 
   deserialize = getWord8 >>= \b -> case b of
-    0 -> liftM Super      deserialize
-    1 -> liftM Slot       deserialize
-    2 -> liftM Lit        deserialize
-    3 -> liftM Foreign    deserialize
-    4 -> liftM Error      deserialize
-    5 -> liftM GlobalId   deserialize
-    6 -> liftM InstanceId deserialize
+    0 -> liftM Super   deserialize
+    1 -> liftM Slot    deserialize
+    2 -> liftM Lit     deserialize
+    3 -> liftM Foreign deserialize
+    4 -> liftM Error   deserialize
+    5 -> liftM Id      deserialize
     _ -> fail $ "get HardCore: Unexpected constructor code: " ++ show b
 
 instance Binary HardCore where
@@ -321,6 +322,12 @@ data Core a
   | Dict { supers :: [Core a], slots :: [Scope Word64 Core a] }
   | CaseLit !Bool !(Core a) (Map Literal (Core a)) (Maybe (Core a)) -- set True for native for strings
   deriving (Eq,Show,Functor,Foldable,Traversable)
+
+instance AsGlobal (Core a) where
+  _Global = _HardCore._Id._Global
+
+instance AsId (Core a) where
+  _Id = _HardCore._Id
 
 instance AsHardCore (Core a) where
   _HardCore = prism HardCore $ \c -> case c of

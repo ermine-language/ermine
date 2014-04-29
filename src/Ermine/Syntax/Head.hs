@@ -13,7 +13,6 @@
 module Ermine.Syntax.Head
   ( Head(..)
   , HasHead(..)
-  , AsHead(..)
   , mkHead
   ) where
 
@@ -75,13 +74,6 @@ instance Eq Head where
 
 instance Ord Head where
   compare = compare `on` _headDigest
-
-class AsHead t where
-  _Head :: Prism' t Head
-
-instance AsHead Head where
-  _Head = id
-  {-# INLINE _Head #-}
 
 instance HasGlobal Head where
   global f = head_ $ \(Head _ _ g i tks ks ts) -> f g <&> \g' -> mkHead g' i tks ks ts
