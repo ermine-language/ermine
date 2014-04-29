@@ -175,7 +175,6 @@ library
 
   build-depends:
     adjunctions               >= 4.0.3,
-    ansi-terminal             >= 0.6,
     ansi-wl-pprint            >= 0.6.6,
     base                      >= 4,
     bifunctors                >= 4.1.1,
@@ -186,7 +185,6 @@ library
     cereal                    >= 0.4.0.1,
     comonad                   >= 4,
     containers                >= 0.5,
-    contravariant             >= 0.4.4,
     cryptohash                >= 0.11,
     data-default              >= 0.5,
     distributive              >= 0.4.1,
@@ -206,15 +204,12 @@ library
     parsers                   >= 0.8,
     prelude-extras            >= 0.3,
     primitive                 >= 0.5.2.1,
-    process                   >= 1.1,
-    profunctors               >= 4,
     random                    >= 1.0.0.3,
     semigroupoids             >= 4,
     semigroups                >= 0.9,
     split                     >= 0.2.1.1,
     tagged                    >= 0.7,
     text                      >= 1.1,
-    time                      == 1.4.*,
     transformers              >= 0.3,
     trifecta                  >= 1.4.1,
     unordered-containers      >= 0.2.3,
@@ -282,17 +277,12 @@ executable ermine
   else
     build-depends:
       base < 5,
-      bytestring,
-      containers,
       data-default,
       ermine,
-      exceptions,
-      filepath,
       haskeline,
       lens,
       mtl,
-      optparse-applicative,
-      unordered-containers
+      optparse-applicative
 
 -- Verify the properties of lenses with QuickCheck
 test-suite properties
