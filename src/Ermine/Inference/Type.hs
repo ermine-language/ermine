@@ -329,7 +329,7 @@ generalizeType w = do
     Nothing -> fail "panic: generalizeType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
-inferHardType (Term.Lit l@String{}) = return $ Witness [] (literalType l) (dataCon [U] 0 stringg ## (_Lit # l))
+inferHardType (Term.Lit l@String{}) = return $ Witness [] (literalType l) (dataCon [N] 0 stringg ## (_Lit # l))
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (dataCon [U] 0 literalg ## (_Lit # l))
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
