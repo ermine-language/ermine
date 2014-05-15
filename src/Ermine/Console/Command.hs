@@ -226,28 +226,35 @@ gBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>=
       :| [("ugly", sayLn . text . groom)]
  opt = procArgs args $ ("opt", optimize) :| [("noopt", id)]
 
+echoBody :: [String] -> String -> Console ()
+echoBody args =
+  case procArgs args $ ("term", "term") :| [("type", "type"), ("kind", "kind")] of
+    "kind" -> parsing kind (\_ s -> disp $ Kind.general s stringHint) args
+     where
+     disp = procArgs args $
+              ("pretty", sayLn . (prettySchema ?? names))
+          :| [("ugly", liftIO . putStrLn . groom)]
+    "type" -> parsing typ (const $ disp . Type.abstractAll stringHint stringHint) args
+     where
+     disp = procArgs args $
+              ("pretty", pt)
+          :| [("ugly", liftIO . putStrLn . groom . fst)]
+     pt (tsch, hs) = let stsch = hoistScope (first ("?" <$)) tsch
+                      in sayLn $ prettyTypeSchema stsch hs names
+    _ {- "term" -} -> parsing term (\_ tm -> disp tm) args
+     where
+     disp = procArgs args $
+              ("pretty", pt)
+          :| [("ugly", liftIO . putStrLn . groom)]
+     pt tm = prettyTerm
+               tm names' (-1) (error "TODO: prettyAnn") (pure.pure.text.unpack)
+         >>= sayLn
+      where names' = filter ((`notMember` setOf traverse tm).pack) names
+
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
   , cmd "quit" & desc .~ "quit" & body.mapped .~ const (liftIO exitSuccess)
-  , cmd "ukind"
-      & desc .~ "show the internal representation of a kind schema"
-      & body .~ parsing kind (const $ liftIO . putStrLn . groom . (Kind.general ?? stringHint))
-  , cmd "utype"
-      & desc .~ "show the internal representation of a type"
-      & body .~ parsing typ (const $ liftIO . putStrLn . groom . fst . Type.abstractAll stringHint stringHint)
-  , cmd "uterm"
-      & desc .~ "show the internal representation of a term"
-      & body .~ parsing term (const $ liftIO . putStrLn . groom)
-  , cmd "pkind"
-      & desc .~ "show the pretty printed representation of a kind schema"
-      & body .~ parsing kind (\_ s -> sayLn $ prettySchema (Kind.general s stringHint) names)
-  , cmd "ptype"
-      & desc .~ "show the pretty printed representation of a type schema"
-      & body .~ parsing typ (\_ s ->
-                  let (tsch, hs) = abstractAll stringHint stringHint s
-                      stsch = hoistScope (first ("?" <$)) tsch
-                   in sayLn $ prettyTypeSchema stsch hs names)
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
   , cmd "type" & desc .~ "infer the type of a term"
@@ -260,13 +267,9 @@ commands =
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
-  , cmd "pterm"
-      & desc .~ "show the pretty printed representation of a term"
-      & body .~ parsing term (\_ tm ->
-                  let names' = filter ((`notMember` setOf traverse tm).pack) names in
-                  prettyTerm tm names' (-1) (error "TODO: prettyAnn")
-                             (pure . pure . text . unpack)
-                    >>= sayLn)
+  , cmd "echo"
+      & desc .~ "parse and print an expression at any level"
+      & body .~ echoBody
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)
