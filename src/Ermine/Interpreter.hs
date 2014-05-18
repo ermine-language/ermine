@@ -20,11 +20,14 @@
 module Ermine.Interpreter
   ( Address
   , Closure(..)
+  , allocPrimOp
   , Env(..)
   , Frame(..)
   , MachineState(..)
   , eval
   , defaultMachineState
+  , primOpNK
+  , primOpNZ
   ) where
 
 import Control.Applicative hiding (empty)
@@ -51,6 +54,7 @@ import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
 import GHC.Prim (Any)
 import Prelude
+import Unsafe.Coerce
 
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
   deriving Eq
@@ -100,9 +104,12 @@ nargs ms = ms^.fp -ms^.sp
 sentinel :: a
 sentinel = error "PANIC: access past end of stack"
 
+allocPrimOp :: (Functor m, PrimMonad m) => (MachineState m -> m ()) -> m (Address m)
+allocPrimOp f = Address <$> newMutVar (PrimClosure f)
+
 defaultMachineState :: (Applicative m, PrimMonad m) => Int -> HashMap Id (Address m) -> m (MachineState m)
 defaultMachineState stackSize ge
-    = MachineState (pure stackSize-1) (pure stackSize-1) [] ge
+    = MachineState (pure stackSize) (pure stackSize) [] ge
   <$> GM.replicate stackSize sentinel
   <*> GM.replicate stackSize 0
   <*> GM.replicate stackSize sentinel
@@ -126,14 +133,17 @@ resolveClosure le _ (Local l)  = return $ le^?!envB.ix (fromIntegral l)
 resolveClosure _ ms (Stack s)  = GM.read (ms^.stackB) (fromIntegral s + ms^.sp.sort B)
 resolveClosure _ ms (Global g) = return $ ms^?!genv.ix g
 resolveClosure _ _  Lit{}      = error "resolveClosure: Lit"
+resolveClosure _ _  Native{}   = error "resolveClosure: Native"
 
 resolveUnboxed :: PrimMonad m => Env m -> MachineState m -> Ref -> m Word64
 resolveUnboxed le _ (Local l)  = return $ le^?!envU.ix (fromIntegral l)
 resolveUnboxed _ ms (Stack s)  = GM.read (ms^.stackU) (fromIntegral s + ms^.sp.sort U)
 resolveUnboxed _ _  (Lit l)    = return l
 resolveUnboxed _ _  Global{}   = error "resolveUnboxed: Global"
+resolveUnboxed _ _  Native{}   = error "resolveUnboxed: Native"
 
 resolveNative :: PrimMonad m => Env m -> MachineState m -> Ref -> m Any
+resolveNative _ _ (Native a) = return a
 resolveNative le _ (Local l) = return $ le^?!envN.ix (fromIntegral l)
 resolveNative _ ms (Stack s) = GM.read (ms^.stackN) (fromIntegral s + ms^.sp.sort N)
 resolveNative _ _ Lit{}      = error "resolveNative: Lit"
@@ -151,13 +161,12 @@ allocRecursive
   :: (Applicative m, PrimMonad m)
   => Env m -> Vector PreClosure -> MachineState m -> m (MachineState m)
 allocRecursive lo ccs ms = do
-  let sb = ms^.sp.sort B
-  let stk = ms^.stackB
   let n = B.length ccs
+      (sb, ms') = ms & sp.sort B <-~ n
+      stk = ms^.stackB
   ifor_ ccs $ \ i _ -> do
     mv <- newMutVar (error "PANIC: allocRecursive: closure isn't")
     GM.write stk (sb + i) (Address mv)
-  let ms' = ms & sp.sort B +~ n
   ifor_ ccs $ \ i pc -> do
     addr <- GM.read stk (sb + i)
     buildClosure lo pc ms' >>= poke addr
@@ -167,20 +176,20 @@ pushArgs
   :: (Applicative m, PrimMonad m)
   => Env m -> Sorted (Vector Ref) -> MachineState m -> m (MachineState m)
 pushArgs le refs@(Sorted bs us ns) ms = do
-  let (Sorted sb su sn, ms') = ms & sp <+~ fmap B.length refs
+  let (Sorted sb su sn, ms') = ms & sp <-~ fmap B.length refs
       stkB = ms^.stackB
       stkU = ms^.stackU
       stkN = ms^.stackN
-  ifor_ bs $ \i -> resolveClosure le ms >=> GM.write stkB (sb - i)
-  ifor_ us $ \i -> resolveUnboxed le ms >=> GM.write stkU (su - i)
-  ifor_ ns $ \i -> resolveNative  le ms >=> GM.write stkN (sn - i)
+  ifor_ bs $ \i -> resolveClosure le ms >=> GM.write stkB (sb + i)
+  ifor_ us $ \i -> resolveUnboxed le ms >=> GM.write stkU (su + i)
+  ifor_ ns $ \i -> resolveNative  le ms >=> GM.write stkN (sn + i)
   return $ ms'
 
 push :: Frame m -> MachineState m -> MachineState m
 push fr ms = ms & fp .~ ms^.sp & stackF %~ ((ms^.fp,fr):)
 
 copyArgs :: (PrimMonad m, GM.MVector v a) => v (PrimState m) a -> Int -> Int -> Int -> m ()
-copyArgs stk frm off len = GM.move (GM.unsafeSlice (frm+off-len) len stk) (GM.unsafeSlice frm len stk)
+copyArgs stk frm off len = GM.move (GM.slice (frm+off-len) len stk) (GM.slice frm len stk)
 
 pop :: PrimMonad m => MachineState m -> m (Maybe (Frame m, MachineState m))
 pop = popWith 0
@@ -203,8 +212,8 @@ squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
   copyArgs stkB sb zb ab
   copyArgs stkU su zu au
   copyArgs stkN sn zn an
-  GM.set (GM.unsafeSlice sb (zb-ab) stkB) sentinel
-  GM.set (GM.unsafeSlice sn (zn-an) stkN) sentinel
+  GM.set (GM.slice sb (zb-ab) stkB) sentinel
+  GM.set (GM.slice sn (zn-an) stkN) sentinel
   return $ ms & sp +~ sz - args
 
 select :: Continuation -> Tag -> G
@@ -216,12 +225,12 @@ extendPayload :: (PrimMonad m, G.Vector v a) => v a -> G.Mutable v (PrimState m)
 extendPayload d stk stp n = do
   let m = G.length d
   me <- GM.new (m + n)
-  G.unsafeCopy (GM.unsafeSlice 0 m me) d
-  GM.unsafeCopy (GM.unsafeSlice m n me) (GM.unsafeSlice stp n stk)
+  G.copy (GM.slice 0 m me) d
+  GM.copy (GM.slice m n me) (GM.slice stp n stk)
   G.unsafeFreeze me
 
 pushPayload :: (PrimMonad m, G.Vector v a) => Int -> v a -> G.Mutable v (PrimState m) a -> Int -> m ()
-pushPayload f e stk stp = G.copy (GM.slice stp (G.length e - f) stk) (G.unsafeDrop f e)
+pushPayload f e stk stp = G.copy (GM.slice stp (G.length e - f) stk) (G.drop f e)
 
 pushPayloads :: PrimMonad m => Sorted Int -> Env m -> MachineState m -> m (MachineState m)
 pushPayloads (Sorted fb fu fn) (Env db du dn) ms = do
@@ -229,7 +238,7 @@ pushPayloads (Sorted fb fu fn) (Env db du dn) ms = do
   pushPayload fb db (ms^.stackB) sb
   pushPayload fu du (ms^.stackU) su
   pushPayload fn dn (ms^.stackN) sn
-  return $ ms & sp +~ Sorted (G.length db - fb) (G.length du - fu) (G.length dn - fn)
+  return $ ms & sp -~ Sorted (G.length db - fb) (G.length du - fu) (G.length dn - fn)
 
 extendPayloads :: (Applicative m, PrimMonad m) => Env m -> MachineState m -> m (Env m)
 extendPayloads (Env db du dn) ms =
@@ -243,7 +252,7 @@ extendPayloads (Env db du dn) ms =
 payload :: (PrimMonad m, G.Vector v a) => G.Mutable v (PrimState m) a -> Int -> Int -> m (v a)
 payload mv s n = do
   me <- GM.new n
-  GM.unsafeCopy me (GM.unsafeSlice s n mv)
+  GM.copy me (GM.slice s n mv)
   G.unsafeFreeze me
 
 ------------------------------------------------------------------------------
@@ -260,8 +269,7 @@ eval (App sz f xs) le ms = case f of
   Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
 eval (Let bs e) le ms = do
   let stk = ms^.stackB
-      sb = ms^.sp.sort B
-      ms' = ms & sp.sort B +~ G.length bs
+      (sb, ms') = ms & sp.sort B <-~ G.length bs
   ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
   eval e le ms'
 eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
@@ -312,3 +320,16 @@ returnLit w ms = pop ms >>= \case
   Just (Branch k le, ms') -> eval (select k w) le ms'
   Just _ -> error "PANIC: literal update frame"
   Nothing -> return ()
+
+------------------------------------------------------------------------------
+-- Primops
+------------------------------------------------------------------------------
+
+primOpNK :: PrimMonad m => (b -> m ()) -> (a -> m b) -> MachineState m -> m ()
+primOpNK k f ms = GM.read nstk np >>= f . unsafeCoerce >>= k
+ where
+ np = ms^.sp.sort N
+ nstk = ms^.stackN
+
+primOpNZ :: PrimMonad m => (a -> m ()) -> MachineState m -> m ()
+primOpNZ = primOpNK return
