@@ -30,6 +30,8 @@ import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
+import Data.Default
+import qualified Data.HashMap.Strict as HM
 import Data.List as List
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.List.Split (splitOn)
@@ -47,6 +49,7 @@ import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
 import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
+import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
@@ -251,6 +254,14 @@ echoBody args =
          >>= sayLn
       where names' = filter ((`notMember` setOf traverse tm).pack) names
 
+evalBody :: [String] -> Term Ann Text -> Console ()
+evalBody _ syn =
+  ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
+    Just (_, c) -> liftIO $ do
+      ms <- defaultMachineState 512 (HM.empty)
+      eval (compile 0 absurd (optimize c)) def ms
+    Nothing -> return ()
+
 commands :: [Command]
 commands =
   [ cmd "help" & desc .~ "show help" & alts .~ ["?"] & body .~ showHelp
@@ -270,6 +281,9 @@ commands =
   , cmd "echo"
       & desc .~ "parse and print an expression at any level"
       & body .~ echoBody
+  , cmd "eval"
+      & desc .~ "type check and evaluate a term"
+      & body .~ parsing term evalBody
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)
