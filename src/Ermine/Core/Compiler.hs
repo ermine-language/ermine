@@ -181,6 +181,8 @@ anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
     (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
   compilePiece (_, Core.Var v) = return (True, cxt v)
+  compilePiece (C.N, Core.HardCore (Core.Lit (String s))) =
+    return (False, SortRef S.N $ _UnsafeNative # s)
   compilePiece (C.U, Core.HardCore (Core.Lit l)) = case literalRep l of
     Just r -> return (False, SortRef S.U (Lit r))
     _      -> error "anf: exotic literal"

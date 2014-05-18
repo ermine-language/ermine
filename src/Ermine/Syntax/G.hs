@@ -15,6 +15,8 @@ module Ermine.Syntax.G
   , _Local
   , _Stack
   , _Lit
+  , _Native
+  , _UnsafeNative
   , G(..)
   , _Ref
   , PreClosure(..)
@@ -40,16 +42,29 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Ermine.Syntax.Sort
 import Ermine.Syntax.Id
+import GHC.Prim (Any)
+import Unsafe.Coerce
 
 data Ref
   = Global !Id
   | Local  !Word64
   | Stack  !Word64
   | Lit    !Word64
-  deriving Show
+  | Native !Any
+
+instance Show Ref where
+  showsPrec n (Global i) = showParen (n>10) $ showString "Global" . showsPrec 11 i
+  showsPrec n (Local  w) = showParen (n>10) $ showString "Local" . shows w
+  showsPrec n (Stack  w) = showParen (n>10) $ showString "Stack" . shows w
+  showsPrec n (Lit    w) = showParen (n>10) $ showString "Lit" . shows w
+  showsPrec n (Native _) = showParen (n>10) $ showString "Native"
 
 makePrisms ''Ref
 
+_UnsafeNative :: Prism' Ref a
+_UnsafeNative = prism (Native . unsafeCoerce) $ \r -> case r of
+  Native a -> Right $ unsafeCoerce a
+  s        -> Left s
 data G
   = Case !G !Continuation
   | CaseLit !Ref !Continuation

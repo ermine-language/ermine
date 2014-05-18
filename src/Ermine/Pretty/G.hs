@@ -23,6 +23,8 @@ import Ermine.Syntax.G
 defaultCxt :: Sort -> Ref -> Doc
 defaultCxt U (Lit n) = int (fromIntegral n)
 defaultCxt s (Lit n) = "bad lit?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
+defaultCxt N (Native _) = "native"
+defaultCxt s (Native _) = "bad native?" <+> text (show s)
 defaultCxt s (Global n) = "global?" <+> text (show s) <> "{" <> prettyId n <> "}"
 defaultCxt s (Stack n) = "stack?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
 defaultCxt s (Local n) = "local?" <+> text (show s) <> "{" <> int (fromIntegral n) <> "}"
