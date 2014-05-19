@@ -199,7 +199,7 @@ popWith args ms = case ms^.stackF of
   (ofp,fr):fs -> do
     let f = ms^.fp
     ms' <- squash (f - ms^.sp) args ms
-    return $ Just (fr,ms' & sp .~ f & fp .~ ofp & stackF .~ fs)
+    return $ Just (fr,ms' & fp .~ ofp & stackF .~ fs)
   [] -> return Nothing
 
 -- for tail calls or return
