@@ -42,6 +42,7 @@ import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import Data.Foldable (for_)
 import Data.Void
+import Ermine.Builtin.Core (cPutStrLn)
 import Ermine.Builtin.Term as Term (dataCon)
 import Ermine.Builtin.Type as Type (lame, maybe_, ee)
 import Ermine.Console.State
@@ -259,7 +260,7 @@ evalBody _ syn =
   ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
     Just (_, c) -> liftIO $ do
       ms <- defaultMachineState 512 (HM.empty)
-      eval (compile 0 absurd (optimize c)) def ms
+      eval (compile 0 absurd . optimize $ cPutStrLn c) def ms
     Nothing -> return ()
 
 commands :: [Command]

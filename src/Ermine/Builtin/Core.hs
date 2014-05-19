@@ -28,13 +28,20 @@ module Ermine.Builtin.Core
   -- * Maybe
   , just
   , nothing
+  -- * primops
+  , cPutStrLn
   ) where
 
+import Bound
+import Control.Lens ((#))
 import Data.Int
+import qualified Data.Map as M
 import Data.Text hiding (zip, length, concatMap, cons)
 import Ermine.Builtin.Global
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
+import Ermine.Syntax.Global hiding (N)
+import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 
 -- | The built-in '[]' constructor for a list.
@@ -52,6 +59,9 @@ just a = Data [C] 1 justg [a]
 -- | The built-in 'Nothing' constructor for 'Maybe'.
 nothing :: Core a
 nothing = Data [] 0 nothingg []
+
+cPutStrLn :: Core a -> Core a
+cPutStrLn c = Case c (M.singleton 0 . Match [N] stringg . Scope $ App N (_Id._Global # putStrLng) $ Var (B 1)) Nothing
 
 -- | Lifting of literal values to core.
 class Lit a where

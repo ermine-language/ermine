@@ -27,6 +27,8 @@ module Ermine.Builtin.Global
   , literalg
   -- * string literals
   , stringg
+  -- * primops
+  , putStrLng
   ) where
 
 import Data.Text
@@ -60,3 +62,6 @@ literalg = builtin_ "Literal"
 
 stringg :: Global
 stringg = builtin_ "String"
+
+putStrLng :: Global
+putStrLng = builtin_ "print"
