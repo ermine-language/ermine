@@ -181,11 +181,13 @@ anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
     (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
   compilePiece (_, Core.Var v) = return (True, cxt v)
-  compilePiece (C.N, Core.HardCore (Core.Lit (String s))) =
-    return (False, SortRef S.N $ _UnsafeNative # s)
-  compilePiece (C.U, Core.HardCore (Core.Lit l)) = case literalRep l of
-    Just r -> return (False, SortRef S.U (Lit r))
-    _      -> error "anf: exotic literal"
+  compilePiece (c, Core.HardCore hc) = case (c, hc) of
+    (C.C, Core.Id i) -> return (False, SortRef S.B $ Global i)
+    (C.N, Core.Lit (String str)) -> return (False, SortRef S.N $ _UnsafeNative # str)
+    (C.U, Core.Lit l) -> case literalRep l of
+      Just r -> return (False, SortRef S.U (Lit r))
+      _      -> error "anf: exotic literal"
+    (_, _) -> error "anf: TODO'"
   compilePiece (cv, co) | cv `F.elem` [C.C, C.D] = state $ \(k,l) ->
     let bnd = compileBinding cxt co
      in ((False,SortRef S.B $ Stack k),(k+1,bnd:l))
