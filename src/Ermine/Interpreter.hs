@@ -212,8 +212,8 @@ squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
   copyArgs stkB sb zb ab
   copyArgs stkU su zu au
   copyArgs stkN sn zn an
-  GM.set (GM.slice sb (zb-ab) stkB) sentinel
-  GM.set (GM.slice sn (zn-an) stkN) sentinel
+  when (zb-ab > 0) $ GM.set (GM.slice sb (zb-ab) stkB) sentinel
+  when (zn-an > 0) $ GM.set (GM.slice sn (zn-an) stkN) sentinel
   return $ ms & sp +~ sz - args
 
 select :: Continuation -> Tag -> G
