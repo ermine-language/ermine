@@ -51,7 +51,6 @@ import qualified Data.Vector.Mutable as BM
 import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Primitive.Mutable as PM
 import Data.Word
-import Debug.Trace
 import Ermine.Syntax.G
 import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
@@ -189,7 +188,9 @@ pushArgs le refs@(Sorted bs us ns) ms = do
   return $ ms'
 
 push :: Frame m -> MachineState m -> MachineState m
-push fr ms = ms & fp .~ ms^.sp & stackF %~ ((ms^.fp,fr):)
+push fr ms
+  | F.or ((>) <$> ms^.sp <*> ms^.fp) = error "push inverts stack and frame pointers"
+  | otherwise = ms & fp .~ ms^.sp & stackF %~ ((ms^.fp,fr):)
 
 copyArgs :: (PrimMonad m, GM.MVector v a) => v (PrimState m) a -> Int -> Int -> Int -> m ()
 copyArgs stk frm off len = GM.move (GM.slice (frm+off-len) len stk) (GM.slice frm len stk)
@@ -206,6 +207,31 @@ popWith args ms = case ms^.stackF of
   [] -> return Nothing
 
 -- for tail calls or return
+--
+-- In @squash sz args ms@
+--
+-- @sz@ is the number of local variables and arguments we just pushed
+-- @args@ is the number of those local variables that are arguments we had pushed
+-- We then squash the variables so that the local variables that were pushed on the end
+-- are pushed at the front of this frame and 'suck the air' out of the frame removing
+-- all the others
+--
+-- @
+-- Before (w/ stack growing down to the right)
+--
+-- fp            sp
+-- |             |
+-- v             v
+-- <-----sz------>
+--        <-args->
+--
+-- After
+--
+-- fp     sp'
+-- |      |
+-- v      v
+-- <-args->
+-- @
 squash :: PrimMonad m => Sorted Int -> Sorted Int -> MachineState m -> m (MachineState m)
 squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
   let Sorted sb su sn = ms^.sp
@@ -215,8 +241,8 @@ squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
   copyArgs stkB sb zb ab
   copyArgs stkU su zu au
   copyArgs stkN sn zn an
-  when (zb-ab > 0) $ GM.set (GM.slice sb (zb-ab) stkB) sentinel
-  when (zn-an > 0) $ GM.set (GM.slice sn (zn-an) stkN) sentinel
+  when (zb > ab) $ GM.set (GM.slice sb (zb-ab) stkB) sentinel
+  when (zn > an) $ GM.set (GM.slice sn (zn-an) stkN) sentinel
   return $ ms & sp +~ sz - args
 
 select :: Continuation -> Tag -> G
@@ -315,7 +341,7 @@ returnCon t args@(Sorted ab au an) ms = popWith args ms >>= \case
   Just (Branch k le, ms') -> eval (select k t) le ms'
   Just (Update ad, ms') -> do
     let Sorted sb su sn = ms'^.sp
-    e <- Env <$> payload (ms^.stackB) sb ab <*> payload (ms^.stackU) su au <*> payload (ms^.stackN) sn an
+    e <- Env <$> payload (ms'^.stackB) sb ab <*> payload (ms'^.stackU) su au <*> payload (ms'^.stackN) sn an
     poke ad $ Closure (standardConstructor (fromIntegral <$> args) t) e
     returnCon t args ms'
   Nothing -> return ()
