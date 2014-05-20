@@ -51,6 +51,7 @@ import qualified Data.Vector.Mutable as BM
 import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Primitive.Mutable as PM
 import Data.Word
+import Debug.Trace
 import Ermine.Syntax.G
 import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
@@ -266,7 +267,9 @@ eval (App sz f xs) le ms = case f of
   Ref r -> do
     a <- resolveClosure le ms r
     ms'  <- pushArgs le xs ms
-    ms'' <- squash (fromIntegral <$> sz) (G.length <$> xs) ms'
+    let lxs = G.length <$> xs
+    let lsz = fromIntegral <$> sz
+    ms'' <- squash (lsz + lxs) lxs ms'
     enter a ms''
   Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
 eval (Let bs e) le ms = do
