@@ -118,10 +118,10 @@ compile n cxt l@Core.Lam{} =
   let_ [compileBinding cxt l] (App (n & sort S.B +~ 1) (Ref $ Stack 0) mempty)
 compile n cxt (Core.Case e bs d) = case e of
   Core.Var v ->
-    Case (_Ref n # view sortRef (cxt v)) $ compileBranches n (cxt v) cxt bs d
+    Case (_Ref 0 # view sortRef (cxt v)) $ compileBranches n (cxt v) cxt bs d
   _          ->
      let_ [compileBinding cxt e]
-     $ Case (_Ref n' # Stack 0)
+     $ Case (_Ref 0 # Stack 0)
        $ compileBranches n' (SortRef S.B (Stack 0)) cxt' bs d
     where n'   = n & sort S.B +~ 1
           cxt' = cxt & mapped._SortRef S.B ._Stack +~ 1
