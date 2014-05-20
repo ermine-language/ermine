@@ -60,8 +60,13 @@ just a = Data [C] 1 justg [a]
 nothing :: Core a
 nothing = Data [] 0 nothingg []
 
-cPutStrLn :: Core a -> Core a
-cPutStrLn c = Case c (M.singleton 0 . Match [N] stringg . Scope $ App N (_Id._Global # putStrLng) $ Var (B 1)) Nothing
+cPutStrLn :: Core a
+cPutStrLn =
+  Lam [C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [N] stringg
+        . Scope . App N (_Id._Global # putStrLng) $ Var (B 1))
+      Nothing
 
 -- | Lifting of literal values to core.
 class Lit a where

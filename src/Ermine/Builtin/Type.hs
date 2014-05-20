@@ -37,6 +37,8 @@ module Ermine.Builtin.Type
   , list
   , maybe_
   , ee
+  -- ** IO
+  , io
   -- ** Type Equality
   , equality
   -- ** Classes
@@ -205,6 +207,13 @@ ee = builtin_ "E"
 -- (a -> a -> *) -> *
 equality :: Builtin t => t
 equality = builtin ("a" ~> "a" ~> star) "Equality"
+
+------------------------------------------------------------------------------
+-- IO
+------------------------------------------------------------------------------
+
+io :: Builtin t => t
+io = builtin (star ~> star) "IO"
 
 ------------------------------------------------------------------------------
 -- Classes

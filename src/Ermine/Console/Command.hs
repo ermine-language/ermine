@@ -25,7 +25,6 @@ module Ermine.Console.Command
 import Bound
 import Control.Applicative
 import Control.Lens
-import Control.Monad
 import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.Bitraversable
@@ -40,11 +39,13 @@ import Data.Set.Lens
 import Data.Semigroup
 import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
+import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Void
 import Ermine.Builtin.Core (cPutStrLn)
+import Ermine.Builtin.Global (putStrLng)
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -56,7 +57,7 @@ import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
-import Ermine.Pretty
+import Ermine.Pretty hiding (string)
 import Ermine.Pretty.G
 import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
@@ -168,20 +169,22 @@ dkindsBody _ dts = do
 
 checkAndCompile :: MonadConstraint s m
                 => Term Ann Text -> m (Maybe (Type t k, Core c))
-checkAndCompile syn = traverse closedOrLame (syn >>= predefs) `for` \syn' -> do
+checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> do
   tm <- bitraverse (prepare (newMeta ())
                           (const $ newMeta ())
                           (const $ newMeta () >>= newMeta . pure))
                  pure
                  syn'
-  w <- inferType 0 (const tyLame) tm
-  over _2 join <$> generalizeType w
+  w <- inferType 0 fst tm
+  over _2 (>>= snd) <$> generalizeType w
  where
  clame :: Type k t
  clame = con lame (star ~> constraint)
  tyLame :: Type k t
  tyLame = Forall [] [Unhinted $ Scope star]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
+ tyPSL :: Type k t
+ tyPSL = string ~> io (tuple 0)
  predefs "Nothing" =
    Term.dataCon Idfix "Ermine" "Nothing" $
      Forall [] [Unhinted $ Scope star]
@@ -195,10 +198,10 @@ checkAndCompile syn = traverse closedOrLame (syn >>= predefs) `for` \syn' -> do
      Forall [] [Unhinted $ Scope star]
             (Scope $ And []) (Scope $ pure (B 0) ~> ee)
  predefs  x = pure x
- closedOrLame :: Text -> Maybe (Core c)
- closedOrLame txt | txt == "lame" =
-   Just (HardCore $ Slot 0)
- closedOrLame _ = Nothing
+ resolveGlobals :: Text -> Maybe (Type t k, Core c)
+ resolveGlobals txt | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
+                    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
+ resolveGlobals _ = Nothing
 
 typeBody :: [String] -> Term Ann Text -> Console ()
 typeBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \ xs -> case xs of
@@ -259,8 +262,9 @@ evalBody :: [String] -> Term Ann Text -> Console ()
 evalBody _ syn =
   ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
     Just (_, c) -> liftIO $ do
-      ms <- defaultMachineState 512 (HM.empty)
-      eval (compile 0 absurd . optimize $ cPutStrLn c) def ms
+      psl <- allocPrimOp $ primOpNZ Text.putStrLn
+      ms <- defaultMachineState 512 (HM.singleton (_Global # putStrLng) psl)
+      eval (compile 0 absurd . optimize $ c) def ms
     Nothing -> return ()
 
 commands :: [Command]
