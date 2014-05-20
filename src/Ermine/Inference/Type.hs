@@ -342,6 +342,7 @@ inferHardType (DataCon g t)
   | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon [] 0 g
   | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon [C] 1 g
   | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon [C] 0 g
+  | g^.name == "String#" = unfurl (bimap absurd absurd t) $ dataCon [N] 1 g
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a

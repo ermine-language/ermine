@@ -168,7 +168,7 @@ string :: Builtin t => t
 string = builtin_ "String"
 
 stringh :: Builtin t => t
-stringh = builtin unboxed "String#"
+stringh = builtin native "String#"
 
 
 ------------------------------------------------------------------------------
