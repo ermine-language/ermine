@@ -28,6 +28,10 @@ module Ermine.Builtin.Core
   -- * Maybe
   , just
   , nothing
+  -- * prim wrappers
+  , stringh
+  , inth
+  , longh
   -- * primops
   , cPutStrLn
   ) where
@@ -59,6 +63,15 @@ just a = Data [C] 1 justg [a]
 -- | The built-in 'Nothing' constructor for 'Maybe'.
 nothing :: Core a
 nothing = Data [] 0 nothingg []
+
+stringh :: Core a -> Core a
+stringh s = Data [N] 1 stringhg [s]
+
+inth :: Core a -> Core a
+inth i = Data [U] 1 inthg [i]
+
+longh :: Core a -> Core a
+longh l = Data [U] 1 longhg [l]
 
 cPutStrLn :: Core a
 cPutStrLn =

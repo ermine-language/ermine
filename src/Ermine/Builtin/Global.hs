@@ -27,6 +27,10 @@ module Ermine.Builtin.Global
   , literalg
   -- * string literals
   , stringg
+  -- * primitive types
+  , stringhg
+  , inthg
+  , longhg
   -- * primops
   , putStrLng
   ) where
@@ -62,6 +66,15 @@ literalg = builtin_ "Literal"
 
 stringg :: Global
 stringg = builtin_ "String"
+
+stringhg :: Global
+stringhg = builtin_ "String#"
+
+inthg :: Global
+inthg = builtin_ "Int32#"
+
+longhg :: Global
+longhg = builtin_ "Int64#"
 
 putStrLng :: Global
 putStrLng = builtin_ "putStrLn"

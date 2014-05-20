@@ -32,7 +32,7 @@ module Ermine.Builtin.Type
   -- ** Booleans
   , bool
   -- ** Text
-  , string, char
+  , string, char, stringh
   -- ** Containers
   , list
   , maybe_
@@ -166,6 +166,10 @@ char = builtin_ "Char"
 -- *
 string :: Builtin t => t
 string = builtin_ "String"
+
+stringh :: Builtin t => t
+stringh = builtin unboxed "String#"
+
 
 ------------------------------------------------------------------------------
 -- Containers

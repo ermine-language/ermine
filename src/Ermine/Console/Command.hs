@@ -199,8 +199,9 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
             (Scope $ And []) (Scope $ pure (B 0) ~> ee)
  predefs  x = pure x
  resolveGlobals :: Text -> Maybe (Type t k, Core c)
- resolveGlobals txt | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
-                    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
+ resolveGlobals txt
+   | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
+   | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
  resolveGlobals _ = Nothing
 
 typeBody :: [String] -> Term Ann Text -> Console ()
