@@ -53,11 +53,11 @@ data Ref
   | Native !Any
 
 instance Show Ref where
-  showsPrec n (Global i) = showParen (n>10) $ showString "Global" . showsPrec 11 i
-  showsPrec n (Local  w) = showParen (n>10) $ showString "Local" . shows w
-  showsPrec n (Stack  w) = showParen (n>10) $ showString "Stack" . shows w
-  showsPrec n (Lit    w) = showParen (n>10) $ showString "Lit" . shows w
-  showsPrec n (Native _) = showParen (n>10) $ showString "Native"
+  showsPrec n (Global i) = showParen (n>10) $ showString "Global " . showsPrec 11 i
+  showsPrec n (Local  w) = showParen (n>10) $ showString "Local " . shows w
+  showsPrec n (Stack  w) = showParen (n>10) $ showString "Stack " . shows w
+  showsPrec n (Lit    w) = showParen (n>10) $ showString "Lit " . shows w
+  showsPrec _ (Native _) = showString "{Native}"
 
 makePrisms ''Ref
 
