@@ -42,10 +42,10 @@ import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn)
-import Ermine.Builtin.Global (putStrLng)
+import Ermine.Builtin.Core (cPutStrLn, cShowLong)
+import Ermine.Builtin.Global (putStrLng, showLongg)
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, longh)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -185,6 +185,8 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
  tyPSL :: Type k t
  tyPSL = string ~> io (tuple 0)
+ tySI6 :: Type k t
+ tySI6 = apps arrowHash [longh, string]
  predefs "Nothing" =
    Term.dataCon Idfix "Ermine" "Nothing" $
      Forall [] [Unhinted $ Scope star]
@@ -202,6 +204,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  resolveGlobals txt
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
+   | txt == "showLong" = Just (tySI6, cShowLong)
  resolveGlobals _ = Nothing
 
 typeBody :: [String] -> Term Ann Text -> Console ()
@@ -264,7 +267,11 @@ evalBody _ syn =
   ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
     Just (_, c) -> liftIO $ do
       psl <- allocPrimOp $ primOpNZ Text.putStrLn
-      ms <- defaultMachineState 512 (HM.singleton (_Global # putStrLng) psl)
+      si6 <- allocPrimOp . primOpUN $ return . pack . show
+      ms <- defaultMachineState 512 $ HM.fromList
+              [ (_Global # putStrLng, psl)
+              , (_Global # showLongg, si6)
+              ]
       eval (compile 0 absurd . optimize $ c) def ms
     Nothing -> return ()
 

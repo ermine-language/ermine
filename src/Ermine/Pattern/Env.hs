@@ -57,8 +57,9 @@ newtype PatternEnv = PatternEnv { signatures :: HashMap Global (HashMap Global (
 
 dummyPatternEnv :: PatternEnv
 dummyPatternEnv = PatternEnv $
-  HM.fromList [(eg, esig), (justg, maybesig), (nothingg, maybesig)]
+  HM.fromList [(eg, esig), (justg, maybesig), (nothingg, maybesig), (longhg, longsig)]
  where
+  longsig = HM.singleton longhg ([U], 0)
   esig = HM.singleton eg ([C], 0)
   maybesig = HM.fromList [(nothingg, ([], 0)), (justg, ([C], 1))]
 

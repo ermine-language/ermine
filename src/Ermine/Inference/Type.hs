@@ -83,10 +83,12 @@ type BindingM s a = Binding (AnnotM s) a
 type CoreM s a = Scope a Core (TypeM s)
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
+matchFunType (Type.App (Type.App (HardType ArrowHash) a) b) = return (a, b)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
 matchFunType (HardType _) = fail "not a fun type"
 matchFunType t = do
-  x <- pure <$> newMeta star
+  k <- pure <$> newMeta ()
+  x <- pure <$> newMeta k
   y <- pure <$> newMeta star
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
@@ -105,7 +107,7 @@ inferBindingType d cxt lcxt bdg = do
     EQ -> return ()
     GT -> fail "pattern arity mismatch"
   mess <- for (bdg^.bindingBodies) $ \(Body bps gd wc) -> do
-    (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) bps
+    (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d star) bps
     let pcxt (ArgPP i pp)
           | Just f <- ppts ^? ix (fromIntegral i) = f pp
         pcxt _ = error "panic: bad argument reference in lambda term"
@@ -137,7 +139,7 @@ inferBindingGroupTypes
   :: MonadConstraint s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
-  bgts <- for bg $ \ b -> instantiateAnnot d $ fromMaybe anyType $ b^?bindingType._Explicit
+  bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyType $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
   sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
     w' <- subsumesType d w vt
@@ -168,14 +170,14 @@ inferType d cxt (Remember i t) = do
   return r
 inferType d cxt (Sig tm (Annot ks ty)) = do
   ts <- for ks newMeta
-  checkType d cxt tm (instantiateVars ts ty)
+  checkType False d cxt tm (instantiateVars ts ty)
 inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
-  Witness xrcs _ xc <- checkType d cxt x i
+  Witness xrcs _ xc <- checkType True d cxt x i
   simplifiedWitness (frcs ++ xrcs) o $ _App # (fc, xc)
 inferType d cxt (Term.Lam ps e) = do
-  (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
+  (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d star) ps
   let pcxt (ArgPP i pp)
         | Just f <- ppts ^? ix (fromIntegral i) = f pp
       pcxt _ = error "panic: bad argument reference in lambda term"
@@ -218,7 +220,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
   return $ Witness (r++rs) t' c'
  where
  inferAlt (Alt p b) = do
-   (sks, pt, pcxt) <- inferPatternType d p
+   (sks, pt, pcxt) <- inferPatternType d star p
    let trav f (x, y, z) = (,,) <$> traverse f x <*> f y <*> (traverse.traverse) f z
    trip <- inferGuarded pcxt b
    checkSkolemEscapes (Just d) (beside id trav) sks (pt, trip)
@@ -256,10 +258,10 @@ abstractedWitness d sks rs cs0 ty co0 = do
 
 -- TODO: write this correctly
 checkType :: MonadConstraint s m
-          => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
-checkType d cxt e t = do
+          => Bool -> Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
+checkType trust d cxt e t = do
   w <- inferType d cxt e
-  checkKind (view metaValue <$> t) star
+  unless trust $ checkKind (view metaValue <$> t) star
   subsumesType d w t
 
 subsumesType :: MonadConstraint s m
@@ -391,40 +393,42 @@ unfurlConstraints (Exists ks ts cs) = do
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
 
-inferPatternType :: MonadMeta s m =>  Depth -> PatM s
+inferPatternType :: MonadMeta s m =>  Depth -> KindM s -> PatM s
                  -> m ([MetaT s], TypeM s, PatternPath -> TypeM s)
-inferPatternType d (SigP ann)  = do
-  ty <- instantiateAnnot d ann
-  checkKind (view metaValue <$> ty) star
+inferPatternType d k (SigP ann)  = do
+  ty <- instantiateAnnot d k ann
   return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
-inferPatternType d WildcardP   =
-  pure <$> newShallowMeta d star <&> \m ->
+inferPatternType d k WildcardP   =
+  pure <$> newShallowMeta d k <&> \m ->
     ([], m, \ xs -> case xs of LeafPP -> m ; _ -> error "panic: bad pattern path")
-inferPatternType d (AsP p)     =
-  inferPatternType d p <&> \(sks, ty, pcxt) ->
+inferPatternType d k (AsP p) =
+  inferPatternType d k p <&> \(sks, ty, pcxt) ->
     (sks, ty, \ xs -> case xs of LeafPP -> ty ; pp -> pcxt pp)
-inferPatternType d (StrictP p) = inferPatternType d p
-inferPatternType d (LazyP p)   = inferPatternType d p
-inferPatternType d (TupP ps)   =
-  unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->
+inferPatternType d k (StrictP p) = inferPatternType d k p
+inferPatternType d k (LazyP p)   = inferPatternType d k p
+inferPatternType d k (TupP ps) = do
+  -- uncaring $ unifyKind star k
+  unzip3 <$> traverse (inferPatternType d star) ps <&> \(sks, tys, cxts) ->
     ( join sks
     , apps (tuple $ length ps) tys
     , \ xs -> case xs of
        FieldPP i pp        | Just f <- cxts ^? ix (fromIntegral i) -> f pp
        _ -> error "panic: bad pattern path"
     )
-inferPatternType _ (LitP l)    =
+inferPatternType _ k (LitP l) = do
+  uncaring $ checkKind (literalType l) k
   pure ([], literalType l, \_ -> error "panic: bad pattern path")
 -- Hard coding temporarily to test.
 --
 -- data E = forall x. E x
 -- E : forall (x : *). x -> E
-inferPatternType d (ConP g ps)
+inferPatternType d k (ConP g ps)
   | g^.name == "E" =
     newShallowSkolem d star >>= \x ->
     case ps of
       [ ] -> fail "under-applied constructor"
-      [p] -> do (sks, ty, f) <- inferPatternType d p
+      [p] -> do -- uncaring $ unifyKind k star
+                (sks, ty, f) <- inferPatternType d star p
                 uncaring $ unifyType (pure x) ty
                 return ( x:sks
                        , ee
@@ -436,7 +440,7 @@ inferPatternType d (ConP g ps)
   | g^.name == "Just" =
     case ps of
       [ ] -> fail "under-applied constructor"
-      [p] -> do (sks, ty, f) <- inferPatternType d p
+      [p] -> do (sks, ty, f) <- inferPatternType d star p
                 return (sks, maybe_ ty, \xs -> case xs of
                           FieldPP 0 pp -> f pp
                           _ -> error "panic: bad pattern path")
@@ -446,10 +450,20 @@ inferPatternType d (ConP g ps)
       [] -> newShallowMeta d star >>= \x ->
               return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
-inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
+  | g^.name == "Long#" =
+    case ps of
+      [ ] -> fail "under-applied constructor"
+      [p] -> do (sks, ty, f) <- inferPatternType d unboxed p
+                uncaring $ unifyType ty longh
+                return (sks, long, \xs -> case xs of
+                         FieldPP 0 pp -> f pp
+                         _ -> error "panic: bad pattern path")
+      _ -> fail "over-applied constructor"
+inferPatternType _ _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
 
-instantiateAnnot :: MonadMeta s m => Depth -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
-instantiateAnnot d (Annot ks sc) = do
+instantiateAnnot :: MonadMeta s m
+                 => Depth -> KindM s -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
+instantiateAnnot d k (Annot ks sc) = do
   ty <- traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
     instantiate (tvs !!) sc
-  ty <$ checkKind (view metaValue <$> ty) star
+  ty <$ checkKind (view metaValue <$> ty) k

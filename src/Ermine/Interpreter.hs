@@ -54,7 +54,6 @@ import Data.Word
 import Ermine.Syntax.G
 import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
-import GHC.Prim (Any)
 import Prelude
 import Unsafe.Coerce
 
@@ -64,7 +63,7 @@ newtype Address m = Address (MutVar (PrimState m) (Closure m))
 data Env m = Env
   { _envB :: Vector (Address m)
   , _envU :: P.Vector Word64
-  , _envN :: Vector Any
+  , _envN :: Vector Native
   }
 
 instance Default (Env m) where
@@ -94,7 +93,7 @@ data MachineState m = MachineState
   , _genv    :: HashMap Id (Address m)
   , _stackB  :: BM.MVector (PrimState m) (Address m)
   , _stackU  :: PM.MVector (PrimState m) Word64
-  , _stackN  :: BM.MVector (PrimState m) Any
+  , _stackN  :: BM.MVector (PrimState m) Native
   }
 
 makeClassy ''Env
@@ -144,7 +143,7 @@ resolveUnboxed _ _  (Lit l)    = return l
 resolveUnboxed _ _  Global{}   = error "resolveUnboxed: Global"
 resolveUnboxed _ _  Native{}   = error "resolveUnboxed: Native"
 
-resolveNative :: PrimMonad m => Env m -> MachineState m -> Ref -> m Any
+resolveNative :: PrimMonad m => Env m -> MachineState m -> Ref -> m Native
 resolveNative _ _ (Native a) = return a
 resolveNative le _ (Local l) = return $ le^?!envN.ix (fromIntegral l)
 resolveNative _ ms (Stack s) = GM.read (ms^.stackN) (fromIntegral s + ms^.sp.sort N)
@@ -364,10 +363,10 @@ primOpNZ f ms = GM.read nstk np >>= f . unsafeCoerce
 
 primOpUN :: (Applicative m, PrimMonad m) => (Word64 -> m b) -> MachineState m -> m ()
 primOpUN f ms =
-  GM.read ustk up >>= f . unsafeCoerce >>= GM.write nstk np . unsafeCoerce
+  GM.read ustk up >>= f >>= GM.write nstk np . unsafeCoerce
     >> returnCon 0 (Sorted 0 0 1) ms'
  where
- (Sorted _ up np, ms') = ms & sp <<-~ 1
+ (Sorted _ up np, ms') = ms & sp <-~ Sorted 0 0 1
  nstk = ms^.stackN
  ustk = ms^.stackU
 

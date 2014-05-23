@@ -255,7 +255,6 @@ instance Arbitrary HardCore where
     [ Super    <$> arbitrary
     , Slot     <$> arbitrary
     , Core.Lit <$> arbitrary
-    , PrimOp   <$> arbitrary
     , Foreign  <$> arbitrary
     , Error    <$> arbitrary
     ]

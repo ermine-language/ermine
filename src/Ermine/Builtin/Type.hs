@@ -29,6 +29,7 @@ module Ermine.Builtin.Type
   -- ** Numerics
   , int, long, byte, short
   , float, double
+  , inth, longh
   -- ** Booleans
   , bool
   -- ** Text
@@ -46,6 +47,7 @@ module Ermine.Builtin.Type
   , lame
   -- ** Annotations
   , anyType
+  , anyType'
   ) where
 
 import Bound
@@ -116,10 +118,22 @@ int :: Builtin t => t
 int = builtin_ "Int"
 
 -- |
+-- >>> infer inth
+-- #
+inth :: Builtin t => t
+inth = builtin unboxed "Int#"
+
+-- |
 -- >>> infer long
 -- *
 long :: Builtin t => t
 long = builtin_ "Long"
+
+-- |
+-- >>> infer longh
+-- #
+longh :: Builtin t => t
+longh = builtin unboxed "Long#"
 
 -- |
 -- >>> infer byte
@@ -247,3 +261,8 @@ lame = builtin (star ~> constraint) "Lame"
 -- | A type annotation that can be applied to anything.
 anyType :: Annot t a
 anyType = Annot [star] $ Scope $ return $ B 0
+
+-- | A type annotation that can be applied to anything, but doesn't determine
+-- the kind
+anyType' :: Annot (Maybe t) a
+anyType' = Annot [Kind.Var Nothing] . Scope . return $ B 0

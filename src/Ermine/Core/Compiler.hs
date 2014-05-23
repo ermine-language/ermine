@@ -79,7 +79,7 @@ compileBinding cxt co = case co of
   Core.Lam [] _   -> error "PANIC: 0 arity core lambda"
   Core.Lam ccvs e ->
     PreClosure (sortRefs $ snd <$> vs) $
-      noUpdate fvn args (compile (fvn + args) cxt'' $ fromScope e)
+      noUpdate fvn args (compile args cxt'' $ fromScope e)
    where cxt'' (Var.F v) = cxt' v & sortRef._Stack %@~ \s n -> n + args^.sort s
          cxt'' (Var.B b) = m Map.! b
          (m, args) = stackSorts (c2s <$> ccvs)
@@ -89,7 +89,7 @@ compileBinding cxt co = case co of
   Core.Data [C.U] t _ [Core.Var v] | SortRef _ r <- cxt v ->
     PreClosure (Sorted mempty (Vector.singleton r) mempty)
                (standardConstructor (Sorted 0 1 0) t)
-  _ -> PreClosure (sortRefs $ snd <$> vs) $ doUpdate fvn (compile fvn cxt' co)
+  _ -> PreClosure (sortRefs $ snd <$> vs) $ doUpdate fvn (compile 0 cxt' co)
  where
  vs = filter (hasn't $ _2.sortRef.(_Global.united<>_Lit.united))
     . fmap (\v -> (v, cxt v)) . nub . toList $ co

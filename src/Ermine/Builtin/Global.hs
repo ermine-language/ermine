@@ -33,6 +33,7 @@ module Ermine.Builtin.Global
   , longhg
   -- * primops
   , putStrLng
+  , showLongg
   ) where
 
 import Data.Text
@@ -71,10 +72,13 @@ stringhg :: Global
 stringhg = builtin_ "String#"
 
 inthg :: Global
-inthg = builtin_ "Int32#"
+inthg = builtin_ "Int#"
 
 longhg :: Global
-longhg = builtin_ "Int64#"
+longhg = builtin_ "Long#"
 
 putStrLng :: Global
 putStrLng = builtin_ "putStrLn"
+
+showLongg :: Global
+showLongg = builtin_ "showLong"

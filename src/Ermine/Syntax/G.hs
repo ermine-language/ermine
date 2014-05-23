@@ -10,7 +10,8 @@
 --
 --------------------------------------------------------------------
 module Ermine.Syntax.G
-  ( Ref(..)
+  ( Native
+  , Ref(..)
   , _Global
   , _Local
   , _Stack
@@ -45,12 +46,14 @@ import Ermine.Syntax.Id
 import GHC.Prim (Any)
 import Unsafe.Coerce
 
+type Native = Any
+
 data Ref
   = Global !Id
   | Local  !Word64
   | Stack  !Word64
   | Lit    !Word64
-  | Native !Any
+  | Native !Native
 
 instance Show Ref where
   showsPrec n (Global i) = showParen (n>10) $ showString "Global " . showsPrec 11 i
