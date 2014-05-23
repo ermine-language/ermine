@@ -42,10 +42,10 @@ import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn, cShowLong)
-import Ermine.Builtin.Global (putStrLng, showLongg)
+import Ermine.Builtin.Core (cPutStrLn, cShowLong, cAddLong)
+import Ermine.Builtin.Global (putStrLng, showLongg, addLongg)
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, longh)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, longh, long)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -187,6 +187,8 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
  tySI6 = apps arrowHash [longh, string]
+ tyAL :: Type k t
+ tyAL = long ~> long ~> long
  predefs "Nothing" =
    Term.dataCon Idfix "Ermine" "Nothing" $
      Forall [] [Unhinted $ Scope star]
@@ -205,6 +207,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
    | txt == "showLong" = Just (tySI6, cShowLong)
+   | txt == "addLong" = Just (tyAL, cAddLong)
  resolveGlobals _ = Nothing
 
 typeBody :: [String] -> Term Ann Text -> Console ()
@@ -268,9 +271,11 @@ evalBody _ syn =
     Just (_, c) -> liftIO $ do
       psl <- allocPrimOp $ primOpNZ Text.putStrLn
       si6 <- allocPrimOp . primOpUN $ return . pack . show
+      al <- allocPrimOp . primOpUUU $ (+)
       ms <- defaultMachineState 512 $ HM.fromList
               [ (_Global # putStrLng, psl)
               , (_Global # showLongg, si6)
+              , (_Global # addLongg, al)
               ]
       eval (compile 0 absurd . optimize $ c) def ms
     Nothing -> return ()

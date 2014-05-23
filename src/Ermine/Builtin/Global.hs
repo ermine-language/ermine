@@ -34,6 +34,7 @@ module Ermine.Builtin.Global
   -- * primops
   , putStrLng
   , showLongg
+  , addLongg
   ) where
 
 import Data.Text
@@ -82,3 +83,6 @@ putStrLng = builtin_ "putStrLn"
 
 showLongg :: Global
 showLongg = builtin_ "showLong"
+
+addLongg :: Global
+addLongg = builtin_ "addLongg"

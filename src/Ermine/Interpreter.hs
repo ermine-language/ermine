@@ -30,6 +30,7 @@ module Ermine.Interpreter
   , primOpNN
   , primOpUN
   , primOpNNN
+  , primOpUUU
   ) where
 
 import Control.Applicative hiding (empty)
@@ -380,10 +381,21 @@ primOpNN f ms =
 
 primOpNNN :: (Applicative m, PrimMonad m) => (a -> b -> m c) -> MachineState m -> m ()
 primOpNNN f ms = do
-  a <- GM.read nstk np
-  b <- GM.read nstk (np+1)
-  GM.write nstk (np-1) . unsafeCoerce =<< f (unsafeCoerce a) (unsafeCoerce b)
+  a <- GM.read nstk (np+1)
+  b <- GM.read nstk (np+2)
+  GM.write nstk np . unsafeCoerce =<< f (unsafeCoerce a) (unsafeCoerce b)
   returnCon 0 (Sorted 0 0 1) ms'
  where
  (np, ms') = ms & sp.sort N <-~ 1
  nstk = ms^.stackN
+
+primOpUUU :: (Applicative m, PrimMonad m)
+          => (Word64 -> Word64 -> Word64) -> MachineState m -> m ()
+primOpUUU f ms = do
+  w1 <- GM.read ustk (up+1)
+  w2 <- GM.read ustk (up+2)
+  GM.write ustk up $ f w1 w2
+  returnCon 0 (Sorted 0 1 0) ms'
+ where
+ (up, ms') = ms & sp.sort U <-~ 1
+ ustk = ms^.stackU

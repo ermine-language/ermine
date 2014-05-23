@@ -35,6 +35,7 @@ module Ermine.Builtin.Core
   -- * primops
   , cPutStrLn
   , cShowLong
+  , cAddLong
   ) where
 
 import Bound
@@ -84,6 +85,19 @@ cPutStrLn =
 
 cShowLong :: Core a
 cShowLong = _Id._Global # showLongg
+
+cAddLong :: Core a
+cAddLong =
+  Lam [C,C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [U] longhg . Scope
+        $ Case (Var . F . Var . B $ 1)
+            (M.singleton 0 . Match [U] longhg . Scope
+              $ App U
+                  (App U (_Id._Global # addLongg) $ (Var . F . Var . B $ 1))
+                  (Var $ B 1))
+            Nothing)
+      Nothing
 
 -- | Lifting of literal values to core.
 class Lit a where
