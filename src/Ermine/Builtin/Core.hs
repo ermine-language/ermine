@@ -84,7 +84,12 @@ cPutStrLn =
       Nothing
 
 cShowLong :: Core a
-cShowLong = _Id._Global # showLongg
+cShowLong =
+  Lam [C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [U] longhg
+        . Scope . App U (_Id._Global # showLongg) $ Var (B 1))
+      Nothing
 
 cAddLong :: Core a
 cAddLong =

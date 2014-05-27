@@ -47,7 +47,6 @@ module Ermine.Builtin.Type
   , lame
   -- ** Annotations
   , anyType
-  , anyType'
   ) where
 
 import Bound
@@ -261,8 +260,3 @@ lame = builtin (star ~> constraint) "Lame"
 -- | A type annotation that can be applied to anything.
 anyType :: Annot t a
 anyType = Annot [star] $ Scope $ return $ B 0
-
--- | A type annotation that can be applied to anything, but doesn't determine
--- the kind
-anyType' :: Annot (Maybe t) a
-anyType' = Annot [Kind.Var Nothing] . Scope . return $ B 0

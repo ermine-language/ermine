@@ -112,7 +112,7 @@ unifyKind k1 k2 = do
     go k (Var (Meta _ i r d _))    = unifyKV False i r d k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind a c <*> unifyKind b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
-    go k1 k2 = fail "kind mismatch"
+    go _ _ = fail "kind mismatch"
 
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-depthInf rank for annotations, and annotations do

@@ -45,7 +45,7 @@ import Data.Void
 import Ermine.Builtin.Core (cPutStrLn, cShowLong, cAddLong)
 import Ermine.Builtin.Global (putStrLng, showLongg, addLongg)
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, longh, long)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -186,7 +186,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyPSL :: Type k t
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
- tySI6 = apps arrowHash [longh, string]
+ tySI6 = long ~> string
  tyAL :: Type k t
  tyAL = long ~> long ~> long
  predefs "Nothing" =
