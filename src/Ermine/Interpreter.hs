@@ -55,7 +55,7 @@ import Data.Word
 import Ermine.Syntax.G
 import Ermine.Syntax.Id
 import Ermine.Syntax.Sort
-import Prelude
+import Prelude hiding (log)
 import Unsafe.Coerce
 
 newtype Address m = Address (MutVar (PrimState m) (Closure m))
@@ -92,6 +92,7 @@ data MachineState m = MachineState
   , _fp      :: !(Sorted Int)
   , _stackF  :: [(Sorted Int, Frame m)]
   , _genv    :: HashMap Id (Address m)
+  , _trace   :: String -> m ()
   , _stackB  :: BM.MVector (PrimState m) (Address m)
   , _stackU  :: PM.MVector (PrimState m) Word64
   , _stackN  :: BM.MVector (PrimState m) Native
@@ -99,6 +100,18 @@ data MachineState m = MachineState
 
 makeClassy ''Env
 makeLenses ''MachineState
+
+log :: MachineState m -> String -> m ()
+log = view trace
+
+note :: (Monad m, Show a) => MachineState m -> String -> a -> m ()
+note ms n a = log ms (n ++ ": " ++ show a)
+
+watch :: (Monad m, Show a) => MachineState m -> String -> m a -> m a
+watch n m = do
+  a <- m
+  note ms n a
+  return a
 
 nargs :: MachineState m -> Sorted Int
 nargs ms = ms^.fp -ms^.sp
@@ -111,7 +124,7 @@ allocPrimOp f = Address <$> newMutVar (PrimClosure f)
 
 defaultMachineState :: (Applicative m, PrimMonad m) => Int -> HashMap Id (Address m) -> m (MachineState m)
 defaultMachineState stackSize ge
-    = MachineState (pure stackSize) (pure stackSize) [] ge
+    = MachineState (pure stackSize) (pure stackSize) [] ge (const $ return ())
   <$> GM.replicate stackSize sentinel
   <*> GM.replicate stackSize 0
   <*> GM.replicate stackSize sentinel
@@ -178,6 +191,7 @@ pushArgs
   :: (Applicative m, PrimMonad m)
   => Env m -> Sorted (Vector Ref) -> MachineState m -> m (MachineState m)
 pushArgs le refs@(Sorted bs us ns) ms = do
+  note ms "pushArgs" (length <$> refs)
   let (Sorted sb su sn, ms') = ms & sp <-~ fmap B.length refs
       stkB = ms^.stackB
       stkU = ms^.stackU
@@ -234,6 +248,7 @@ popWith args ms = case ms^.stackF of
 -- @
 squash :: PrimMonad m => Sorted Int -> Sorted Int -> MachineState m -> m (MachineState m)
 squash sz@(Sorted zb zu zn)  args@(Sorted ab au an) ms = do
+  note ms "squash" (sz, args)
   let Sorted sb su sn = ms^.sp
       stkB = ms^.stackB
       stkU = ms^.stackU
@@ -314,23 +329,30 @@ eval Slot le ms = do
   squash (Sorted 0 1 0) 0 ms >>= enter slot
 
 enter :: (Applicative m, PrimMonad m) => Address m -> MachineState m -> m ()
-enter addr ms = peek addr >>= \case
+enter addr ms = do
+ unsafeCoerce $ print ("enter","fp",ms^.fp,"sp",ms^.sp)
+ peek addr >>= \case
   BlackHole -> fail "ermine <<loop>> detected"
-  PartialApplication co da arity
-    | F.sum args < F.sum arity -> pap co da arity
+  w@(PartialApplication co da arity)
+    | F.sum args < F.sum arity -> pap co da arity w
     | otherwise -> pushPayloads (fmap fromIntegral (co^.free)) da ms >>= eval (co^.body) da
-  Closure co da
+  w@(Closure co da)
     | co^.update -> eval (co^.body) da $ push (Update addr) ms
-    | arity <- fmap fromIntegral (co^.bound), F.sum args < F.sum arity -> pap co da arity
+    | arity <- fmap fromIntegral (co^.bound), argcount < F.sum arity -> pap co da arity w
     | otherwise -> eval (co^.body) da ms
   PrimClosure k -> k ms
  where
   args = nargs ms
-  pap co da arity = do
+  argcount = F.sum args
+  pap co da arity w
+    | argcount == 0 = go w -- entering a function with 0 args
+    | otherwise = do
     e <- extendPayloads da ms
-    pop ms >>= \case
+    go $ PartialApplication co e (arity - args)
+   where
+    go k = pop ms >>= \case
       Just (Update ad, ms') -> do
-        poke ad $ PartialApplication co e (arity - args)
+        poke ad k
         enter ad ms'
       Just (Branch (Continuation m (Just dflt)) le', ms') | Map.null m -> eval dflt le' ms'
       Just _  -> error "bad frame after partial application"
