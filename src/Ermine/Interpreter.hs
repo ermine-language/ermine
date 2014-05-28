@@ -20,10 +20,14 @@
 module Ermine.Interpreter
   ( Address
   , Closure(..)
+  , closureCode
+  , closureEnv
+  , papArity
   , allocPrimOp
   , Env(..)
   , Frame(..)
   , MachineState(..)
+  , trace
   , eval
   , defaultMachineState
   , primOpNZ
@@ -100,6 +104,7 @@ data MachineState m = MachineState
 
 makeClassy ''Env
 makeLenses ''MachineState
+makeLenses ''Closure
 
 log :: MachineState m -> String -> m ()
 log = view trace
@@ -108,7 +113,7 @@ note :: (Monad m, Show a) => MachineState m -> String -> a -> m ()
 note ms n a = log ms (n ++ ": " ++ show a)
 
 watch :: (Monad m, Show a) => MachineState m -> String -> m a -> m a
-watch n m = do
+watch ms n m = do
   a <- m
   note ms n a
   return a
@@ -191,7 +196,7 @@ pushArgs
   :: (Applicative m, PrimMonad m)
   => Env m -> Sorted (Vector Ref) -> MachineState m -> m (MachineState m)
 pushArgs le refs@(Sorted bs us ns) ms = do
-  note ms "pushArgs" (length <$> refs)
+  note ms "pushArgs" (B.length <$> refs)
   let (Sorted sb su sn, ms') = ms & sp <-~ fmap B.length refs
       stkB = ms^.stackB
       stkU = ms^.stackU
@@ -319,7 +324,7 @@ eval (Let bs e) le ms = do
   ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
   eval e le ms'
 eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
-eval (Case co k) le ms     = eval co le $ push (Branch k le) ms
+eval (Case co k) le ms = do log ms "pushBranch: Case" ; eval co le $ push (Branch k le) ms
 eval (CaseLit ref k) le ms = do
   l <- resolveUnboxed le ms ref
   returnLit l $ push (Branch k le) ms
@@ -330,14 +335,14 @@ eval Slot le ms = do
 
 enter :: (Applicative m, PrimMonad m) => Address m -> MachineState m -> m ()
 enter addr ms = do
- unsafeCoerce $ print ("enter","fp",ms^.fp,"sp",ms^.sp)
+ note ms "enter" args
  peek addr >>= \case
   BlackHole -> fail "ermine <<loop>> detected"
   w@(PartialApplication co da arity)
     | F.sum args < F.sum arity -> pap co da arity w
     | otherwise -> pushPayloads (fmap fromIntegral (co^.free)) da ms >>= eval (co^.body) da
   w@(Closure co da)
-    | co^.update -> eval (co^.body) da $ push (Update addr) ms
+    | co^.update -> do log ms "pushUpdate" ; eval (co^.body) da $ push (Update addr) ms
     | arity <- fmap fromIntegral (co^.bound), argcount < F.sum arity -> pap co da arity w
     | otherwise -> eval (co^.body) da ms
   PrimClosure k -> k ms
@@ -360,8 +365,9 @@ enter addr ms = do
 
 returnCon :: (Applicative m, PrimMonad m) => Tag -> Sorted Int -> MachineState m -> m ()
 returnCon t args@(Sorted ab au an) ms = popWith args ms >>= \case
-  Just (Branch k le, ms') -> eval (select k t) le ms'
+  Just (Branch k le, ms') -> log ms "popBranch" >> eval (select k t) le ms'
   Just (Update ad, ms') -> do
+    log ms "popUpdate"
     let Sorted sb su sn = ms'^.sp
     e <- Env <$> payload (ms'^.stackB) sb ab <*> payload (ms'^.stackU) su au <*> payload (ms'^.stackN) sn an
     poke ad $ Closure (standardConstructor (fromIntegral <$> args) t) e
