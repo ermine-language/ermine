@@ -321,7 +321,7 @@ eval (App sz f xs) le ms = case f of
 eval (Let bs e) le ms = do
   let stk = ms^.stackB
       (sb, ms') = ms & sp.sort B <-~ G.length bs
-  ifor_ bs $ \i pc -> allocClosure le pc ms' >>= GM.write stk (sb + i)
+  ifor_ bs $ \i pc -> allocClosure le pc ms >>= GM.write stk (sb + i)
   eval e le ms'
 eval (LetRec bs e) le ms   = allocRecursive le bs ms >>= eval e le
 eval (Case co k) le ms = do log ms "pushBranch: Case" ; eval co le $ push (Branch k le) ms
