@@ -43,7 +43,8 @@ import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Void
 import Ermine.Builtin.Core (cPutStrLn, cShowLong, cAddLong)
-import Ermine.Builtin.Global (putStrLng, showLongg, addLongg)
+import Ermine.Builtin.Global (putStrLng, showLongg, addLongg, literalg)
+import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
 import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long)
 import Ermine.Console.State
@@ -64,11 +65,14 @@ import Ermine.Pretty.Kind
 import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Data (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Hint
+import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
+import Ermine.Syntax.Literal (Literal(Long))
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -272,10 +276,13 @@ evalBody args syn =
       psl <- allocPrimOp $ primOpNZ Text.putStrLn
       si6 <- allocPrimOp . primOpUN $ return . pack . show
       al <- allocPrimOp . primOpUUU $ (+)
+      dll <- allocGlobal (error "evalBody: dll") $
+               Dict [] [Scope $ Data [U] 0 literalg [_Lit # Long 37]]
       ms <- defaultMachineState 512 $ HM.fromList
               [ (_Global # putStrLng, psl)
               , (_Global # showLongg, si6)
               , (_Global # addLongg, al)
+              , (InstanceId hlameL, dll)
               ]
       eval (compile 0 absurd . opt $ c) def (ms & trace .~ debug)
     Nothing -> return ()

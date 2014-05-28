@@ -27,11 +27,11 @@ import Data.Bitraversable
 import Data.Map as Map hiding (map, empty, delete, filter)
 import Data.Text (unpack)
 import Data.Void
+import Ermine.Builtin.Head
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
-import Ermine.Syntax.Head
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -51,15 +51,17 @@ makeClassy ''ConstraintEnv
 dummyConstraintEnv :: ConstraintEnv
 dummyConstraintEnv = ConstraintEnv
   { _classes = singleton lame clame
-  , _instances = singleton lame [ilame]
+  , _instances = singleton lame [ilameI, ilameL]
   }
  where
  -- class Lame a where lame :: a
- -- instance Lame Int where lame = 5
  clame = Class [] [Unhinted $ Scope star] []
- hlame = mkHead lame 0 [] [] [Type.int]
- dlame = Dict [] [_Lit # Int 5]
- ilame = Instance [] hlame dlame
+ -- instance Lame Int where lame = 5
+ dlameI = Dict [] [_Lit # Int 5]
+ ilameI = Instance [] hlameI dlameI
+ -- instance Lame Long where lame = 37
+ dlameL = Dict [] [_Lit # Long 37]
+ ilameL = Instance [] hlameL dlameL
 
 class MonadMeta s m => MonadConstraint s m where
   askConstraint :: m ConstraintEnv

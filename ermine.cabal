@@ -99,6 +99,7 @@ library
   exposed-modules:
     Ermine.Builtin.Core
     Ermine.Builtin.Global
+    Ermine.Builtin.Head
     Ermine.Builtin.Pattern
     Ermine.Builtin.Term
     Ermine.Builtin.Type

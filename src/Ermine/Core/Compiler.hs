@@ -12,7 +12,8 @@
 --------------------------------------------------------------------
 
 module Ermine.Core.Compiler
-  ( compile
+  ( SortRef(..)
+  , compile
   , compileBinding
   , compileBranches
   , compileHardCore
@@ -176,22 +177,22 @@ anf :: (Traversable t, Eq v)
     => (v -> SortRef)
     -> t (Convention, Core v)
     -> (t SortRef, Word64, [PreClosure])
-anf cxt s = cleanup $ runState (traverse compilePiece s) (0, []) where
+anf cxt s = cleanup $ runState (traverse (uncurry compilePiece) s) (0, []) where
   cleanup (nebs,(n,pcs)) =
     (nebs <&> itraversed.indices id._SortRef S.B ._Stack +~ n <&> snd, n, reverse pcs)
 
-  compilePiece (_, Core.Var v) = return (True, cxt v)
-  compilePiece (c, Core.HardCore hc) = case (c, hc) of
-    (C.C, Core.Id i) -> return (False, SortRef S.B $ Global i)
-    (C.N, Core.Lit (String str)) -> return (False, SortRef S.N $ _UnsafeNative # str)
-    (C.U, Core.Lit l) -> case literalRep l of
+  compilePiece _ (Core.Var v) = return (True, cxt v)
+  compilePiece cv (Core.HardCore (Core.Id i))
+    | cv `F.elem` [C.C, C.D] = return (False, SortRef S.B $ Global i)
+  compilePiece C.N (Core.HardCore (Core.Lit (String str))) =
+    return (False, SortRef S.N $ _UnsafeNative # str)
+  compilePiece C.U (Core.HardCore (Core.Lit l)) = case literalRep l of
       Just r -> return (False, SortRef S.U (Lit r))
       _      -> error "anf: exotic literal"
-    (_, _) -> error "anf: TODO'"
-  compilePiece (cv, co) | cv `F.elem` [C.C, C.D] = state $ \(k,l) ->
+  compilePiece cv co | cv `F.elem` [C.C, C.D] = state $ \(k,l) ->
     let bnd = compileBinding cxt co
      in ((False,SortRef S.B $ Stack k),(k+1,bnd:l))
-  compilePiece (_, _) = error "anf: TODO"
+  compilePiece _ _ = error "anf: TODO"
 
 compileApp :: Eq v => Sorted Word64 -> (v -> SortRef) -> [(Convention, Core v)] -> Core v -> G
 compileApp n cxt xs (Core.App cc f x) = compileApp n cxt ((cc,x):xs) f
