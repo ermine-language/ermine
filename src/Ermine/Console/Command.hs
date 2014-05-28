@@ -266,7 +266,7 @@ echoBody args =
       where names' = filter ((`notMember` setOf traverse tm).pack) names
 
 evalBody :: [String] -> Term Ann Text -> Console ()
-evalBody _ syn =
+evalBody args syn =
   ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
     Just (_, c) -> liftIO $ do
       psl <- allocPrimOp $ primOpNZ Text.putStrLn
@@ -277,8 +277,11 @@ evalBody _ syn =
               , (_Global # showLongg, si6)
               , (_Global # addLongg, al)
               ]
-      eval (compile 0 absurd . optimize $ c) def ms
+      eval (compile 0 absurd . opt $ c) def (ms & trace .~ debug)
     Nothing -> return ()
+ where
+ opt = procArgs args $ ("opt", optimize) :| [("noopt", id)]
+ debug = procArgs args $ ("nodebug", const $ return ()) :| [("debug", putStrLn)]
 
 commands :: [Command]
 commands =
