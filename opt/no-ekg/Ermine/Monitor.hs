@@ -57,8 +57,12 @@ data Gauge = Gauge Text
 data Label = Label Text
 data Counter = Counter Text
 
+instance Updating Label Text
 instance Setting Label Text
-instance Setting Gauge Int
+instance Setting Gauge Int where
+  dec _ = return ()
+  sub _ _ = return ()
+
 instance Incremental Gauge
 instance Incremental Counter
 
