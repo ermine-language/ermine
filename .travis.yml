@@ -1,22 +1,7 @@
 language: haskell
 
 env:
-  - >
-    GHCVER=7.4.2
-    MODE="-f-doctests"
-  - >
-    GHCVER=7.6.3
-    MODE="-f-doctests"
-  - >
-    GHCVER=7.6.3
-    MODE="-fekg -f-doctests"
   - GHCVER=7.8.2
-
-matrix:
-  allow_failures:
-    - env: >
-           GHCVER=7.4.2
-           MODE="-f-doctests"
 
 before_install:
   # If $GHCVER is the one travis has, don't bother reinstalling it.
@@ -46,7 +31,7 @@ before_install:
       $CABAL install happy alex
       export PATH=$HOME/.cabal/bin:$PATH
     fi
-  - $CABAL install hlint packdeps packunused
+  - $CABAL install hlint packdeps packunused --constraint 'packunused >= 0.1.1.2'
 
 install:
   - $CABAL install --dependencies-only --enable-tests $MODE
