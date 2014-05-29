@@ -34,6 +34,7 @@ module Ermine.Builtin.Core
   , longh
   -- * primops
   , cPutStrLn
+  , cShowInt
   , cShowLong
   , cAddLong
   ) where
@@ -81,6 +82,14 @@ cPutStrLn =
     Case (Var (B 0))
       (M.singleton 0 . Match [N] stringg
         . Scope . App N (_Id._Global # putStrLng) $ Var (B 1))
+      Nothing
+
+cShowInt :: Core a
+cShowInt =
+  Lam [C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [U] inthg
+        . Scope . App U (_Id._Global # showIntg) $ Var (B 1))
       Nothing
 
 cShowLong :: Core a

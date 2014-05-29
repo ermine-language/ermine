@@ -31,6 +31,7 @@ import Data.Bitraversable
 import Data.Char
 import Data.Default
 import qualified Data.HashMap.Strict as HM
+import Data.Int (Int32, Int64)
 import Data.List as List
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.List.Split (splitOn)
@@ -41,12 +42,13 @@ import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
+import Data.Word (Word64)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn, cShowLong, cAddLong)
-import Ermine.Builtin.Global (putStrLng, showLongg, addLongg, literalg)
+import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cAddLong)
+import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, int)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -58,7 +60,7 @@ import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
-import Ermine.Pretty hiding (string)
+import Ermine.Pretty hiding (string, int)
 import Ermine.Pretty.G
 import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
@@ -72,7 +74,7 @@ import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
-import Ermine.Syntax.Literal (Literal(Long))
+import Ermine.Syntax.Literal (Literal(Long, Int))
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -191,6 +193,8 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
  tySI6 = long ~> string
+ tySI :: Type k t
+ tySI = int ~> string
  tyAL :: Type k t
  tyAL = long ~> long ~> long
  predefs "Nothing" =
@@ -210,6 +214,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  resolveGlobals txt
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
+   | txt == "showInt" = Just (tySI, cShowInt)
    | txt == "showLong" = Just (tySI6, cShowLong)
    | txt == "addLong" = Just (tyAL, cAddLong)
  resolveGlobals _ = Nothing
@@ -274,15 +279,22 @@ evalBody args syn =
   ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>= \case
     Just (_, c) -> liftIO $ do
       psl <- allocPrimOp $ primOpNZ Text.putStrLn
-      si6 <- allocPrimOp . primOpUN $ return . pack . show
+      si6 <- allocPrimOp . primOpUN $
+               return . pack . show . (fromIntegral :: Word64 -> Int64)
+      si <- allocPrimOp . primOpUN $
+               return . pack . show . (fromIntegral :: Word64 -> Int32)
       al <- allocPrimOp . primOpUUU $ (+)
+      dli <- allocGlobal (error "evalBody: dli") $
+               Dict [] [Scope $ Data [U] 0 literalg [_Lit # Int 5]]
       dll <- allocGlobal (error "evalBody: dll") $
                Dict [] [Scope $ Data [U] 0 literalg [_Lit # Long 37]]
       ms <- defaultMachineState 512 $ HM.fromList
               [ (_Global # putStrLng, psl)
+              , (_Global # showIntg, si)
               , (_Global # showLongg, si6)
               , (_Global # addLongg, al)
               , (InstanceId hlameL, dll)
+              , (InstanceId hlameI, dli)
               ]
       eval (compile 0 absurd . opt $ c) def (ms & trace .~ debug)
     Nothing -> return ()
