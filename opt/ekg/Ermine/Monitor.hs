@@ -32,12 +32,11 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.ByteString.Lens
 import Data.Foldable as F
-import Data.Data
+import Data.Int
 import Data.Text
 import Ermine.Monitor.Combinators
 import Ermine.Monitor.Exception
 import Ermine.Monitor.Options
-import Options.Applicative
 import System.Process
 import System.Remote.Monitoring
 import qualified System.Remote.Gauge as G
@@ -65,11 +64,16 @@ newtype Counter = Counter { runCounter :: Maybe C.Counter }
 
 instance Setting Label Text where
   assign (Label t) a = liftIO $ maybe (return ()) (L.set ?? a) t
+
+instance Updating Label Text where
   update (Label t) f = liftIO $ maybe (return ()) (L.modify f) t
 
-instance Setting Gauge Int where
+instance Setting Gauge Int64 where
   assign (Gauge t) a = liftIO $ maybe (return ()) (G.set ?? a) t
-  update (Gauge t) f = liftIO $ maybe (return ()) (G.modify f) t
+
+instance Gauged Gauge Int64 where
+  dec (Gauge t)   = liftIO $ maybe (return ()) G.dec t
+  sub (Gauge t) i = liftIO $ maybe (return ()) (G.add ?? negate i) t
 
 instance Incremental Gauge where
   inc (Gauge t)   = liftIO $ maybe (return ()) G.inc t
