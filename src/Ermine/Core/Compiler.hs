@@ -186,6 +186,8 @@ anf cxt s = cleanup $ runState (traverse (uncurry compilePiece) s) (0, []) where
     | cv `F.elem` [C.C, C.D] = return (False, SortRef S.B $ Global i)
   compilePiece C.N (Core.HardCore (Core.Lit (String str))) =
     return (False, SortRef S.N $ _UnsafeNative # str)
+  compilePiece C.N (Core.HardCore (Core.Lit (Integer i))) =
+    return (False, SortRef S.N $ _UnsafeNative # i)
   compilePiece C.U (Core.HardCore (Core.Lit l)) = case literalRep l of
       Just r -> return (False, SortRef S.U (Lit r))
       _      -> error "anf: exotic literal"
@@ -213,4 +215,5 @@ literalRep (Short i) = Just $ fromIntegral i
 literalRep Float{}   = Nothing
 literalRep Double{}  = Nothing
 literalRep String{}  = Nothing
+literalRep Integer{} = Nothing
 literalRep (Char c)  = Just $ fromIntegral (fromEnum c)

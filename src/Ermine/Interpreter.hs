@@ -34,6 +34,7 @@ module Ermine.Interpreter
   , primOpNZ
   , primOpNN
   , primOpUN
+  , primOpNU
   , primOpNNN
   , primOpUUU
   ) where
@@ -403,6 +404,15 @@ primOpUN f ms =
     >> returnCon 0 (Sorted 0 0 1) ms'
  where
  (Sorted _ up np, ms') = ms & sp <-~ Sorted 0 0 1
+ nstk = ms^.stackN
+ ustk = ms^.stackU
+
+primOpNU :: (Applicative m, PrimMonad m) => (a -> m Word64) -> MachineState m -> m ()
+primOpNU f ms =
+  GM.read nstk np >>= f . unsafeCoerce >>= GM.write ustk up
+    >> returnCon 0 (Sorted 0 1 0) ms'
+ where
+ (Sorted _ up np, ms') = ms & sp <-~ Sorted 0 1 0
  nstk = ms^.stackN
  ustk = ms^.stackU
 

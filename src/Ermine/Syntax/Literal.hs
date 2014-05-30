@@ -37,6 +37,7 @@ data Literal
   | Char    !Char
   | Float   !Float
   | Double  !Double
+  | Integer !Integer
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 instance Hashable Literal
@@ -50,6 +51,7 @@ instance Serial Literal where
   serialize (Char   i) = putWord8 5 >> serialize i
   serialize (Float  i) = putWord8 6 >> serialize i
   serialize (Double i) = putWord8 7 >> serialize i
+  serialize (Integer i) = putWord8 8 >> serialize i
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> liftM Int    deserialize
@@ -60,6 +62,7 @@ instance Serial Literal where
     5 -> liftM Char   deserialize
     6 -> liftM Float  deserialize
     7 -> liftM Double deserialize
+    8 -> liftM Integer deserialize
     _ -> fail $ "deserialize Literal: unexpected constructor tag: " ++ show b
 
 instance Binary Literal where

@@ -330,6 +330,7 @@ generalizeType w = do
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
 inferHardType (Term.Lit l@String{}) = return $ Witness [] (literalType l) (dataCon [N] 0 stringg ## (_Lit # l))
+inferHardType (Term.Lit l@Integer{}) = return $ Witness [] (literalType l) (dataCon [N] 0 Type.integer ## (_Lit # l))
 inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (dataCon [U] 0 literalg ## (_Lit # l))
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
@@ -354,6 +355,7 @@ literalType String{} = Type.string
 literalType Char{}   = Type.char
 literalType Float{}  = Type.float
 literalType Double{} = Type.double
+literalType Integer{} = Type.integer
 
 skolemize :: MonadMeta s m
           => Depth -> TypeM s -> m ([MetaK s], [MetaT s], [TypeM s], TypeM s)

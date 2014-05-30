@@ -31,11 +31,14 @@ module Ermine.Builtin.Global
   , stringhg
   , inthg
   , longhg
+  , integerhg
   -- * primops
   , putStrLng
   , showIntg
   , showLongg
   , addLongg
+  , fromIntegerToIntg
+  , fromIntegerToLongg
   ) where
 
 import Data.Text
@@ -79,6 +82,9 @@ inthg = builtin_ "Int#"
 longhg :: Global
 longhg = builtin_ "Long#"
 
+integerhg :: Global
+integerhg = builtin_ "Integer#"
+
 putStrLng :: Global
 putStrLng = builtin_ "putStrLn"
 
@@ -90,3 +96,9 @@ showLongg = builtin_ "showLong"
 
 addLongg :: Global
 addLongg = builtin_ "addLongg"
+
+fromIntegerToIntg :: Global
+fromIntegerToIntg = builtin_ "fromIntegerToInt"
+
+fromIntegerToLongg :: Global
+fromIntegerToLongg = builtin_ "fromIntegerToLong"

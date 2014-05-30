@@ -44,11 +44,11 @@ import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Word (Word64)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cAddLong)
-import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg)
+import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
+import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg, fromIntegerToIntg, fromIntegerToLongg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, int)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, int, integer, fromInteg)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -60,7 +60,7 @@ import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Type
 import Ermine.Parser.Term
-import Ermine.Pretty hiding (string, int)
+import Ermine.Pretty hiding (string, int, integer)
 import Ermine.Pretty.G
 import Ermine.Pretty.Core
 import Ermine.Pretty.Kind
@@ -189,6 +189,12 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyLame :: Type k t
  tyLame = Forall [] [Unhinted $ Scope star]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
+ cfromInteger :: Type k t
+ cfromInteger = con fromInteg (star ~> constraint)
+ tyFromInteger :: Type k t
+ tyFromInteger = Forall [] [Unhinted $ Scope star]
+                   (Scope $ apps cfromInteger [pure $ B 0])
+                   (Scope $ integer ~> (pure $ B 0))
  tyPSL :: Type k t
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
@@ -213,6 +219,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  resolveGlobals :: Text -> Maybe (Type t k, Core c)
  resolveGlobals txt
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
+   | txt == "fromInteger" = Just (tyFromInteger, HardCore $ Slot 0)
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
    | txt == "showInt" = Just (tySI, cShowInt)
    | txt == "showLong" = Just (tySI6, cShowLong)
@@ -288,13 +295,25 @@ evalBody args syn =
                Dict [] [Scope $ Data [U] 0 literalg [_Lit # Int 5]]
       dll <- allocGlobal (error "evalBody: dll") $
                Dict [] [Scope $ Data [U] 0 literalg [_Lit # Long 37]]
+      dfii <- allocGlobal (error "evalBody: dfii") $
+               Dict [] [Scope $ cFromIntegerToInt ]
+      dfil <- allocGlobal (error "evalBody: dfil") $
+               Dict [] [Scope $ cFromIntegerToLong ]
+      fi2i <- allocPrimOp . primOpNU $
+        return . fromIntegral . (fromInteger :: Integer -> Int32)
+      fi2l <- allocPrimOp . primOpNU $
+        return . fromIntegral . (fromInteger :: Integer -> Int64)
       ms <- defaultMachineState 512 $ HM.fromList
               [ (_Global # putStrLng, psl)
               , (_Global # showIntg, si)
               , (_Global # showLongg, si6)
               , (_Global # addLongg, al)
+              , (_Global # fromIntegerToIntg, fi2i)
+              , (_Global # fromIntegerToLongg, fi2l)
               , (InstanceId hlameL, dll)
               , (InstanceId hlameI, dli)
+              , (InstanceId hfromIntegerI, dfii)
+              , (InstanceId hfromIntegerL, dfil)
               ]
       eval (compile 0 absurd . opt $ c) def (ms & trace .~ debug)
     Nothing -> return ()

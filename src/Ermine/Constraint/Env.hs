@@ -27,6 +27,7 @@ import Data.Bitraversable
 import Data.Map as Map hiding (map, empty, delete, filter)
 import Data.Text (unpack)
 import Data.Void
+import Ermine.Builtin.Global (fromIntegerToIntg, fromIntegerToLongg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Type as Type
 import Ermine.Syntax.Class
@@ -50,8 +51,10 @@ makeClassy ''ConstraintEnv
 
 dummyConstraintEnv :: ConstraintEnv
 dummyConstraintEnv = ConstraintEnv
-  { _classes = singleton lame clame
-  , _instances = singleton lame [ilameI, ilameL]
+  { _classes = fromList [(lame, clame), (fromInteg, cfromInteger)]
+  , _instances = fromList [ (lame, [ilameI, ilameL])
+                          , (fromInteg, [ifromIntegerI, ifromIntegerL])
+                          ]
   }
  where
  -- class Lame a where lame :: a
@@ -62,6 +65,16 @@ dummyConstraintEnv = ConstraintEnv
  -- instance Lame Long where lame = 37
  dlameL = Dict [] [_Lit # Long 37]
  ilameL = Instance [] hlameL dlameL
+
+ -- class FromInteger a where fromInteger :: Integer -> a
+ cfromInteger = Class [] [Unhinted $ Scope star] []
+ -- instance FromInteger Int where fromInteger = fromIntegerToInt
+ dfromIntegerI = Dict [] [_Global # fromIntegerToIntg]
+ ifromIntegerI = Instance [] hfromIntegerI dfromIntegerI
+
+ -- instance FromInteger Long where fromInteger = fromIntegerToLong
+ dfromIntegerL = Dict [] [_Global # fromIntegerToLongg]
+ ifromIntegerL = Instance [] hfromIntegerL dfromIntegerL
 
 class MonadMeta s m => MonadConstraint s m where
   askConstraint :: m ConstraintEnv
