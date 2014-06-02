@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -31,6 +32,8 @@ module Ermine.Syntax.Kind
   , general
   -- * Kind Variables
   , HasKindVars(..)
+  -- * Well formed kinds and boxities
+  , wfk, wfb
   ) where
 
 import Bound
@@ -128,6 +131,7 @@ instance Binary HardKind where
 data Kind a
   = Var a
   | Kind a :-> Kind a
+  | Type (Kind a)
   | HardKind HardKind
   deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
 
@@ -151,6 +155,7 @@ instance Variable Kind where
 
 instance Plated (Kind a) where
   plate f (l :-> r) = (:->) <$> f l <*> f r
+  plate f (Type k) = Type <$> f k
   plate _ v = pure v
 
 instance Functor Kind where
@@ -162,6 +167,7 @@ instance Foldable Kind where
 instance Traversable Kind where
   traverse f (Var a)      = Var <$> f a
   traverse f (x :-> y)    = (:->) <$> traverse f x <*> traverse f y
+  traverse f (Type k)     = Type <$> traverse f k
   traverse _ (HardKind k) = pure $ HardKind k
 
 instance Applicative Kind where
@@ -172,6 +178,7 @@ instance Monad Kind where
   return = Var
   Var a >>= f      = f a
   (x :-> y) >>= f  = (x >>= f) :-> (y >>= f)
+  Type k >>= f = Type (k >>= f)
   HardKind k >>= _ = HardKind k
 
 instance Kindly (Kind a) where
@@ -188,14 +195,16 @@ instance Serial1 Kind where
   serializeWith p = go where
     go (Var v)      = putWord8 0 >> p v
     go (k :-> l)    = putWord8 1 >> go k >> go l
-    go (HardKind k) = putWord8 2 >> serialize k
+    go (Type k)     = putWord8 2 >> go k
+    go (HardKind k) = putWord8 3 >> serialize k
   {-# INLINE serializeWith #-}
 
   deserializeWith g = go where
     go = getWord8 >>= \b -> case b of
       0 -> liftM Var g
       1 -> liftM2 (:->) go go
-      2 -> liftM HardKind deserialize
+      2 -> liftM Type go
+      3 -> liftM HardKind deserialize
       _ -> fail $ "getKind: Unexpected constructor code: " ++ show b
   {-# INLINE deserializeWith #-}
 
@@ -219,10 +228,14 @@ instance Serialize k => Serialize (Kind k) where
 class HasKindVars s t a b | s -> a, s b -> t, t -> b, t a -> s where
   -- >>> ("b" :-> "a") ^.. kindVars
   -- ["b","a"]
-  kindVars :: Traversal s t a b
+  kindVars :: IndexedTraversal Bool s t a b
 
 instance HasKindVars (Kind a) (Kind b) a b where
-  kindVars = traverse
+  kindVars f x0 = go False x0 where
+    go t (Var a)   = Var   <$> indexed f t a
+    go _ (Type k)  = Type  <$> go True k
+    go t (x :-> y) = (:->) <$> go t x <*> go t y
+    go _ (HardKind hk) = pure $ HardKind hk
 
 instance HasKindVars s t a b => HasKindVars [s] [t] a b where
   kindVars = traverse.kindVars
@@ -277,6 +290,9 @@ instance Variable Schema where
     Var (F (Var k)) -> Right k
     _               -> Left  t
 
+instance (k ~ Kind, k' ~ Kind, b ~ b') => HasKindVars (Scope b k a) (Scope b' k' a') a a' where
+  kindVars f (Scope s) = Scope <$> icompose (||) kindVars (traverse.kindVars) f s
+
 instance Kindly (Schema a) where
   hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
     HardKind k           -> Right k
@@ -284,7 +300,7 @@ instance Kindly (Schema a) where
     _                    -> Left t
 
 instance HasKindVars (Schema a) (Schema b) a b where
-  kindVars = traverse
+  kindVars f (Schema hs s) = Schema hs <$> kindVars f s
 
 instance BoundBy Schema Kind where
   boundBy f (Schema i b) = Schema i (boundBy f b)
@@ -308,9 +324,28 @@ instance Serial k => Serial (Schema k) where
   serialize = serializeWith serialize
   deserialize = deserializeWith deserialize
 
+wfk, wfb :: Kind a -> Bool
+wfk Var{} = True
+wfk (a :-> b) = wfk a && wfk b
+wfk (Type a) = wfb a
+wfk (HardKind hk) = wfhk hk
+
+wfb Var{} = True
+wfb (_ :-> _) = False
+wfb (Type _) = False
+wfb (HardKind hb) = wfhb hb
+
+wfhb, wfhk :: HardKind -> Bool
+wfhb Star    = True
+wfhb Unboxed = True
+wfhb Native  = True
+wfhb _       = False
+
+wfhk = not . wfhb
+
 -- | Lift a kind into a kind schema
 --
--- >>> schema (star ~> star)
+-- >>> schema (Type star ~> Type star)
 -- Schema [] (Scope (Var (F (HardKind Star :-> HardKind Star))))
 schema :: Kind a -> Schema a
 schema k = Schema [] (lift k)
@@ -332,7 +367,7 @@ schema k = Schema [] (lift k)
 -- >>> general ("b" ~> "a") (Hinted ?? ())
 -- Schema [Hinted "b" (),Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general (star ~> star) (Hinted ?? ())
+-- >>> general (Type star ~> Type star) (Hinted ?? ())
 -- Schema [] (Scope (HardKind Star :-> HardKind Star))
 general :: Ord k => Kind k -> (k -> Hint) -> Schema a
 general k0 h = Schema (reverse hs) (Scope r) where

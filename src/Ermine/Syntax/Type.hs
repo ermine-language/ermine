@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -357,9 +358,38 @@ instance Bitraversable Type where
              <*> bitraverseScope (traverse f) g cs
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
+bitraverseScopeTK :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Scope b (TK k) a -> f (Scope b (TK k') a')
+bitraverseScopeTK = undefined
+
+
+
+bitraverseType :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Type k a -> f (Type k' a')
+bitraverseType _ g (Var a)            = Var <$> g a
+bitraverseType f g (App l r)          = App <$> bitraverseType f g l <*> bitraverseType f g r
+bitraverseType _ _ (HardType t)       = pure $ HardType t
+bitraverseType f g (Forall n ks cs b) =
+  Forall n <$> traverse (traverse (kindVars f)) ks
+           <*> bitraverseScopeTK f g cs
+           <*> bitraverseScopeTK f g b
+bitraverseType f g (Loc r as)         = Loc r <$> bitraverse f g as
+bitraverseType f g (Exists n ks cs)   =
+  Exists n <$> traverse (traverse (kindVars f)) ks
+           <*> bitraverseScopeTK f g cs
+bitraverseType f g (And cs)           = And <$> traverse (bitraverse f g) cs
+
 instance HasKindVars (Type k a) (Type k' a) k k' where
-  kindVars f = bitraverse f pure
-  {-# INLINE kindVars #-}
+  kindVars _ (Var a)            = pure $ Var a
+  kindVars f (App l r)          = App <$> kindVars f l <*> kindVars f r
+  kindVars _ (HardType t)       = pure $ HardType t
+  kindVars f (Forall n ks cs b) =
+    Forall n <$> traverse (traverse (kindVars f)) ks
+             <*> transverseScope (kindVars (_F f)) cs
+             <*> transverseScope (kindVars (_F f)) b
+  kindVars f (Loc r as)         = Loc r <$> kindVars f as
+  kindVars f (Exists n ks cs)   =
+    Exists n <$> traverse (traverse (kindVars f)) ks
+             <*> transverseScope (kindVars (_F f)) cs
+  kindVars f (And cs)           = And <$> traverse (kindVars f) cs
 
 instance Eq k => Eq1 (Type k)
 instance Show k => Show1 (Type k)
@@ -773,7 +803,7 @@ instance Bitraversable Annot where
   {-# INLINE bitraverse #-}
 
 instance HasKindVars (Annot k a) (Annot k' a) k k' where
-  kindVars f = bitraverse f pure
+  kindVars f (Annot ks t) = Annot <$> traverse (kindVars f) ks <*> transverseScope (kindVars f) t
   {-# INLINE kindVars #-}
 
 instance HasTypeVars (Annot k a) (Annot k a') a a' where
