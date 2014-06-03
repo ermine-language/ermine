@@ -185,7 +185,7 @@ inferType d cxt (Term.Lam ps e) = do
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-  return $ Witness rcs rt (lambda (C <$ ps) cc)
+  return $ Witness rcs rt (lambda (C <$ ps) cc) -- TODO: pick convention based on kinds
 
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
@@ -264,7 +264,8 @@ checkType :: MonadConstraint s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
   w <- inferType d cxt e
-  checkKind (view metaValue <$> t) star
+  bx <- pure <$> newMeta False
+  checkKind (view metaValue <$> t) (Type bx)
   subsumesType d w t
 
 subsumesType :: MonadConstraint s m
@@ -295,7 +296,6 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
   tvs <- filterM ?? toListOf typeVars (t,cc,r) $ \ tv -> do
     d <- liftST $ readSTRef (tv^.metaDepth)
     return (min_d <= d)
-  -- let tvs = tvs0 & traverse.metaValue.kindVars.indices id .~ (hardKind # star)
 
   let s = setOf traverse tvs
       cc' = filter (any (`Set.member` s)) cc

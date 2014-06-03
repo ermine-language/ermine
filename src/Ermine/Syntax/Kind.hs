@@ -185,9 +185,9 @@ instance Kindly (Kind a) where
   hardKind = prism HardKind $ \t -> case t of
     HardKind k -> Right k
     _          -> Left t
-  star    = Type (hardKind # star)
-  unboxed = Type (hardKind # unboxed)
-  native  = Type (hardKind # native)
+  star    = Type (HardKind Star)
+  unboxed = Type (HardKind Unboxed)
+  native  = Type (HardKind Native)
 
 instance Eq1 Kind
 instance Ord1 Kind
