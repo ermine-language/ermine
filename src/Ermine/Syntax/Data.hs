@@ -108,7 +108,10 @@ instance Bitraversable DataType where
       <*> traverse (bitraverse (traverse f) (traverse g)) cs
 
 instance HasKindVars (DataType k t) (DataType k' t) k k' where
-  kindVars f = bitraverse f pure
+  kindVars f (DataType nm ks ts cs) =
+    DataType nm ks
+      <$> (traverse.traverse.kindVars) f ts
+      <*> (traverse.kindVars<.traverse) f cs
 
 instance HasTypeVars (DataType k t) (DataType k t') t t' where
   typeVars = traverse
