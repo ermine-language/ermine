@@ -360,7 +360,7 @@ literalType Integer{} = Type.integer
 skolemize :: MonadMeta s m
           => Depth -> TypeM s -> m ([MetaK s], [MetaT s], [TypeM s], TypeM s)
 skolemize _ (Forall ks ts cs bd) = do
-  sks <- for ks $ newSkolem . extract
+  sks <- for ks $ \_ -> newSkolem False
   sts <- for ts $ newSkolem . instantiateVars sks . extract
   let inst = instantiateKindVars sks . instantiateVars sts
   (rs, tcs) <- unfurlConstraints $ inst cs
@@ -371,7 +371,7 @@ skolemize _ t = return ([], [], [], t)
 
 unfurl :: MonadMeta s m => TypeM s -> Scope a Core (TypeM s) -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
-  mks <- for ks $ newMeta . extract
+  mks <- for ks $ \_ -> newMeta False
   mts <- for ts $ newMeta . instantiateVars mks . extract
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
@@ -388,7 +388,7 @@ partConstraints c | isRowConstraint c = ([c], [])
 
 unfurlConstraints :: MonadMeta s m => TypeM s -> m ([TypeM s], [TypeM s])
 unfurlConstraints (Exists ks ts cs) = do
-  mks <- for ks $ newMeta . extract
+  mks <- for ks $ \_ -> newMeta False
   mts <- for ts $ newMeta . instantiateVars mks . extract
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c

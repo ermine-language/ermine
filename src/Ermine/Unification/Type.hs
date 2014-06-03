@@ -151,7 +151,7 @@ unifyType t1 t2 = do
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
         (sts, Any modified) <- listen $ do
-          sks <- for m $ \_ -> newSkolem ()
+          sks <- for m $ \_ -> newSkolem False
           let nxs = instantiateVars sks <$> fmap extract xs
               nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do

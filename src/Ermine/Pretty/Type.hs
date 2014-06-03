@@ -41,7 +41,6 @@ bananas xs = text "(|" <> xs <> text "|)"
 prettyHardType :: HardType -> Doc
 prettyHardType (Tuple i) = parens (text (replicate (i-1) ','))
 prettyHardType Arrow     = parens "->"
-prettyHardType ArrowHash = parens "->#"
 prettyHardType (Con (Global _ Idfix _ n) _)       = text (unpack n)
 prettyHardType (Con (Global _ (Prefix _) _ n) _)  = parens ("prefix" <+> text (unpack n))
 prettyHardType (Con (Global _ (Postfix _) _ n) _) = parens ("postfix" <+> text (unpack n))
@@ -64,8 +63,6 @@ prettyType (Var nm)     _  _ = text nm
 prettyType (Loc _ r)    vs d = prettyType r vs d
 prettyType (App (App (HardType Arrow) x) y) vs d =
   parensIf (d > 0) $ prettyType x vs 1 <+> text "->" <+> prettyType y vs 0
-prettyType (App (App (HardType ArrowHash) x) y) vs d =
-  parensIf (d > 0) $ prettyType x vs 1 <+> text "->#" <+> prettyType y vs 0
 prettyType (App f x)    vs d =
   parensIf (d > 10) $ prettyType f vs 10 <+> prettyType x vs 11
 prettyType (And cs)     vs d = case cs of

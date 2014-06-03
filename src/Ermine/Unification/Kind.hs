@@ -46,11 +46,11 @@ import Ermine.Pretty.Kind
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> test $ do k <- Var <$> newMeta (); unifyKind k (star ~> k)
+-- >>> test $ do k <- Var <$> newMeta False; unifyKind k (Type star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
 --
--- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
+-- >>> test $ do k1 <- Var <$> newMeta False; k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = a -> b
 kindOccurs

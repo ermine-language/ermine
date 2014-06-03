@@ -120,7 +120,6 @@ type FieldName = Text
 data HardType
   = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
   | Arrow      -- (->)  :: * -> * -> *
-  | ArrowHash  -- (->#) :: # -> * -> *
   | Con !Global !(Schema Void)
   | ConcreteRho [FieldName]
   deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
@@ -134,7 +133,6 @@ instance Serial HardType where
   serialize Arrow            = putWord8 1
   serialize (Con g s)        = putWord8 2 *> serialize g *> serializeWith absurd s
   serialize (ConcreteRho fs) = putWord8 3 *> serialize fs
-  serialize ArrowHash        = putWord8 4
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> Tuple <$> deserialize
@@ -143,7 +141,6 @@ instance Serial HardType where
              <*> deserializeWith
                    (fail "deserialize: HardType: getting schema with variables")
     3 -> ConcreteRho <$> deserialize
-    4 -> pure ArrowHash
     _ -> fail $ "deserialize: HardType: unexpected constructor tag: " ++ show b
 
 instance Binary HardType where
@@ -169,10 +166,6 @@ class Typical t where
   arrow :: t
   arrow = review hardType Arrow
   {-# INLINE arrow #-}
-
-  arrowHash :: t
-  arrowHash = review hardType ArrowHash
-  {-# INLINE arrowHash #-}
 
   con :: Global -> Schema Void -> t
   con g k = review hardType (Con g k)
