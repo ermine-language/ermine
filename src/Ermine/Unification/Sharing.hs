@@ -19,6 +19,7 @@
 --------------------------------------------------------------------
 module Ermine.Unification.Sharing
   ( runSharing
+  , withSharing
   , sharing
   , SharingT(..)
   , Shared(..)
@@ -119,6 +120,10 @@ runSharing a m = do
   Shared modified b <- unsharingT m
   return $! if modified then b else a
 {-# INLINE runSharing #-}
+
+withSharing :: Monad m => (a -> SharingT m a) -> a -> m a
+withSharing k a = runSharing a (k a)
+{-# INLINE withSharing #-}
 
 uncaring :: Functor m => SharingT m a -> m ()
 uncaring = void . unsharingT
