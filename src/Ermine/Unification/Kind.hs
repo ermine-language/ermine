@@ -46,7 +46,7 @@ import Ermine.Pretty.Kind
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> test $ do k <- Var <$> newMeta False; unifyKind k (Type star ~> k)
+-- >>> test $ do k <- Var <$> newMeta False; unifyKind k (star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
 --
@@ -112,6 +112,7 @@ unifyKind k1 k2 = do
     go k (Var (Meta _ i r d _))    = unifyKV False i r d k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind a c <*> unifyKind b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
+    go (Type k) (Type k')          = Type <$> unifyKind k k'
     go _ _ = fail "kind mismatch"
 
 -- | We don't need to update depths in the kind variables. We only create
