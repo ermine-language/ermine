@@ -36,6 +36,7 @@ module Ermine.Builtin.Core
   , cPutStrLn
   , cShowInt
   , cShowLong
+  , cShowLongHash
   , cAddLong
   , cFromIntegerToInt
   , cFromIntegerToLong
@@ -101,6 +102,9 @@ cShowLong =
       (M.singleton 0 . Match [U] longhg
         . Scope . App U (_Id._Global # showLongg) $ Var (B 1))
       Nothing
+
+cShowLongHash :: Core a
+cShowLongHash = _Id._Global # showLongg
 
 cAddLong :: Core a
 cAddLong =

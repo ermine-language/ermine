@@ -44,11 +44,11 @@ import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Word (Word64)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
+import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cShowLongHash, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
 import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg, fromIntegerToIntg, fromIntegerToLongg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, int, integer, fromInteg)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, longh, int, integer, fromInteg)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -199,6 +199,8 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
  tySI6 = long ~> string
+ tySI6H :: Type k t
+ tySI6H = longh ~> string
  tySI :: Type k t
  tySI = int ~> string
  tyAL :: Type k t
@@ -223,6 +225,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
    | txt == "showInt" = Just (tySI, cShowInt)
    | txt == "showLong" = Just (tySI6, cShowLong)
+   | txt == "showLongHash" = Just (tySI6H, cShowLongHash)
    | txt == "addLong" = Just (tyAL, cAddLong)
  resolveGlobals _ = Nothing
 
