@@ -216,7 +216,8 @@ inferAltTypes d cxt (Witness r t c) bs = do
       rs = join rss
       c' = Pattern.compileCase ps c gcs dummyPatternEnv
   uncaring $ foldlM unifyType t pts
-  result <- pure <$> newMeta star
+  bx <- pure <$> newMeta True
+  result <- pure <$> newMeta (Type bx)
   t' <- runSharing result $ foldlM unifyType result bts
   return $ Witness (r++rs) t' c'
  where
@@ -233,7 +234,8 @@ inferAltTypes d cxt (Witness r t c) bs = do
 coalesceGuarded :: MonadMeta s m => Guarded (WitnessM s v) -> m ([TypeM s], TypeM s, Guarded (Scope v Core (TypeM s)))
 coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
 coalesceGuarded (Guarded l) = do
-  rt <- pure <$> newMeta star
+  bx <- pure <$> newMeta True
+  rt <- pure <$> newMeta (Type bx)
   (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
     \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
       uncaring $ unifyType gt Type.bool
@@ -345,7 +347,8 @@ inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
   return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon (replicate (fromIntegral n) C) 0 (tupleg n)
 inferHardType Hole = do
-  tv <- newMeta star
+  bx <- pure <$> newMeta True
+  tv <- newMeta (Type bx)
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType (DataCon g t)
@@ -418,7 +421,6 @@ inferPatternType d (AsP p) =
 inferPatternType d (StrictP p) = inferPatternType d p
 inferPatternType d (LazyP p)   = inferPatternType d p
 inferPatternType d (TupP ps) = do
-  -- uncaring $ unifyKind star k
   unzip3 <$> traverse (inferPatternType d) ps <&> \(sks, tys, cxts) ->
     ( join sks
     , apps (tuple $ length ps) tys
