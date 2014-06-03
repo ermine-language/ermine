@@ -185,6 +185,9 @@ instance Kindly (Kind a) where
   hardKind = prism HardKind $ \t -> case t of
     HardKind k -> Right k
     _          -> Left t
+  star    = Type (hardKind # star)
+  unboxed = Type (hardKind # unboxed)
+  native  = Type (hardKind # native)
 
 instance Eq1 Kind
 instance Ord1 Kind
@@ -345,7 +348,7 @@ wfhk = not . wfhb
 
 -- | Lift a kind into a kind schema
 --
--- >>> schema (Type star ~> Type star)
+-- >>> schema (star ~> star)
 -- Schema [] (Scope (Var (F (HardKind Star :-> HardKind Star))))
 schema :: Kind a -> Schema a
 schema k = Schema [] (lift k)
@@ -367,8 +370,8 @@ schema k = Schema [] (lift k)
 -- >>> general ("b" ~> "a") (Hinted ?? ())
 -- Schema [Hinted "b" (),Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general (Type star ~> Type star) (Hinted ?? ())
--- Schema [] (Scope (HardKind Star :-> HardKind Star))
+-- >>> general (star ~> star) (Hinted ?? ())
+-- Schema [] (Scope (Type (HardKind Star) :-> Type (HardKind Star)))
 general :: Ord k => Kind k -> (k -> Hint) -> Schema a
 general k0 h = Schema (reverse hs) (Scope r) where
  ((_, hs, _), r) = mapAccumL go (Map.empty, [], 0) k0

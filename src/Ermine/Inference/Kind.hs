@@ -59,8 +59,8 @@ import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
 
 productKind :: Int -> Kind k
-productKind 0 = Type star
-productKind n = Type star :-> productKind (n - 1)
+productKind 0 = star
+productKind n = star :-> productKind (n - 1)
 
 matchFunKind :: MonadMeta s m => KindM s -> m (KindM s, KindM s)
 matchFunKind (a :-> b)    = return (a, b)
@@ -90,7 +90,7 @@ inferKind (Type.Var tk)            = return tk
 inferKind (HardType Arrow)         = do
   a <- Var <$> newMeta True
   b <- Var <$> newMeta True
-  return $ Type a :-> Type b :-> Type star
+  return $ Type a :-> Type b :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)
 inferKind (HardType (Tuple n))     = return $ productKind n
 inferKind (HardType ConcreteRho{}) = return rho
@@ -108,8 +108,8 @@ inferKind (Forall n tks cs b) = do
   sks <- for n $ \_ -> newSkolem False
   let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks (instantiateVars btys cs)) constraint
-  checkKind (instantiateKindVars sks (instantiateVars btys b)) (Type star)
-  return (Type star)
+  checkKind (instantiateKindVars sks (instantiateVars btys b)) star
+  return star
 
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
 fixCons m f = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m)
@@ -195,4 +195,4 @@ checkConstructorKind (Constructor _ ks ts fs) = do
   sks <- for ks $ \_ -> newSkolem False
   let btys = instantiateVars sks . extract <$> ts
   for_ fs $ \fld ->
-    checkKind (instantiateKindVars sks $ instantiateVars btys fld) (Type star)
+    checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
