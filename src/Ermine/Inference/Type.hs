@@ -137,7 +137,7 @@ inferBindingGroupTypes
   :: MonadConstraint s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
-  bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyType $ b^?bindingType._Explicit
+  bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
   sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
     w' <- subsumesType d w vt
