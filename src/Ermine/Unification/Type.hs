@@ -73,7 +73,6 @@ typeOccurs depth1 t p = zonkKindsAndTypesWith t tweakDepth tweakType where
       throwM $ die r "infinite type detected" & footnotes .~ [text "cyclic type:" <+> hang 4 (group (pretty v </> char '=' </> td))]
     | otherwise = tweakDepth m
 
-
 zonkKindsAndTypes
   :: (MonadMeta s m, MonadWriter Any m)
   => TypeM s -> m (TypeM s)

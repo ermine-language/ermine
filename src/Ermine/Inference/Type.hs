@@ -66,6 +66,7 @@ import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Kind
 import Ermine.Inference.Witness
+import Ermine.Unification.Kind (unifyKindVar)
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
@@ -86,8 +87,10 @@ matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
 matchFunType (HardType _) = fail "not a fun type"
 matchFunType t = do
-  x <- pure <$> newMeta star
-  y <- pure <$> newMeta star
+  bx <- pure <$> newMeta True
+  by <- pure <$> newMeta True
+  x <- pure <$> newMeta (Type bx)
+  y <- pure <$> newMeta (Type by)
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 type WMap = Map.Map Word64
@@ -290,6 +293,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
   tvs <- filterM ?? toListOf typeVars (t,cc,r) $ \ tv -> do
     d <- liftST $ readSTRef (tv^.metaDepth)
     return (min_d <= d)
+  -- let tvs = tvs0 & traverse.metaValue.kindVars.indices id .~ (hardKind # star)
 
   let s = setOf traverse tvs
       cc' = filter (any (`Set.member` s)) cc
@@ -297,7 +301,11 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
   let kvs0 = toListOf kindVars t ++ toListOf (traverse.metaValue.kindVars) tvs
   kvs <- filterM ?? kvs0 $ \kv -> do
     d <- liftST $ readSTRef (kv^.metaDepth)
-    return (min_d <= d)
+    if min_d <= d
+     then if kv^.metaValue
+      then False <$ uncaring (unifyKindVar kv $ HardKind Star)
+      else return True
+     else return False
 
   let (r',cc'')
         | min_d == 0 = ([],r ++ cc')
@@ -308,7 +316,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
 
   let n = length cc'
 
-  return $ Witness r'
+  withSharing zonkWitnessKindsAndTypes $ Witness r'
     (forall
         (const noHint)
         (const noHint)
@@ -319,6 +327,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
     $ if n == 0
       then c
       else toScope $ Core.Lam (D <$ cc') $ abstract (cabs cc') $ fromScope c
+
 
 generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
 generalizeType w = do
@@ -396,10 +405,12 @@ unfurlConstraints c = pure $ partConstraints c
 inferPatternType :: MonadMeta s m =>  Depth -> PatM s
                  -> m ([MetaT s], TypeM s, PatternPath -> TypeM s)
 inferPatternType d (SigP ann)  = do
-  ty <- instantiateAnnot d star ann
+  k <- Type . pure <$> newMeta True
+  ty <- instantiateAnnot d k ann
   return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
-inferPatternType d WildcardP   =
-  pure <$> newShallowMeta d star <&> \m ->
+inferPatternType d WildcardP   = do
+  k <- Type . pure <$> newMeta True
+  pure <$> newShallowMeta d k <&> \m ->
     ([], m, \ xs -> case xs of LeafPP -> m ; _ -> error "panic: bad pattern path")
 inferPatternType d (AsP p) =
   inferPatternType d p <&> \(sks, ty, pcxt) ->
@@ -456,3 +467,8 @@ instantiateAnnot d k (Annot ks sc) = do
   ty <- traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
     instantiate (tvs !!) sc
   ty <$ checkKind (view metaValue <$> ty) k
+
+zonkWitnessKindsAndTypes
+  :: (MonadMeta s m, MonadWriter Any m)
+  => WitnessM s v -> m (WitnessM s v)
+zonkWitnessKindsAndTypes (Witness xs ys ts) = Witness <$> traverse zonkKindsAndTypes xs <*> zonkKindsAndTypes ys <*> traverse zonkKindsAndTypes ts
