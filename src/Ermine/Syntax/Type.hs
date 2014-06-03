@@ -360,7 +360,7 @@ instance Bitraversable Type where
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
 bitraverseScopeTK :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Scope b (TK k) a -> f (Scope b (TK k') a')
-bitraverseScopeTK = undefined
+bitraverseScopeTK f = bitransverseScope $ (bitraverseType<.traverse) f
 
 bitraverseType :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Type k a -> f (Type k' a')
 bitraverseType _ g (Var a)            = Var <$> g a
