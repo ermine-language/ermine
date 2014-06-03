@@ -1,5 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013
@@ -35,6 +37,7 @@ import Ermine.Parser.Type as Type
 import Ermine.Parser.Literal
 import Ermine.Parser.Pattern
 import Ermine.Syntax
+import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
 import Text.Parser.Combinators
@@ -45,8 +48,11 @@ type Tm = Term Ann Text
 -- | Parse an atomic term
 term0 :: (Monad m, TokenParsing m) => m Tm
 term0 = Var <$> termIdentifier
-   <|> HardTerm . Lit <$> literal
+   <|> tweakLiteral <$> literal
    <|> parens (tup' <$> terms)
+ where
+ tweakLiteral i@(Integer _) = App (Var "fromInteger") . HardTerm . Lit $ i
+ tweakLiteral l = HardTerm $ Lit l
 
 term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match

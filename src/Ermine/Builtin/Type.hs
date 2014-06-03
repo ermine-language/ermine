@@ -30,6 +30,7 @@ module Ermine.Builtin.Type
   , int, long, byte, short
   , float, double
   , inth, longh
+  , integer
   -- ** Booleans
   , bool
   -- ** Text
@@ -45,6 +46,7 @@ module Ermine.Builtin.Type
   -- ** Classes
   , functor
   , lame
+  , fromInteg
   -- ** Annotations
   , anyType
   ) where
@@ -153,6 +155,12 @@ float :: Builtin t => t
 float = builtin_ "Float"
 
 -- |
+-- >>> infer integer
+-- *
+integer :: Builtin t => t
+integer = builtin_ "Integer"
+
+-- |
 -- >>> infer double
 -- *
 double :: Builtin t => t
@@ -252,6 +260,11 @@ functor = builtin ((star ~> star) ~> constraint) "Functor"
 -- * -> Γ
 lame :: Builtin t => t
 lame = builtin (star ~> constraint) "Lame"
+
+-- >>> infer fromInteg
+-- * -> Γ
+fromInteg :: Builtin t => t
+fromInteg = builtin (star ~> constraint) "FromInteger"
 
 ------------------------------------------------------------------------------
 -- Annotations

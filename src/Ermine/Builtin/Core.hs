@@ -37,6 +37,8 @@ module Ermine.Builtin.Core
   , cShowInt
   , cShowLong
   , cAddLong
+  , cFromIntegerToInt
+  , cFromIntegerToLong
   ) where
 
 import Bound
@@ -111,6 +113,22 @@ cAddLong =
                   (App U (_Id._Global # addLongg) $ (Var . F . Var . B $ 1))
                   (Var $ B 1))
             Nothing)
+      Nothing
+
+cFromIntegerToInt :: Core a
+cFromIntegerToInt =
+  Lam [C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [N] integerhg . Scope
+        . App N (_Id._Global # fromIntegerToIntg) $ Var (B 1))
+      Nothing
+
+cFromIntegerToLong :: Core a
+cFromIntegerToLong =
+  Lam [C] . Scope $
+    Case (Var (B 0))
+      (M.singleton 0 . Match [N] integerhg . Scope
+        . App N (_Id._Global # fromIntegerToLongg) $ Var (B 1))
       Nothing
 
 -- | Lifting of literal values to core.
