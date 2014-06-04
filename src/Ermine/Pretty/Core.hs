@@ -67,7 +67,7 @@ prettyHead i = text ("instance{" ++ (i^.headClass.name.unpacked))
 
 -- | Pretty print a 'HardCore' expression.
 prettyCore :: Applicative f
-           => [String] -> Int -> (a -> Int -> f Doc) -> Core a -> f Doc
+           => [String] -> Int -> (a -> Int -> f Doc) -> Core Convention a -> f Doc
 prettyCore _  prec k (Var v) = k v prec
 prettyCore _  prec _ (HardCore h) = pure $ prettyHardCore prec h
 prettyCore vs prec k (Data cc tg g fs) =

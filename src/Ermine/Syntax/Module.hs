@@ -25,7 +25,7 @@ import Ermine.Syntax.Type
 data Module = Module {
   _name         :: ModuleName,
   _dependencies :: [ModuleName],
-  _definitions  :: [Core Int],
+  _definitions  :: [Core Convention Int],
   _termExports  :: Map Global (Either Global Int),
   _instances    :: Map ByteString Int,
   _types        :: Map Global (Type Void Void),

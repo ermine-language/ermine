@@ -128,7 +128,7 @@ inferHardCore Error{}         = return $ Form [] U
 inferHardCore (Foreign p)     = preview (foreignCxt.ix p)  >>= liftMaybe "unknown foreign"
 inferHardCore (Id h)          = preview (globalCxt.ix h)   >>= liftMaybe "unknown global"
 
-checkCore :: Convention -> Core a -> Lint a ()
+checkCore :: Convention -> Core Convention a -> Lint a ()
 checkCore cc c = do
   cc' <- convention <$> inferCore c
   when (cc' /= cc) $ fail $ "type mismatch: expected " ++ show cc ++ ", received " ++ show cc'
@@ -139,7 +139,7 @@ bindings cs = variables %~ unvar (\i -> liftMaybe "illegal bound variable" $ cs^
 binding :: Convention -> LintEnv a -> LintEnv (Var () a)
 binding cc = variables %~ unvar (\_ -> Right cc)
 
-inferCore :: Core a -> Lint a Form
+inferCore :: Core Convention a -> Lint a Form
 inferCore (Var a) = do
   v <- view variables
   Form [] <$> liftEither (v a)
@@ -186,10 +186,10 @@ inferCore (CaseLit nt b ms md) = do
   when (length (group $ constrIndex . toConstr <$> keys ms) > 1) $ fail "mismatched literals"
   return $ Form [] U
 
-inferScope :: Scope b Core a -> Lint (Var b a) Form
+inferScope :: Scope b (Core Convention) a -> Lint (Var b a) Form
 inferScope = inferCore . fromScope
 
-checkScope :: Convention -> Scope b Core a -> Lint (Var b a) ()
+checkScope :: Convention -> Scope b (Core Convention) a -> Lint (Var b a) ()
 checkScope cc = checkCore cc . fromScope
 
 inferLiteral :: Literal -> Convention

@@ -197,7 +197,7 @@ compileManyGuards m pm ((g,b):gbs) =
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
-compile :: (MonadPattern m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
+compile :: (MonadPattern m, Cored cc c) => Matching c a -> PatternMatrix t c a -> m (c a)
 compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile m pm@(PatternMatrix ps (b:bs))
   | all (irrefutable . head) ps =
@@ -219,12 +219,15 @@ compile m pm@(PatternMatrix ps (b:bs))
             ([],xs) -> case_ ((m^.colCores) !! i) (M.fromList xs) <$>
               if sig then pure Nothing
                      else Just . Scope <$> compile (remove i m) dm
-            (xs,[]) -> do
+            (xs,[]) -> undefined --
+              {-
+              do
                dflt <- if sig then pure Nothing
                               else Just . set (mapped._B) 0 <$> compile (remove i m) dm
                let (cc,nt) = case fst (head xs) of String{} -> (Match [N] stringg, True); _ -> (Match [U] literalg, False)
                -- return $ ((lambda [C] C (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
                return $ case_ ((m^.colCores)!!i) (M.singleton 0 $ cc $ Scope $ caseLit nt (pure $ B 1) (M.fromList xs) dflt) Nothing
+              -}
             _ -> error "PANIC: pattern compile: mixed literal and constructor patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
 

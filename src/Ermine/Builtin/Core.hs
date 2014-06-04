@@ -137,8 +137,8 @@ cFromIntegerToLong =
 
 -- | Lifting of literal values to core.
 class Lit a where
-  lit  :: a   -> Core b
-  lits :: [a] -> Core b
+  lit  :: a   -> Core cc b
+  lits :: [a] -> Core cc b
   lits = Prelude.foldr (cons . lit) nil
 
 instance Lit Int64 where
