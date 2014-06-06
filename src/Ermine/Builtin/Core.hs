@@ -43,7 +43,8 @@ module Ermine.Builtin.Core
   ) where
 
 import Bound
-import Control.Lens ((#))
+import Control.Lens ((#), review)
+import Data.Functor
 import Data.Int
 import qualified Data.Map as M
 import Data.Text hiding (zip, length, concatMap, cons)
@@ -55,113 +56,114 @@ import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
 
 -- | The built-in '[]' constructor for a list.
-nil :: Core a
+nil :: Core cc a
 nil = Data [] 0 nilg []
 
 -- | The built-in '::' constructor for a list.
-cons :: Core a -> Core a -> Core a
-cons a as = Data [C,C] 1 consg [a,as]
+cons :: AsConvention cc => Core cc a -> Core cc a -> Core cc a
+cons a as = Data (review _Convention <$> [C,C]) 1 consg [a,as]
 
 -- | The built-in 'Just' constructor for 'Maybe'.
-just :: Core a -> Core a
-just a = Data [C] 1 justg [a]
+just :: AsConvention cc => Core cc a -> Core cc a
+just a = Data [_Convention # C] 1 justg [a]
 
 -- | The built-in 'Nothing' constructor for 'Maybe'.
-nothing :: Core a
+nothing :: Core cc a
 nothing = Data [] 0 nothingg []
 
-stringh :: Core a -> Core a
-stringh s = Data [N] 1 stringhg [s]
+stringh :: AsConvention cc => Core cc a -> Core cc a
+stringh s = Data [_Convention # N] 1 stringhg [s]
 
-inth :: Core a -> Core a
-inth i = Data [U] 1 inthg [i]
+inth :: AsConvention cc => Core cc a -> Core cc a
+inth i = Data [_Convention # U] 1 inthg [i]
 
-longh :: Core a -> Core a
-longh l = Data [U] 1 longhg [l]
+longh :: AsConvention cc => Core cc a -> Core cc a
+longh l = Data [_Convention # U] 1 longhg [l]
 
-cPutStrLn :: Core a
+cPutStrLn :: AsConvention cc => Core cc a
 cPutStrLn =
-  Lam [C] . Scope $
+  Lam [_Convention # C] . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [N] stringg
-        . Scope . App N (_Id._Global # putStrLng) $ Var (B 1))
+      (M.singleton 0 . Match [_Convention # N] stringg
+        . Scope . App (_Convention # N) (_Id._Global # putStrLng) $ Var (B 1))
       Nothing
 
-cShowInt :: Core a
+cShowInt :: AsConvention cc => Core cc a
 cShowInt =
-  Lam [C] . Scope $
+  Lam [_Convention # C] . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [U] inthg
-        . Scope . App U (_Id._Global # showIntg) $ Var (B 1))
+      (M.singleton 0 . Match [_Convention # U] inthg
+        . Scope . App (_Convention # U) (_Id._Global # showIntg) $ Var (B 1))
       Nothing
 
-cShowLong :: Core a
+cShowLong :: AsConvention cc => Core cc a
 cShowLong =
-  Lam [C] . Scope $
+  Lam [_Convention # C] . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [U] longhg
-        . Scope . App U (_Id._Global # showLongg) $ Var (B 1))
+      (M.singleton 0 . Match [_Convention # U] longhg
+        . Scope . App (_Convention # U) (_Id._Global # showLongg) $ Var (B 1))
       Nothing
 
-cShowLongHash :: Core a
+cShowLongHash :: AsConvention cc => Core cc a
 cShowLongHash = _Id._Global # showLongg
 
-cAddLong :: Core a
+cAddLong :: AsConvention cc => Core cc a
 cAddLong =
-  Lam [C,C] . Scope $
+  Lam (review _Convention <$> [C,C]) . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [U] longhg . Scope
+      (M.singleton 0 . Match [_Convention # U] longhg . Scope
         $ Case (Var . F . Var . B $ 1)
-            (M.singleton 0 . Match [U] longhg . Scope
-              $ App U
-                  (App U (_Id._Global # addLongg) $ (Var . F . Var . B $ 1))
+            (M.singleton 0 . Match [_Convention # U] longhg . Scope
+              $ App (_Convention # U)
+                  (App (_Convention # U)
+                    (_Id._Global # addLongg) $ (Var . F . Var . B $ 1))
                   (Var $ B 1))
             Nothing)
       Nothing
 
-cFromIntegerToInt :: Core a
+cFromIntegerToInt :: AsConvention cc => Core cc a
 cFromIntegerToInt =
-  Lam [C] . Scope $
+  Lam [_Convention # C] . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [N] integerhg . Scope
-        . App N (_Id._Global # fromIntegerToIntg) $ Var (B 1))
+      (M.singleton 0 . Match [_Convention # N] integerhg . Scope
+        . App (_Convention # N) (_Id._Global # fromIntegerToIntg) $ Var (B 1))
       Nothing
 
-cFromIntegerToLong :: Core a
+cFromIntegerToLong :: AsConvention cc => Core cc a
 cFromIntegerToLong =
-  Lam [C] . Scope $
+  Lam [_Convention # C] . Scope $
     Case (Var (B 0))
-      (M.singleton 0 . Match [N] integerhg . Scope
-        . App N (_Id._Global # fromIntegerToLongg) $ Var (B 1))
+      (M.singleton 0 . Match [_Convention # N] integerhg . Scope
+        . App (_Convention # N) (_Id._Global # fromIntegerToLongg) $ Var (B 1))
       Nothing
 
 -- | Lifting of literal values to core.
 class Lit a where
-  lit  :: a   -> Core cc b
-  lits :: [a] -> Core cc b
+  lit  :: AsConvention cc => a   -> Core cc b
+  lits :: AsConvention cc => [a] -> Core cc b
   lits = Prelude.foldr (cons . lit) nil
 
 instance Lit Int64 where
-  lit l = Data [U] 0 literalg [HardCore $ Lit $ Long l]
+  lit l = Data [_Convention # U] 0 literalg [HardCore $ Lit $ Long l]
 
 instance Lit Int32 where
-  lit i = Data [U] 0 literalg [HardCore $ Lit $ Int i]
+  lit i = Data [_Convention # U] 0 literalg [HardCore $ Lit $ Int i]
 
 instance Lit Char where
-  lit c  = Data [U] 0 literalg [HardCore $ Lit $ Char c]
+  lit c  = Data [_Convention # U] 0 literalg [HardCore $ Lit $ Char c]
   lits = lit . pack
 
 instance Lit Text where
-  lit s = Data [N] 0 stringg [HardCore $ Lit $ String s]
+  lit s = Data [_Convention # N] 0 stringg [HardCore $ Lit $ String s]
 
 instance Lit Int8 where
-  lit b = Data [U] 0 literalg [HardCore $ Lit $ Byte b]
+  lit b = Data [_Convention # U] 0 literalg [HardCore $ Lit $ Byte b]
 
 instance Lit Int16 where
-  lit s = Data [U] 0 literalg [HardCore $ Lit $ Short s]
+  lit s = Data [_Convention # U] 0 literalg [HardCore $ Lit $ Short s]
 
 instance (Lit a, Lit b) => Lit (a, b) where
-  lit (a,b) = Data [C,C] 0 (tupleg 2) [lit a, lit b]
+  lit (a,b) = Data (review _Convention <$> [C,C]) 0 (tupleg 2) [lit a, lit b]
 
 instance Lit a => Lit [a] where
   lit = lits

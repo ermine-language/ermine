@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
@@ -173,8 +174,8 @@ dkindsBody _ dts = do
         <+> colon
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
-checkAndCompile :: MonadConstraint s m
-                => Term Ann Text -> m (Maybe (Type t k, Core c))
+checkAndCompile :: MonadConstraint (KindM s) s m
+                => Term Ann Text -> m (Maybe (Type t k, Core Convention c))
 checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> do
   tm <- bitraverse (prepare (newMeta False)
                           (const $ newMeta False)
@@ -218,7 +219,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
      Forall [] [Unhinted $ Scope star]
             (Scope $ And []) (Scope $ pure (B 0) ~> ee)
  predefs  x = pure x
- resolveGlobals :: Text -> Maybe (Type t k, Core c)
+ resolveGlobals :: AsConvention cc => Text -> Maybe (Type t k, Core cc c)
  resolveGlobals txt
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
    | txt == "fromInteger" = Just (tyFromInteger, HardCore $ Slot 0)

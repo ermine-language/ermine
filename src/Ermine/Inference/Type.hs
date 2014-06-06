@@ -34,6 +34,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
+import Data.Bitraversable
 import Data.Foldable as Foldable
 import Data.Graph
 import qualified Data.Map as Map
@@ -58,7 +59,7 @@ import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Name
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Literal
-import Ermine.Syntax.Kind as Kind hiding (Var)
+import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Pattern as Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term as Term
@@ -74,14 +75,14 @@ import Prelude hiding (foldr, any, concat)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty, (<>))
 import Text.Trifecta.Result
 
-type WitnessM s a = Witness (TypeM s) a
+type WitnessM s a = Witness (KindM s) (TypeM s) a
 type AnnotM s = Annot (MetaK s) (MetaT s)
 type PatM s = Pattern (AnnotM s)
 type TermM s a = Term (AnnotM s) a
 type AltM s a = Alt (AnnotM s) (Term (AnnotM s)) a
 type ScopeM b s a = Scope b (Term (AnnotM s)) a
 type BindingM s a = Binding (AnnotM s) a
-type CoreM s a = Scope a Core (TypeM s)
+type CoreM s a = Scope a (Core (KindM s)) (TypeM s)
 
 matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
@@ -99,7 +100,7 @@ beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> Lens
 beside3 x y z f (a,b,c) = (,,) <$> x f a <*> y f b <*> z f c
 
 inferBindingType
-  :: MonadConstraint s m
+  :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word64 v))
 inferBindingType d cxt lcxt bdg = do
   let ps = bdg^..bindingBodies.traverse.bodyPatterns
@@ -137,7 +138,7 @@ inferBindingType d cxt lcxt bdg = do
   simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPatternEnv
 
 inferBindingGroupTypes
-  :: MonadConstraint s m
+  :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
@@ -147,7 +148,7 @@ inferBindingGroupTypes d cxt lcxt bg = do
     generalizeWitnessType d w'
 
 inferBindings
-  :: MonadConstraint s m
+  :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word64 v)]
 inferBindings d cxt bgs = do
   (ws,_ts) <- foldlM step (Map.empty, Map.empty) sccs
@@ -160,7 +161,7 @@ inferBindings d cxt bgs = do
     nws <- inferBindingGroupTypes (d+1) cxt ts cc
     return (ws <> nws, ts <> fmap (view witnessType) nws)
 
-inferType :: MonadConstraint s m
+inferType :: MonadConstraint (KindM s) s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
 inferType _ cxt (Term.Var v) = unfurl_ (cxt v) v
 inferType _ _   (HardTerm t) = inferHardType t
@@ -185,7 +186,7 @@ inferType d cxt (Term.Lam ps e) = do
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-  return $ Witness rcs rt (lambda (C <$ ps) cc) -- TODO: pick convention based on kinds
+  return $ Witness rcs rt (lambda (_Convention # C <$ ps) cc) -- TODO: pick convention based on kinds
 
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
@@ -200,12 +201,12 @@ inferType d cxt (Term.Let xs b) = do
                     (w^.witnessType)
                   $ letrec wsc wc
 
-inferTypeInScope :: MonadConstraint s m
+inferTypeInScope :: MonadConstraint (KindM s) s m
                  => Depth -> (b -> TypeM s) -> (v -> TypeM s)
                  -> ScopeM b s v -> m (WitnessM s (Var b v))
 inferTypeInScope d aug cxt sm = inferType d (unvar aug cxt) $ fromScope sm
 
-inferAltTypes :: MonadConstraint s m
+inferAltTypes :: MonadConstraint (KindM s) s m
               => Depth -> (v -> TypeM s) -> WitnessM s v
               -> [AltM s v]
               -> m (WitnessM s v)
@@ -231,7 +232,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
    over _3 (splitScope <$>) <$> coalesceGuarded bgws
 
-coalesceGuarded :: MonadMeta s m => Guarded (WitnessM s v) -> m ([TypeM s], TypeM s, Guarded (Scope v Core (TypeM s)))
+coalesceGuarded :: MonadMeta s m => Guarded (WitnessM s v) -> m ([TypeM s], TypeM s, Guarded (Scope v (Core (KindM s)) (TypeM s)))
 coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
 coalesceGuarded (Guarded l) = do
   bx <- pure <$> newMeta True
@@ -243,11 +244,12 @@ coalesceGuarded (Guarded l) = do
   pure (rs, ty, Guarded l')
 
 -- TODO: write this
-simplifiedWitness :: MonadConstraint s m => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
+simplifiedWitness :: MonadConstraint (KindM s) s m
+                  => [TypeM s] -> TypeM s -> CoreM s a -> m (WitnessM s a)
 simplifiedWitness rcs t c = runSharing c (traverse zonk c) >>= \c' ->
     Witness rcs t <$> simplifyVia (toList c') c'
 
-abstractedWitness :: MonadConstraint s m
+abstractedWitness :: MonadConstraint (KindM s) s m
                   => Int -> [MetaT s] -> [TypeM s] -> [TypeM s] -> TypeM s -> CoreM s a
                   -> m (WitnessM s a)
 abstractedWitness d sks rs cs0 ty co0 = do
@@ -256,11 +258,13 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
     checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
-      ((rs, ty), lambda (D <$ cs) $ abstract (fmap fromIntegral . flip elemIndex cs) co')
+      ((rs, ty),
+        lambda (_Convention # D <$ cs) $
+          abstract (fmap fromIntegral . flip elemIndex cs) co')
   pure $ Witness rs' ty' co''
 
 -- TODO: write this correctly
-checkType :: MonadConstraint s m
+checkType :: MonadConstraint (KindM s) s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
   w <- inferType d cxt e
@@ -268,7 +272,7 @@ checkType d cxt e t = do
   checkKind (view metaValue <$> t) (Type bx)
   subsumesType d w t
 
-subsumesType :: MonadConstraint s m
+subsumesType :: MonadConstraint (KindM s) s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
   (_  , sts, cs, t2') <- skolemize d t2
@@ -328,24 +332,39 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
         t)
     $ if n == 0
       then c
-      else toScope $ Core.Lam (D <$ cc') $ abstract (cabs cc') $ fromScope c
+      else toScope $ Core.Lam (_Convention # D <$ cc') $ abstract (cabs cc') $ fromScope c
 
 
-generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core a)
+generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core Convention a)
 generalizeType w = do
   Witness [] t c <- generalizeWitnessType 0 w
-  c' <- traverse (unvar pure $ \_ -> fail "panic: generalizeType failed to abstract over all class constraints") (fromScope c)
+  let scopeCheck (B x) = return x
+      scopeCheck (F _) =
+        fail "panic: generalizeType failed to abstract over all class constraints"
+      fixConvention k0 = runSharing k0 (zonk k0) >>= \k -> case preview _Convention k of
+        Just cc -> return cc
+        Nothing -> case k of
+          Kind.Var _ -> return C
+          _ -> fail "panic: generalizeType: failed to affix calling conventions"
+  c' <- bitraverse fixConvention scopeCheck (fromScope c)
   case closedType t of
     Just t' -> pure (t', c')
     Nothing -> fail "panic: generalizeType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
-inferHardType (Term.Lit l@String{}) = return $ Witness [] (literalType l) (dataCon [N] 0 stringg ## (_Lit # l))
-inferHardType (Term.Lit l@Integer{}) = return $ Witness [] (literalType l) (dataCon [N] 0 Type.integer ## (_Lit # l))
-inferHardType (Term.Lit l) = return $ Witness [] (literalType l) (dataCon [U] 0 literalg ## (_Lit # l))
+inferHardType (Term.Lit l@String{}) =
+  return $ Witness [] (literalType l) $
+             dataCon [_Convention # N] 0 stringg ## (_Lit # l)
+inferHardType (Term.Lit l@Integer{}) =
+  return $ Witness [] (literalType l) $
+             dataCon [_Convention # N] 0 Type.integer ## (_Lit # l)
+inferHardType (Term.Lit l) =
+  return $ Witness [] (literalType l) $
+             dataCon [_Convention # U] 0 literalg ## (_Lit # l)
 inferHardType (Term.Tuple n) = do
   vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
-  return $ Witness [] (foldr (~>) (tup vs) vs) $ dataCon (replicate (fromIntegral n) C) 0 (tupleg n)
+  return $ Witness [] (foldr (~>) (tup vs) vs) $
+             dataCon (replicate (fromIntegral n) (_Convention # C)) 0 (tupleg n)
 inferHardType Hole = do
   bx <- pure <$> newMeta True
   tv <- newMeta (Type bx)
@@ -353,9 +372,9 @@ inferHardType Hole = do
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType (DataCon g t)
   | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon [] 0 g
-  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon [C] 1 g
-  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon [C] 0 g
-  | g^.name == "String#" = unfurl (bimap absurd absurd t) $ dataCon [N] 1 g
+  | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon [_Convention # C] 1 g
+  | g^.name == "E"       = unfurl (bimap absurd absurd t) $ dataCon [_Convention # C] 0 g
+  | g^.name == "String#" = unfurl (bimap absurd absurd t) $ dataCon [_Convention # N] 1 g
 inferHardType _ = fail "Unimplemented"
 
 literalType :: Literal -> Type k a
@@ -381,7 +400,8 @@ skolemize _ (Forall ks ts cs bd) = do
   return (sks, sts, tcs, inst bd)
 skolemize _ t = return ([], [], [], t)
 
-unfurl :: MonadMeta s m => TypeM s -> Scope a Core (TypeM s) -> m (WitnessM s a)
+unfurl :: MonadMeta s m
+       => TypeM s -> Scope a (Core (KindM s)) (TypeM s) -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
   mks <- for ks $ \_ -> newMeta False
   mts <- for ts $ newMeta . instantiateVars mks . extract

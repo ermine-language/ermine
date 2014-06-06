@@ -15,6 +15,7 @@ import Data.ByteString
 import Data.Map
 import Data.Serialize
 import Data.Void
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global
@@ -41,7 +42,7 @@ instance HasModuleName Module where
 dependencies :: Lens' Module [ModuleName]
 dependencies f (Module n deps defs ts is tys d) = f deps <&> \deps' -> Module n deps' defs ts is tys d
 
-definitions :: Lens' Module [Core Int]
+definitions :: Lens' Module [Core Convention Int]
 definitions f (Module n deps defs ts is tys d) = f defs <&> \defs' -> Module n deps defs' ts is tys d
 
 termExports :: Lens' Module (Map Global (Either Global Int))

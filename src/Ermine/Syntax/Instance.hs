@@ -28,7 +28,6 @@ import Data.Hashable
 import Data.Hashable.Extras
 import Data.Monoid
 import Data.Typeable
-import Data.Traversable
 import Data.Void
 import Ermine.Syntax.Core
 import Ermine.Syntax.Head
@@ -61,10 +60,10 @@ instance Hashable a => Hashable (Instance a) where
 instance Hashable1 Instance where
 
 instance Functor Instance where
-  fmap f (Instance c h b) = Instance c h <$> first f b
+  fmap f (Instance c h b) = Instance c h $ first f b
 
 instance Foldable Instance where
-  foldMap f (Instance _ _ b) = bifoldMap f (const mempty)
+  foldMap f (Instance _ _ b) = bifoldMap f (const mempty) b
 
 instance Traversable Instance where
-  traverse f (Instance _ _ b) = bitraverse f pure
+  traverse f (Instance cxt hd b) = Instance cxt hd <$> bitraverse f pure b

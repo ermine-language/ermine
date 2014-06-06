@@ -35,10 +35,11 @@ import Ermine.Syntax.Scope
 import Ermine.Unification.Sharing
 
 -- | Optimize core expressions by alternating between the different optimization passes several times.
-optimize :: Core t c -> Core t c
+optimize :: Core Convention c -> Core Convention c
 optimize c = runIdentity . runSharing c $ optimize' 10 c
 
-optimize' :: (Applicative m, MonadWriter Any m) => Int -> Core c -> m (Core c)
+optimize' :: (Applicative m, MonadWriter Any m)
+          => Int -> Core Convention c -> m (Core Convention c)
 optimize' 0 c = return c
 optimize' n c = do (c', Any b) <- listen $ suite c
                    if b then optimize' (n-1) c' else return c
@@ -52,7 +53,7 @@ rewriteCoreDown :: forall m c cc. (Applicative m, MonadWriter Any m)
                 => (forall d. Core cc d -> m (Core cc d)) -> Core cc c -> m (Core cc c)
 rewriteCoreDown opt = go
  where
- go :: forall e. Core e -> m (Core e)
+ go :: forall e. Core cc e -> m (Core cc e)
  go c = sharing c (opt c) >>= \ xs -> case xs of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
@@ -71,7 +72,7 @@ rewriteCore :: forall m c cc. (Applicative m, MonadWriter Any m)
             => (forall d. Core cc d -> m (Core cc d)) -> Core cc c -> m (Core cc c)
 rewriteCore opt = go
  where
- go :: forall e. Core e -> m (Core e)
+ go :: forall e. Core cc e -> m (Core cc e)
  go c = sharing c $ opt =<< case c of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
@@ -105,7 +106,7 @@ etaDict c@(Lam [D] (Scope (App D f (Var (B 0))))) = case sequenceA f of
 etaDict c = return c
 
 -- | β-reduces redexes like @(\x.. -> e) v..@ where @v..@ is all variables for all calling conventions
-betaVar :: forall c cc m. (Applicative m, MonadWriter Any m) => Core cc c -> m (Core cc c)
+betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core Convention c -> m (Core Convention c)
 betaVar = collapse []
  where
  collapse stk (App C f x)

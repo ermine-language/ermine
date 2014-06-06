@@ -1,4 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -30,6 +31,7 @@ module Ermine.Syntax.Core
   , matchArgs
   , matchGlobal
   , matchBody
+  , triverseMatch
   , Cored(..)
   , JavaLike(..)
   , Foreign(..)
@@ -46,12 +48,16 @@ module Ermine.Syntax.Core
 
 import Bound
 import Bound.Var
+import Bound.Scope
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
 import Control.Lens as Lens
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
+import Data.Bifoldable
+import Data.Bifunctor
+import Data.Bitraversable
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
@@ -271,6 +277,13 @@ data Match t c a = Match
   , _matchBody   :: Scope Word64 c a
   } deriving (Eq,Show,Functor,Foldable,Traversable)
 
+triverseMatch
+  :: Applicative f
+  => (t -> f t') -> (forall x y. (x -> f y) -> c x -> f (c' y)) -> (a -> f a')
+  -> Match t c a -> f (Match t' c' a')
+triverseMatch f g h (Match cc gl e) =
+  (Match ?? gl) <$> traverse f cc <*> bitransverseScope g h e
+
 instance (Monad c, Hashable t, Hashable1 c, Hashable a) => Hashable (Match t c a) where
   hashWithSalt n (Match cc g b) = (n `hashWithSalt` cc `hashWithSalt` g) `hashWithSalt1` b
 
@@ -448,6 +461,35 @@ instance Monad (Core b) where
   Case e as d      >>= f = Case (e >>= f) (over matchBody (boundBy f) <$> as) ((>>>= f) <$> d)
   Dict xs ys       >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
   CaseLit c e as d >>= f = CaseLit c (e >>= f) ((>>= f) <$> as) ((>>= f) <$> d)
+
+instance Bifunctor Core where
+  bimap f g = runIdentity . bitraverse (pure . f) (pure . g)
+
+instance Bifoldable Core where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Core where
+  bitraverse
+    :: forall cc f cc' c c'. Applicative f
+    => (cc -> f cc') -> (c -> f c') -> Core cc c -> f (Core cc' c')
+  bitraverse f g = go
+   where
+   bts :: forall b. Scope b (Core cc) c -> f (Scope b (Core cc') c')
+   bts (Scope e) = Scope <$> bitraverse f (traverse $ bitraverse f g) e
+
+   go (Var a) = Var <$> g a
+   go (HardCore h) = pure $ HardCore h
+   go (Data cc tgl gl xs) = (Data ?? tgl ?? gl) <$> traverse f cc <*> traverse go xs
+   go (Prim cc r gl xs) =
+     Prim <$> traverse f cc <*> f r <*> pure gl <*> traverse go xs
+   go (App cc h x) = App <$> f cc <*> go h <*> go x
+   go (Lam cc e) = Lam <$> traverse f cc <*> bts e
+   go (Let bs e) = Let <$> traverse bts bs <*> bts e
+   go (Case e as d) =
+     Case <$> go e
+          <*> traverse (triverseMatch f (bitraverse f) g) as
+          <*> traverse bts d
+   go (Dict xs ys) = Dict <$> traverse go xs <*> traverse bts ys
 
 instance Eq2 Core
 instance Show2 Core

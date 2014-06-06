@@ -60,6 +60,7 @@ import Data.Traversable
 import Data.Map as Map
 import GHC.Generics
 import Ermine.Syntax
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
@@ -188,6 +189,21 @@ instance Kindly (Kind a) where
   star    = Type (HardKind Star)
   unboxed = Type (HardKind Unboxed)
   native  = Type (HardKind Native)
+
+instance AsConvention (Kind k) where
+  _Convention = prism dee dum
+   where
+   dee C = HardKind Star
+   dee D = HardKind Constraint
+   dee U = HardKind Unboxed
+   dee N = HardKind Native
+
+   dum (HardKind Star) = Right C
+   dum (HardKind Constraint) = Right D
+   dum (HardKind Unboxed) = Right U
+   dum (HardKind Native) = Right N
+   dum k = Left k
+
 
 instance Eq1 Kind
 instance Ord1 Kind
