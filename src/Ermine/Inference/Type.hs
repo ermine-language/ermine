@@ -93,6 +93,11 @@ matchFunType t = do
   y <- pure <$> newMeta (Type by)
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
+conventionForType :: MonadMeta s m => TypeM s -> m (KindM s)
+conventionForType ty = do
+  bx <- pure <$> newMeta True
+  runSharing bx $ checkKind (view metaValue <$> ty) (Type bx) >> zonk bx
+
 type WMap = Map.Map Word64
 
 beside3 :: Applicative f => LensLike f s1 t1 a b -> LensLike f s2 t2 a b -> LensLike f s3 t3 a b -> LensLike f (s1,s2,s3) (t1,t2,t3) a b
@@ -126,15 +131,17 @@ inferBindingType d cxt lcxt bdg = do
     let shuffle (B a)     = B (F a)
         shuffle (F (B a)) = B (B a)
         shuffle (F (F a)) = F a
-    return (rs', t', splitScope <$> cores', whereWitnesses^..folded.witnessCore.to (splitScope . mapBound shuffle))
+    ccvs <- traverse conventionForType pts
+    return (rs', t', splitScope <$> cores', whereWitnesses^..folded.witnessCore.to (splitScope . mapBound shuffle), ccvs)
 
   -- if only someone could write unzip4!
   let rs       = mess^.folded._1
       guards   = view _3 <$> mess
       wheres   = view _4 <$> mess
       (t0:tys) = view _2 <$> mess
+      ccvs     = view _5 $ head mess
   ty <- runSharing t0 $ foldM unifyType t0 tys
-  simplifiedWitness rs ty $ mergeScope $ compileBinding ps guards wheres dummyPatternEnv
+  simplifiedWitness rs ty $ mergeScope $ compileBinding ccvs ps guards wheres dummyPatternEnv
 
 inferBindingGroupTypes
   :: MonadConstraint (KindM s) s m
@@ -175,8 +182,9 @@ inferType d cxt (Sig tm (Annot ks ty)) = do
 inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
-  Witness xrcs _ xc <- checkType d cxt x i
-  simplifiedWitness (frcs ++ xrcs) o $ _App # (fc, xc)
+  Witness xrcs xt xc <- checkType d cxt x i
+  xcc <- conventionForType xt
+  simplifiedWitness (frcs ++ xrcs) o . Scope $ Core.App xcc (unscope fc) (unscope xc)
 inferType d cxt (Term.Lam ps e) = do
   (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) ps
   let pcxt (ArgPP i pp)
@@ -185,7 +193,8 @@ inferType d cxt (Term.Lam ps e) = do
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
   rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
-  return $ Witness rcs rt (lambda (_Convention # C <$ ps) cc) -- TODO: pick convention based on kinds
+  pccs <- traverse conventionForType pts
+  return $ Witness rcs rt (lambda pccs cc)
 
 inferType d cxt (Term.Case e b) = do
   w <- inferType d cxt e
