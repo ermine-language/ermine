@@ -67,7 +67,6 @@ import qualified Ermine.Syntax.Type as Type
 import Ermine.Syntax.Type hiding (Var, Loc)
 import Ermine.Inference.Kind
 import Ermine.Inference.Witness
-import Ermine.Unification.Kind (unifyKindVar)
 import Ermine.Unification.Type
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
@@ -307,11 +306,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
   let kvs0 = toListOf kindVars t ++ toListOf (traverse.metaValue.kindVars) tvs
   kvs <- filterM ?? kvs0 $ \kv -> do
     d <- liftST $ readSTRef (kv^.metaDepth)
-    if min_d <= d
-     then if kv^.metaValue
-      then False <$ uncaring (unifyKindVar kv $ HardKind Star)
-      else return True
-     else return False
+    return $ min_d <= d && not (kv^.metaValue)
 
   let (r',cc'')
         | min_d == 0 = ([],r ++ cc')

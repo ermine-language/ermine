@@ -36,6 +36,7 @@ import Data.Traversable
 import Ermine.Diagnostic
 import Ermine.Pretty
 import Ermine.Pretty.Type
+import Ermine.Inference.Kind (checkKind)
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -130,7 +131,8 @@ unifyType t1 t2 = do
   go t1' t2'
   where
     go x@(Var tv1)                (Var tv2)              | tv1 == tv2 = return x
-    go x@(Var (Meta _ i r d u)) y@(Var (Meta _ j s e v)) = do
+    go x@(Var (Meta k i r d u)) y@(Var (Meta l j s e v)) = do
+       () <$ unifyKind k l -- TODO: put the result in x/y?
        -- union-by-rank
        m <- liftST $ readSTRef u
        n <- liftST $ readSTRef v
@@ -138,8 +140,12 @@ unifyType t1 t2 = do
          LT -> unifyTV True i r d y $ return ()
          EQ -> unifyTV True i r d y $ writeSTRef v $! n + 1
          GT -> unifyTV False j s e x $ return ()
-    go (Var (Meta _ i r d _)) t                       = unifyTV True i r d t $ return ()
-    go t                      (Var (Meta _ i r d _))  = unifyTV False i r d t $ return () -- not as boring as it could be
+    go (Var (Meta k i r d _)) t                       = do
+      checkKind (view metaValue <$> t) k
+      unifyTV True i r d t $ return ()
+    go t                      (Var (Meta k i r d _))  = do
+      checkKind (view metaValue <$> t) k
+      unifyTV False i r d t $ return () -- not as boring as it could be
     go (App f x)              (App g y)               = App <$> unifyType f g <*> unifyType x y
     go (Loc l s)              t                       = Loc l <$> unifyType s t
     go s                      (Loc _ t)               = unifyType s t
