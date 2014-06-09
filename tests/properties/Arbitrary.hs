@@ -46,10 +46,10 @@ genPrecedence = choose (0, 9) :: Gen Int
 instance Arbitrary Convention where
   arbitrary = oneof $ return <$> [ Convention.C, Convention.U, Convention.D, Convention.N ]
 
-instance (Functor c, Arbitrary1 c) => Arbitrary1 (Match c) where
+instance (Arbitrary t, Functor c, Arbitrary1 c) => Arbitrary1 (Match t c) where
   arbitrary1 = Match <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Functor c, Arbitrary1 c, Arbitrary a) => Arbitrary (Match c a) where
+instance (Arbitrary t, Functor c, Arbitrary1 c, Arbitrary a) => Arbitrary (Match t c a) where
   arbitrary = arbitrary1
 
 instance Arbitrary Fixity where
@@ -259,7 +259,7 @@ instance Arbitrary HardCore where
     , Error    <$> arbitrary
     ]
 
-instance Arbitrary a => Arbitrary (Core a) where
+instance (Arbitrary cc, Arbitrary a) => Arbitrary (Core cc a) where
   arbitrary = sized core' where
     core' 0 = oneof [ Core.Var <$> arbitrary, HardCore <$> arbitrary ]
     core' n = smaller $ oneof
@@ -308,7 +308,7 @@ instance Arbitrary1 []
 instance Arbitrary a => Arbitrary1 (Either a)
 instance Arbitrary1 Hinted
 instance Arbitrary1 Kind
-instance Arbitrary1 Core
+instance Arbitrary cc => Arbitrary1 (Core cc)
 instance Arbitrary k => Arbitrary1 (Type k)
 instance Arbitrary t => Arbitrary1 (Term t)
 

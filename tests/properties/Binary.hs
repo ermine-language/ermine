@@ -94,7 +94,7 @@ prop_pack_unpack_term = pack_unpack
 prop_pack_unpack_hardcore :: HardCore -> Bool
 prop_pack_unpack_hardcore = pack_unpack
 
-prop_pack_unpack_core :: Core Int -> Bool
+prop_pack_unpack_core :: Core () Int -> Bool
 prop_pack_unpack_core = pack_unpack
 
 prop_pack_unpack_module :: Module -> Bool

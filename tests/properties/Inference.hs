@@ -21,6 +21,7 @@ import Ermine.Constraint.Env
 import Ermine.Constraint.Simplification
 import Ermine.Unification.Meta
 import Ermine.Syntax
+import Ermine.Syntax.Convention (Convention)
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core hiding (App)
 import Ermine.Syntax.Global
@@ -95,7 +96,8 @@ dumbConstraintEnv = ConstraintEnv
                      ]
                  }
 
-instance MonadConstraint s (DD s) where
+instance MonadConstraint Convention s (DD s) where
+  type Cv (DD s) = Convention
   askConstraint = return dumbConstraintEnv
   localConstraint _ m = m
 
@@ -107,7 +109,7 @@ prop_discharge_optimal = let v = pure () in
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
-      c :: Scope () Core (Type () ()) <- App fooCon v `bySupers` sups
+      c :: Scope () (Core Convention) (Type () ()) <- App fooCon v `bySupers` sups
       return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_entails_optimal = let v = pure () in
@@ -115,7 +117,7 @@ prop_entails_optimal = let v = pure () in
                 , pure [App bazCon v, App barCon v]
                 ]) $ \sups ->
     fromMaybe False $ runDD $ do
-      c :: Scope () Core (Type () ()) <- sups `entails` App fooCon v
+      c :: Scope () (Core Convention) (Type () ()) <- sups `entails` App fooCon v
       return $ c == super 0 (super 0 . pure $ App bazCon v)
 
 prop_instance_discharge = maybe False (const True) $ runDD $ do
