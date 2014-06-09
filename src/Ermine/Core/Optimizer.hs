@@ -35,10 +35,11 @@ import Ermine.Syntax.Scope
 import Ermine.Unification.Sharing
 
 -- | Optimize core expressions by alternating between the different optimization passes several times.
-optimize :: Core c -> Core c
+optimize :: Core Convention c -> Core Convention c
 optimize c = runIdentity . runSharing c $ optimize' 10 c
 
-optimize' :: (Applicative m, MonadWriter Any m) => Int -> Core c -> m (Core c)
+optimize' :: (Applicative m, MonadWriter Any m)
+          => Int -> Core Convention c -> m (Core Convention c)
 optimize' 0 c = return c
 optimize' n c = do (c', Any b) <- listen $ suite c
                    if b then optimize' (n-1) c' else return c
@@ -48,11 +49,11 @@ optimize' n c = do (c', Any b) <- listen $ suite c
      >=> rewriteCoreDown specCase
      >=> rewriteCore etaDict
 
-rewriteCoreDown :: forall m c. (Applicative m, MonadWriter Any m)
-                => (forall d. Core d -> m (Core d)) -> Core c -> m (Core c)
+rewriteCoreDown :: forall m c cc. (Applicative m, MonadWriter Any m)
+                => (forall d. Core cc d -> m (Core cc d)) -> Core cc c -> m (Core cc c)
 rewriteCoreDown opt = go
  where
- go :: forall e. Core e -> m (Core e)
+ go :: forall e. Core cc e -> m (Core cc e)
  go c = sharing c (opt c) >>= \ xs -> case xs of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
@@ -64,14 +65,14 @@ rewriteCoreDown opt = go
    d@(Dict su sl)       -> sharing d $ Dict <$> sharing su (traverse go su) <*> sharing sl (traverse goS sl)
    x@HardCore{}         -> return x
    x@Var{}              -> return x
- goS :: forall b e. Scope b Core e -> m (Scope b Core e)
+ goS :: forall b e. Scope b (Core cc) e -> m (Scope b (Core cc) e)
  goS s = sharing s . inScope go $ s
 
-rewriteCore :: forall m c. (Applicative m, MonadWriter Any m)
-            => (forall d. Core d -> m (Core d)) -> Core c -> m (Core c)
+rewriteCore :: forall m c cc. (Applicative m, MonadWriter Any m)
+            => (forall d. Core cc d -> m (Core cc d)) -> Core cc c -> m (Core cc c)
 rewriteCore opt = go
  where
- go :: forall e. Core e -> m (Core e)
+ go :: forall e. Core cc e -> m (Core cc e)
  go c = sharing c $ opt =<< case c of
    l@(Lam cc e)         -> sharing l $ Lam cc <$> goS e
    d@(Data cc n g l)    -> sharing d $ Data cc n g <$> traverse go l
@@ -83,14 +84,14 @@ rewriteCore opt = go
    d@(Dict su sl)       -> sharing d $ Dict <$> sharing su (traverse go su) <*> sharing sl (traverse goS sl)
    x@HardCore{}         -> return x
    x@Var{}              -> return x
- goS :: forall b e. Scope b Core e -> m (Scope b Core e)
+ goS :: forall b e. Scope b (Core cc) e -> m (Scope b (Core cc) e)
  goS s = sharing s . inScope go $ s
 
 -- | Turns @\{x..} -> \{y..} -> ...@ into @\{x.. y..} -> ...@ for all lambda variants
-lamlam :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
+lamlam :: forall c cc m. (Functor m, MonadWriter Any m) => Core cc c -> m (Core cc c)
 lamlam (Lam cc0 e0) = slurp False cc0 (fromScope e0)
  where
- slurp :: forall e. Bool -> [Convention] -> Core (Var Word64 e) -> m (Core e)
+ slurp :: forall e. Bool -> [cc] -> Core cc (Var Word64 e) -> m (Core cc e)
  slurp _ m (Lam n b) | j <- fromIntegral $ length m = slurp True (m ++ n) (instantiate (\i -> pure $ B $ j + i) b)
  slurp b m c = Lam m (toScope c) <$ tell (Any b)
 lamlam c = return c
@@ -98,14 +99,14 @@ lamlam c = return c
 -- | 'Lam D' is strict, so η-reduction for it is sound. η-reduce.
 --
 -- Todo: generalize this to larger lambdas and also extend it to cover other strict lambdas like U and N
-etaDict :: forall c m. (Functor m, MonadWriter Any m) => Core c -> m (Core c)
+etaDict :: forall c m. (Functor m, MonadWriter Any m) => Core Convention c -> m (Core Convention c)
 etaDict c@(Lam [D] (Scope (App D f (Var (B 0))))) = case sequenceA f of
   B _ -> return c
   F g -> join g <$ tell (Any True)
 etaDict c = return c
 
 -- | β-reduces redexes like @(\x.. -> e) v..@ where @v..@ is all variables for all calling conventions
-betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
+betaVar :: forall c m. (Applicative m, MonadWriter Any m) => Core Convention c -> m (Core Convention c)
 betaVar = collapse []
  where
  collapse stk (App C f x)
@@ -134,7 +135,7 @@ betaVar = collapse []
 -- and rely on beta reduction and other checks for work-safe application reduction
 --
 -- This has the benefit that it works for all calling conventions
-specCase :: forall m c. (Applicative m, MonadWriter Any m) => Core c -> m (Core c)
+specCase :: forall m c. (Applicative m, MonadWriter Any m) => Core Convention c -> m (Core Convention c)
 specCase c@(Case dat@(Data cc tg g as) bs d)
   -- TODO: Use a LamHash around this for all the unboxed arguments, and AppHash each to an argument.
   | any (/=C) cc = pure c -- until we change this to use Lam as described above

@@ -64,15 +64,16 @@ productKind n = star :-> productKind (n - 1)
 
 matchFunKind :: MonadMeta s m => KindM s -> m (KindM s, KindM s)
 matchFunKind (a :-> b)    = return (a, b)
-matchFunKind (HardKind _) = fail "not a fun kind"
 matchFunKind (Var kv) = do
-  a <- Var <$> newMeta ()
-  b <- Var <$> newMeta ()
+  a <- Var <$> newMeta False
+  b <- Var <$> newMeta False
   (a, b) <$ unsharingT (unifyKindVar kv (a :-> b))
+matchFunKind (Type _)     = fail "not a fun kind"
+matchFunKind (HardKind _) = fail "not a fun kind"
 
 instantiateSchema :: MonadMeta s m => Schema (MetaK s) -> m (KindM s)
 instantiateSchema (Schema hs s) = do
-  vs <- forM hs (\_ -> Var <$> newMeta ())
+  vs <- forM hs (\_ -> Var <$> newMeta False)
   return $ instantiate (vs!!) s
 {-# INLINE instantiateSchema #-}
 
@@ -86,8 +87,10 @@ checkKind t k = do
 inferKind :: MonadMeta s m => Type (MetaK s) (KindM s) -> m (KindM s)
 inferKind (Loc l t)                = set rendering l `localMeta` inferKind t
 inferKind (Type.Var tk)            = return tk
-inferKind (HardType Arrow)         = return $ star :-> star :-> star
-inferKind (HardType ArrowHash)     = return $ unboxed :-> star :-> star
+inferKind (HardType Arrow)         = do
+  a <- Var <$> newMeta True
+  b <- Var <$> newMeta True
+  return $ Type a :-> Type b :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)
 inferKind (HardType (Tuple n))     = return $ productKind n
 inferKind (HardType ConcreteRho{}) = return rho
@@ -97,12 +100,12 @@ inferKind (App f x) = do
   b <$ checkKind x a
 inferKind (And cs) = constraint <$ traverse_ (checkKind ?? constraint) cs
 inferKind (Exists n tks cs) = do
-  sks <- for n $ \_ -> newSkolem ()
+  sks <- for n $ \_ -> newSkolem False
   let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks $ instantiateVars btys cs) constraint
   return constraint
 inferKind (Forall n tks cs b) = do
-  sks <- for n $ \_ -> newSkolem ()
+  sks <- for n $ \_ -> newSkolem False
   let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks (instantiateVars btys cs)) constraint
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
@@ -145,7 +148,7 @@ checkDataTypeKinds dts = flip evalStateT Map.empty
 
 checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  dts' <- traverse (kindVars newMeta) dts
+  dts' <- traverse (kindVars (\_ -> newMeta False)) dts
   let m = Map.fromList $ map (\dt -> (dt^.name, dt)) dts'
   checked <- for dts' $ \dt -> (dt,) <$> checkDataTypeKind m dt
   let sm = Map.fromList $ (\(dt, (_, sch)) -> (dt^.name, con (dt^.global) sch)) <$> checked
@@ -170,7 +173,7 @@ checkDataTypeGroup dts = do
 checkDataTypeKind :: Map Text (DataType (MetaK s) a) -> DataType (MetaK s) Text
                   -> M s ([MetaK s], Schema v)
 checkDataTypeKind m dt = do
-  sks <- for (dt^.kparams) $ \_ -> newSkolem ()
+  sks <- for (dt^.kparams) $ \_ -> newSkolem False
   let Schema _ s = dataTypeSchema dt
       selfKind = instantiateVars sks s
   dt' <- for dt $ \t ->
@@ -184,12 +187,12 @@ checkDataTypeKind m dt = do
     checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
   (sks,) <$> generalizeOver (setOf (traverse.metaId) sks) selfKind
  where
- refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta ()) ks
+ refresh (Schema ks s) = (instantiateVars ?? s) <$> traverse (\_ -> newMeta False) ks
 
 -- | Checks that the types in a data constructor have sensible kinds.
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
 checkConstructorKind (Constructor _ ks ts fs) = do
-  sks <- for ks $ \_ -> newSkolem ()
+  sks <- for ks $ \_ -> newSkolem False
   let btys = instantiateVars sks . extract <$> ts
   for_ fs $ \fld ->
     checkKind (instantiateKindVars sks $ instantiateVars btys fld) star

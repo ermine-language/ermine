@@ -40,43 +40,43 @@ import Prelude.Extras
 
 -- * Witness
 
-data Witness t a = Witness
+data Witness c t a = Witness
   { _witnessRowConstraints :: [t]
   , _witnessType :: !t
-  , _witnessCore :: !(Scope a Core t)
+  , _witnessCore :: !(Scope a (Core c) t)
   } deriving (Show, Eq, Typeable, Generic)
 
 makeClassy ''Witness
 
-witnessTypes :: Traversal (Witness t a) (Witness t' a) t t'
+witnessTypes :: Traversal (Witness c t a) (Witness c t' a) t t'
 witnessTypes f (Witness rcs t c) = Witness <$> traverse f rcs <*> f t <*> traverse f c
 
-instance HasTypeVars t t' v v' => HasTypeVars (Witness t a) (Witness t' a) v v' where
+instance HasTypeVars t t' v v' => HasTypeVars (Witness c t a) (Witness c t' a) v v' where
   typeVars = witnessTypes.typeVars
 
-instance HasKindVars t t' v v' => HasKindVars (Witness t a) (Witness t' a) v v' where
+instance HasKindVars t t' v v' => HasKindVars (Witness c t a) (Witness c t' a) v v' where
   kindVars = witnessTypes.kindVars
 
-instance Eq2 Witness
-instance Eq k => Eq1 (Witness k)
+instance Eq c => Eq2 (Witness c)
+instance (Eq c, Eq t) => Eq1 (Witness c t)
 
-instance Show2 Witness
-instance Show k => Show1 (Witness k)
+instance Show c => Show2 (Witness c)
+instance (Show c, Show t) => Show1 (Witness c t)
 
-instance Functor (Witness t) where
+instance Functor (Witness c t) where
   fmap f (Witness ts t cs) = Witness ts t (mapBound f cs)
 
-instance Foldable (Witness t) where
+instance Foldable (Witness c t) where
   foldMap f (Witness _ _ cs) = foldMapBound f cs
 
-instance Traversable (Witness t) where
+instance Traversable (Witness c t) where
   traverse f (Witness t ts cs) = Witness t ts <$> traverseBound f cs
 
-instance Bifunctor Witness where
+instance Bifunctor (Witness c) where
   bimap = bimapDefault
 
-instance Bifoldable Witness where
+instance Bifoldable (Witness c) where
   bifoldMap = bifoldMapDefault
 
-instance Bitraversable Witness where
+instance Bitraversable (Witness c) where
   bitraverse f g (Witness ts t cs) = Witness <$> traverse f ts <*> f t <*> traverseScope g f cs

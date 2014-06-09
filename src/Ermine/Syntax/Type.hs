@@ -5,6 +5,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -40,6 +41,7 @@ module Ermine.Syntax.Type
   , abstractKinds
   , instantiateKinds
   , instantiateKindVars
+  , bitraverseScopeTK
   , bindType
   , bindTK
   , closedType
@@ -118,7 +120,6 @@ type FieldName = Text
 data HardType
   = Tuple !Int -- (,...,)   :: forall (k :: @). k -> ... -> k -> k -- n >= 2
   | Arrow      -- (->)  :: * -> * -> *
-  | ArrowHash  -- (->#) :: # -> * -> *
   | Con !Global !(Schema Void)
   | ConcreteRho [FieldName]
   deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
@@ -132,7 +133,6 @@ instance Serial HardType where
   serialize Arrow            = putWord8 1
   serialize (Con g s)        = putWord8 2 *> serialize g *> serializeWith absurd s
   serialize (ConcreteRho fs) = putWord8 3 *> serialize fs
-  serialize ArrowHash        = putWord8 4
 
   deserialize = getWord8 >>= \b -> case b of
     0 -> Tuple <$> deserialize
@@ -141,7 +141,6 @@ instance Serial HardType where
              <*> deserializeWith
                    (fail "deserialize: HardType: getting schema with variables")
     3 -> ConcreteRho <$> deserialize
-    4 -> pure ArrowHash
     _ -> fail $ "deserialize: HardType: unexpected constructor tag: " ++ show b
 
 instance Binary HardType where
@@ -167,10 +166,6 @@ class Typical t where
   arrow :: t
   arrow = review hardType Arrow
   {-# INLINE arrow #-}
-
-  arrowHash :: t
-  arrowHash = review hardType ArrowHash
-  {-# INLINE arrowHash #-}
 
   con :: Global -> Schema Void -> t
   con g k = review hardType (Con g k)
@@ -357,9 +352,25 @@ instance Bitraversable Type where
              <*> bitraverseScope (traverse f) g cs
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
+bitraverseScopeTK :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Scope b (TK k) a -> f (Scope b (TK k') a')
+bitraverseScopeTK f = bitransverseScope $ (bitraverseType<.traverse) f
+
+bitraverseType :: (Indexable Bool p, Applicative f) => p k (f k') -> (a -> f a') -> Type k a -> f (Type k' a')
+bitraverseType _ g (Var a)            = Var <$> g a
+bitraverseType f g (App l r)          = App <$> bitraverseType f g l <*> bitraverseType f g r
+bitraverseType _ _ (HardType t)       = pure $ HardType t
+bitraverseType f g (Forall n ks cs b) =
+  Forall n <$> traverse (traverse (kindVars f)) ks
+           <*> bitraverseScopeTK f g cs
+           <*> bitraverseScopeTK f g b
+bitraverseType f g (Loc r as)         = Loc r <$> bitraverseType f g as
+bitraverseType f g (Exists n ks cs)   =
+  Exists n <$> traverse (traverse (kindVars f)) ks
+           <*> bitraverseScopeTK f g cs
+bitraverseType f g (And cs)           = And <$> traverse (bitraverseType f g) cs
+
 instance HasKindVars (Type k a) (Type k' a) k k' where
-  kindVars f = bitraverse f pure
-  {-# INLINE kindVars #-}
+  kindVars f = bitraverseType f pure
 
 instance Eq k => Eq1 (Type k)
 instance Show k => Show1 (Type k)
@@ -773,7 +784,7 @@ instance Bitraversable Annot where
   {-# INLINE bitraverse #-}
 
 instance HasKindVars (Annot k a) (Annot k' a) k k' where
-  kindVars f = bitraverse f pure
+  kindVars f (Annot ks t) = Annot <$> traverse (kindVars f) ks <*> bitransverseScope (bitraverseType f) pure t
   {-# INLINE kindVars #-}
 
 instance HasTypeVars (Annot k a) (Annot k a') a a' where

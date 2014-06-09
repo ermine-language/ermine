@@ -75,7 +75,7 @@ localSorts xs = runState ?? 0 $ for xs $ \(v,SortRef srt _) -> do
   sss <- sort srt <<+= 1
   return (v, SortRef srt (Local sss))
 
-compileBinding :: Eq v => (v -> SortRef) -> Core v -> PreClosure
+compileBinding :: Eq v => (v -> SortRef) -> Core Convention v -> PreClosure
 compileBinding cxt co = case co of
   Core.Lam [] _   -> error "PANIC: 0 arity core lambda"
   Core.Lam ccvs e ->
@@ -105,7 +105,7 @@ letRec :: [PreClosure] -> G -> G
 letRec [] g = g
 letRec xs g = LetRec (Vector.fromList xs) g
 
-compile :: Eq v => Sorted Word64 -> (v -> SortRef) -> Core v -> G
+compile :: Eq v => Sorted Word64 -> (v -> SortRef) -> Core Convention v -> G
 compile n cxt (Core.Var v) = case cxt v of
   SortRef S.B r -> _Ref n # r
   _             -> error "compile: Core.Var with unexpected variable convention"
@@ -159,8 +159,8 @@ compileBranches
   => Sorted Word64
   -> SortRef
   -> (v -> SortRef)
-  -> Map Word64 (Match Core v)
-  -> Maybe (Scope () Core v)
+  -> Map Word64 (Match Convention (Core Convention) v)
+  -> Maybe (Scope () (Core Convention) v)
   -> Continuation
 compileBranches n ev cxt bs d = Continuation bs' d'
  where
@@ -175,7 +175,7 @@ compileBranches n ev cxt bs d = Continuation bs' d'
 -- TODO: literal handling
 anf :: (Traversable t, Eq v)
     => (v -> SortRef)
-    -> t (Convention, Core v)
+    -> t (Convention, Core Convention v)
     -> (t SortRef, Word64, [PreClosure])
 anf cxt s = cleanup $ runState (traverse (uncurry compilePiece) s) (0, []) where
   cleanup (nebs,(n,pcs)) =
@@ -196,7 +196,7 @@ anf cxt s = cleanup $ runState (traverse (uncurry compilePiece) s) (0, []) where
      in ((False,SortRef S.B $ Stack k),(k+1,bnd:l))
   compilePiece _ _ = error "anf: TODO"
 
-compileApp :: Eq v => Sorted Word64 -> (v -> SortRef) -> [(Convention, Core v)] -> Core v -> G
+compileApp :: Eq v => Sorted Word64 -> (v -> SortRef) -> [(Convention, Core Convention v)] -> Core Convention v -> G
 compileApp n cxt xs (Core.App cc f x) = compileApp n cxt ((cc,x):xs) f
 compileApp n cxt xs f = case anf cxt ((C.C, f) :| xs) of
   (SortRef S.B f' :| xs', k, bs) ->

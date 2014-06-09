@@ -35,6 +35,7 @@ prettyHardKind Phi = "φ"
 prettyKind :: Kind String -> Bool -> Doc
 prettyKind (Var nm)     _ = text nm
 prettyKind (HardKind h) _ = prettyHardKind h
+prettyKind (Type k)     b = prettyKind k b
 prettyKind (l :-> r)    b = parensIf b $ prettyKind l True <+> "->" <+> prettyKind r False
 
 -- | Pretty print a 'Kind', using a fresh kind variable supply

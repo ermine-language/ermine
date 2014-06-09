@@ -17,6 +17,7 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Convention
   ( Convention(..)
+  , AsConvention(..)
   , strict
   , conv
   , Conventional(..)
@@ -71,6 +72,12 @@ strict C = False
 strict U = True
 strict D = True
 strict N = True
+
+class AsConvention t where
+  _Convention :: Prism' t Convention
+
+instance AsConvention Convention where
+  _Convention = id
 
 data Conventional a = Conventional a a a a
   deriving (Eq,Ord,Show,Read,Foldable,Traversable,Typeable,Data,Generic)

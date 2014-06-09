@@ -145,7 +145,7 @@ type MetaT s = Meta s (Type (MetaK s)) (KindM s)
 type TypeM s = Type (MetaK s) (MetaT s)
 
 -- | A kind meta-variable
-type MetaK s = Meta s Kind ()
+type MetaK s = Meta s Kind Bool
 
 -- | A kind filled with meta-variables
 type KindM s = Kind (MetaK s)

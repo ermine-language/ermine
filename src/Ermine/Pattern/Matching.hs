@@ -40,7 +40,6 @@ import Prelude hiding (all)
 
 import Bound
 import Bound.Scope
-import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
@@ -65,7 +64,6 @@ import Ermine.Pattern.Env
 import Ermine.Pattern.Matrix
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core as Core
-import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Term
@@ -151,7 +149,7 @@ selectCol = fmap fst
           . zip [0..]
           . map (length . takeWhile forces)
 
-compileClaused :: (MonadPattern m, Cored c)
+compileClaused :: (MonadPattern m, AsConvention cc, Cored cc c)
                => Matching c a
                -> PatternMatrix t c a
                -> Claused c a
@@ -164,7 +162,7 @@ compileClaused m pm (Localized ws gbs) =
  pm' = hbumpPM pm
  inst = instantiate (instantiation m')
 
-compileGuards :: (MonadPattern m, Cored c)
+compileGuards :: (MonadPattern m, AsConvention cc, Cored cc c)
               => Matching c a
               -> PatternMatrix t c a
               -> Guarded (Scope PatternPath c a)
@@ -174,7 +172,7 @@ compileGuards :: (MonadPattern m, Cored c)
 compileGuards m _  (Unguarded body) = pure $ instantiate (instantiation m) body
 compileGuards m pm (Guarded bods) = compileManyGuards m pm bods
 
-compileManyGuards :: (MonadPattern m, Cored c)
+compileManyGuards :: (MonadPattern m, AsConvention cc, Cored cc c)
                   => Matching c a
                   -> PatternMatrix t c a
                   -> [(Scope PatternPath c a, Scope PatternPath c a)]
@@ -197,7 +195,8 @@ compileManyGuards m pm ((g,b):gbs) =
 -- | Compiles a pattern matrix together with a corresponding set of core
 -- branches to a final Core value, which will be the decision tree version
 -- of the pattern matrix.
-compile :: (MonadPattern m, Cored c) => Matching c a -> PatternMatrix t c a -> m (c a)
+compile :: (AsConvention cc, MonadPattern m, Cored cc c)
+        => Matching c a -> PatternMatrix t c a -> m (c a)
 compile _  (PatternMatrix _  [])  = pure . hardCore $ Error (SText.pack "non-exhaustive pattern match.")
 compile m pm@(PatternMatrix ps (b:bs))
   | all (irrefutable . head) ps =
@@ -214,17 +213,21 @@ compile m pm@(PatternMatrix ps (b:bs))
             _ -> do
                 (cc, tg) <- constructorTag h
                 c <- compile (expand i (genericLength cc) m) (splitOn i h pm)
-                return $ Right (tg, Match cc (constructorGlobal h) $ Scope c)
+                return $ Right (tg,
+                  Match (review _Convention <$> cc) (constructorGlobal h) $ Scope c)
           case partitionEithers sms of
             ([],xs) -> case_ ((m^.colCores) !! i) (M.fromList xs) <$>
               if sig then pure Nothing
                      else Just . Scope <$> compile (remove i m) dm
-            (xs,[]) -> do
+            (_s,[]) -> undefined --
+              {-
+              do
                dflt <- if sig then pure Nothing
                               else Just . set (mapped._B) 0 <$> compile (remove i m) dm
                let (cc,nt) = case fst (head xs) of String{} -> (Match [N] stringg, True); _ -> (Match [U] literalg, False)
                -- return $ ((lambda [C] C (Scope $ caseLit cc (core $ unbox cc $ pure $ B 0) (M.fromList xs) dflt)) ## ((m^.colCores) !! i))
                return $ case_ ((m^.colCores)!!i) (M.singleton 0 $ cc $ Scope $ caseLit nt (pure $ B 1) (M.fromList xs) dflt) Nothing
+              -}
             _ -> error "PANIC: pattern compile: mixed literal and constructor patterns"
   | otherwise = error "PANIC: pattern compile: No column selected."
 
@@ -247,9 +250,9 @@ whereVar (WhereDecl w) = F w
 whereVar (WherePat p) = B p
 
 compileBinding
-  :: (MonadPattern m, Cored c)
-  => [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word64) c a]] -> m (Scope Word64 c a)
-compileBinding ps gds ws = lambda (C <$ head ps) <$> compile m pm where
+  :: (MonadPattern m, AsConvention cc, Cored cc c)
+  => [cc] -> [[Pattern t]] -> [Guarded (Scope BodyBound c a)] -> [[Scope (Var WhereBound Word64) c a]] -> m (Scope Word64 c a)
+compileBinding ccvs ps gds ws = lambda ccvs <$> compile m pm where
   clause g [] = Raw (hoistScope lift . splitScope . mapBound bodyVar_ <$> g)
   clause g w = Localized (splitScope . mapBound whereVar . hoistScope lift . splitScope <$> w)
                          (splitScope . hoistScope lift . splitScope . mapBound bodyVar <$> g)
@@ -259,7 +262,7 @@ compileBinding ps gds ws = lambda (C <$ head ps) <$> compile m pm where
   m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileLambda
-  :: (MonadPattern m, Cored c)
+  :: (MonadPattern m, AsConvention cc, Cored cc c)
   => [Pattern t] -> Scope PatternPath c a -> m (Scope Word64 c a)
 compileLambda ps body = compile m pm where
  pm = PatternMatrix (map return ps) [Raw . Unguarded $ hoistScope lift body]
@@ -268,14 +271,15 @@ compileLambda ps body = compile m pm where
  m = Matching (HM.fromList $ zipWith ((,) . leafPP) pps cs) cs pps
 
 compileCase
-  :: (MonadPattern m, Cored c)
+  :: (MonadPattern m, AsConvention cc, Cored cc c)
   => [Pattern t] -> c a -> [Guarded (Scope PatternPath c a)] -> m (c a)
 compileCase ps disc bs = compile m pm where
  pm = PatternMatrix [ps] (Raw <$> bs)
  m = Matching HM.empty [disc] [mempty]
 
-plam :: (Eq v, MonadPattern m) => [P t v] -> Core v -> m (Core v)
-plam ps body = Core.Lam (C <$ ps) . Scope <$> compile ci pm
+plam :: (AsConvention cc, Eq v, MonadPattern m)
+     => [P t v] -> Core cc v -> m (Core cc v)
+plam ps body = Core.Lam (_Convention # C <$ ps) . Scope <$> compile ci pm
  where
  n = fromIntegral $ length ps :: Word64
  assocs = concatMap (\(i,Binder vs p) -> zip vs . fmap (ArgPP i) $ paths p) (zip [0..] ps)

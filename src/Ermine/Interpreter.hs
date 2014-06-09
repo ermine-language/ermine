@@ -59,6 +59,7 @@ import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Primitive.Mutable as PM
 import Data.Word
 import Ermine.Core.Compiler (SortRef, compileBinding)
+import Ermine.Syntax.Convention (Convention)
 import Ermine.Syntax.Core (Core)
 import Ermine.Syntax.G
 import Ermine.Syntax.Id
@@ -131,7 +132,7 @@ sentinel = error "PANIC: access past end of stack"
 allocPrimOp :: (Functor m, PrimMonad m) => (MachineState m -> m ()) -> m (Address m)
 allocPrimOp f = Address <$> newMutVar (PrimClosure f)
 
-allocGlobal :: (Eq c, Functor m, PrimMonad m) => (c -> SortRef) -> Core c -> m (Address m)
+allocGlobal :: (Eq c, Functor m, PrimMonad m) => (c -> SortRef) -> Core Convention c -> m (Address m)
 allocGlobal cxt core = case compileBinding cxt core of
   PreClosure rs co -> Address <$> newMutVar (Closure co def)
 

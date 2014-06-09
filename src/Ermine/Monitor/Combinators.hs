@@ -9,7 +9,6 @@ module Ermine.Monitor.Combinators
 
 import Control.Monad.Trans
 import Data.Int
-import System.Metrics.Label
 
 class Setting t a | t -> a where
   assign :: MonadIO m => t -> a -> m ()        -- set

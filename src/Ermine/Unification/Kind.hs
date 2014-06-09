@@ -46,11 +46,11 @@ import Ermine.Pretty.Kind
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> test $ do k <- Var <$> newMeta (); unifyKind k (star ~> k)
+-- >>> test $ do k <- Var <$> newMeta False; unifyKind k (star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
 --
--- >>> test $ do k1 <- Var <$> newMeta (); k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
+-- >>> test $ do k1 <- Var <$> newMeta False; k2 <- Var <$> newMeta (); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = a -> b
 kindOccurs
@@ -112,7 +112,8 @@ unifyKind k1 k2 = do
     go k (Var (Meta _ i r d _))    = unifyKV False i r d k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind a c <*> unifyKind b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
-    go _ _ = fail "kind mismatch"
+    go (Type k) (Type k')          = Type <$> unifyKind k k'
+    go x y = fail $ "kind mismatch: " ++ show x ++ " /= " ++ show y
 
 -- | We don't need to update depths in the kind variables. We only create
 -- meta variables with non-depthInf rank for annotations, and annotations do

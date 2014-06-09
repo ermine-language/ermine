@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
@@ -44,11 +45,11 @@ import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
 import Data.Word (Word64)
 import Data.Void
-import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
+import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cShowLongHash, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
 import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg, fromIntegerToIntg, fromIntegerToLongg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
-import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, int, integer, fromInteg)
+import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, longh, int, integer, fromInteg)
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -153,9 +154,9 @@ parsing p k args s = case parseString (p <* eof) mempty s of
 kindBody :: [String] -> Type (Maybe Text) Text -> Console ()
 kindBody args s = do
   gk <- ioM mempty $ do
-    tm <- prepare (newMeta ())
-                  (const $ newMeta ())
-                  (const $ pure <$> newMeta ())
+    tm <- prepare (newMeta False)
+                  (const $ newMeta False)
+                  (const $ pure <$> newMeta False)
                   s
     k <- inferKind tm
     generalize k
@@ -173,12 +174,12 @@ dkindsBody _ dts = do
         <+> colon
         <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
 
-checkAndCompile :: MonadConstraint s m
-                => Term Ann Text -> m (Maybe (Type t k, Core c))
+checkAndCompile :: MonadConstraint (KindM s) s m
+                => Term Ann Text -> m (Maybe (Type t k, Core Convention c))
 checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> do
-  tm <- bitraverse (prepare (newMeta ())
-                          (const $ newMeta ())
-                          (const $ newMeta () >>= newMeta . pure))
+  tm <- bitraverse (prepare (newMeta False)
+                          (const $ newMeta False)
+                          (const $ newMeta False >>= newMeta . pure))
                  pure
                  syn'
   w <- inferType 0 fst tm
@@ -199,6 +200,8 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyPSL = string ~> io (tuple 0)
  tySI6 :: Type k t
  tySI6 = long ~> string
+ tySI6H :: Type k t
+ tySI6H = longh ~> string
  tySI :: Type k t
  tySI = int ~> string
  tyAL :: Type k t
@@ -216,13 +219,14 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
      Forall [] [Unhinted $ Scope star]
             (Scope $ And []) (Scope $ pure (B 0) ~> ee)
  predefs  x = pure x
- resolveGlobals :: Text -> Maybe (Type t k, Core c)
+ resolveGlobals :: AsConvention cc => Text -> Maybe (Type t k, Core cc c)
  resolveGlobals txt
    | txt == "lame" = Just (tyLame, HardCore $ Slot 0)
    | txt == "fromInteger" = Just (tyFromInteger, HardCore $ Slot 0)
    | txt == "putStrLn" = Just (tyPSL, cPutStrLn)
    | txt == "showInt" = Just (tySI, cShowInt)
    | txt == "showLong" = Just (tySI6, cShowLong)
+   | txt == "showLongHash" = Just (tySI6H, cShowLongHash)
    | txt == "addLong" = Just (tyAL, cAddLong)
  resolveGlobals _ = Nothing
 

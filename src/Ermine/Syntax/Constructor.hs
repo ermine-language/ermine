@@ -81,7 +81,10 @@ instance Bitraversable Constructor where
       <*> traverse (bitraverseScope (traverse f) g) as
 
 instance HasKindVars (Constructor k t) (Constructor k' t) k k' where
-  kindVars f = bitraverse f pure
+  kindVars f (Constructor n ek et as) =
+    Constructor n ek
+      <$> traverse (traverse (kindVars f)) et
+      <*> traverse (bitraverseScopeTK f pure) as
 
 instance HasTypeVars (Constructor k t) (Constructor k t') t t' where
   typeVars = traverse

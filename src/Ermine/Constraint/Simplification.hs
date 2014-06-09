@@ -25,6 +25,7 @@ import Data.Traversable
 import Data.Void
 import Ermine.Constraint.Env
 import Ermine.Syntax
+import Ermine.Syntax.Convention
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Id
 import Ermine.Syntax.Head
@@ -41,8 +42,8 @@ mangle f c = join <$> traverse f c
 --
 -- We expect here that both arguments have been reduced by instance before
 -- they arrive here.
-bySuper :: (Alternative m, MonadConstraint s m, Eq k, Eq t)
-                  => Type k t -> Type k t -> m (Scope b Core (Type k t))
+bySuper :: (AsConvention cc, Alternative m, MonadConstraint cc s m, Eq k, Eq t)
+        => Type k t -> Type k t -> m (Scope b (Core cc) (Type k t))
 bySuper c d = Prelude.foldr id (pure d) <$> go [] d
  where
  go ps c'
@@ -50,8 +51,8 @@ bySuper c d = Prelude.foldr id (pure d) <$> go [] d
    | otherwise = superclasses c' >>= asum . zipWith (\i -> go (super i:ps)) [0..]
 
 -- As bySuper.
-bySupers :: (Alternative m, MonadConstraint s m, Eq k, Eq t)
-                   => Type k t -> [Type k t] -> m (Scope b Core (Type k t))
+bySupers :: (AsConvention cc, Alternative m, MonadConstraint cc s m, Eq k, Eq t)
+         => Type k t -> [Type k t] -> m (Scope b (Core cc) (Type k t))
 bySupers c cs = asum (map (bySuper c) cs)
                       >>= mangle (\d ->
                               d `bySupers` delete d cs <|>
@@ -79,7 +80,9 @@ matchHead ts he = join . fmap (traverse check . fromListWith (++) . join)
  matchArg (HardType h) (HardType h') | h == h' = Just []
  matchArg _            _                       = Nothing
 
-byInstance :: (Eq k, Eq t, Alternative m, MonadConstraint s m) => Type k t -> m (Scope b Core (Type k t))
+byInstance
+  :: (AsConvention cc, Eq k, Eq t, Alternative m, MonadConstraint cc s m)
+  => Type k t -> m (Scope b (Core cc) (Type k t))
 byInstance = peel []
  where
  peel stk (App f x) = peel (x:stk) f
@@ -95,12 +98,15 @@ byInstance = peel []
  tryConstraint stk i = matchHead stk (i^.instanceHead) <&> \m ->
    Prelude.foldl (\ r a -> _AppDict # (r, pure $ join $ bimap absurd (m!) a)) (_Id._InstanceId # (i^.instanceHead)) $ i^.instanceContext
 
-entails :: (Alternative m, MonadConstraint s m, Eq k, Eq t) => [Type k t] -> Type k t -> m (Scope b Core (Type k t))
+entails :: (AsConvention cc, Alternative m, MonadConstraint cc s m, Eq k, Eq t)
+        => [Type k t] -> Type k t -> m (Scope b (Core cc) (Type k t))
 entails cs c =
   c `bySupers` cs' <|> (byInstance c >>= simplifyVia cs)
  where cs' = filter (/= c) cs
 
-simplifyVia :: (MonadConstraint s m, Eq k, Eq t) => [Type k t] -> Scope b Core (Type k t) -> m (Scope b Core (Type k t))
+simplifyVia
+  :: (AsConvention cc, MonadConstraint cc s m, Eq k, Eq t)
+  => [Type k t] -> Scope b (Core cc) (Type k t) -> m (Scope b (Core cc) (Type k t))
 simplifyVia cs s = do
   x <- for s $ \t -> runMaybeT (entails cs t) <&> fromMaybe (pure t)
   return $ join x
