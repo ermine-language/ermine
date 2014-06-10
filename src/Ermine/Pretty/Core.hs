@@ -140,12 +140,6 @@ coreCase dv prec de dbs mdd = parensIf (prec>=0) $
  where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
             | otherwise      = dbs
 
-coreCaseLit :: Bool -> Int -> Doc -> [Doc] -> Maybe Doc -> Doc
-coreCaseLit cc prec de dbs mdd = parensIf (prec>=0) $
-  nest 2 $ text (if cc then "case[N]" else "case[U]") <+> de <+> text "of" <$$> coreBlock dbs'
- where dbs' | Just dd <- mdd = dbs ++ [text "_ ->" <+> dd]
-            | otherwise      = dbs
-
 coreBlock :: [Doc] -> Doc
 coreBlock [    ] = text "{}"
 coreBlock (d:ds) = vsep (lbrace <+> d : map (semi <+>) ds) <> line <> rbrace
