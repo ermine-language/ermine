@@ -30,6 +30,7 @@ prettyHardKind Star = "*"
 prettyHardKind Constraint = "Γ"
 prettyHardKind Rho = "ρ"
 prettyHardKind Phi = "φ"
+prettyHardKind Native = "!"
 
 -- | Pretty print a 'Kind'
 prettyKind :: Kind String -> Bool -> Doc
