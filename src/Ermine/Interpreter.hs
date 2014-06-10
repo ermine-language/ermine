@@ -134,7 +134,9 @@ allocPrimOp f = Address <$> newMutVar (PrimClosure f)
 
 allocGlobal :: (Eq c, Functor m, PrimMonad m) => (c -> SortRef) -> Core Convention c -> m (Address m)
 allocGlobal cxt core = case compileBinding cxt core of
-  PreClosure rs co -> Address <$> newMutVar (Closure co def)
+  PreClosure rs co
+    | F.all G.null rs -> Address <$> newMutVar (Closure co def)
+    | otherwise -> error "PANIC: allocating global with captures"
 
 defaultMachineState :: (Applicative m, PrimMonad m) => Int -> HashMap Id (Address m) -> m (MachineState m)
 defaultMachineState stackSize ge
