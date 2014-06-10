@@ -365,7 +365,7 @@ wfhk = not . wfhb
 -- | Lift a kind into a kind schema
 --
 -- >>> schema (star ~> star)
--- Schema [] (Scope (Var (F (HardKind Star :-> HardKind Star))))
+-- Schema [] (Scope (Var (F (Type (HardKind Star) :-> Type (HardKind Star)))))
 schema :: Kind a -> Schema a
 schema k = Schema [] (lift k)
 

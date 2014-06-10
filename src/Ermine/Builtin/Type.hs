@@ -19,7 +19,7 @@
 -- *
 --
 -- >>> infer (list list)
--- *** Exception: kind mismatch
+-- *** Exception: kind mismatch: Type (HardKind Star) /= Type (HardKind Star) :-> Type (HardKind Star)
 --------------------------------------------------------------------
 module Ermine.Builtin.Type
   (
