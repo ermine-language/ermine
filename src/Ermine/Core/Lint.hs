@@ -181,8 +181,3 @@ inferScope = inferCore . fromScope
 
 checkScope :: Convention -> Scope b (Core Convention) a -> Lint (Var b a) ()
 checkScope cc = checkCore cc . fromScope
-
-inferLiteral :: Literal -> Convention
-inferLiteral String{} = N
-inferLiteral _        = U
-
