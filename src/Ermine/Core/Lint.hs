@@ -28,7 +28,6 @@ import Control.Lens
 import Data.Data
 import Data.Foldable (for_)
 import Data.Hashable
-import Data.List (group)
 import Data.Map as Map
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Core
@@ -176,15 +175,6 @@ inferCore (Dict sups slts) = do
   for_ sups (checkCore D)
   for_ slts (checkScope C) `with` bindings (C <$ slts)
   return $ Form [] D
-inferCore (CaseLit nt b ms md) = do
-  let cc | nt        = N
-         | otherwise = U
-  checkCore cc b
-  for_ ms (checkCore C)
-  for_ md (checkCore C)
-  when (any (\l -> inferLiteral l /= cc) (keys ms)) $ fail "bad literal pattern"
-  when (length (group $ constrIndex . toConstr <$> keys ms) > 1) $ fail "mismatched literals"
-  return $ Form [] U
 
 inferScope :: Scope b (Core Convention) a -> Lint (Var b a) Form
 inferScope = inferCore . fromScope

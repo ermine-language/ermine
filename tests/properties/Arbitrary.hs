@@ -270,7 +270,6 @@ instance (Arbitrary cc, Arbitrary a) => Arbitrary (Core cc a) where
       , Core.Let      <$> arbitrary <*> arbitrary
       , Core.Case     <$> arbitrary <*> arbitrary <*> arbitrary
       , Core.Dict     <$> arbitrary <*> arbitrary
-      , Core.CaseLit  <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
       ]
 
 instance (Arbitrary k, Arbitrary t) => Arbitrary (Constructor.Constructor k t) where

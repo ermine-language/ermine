@@ -61,7 +61,6 @@ rewriteCoreDown opt = go
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    s@(Case e b d)       -> sharing s $ Case <$> go e <*> sharing b ((traverse.matchBody) goS b) <*> sharing d (traverse goS d)
-   s@(CaseLit cc e b d) -> sharing s $ CaseLit cc <$> go e <*> sharing b (traverse go b) <*> sharing d (traverse go d)
    d@(Dict su sl)       -> sharing d $ Dict <$> sharing su (traverse go su) <*> sharing sl (traverse goS sl)
    x@HardCore{}         -> return x
    x@Var{}              -> return x
@@ -80,7 +79,6 @@ rewriteCore opt = go
    a@(App cc f x)       -> sharing a $ App cc <$> go f <*> go x
    l@(Let d b)          -> sharing l $ Let <$> sharing d (traverse goS d) <*> goS b
    s@(Case e b d)       -> sharing s $ Case <$> go e <*> sharing b ((traverse.matchBody) goS b) <*> sharing d (traverse goS d)
-   s@(CaseLit cc e b d) -> sharing s $ CaseLit cc <$> go e <*> sharing b (traverse go b) <*> sharing d (traverse go d)
    d@(Dict su sl)       -> sharing d $ Dict <$> sharing su (traverse go su) <*> sharing sl (traverse goS sl)
    x@HardCore{}         -> return x
    x@Var{}              -> return x

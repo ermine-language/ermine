@@ -151,7 +151,6 @@ compile n cxt (Core.Dict sups slts)   =
     cxt' (Var.F v) = cxt v & _SortRef S.B ._Stack +~ fromIntegral kslts
     cxt' (Var.B b) = _SortRef S.B . _Stack # b
 compile _ _   (Core.Prim _ _ _ _)     = error "compile: Prim"
-compile _ _   (Core.CaseLit _ _ _ _)  = error "compile: CaseLit"
 
 -- TODO: handle calling conventions
 compileBranches

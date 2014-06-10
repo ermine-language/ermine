@@ -56,7 +56,6 @@ import Control.Lens as Lens
 import qualified Data.Binary as Binary
 import Data.Binary (Binary)
 import Data.Bifoldable
-import Data.Bifunctor
 import Data.Bitraversable
 import Data.Bytes.Get
 import Data.Bytes.Put
@@ -226,7 +225,6 @@ instance Serialize HardCore where
 class (Variable c, AppHash c, AppDict c, App c, Applicative c, Monad c) => Cored t c | c -> t where
   core :: Core t a -> c a
   case_ :: c a -> Map Word64 (Match t c a) -> Maybe (Scope () c a) -> c a
-  caseLit :: Bool -> c a -> Map Literal (c a) -> Maybe (c a) -> c a
   lambda :: [t] -> Scope Word64 c a -> c a
   letrec :: [Scope Word64 c a] -> Scope Word64 c a -> c a
   hardCore :: HardCore -> c a
@@ -237,7 +235,6 @@ instance AsConvention t => Cored t (Core t) where
   core = id
   {-# INLINE core #-}
   case_ = Case
-  caseLit = CaseLit
   lambda [] s = instantiate (error "lambda: impossible argument") s
   lambda cc s = Lam cc s
   letrec = Let
@@ -246,7 +243,6 @@ instance Cored t m => Cored t (Scope b m) where
   core = lift . core
   {-# INLINE core #-}
   case_ e bs d = Scope $ case_ (unscope e) (fmap (over matchBody expandScope) bs) (fmap expandScope d)
-  caseLit n e bs d = Scope $ caseLit n (unscope e) (unscope <$> bs) (unscope <$> d)
   lambda cc e = Scope . lambda cc $ expandScope e
   letrec ds body = Scope $ letrec (expandScope <$> ds) (expandScope body)
 
@@ -341,7 +337,6 @@ data Core t a
   | Let [Scope Word64 (Core t) a] !(Scope Word64 (Core t) a)
   | Case !(Core t a) (Map Word64 (Match t (Core t) a)) (Maybe (Scope () (Core t) a))
   | Dict { supers :: [Core t a], slots :: [Scope Word64 (Core t) a] }
-  | CaseLit !Bool !(Core t a) (Map Literal (Core t a)) (Maybe (Core t a)) -- set True for native for strings
   deriving (Eq,Show,Functor,Foldable,Traversable)
 
 instance AsGlobal (Core t a) where
@@ -410,7 +405,7 @@ instance Hashable2 Core
 instance Hashable a => Hashable1 (Core a)
 
 -- | Distinct primes used for salting the hash.
-distHardCore, distData, distPrim, distApp, distLam, distLet, distCase, distDict, distCaseLit :: Word
+distHardCore, distData, distPrim, distApp, distLam, distLet, distCase, distDict :: Word
 distHardCore = maxBound `quot` 3
 distData     = maxBound `quot` 5
 distPrim     = maxBound `quot` 7
@@ -419,7 +414,6 @@ distLam      = maxBound `quot` 13
 distLet      = maxBound `quot` 17
 distCase     = maxBound `quot` 19
 distDict     = maxBound `quot` 23
-distCaseLit  = maxBound `quot` 29
 
 instance (Hashable t, Hashable a) => Hashable (Core t a) where
   hashWithSalt n (Var a)             = hashWithSalt n a
@@ -431,7 +425,6 @@ instance (Hashable t, Hashable a) => Hashable (Core t a) where
   hashWithSalt n (Let ts b)          = hashWithSalt n ts `hashWithSalt` b                                    `hashWithSalt` distLet
   hashWithSalt n (Case c bs d)       = hashWithSalt n c  `hashWithSalt` bs `hashWithSalt` d                  `hashWithSalt` distCase
   hashWithSalt n (Dict s ss)         = hashWithSalt n s  `hashWithSalt` ss                                   `hashWithSalt` distDict
-  hashWithSalt n (CaseLit cc c bs d) = hashWithSalt n cc `hashWithSalt` c `hashWithSalt` bs `hashWithSalt` d `hashWithSalt` distCaseLit
 
 instance IsString a => IsString (Core b a) where
   fromString = Var . fromString
@@ -460,7 +453,6 @@ instance Monad (Core b) where
   Let bs e         >>= f = Let (boundBy f <$> bs) (boundBy f e)
   Case e as d      >>= f = Case (e >>= f) (over matchBody (boundBy f) <$> as) ((>>>= f) <$> d)
   Dict xs ys       >>= f = Dict ((>>= f) <$> xs) ((>>>= f) <$> ys)
-  CaseLit c e as d >>= f = CaseLit c (e >>= f) ((>>= f) <$> as) ((>>= f) <$> d)
 
 instance Bifunctor Core where
   bimap f g = runIdentity . bitraverse (pure . f) (pure . g)

@@ -100,15 +100,6 @@ prettyCore (v:vs) prec k (Case e m d) =
     in (\bd -> nest 2 $ coreData cc tg g ws <+> text "->" <+> bd)
           <$> prettyCore rest (-1) k' b
 
-prettyCore vs prec k (CaseLit cc e m d) =
-  coreCaseLit cc prec
-    <$> prettyCore vs (-1) k e
-    <*> branches
-    <*> traverse (prettyCore vs (-1) k) d
- where
-   branches = for (itoList m) $ \ (t, b) ->
-     (\bd -> nest 2 $ prettyLiteral t <+> text "->" <+> bd) <$> prettyCore vs 11 k b
-
 prettyCore vs prec k (Let bs e) = h <$> traverse pc bs <*> pc e
  where
  pc = prettyCore rest (-1) k' . unscope
