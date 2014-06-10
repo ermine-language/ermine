@@ -59,7 +59,8 @@ data Counter = Counter Text
 
 instance Updating Label Text
 instance Setting Label Text
-instance Setting Gauge Int where
+instance Setting Gauge Int
+instance Gauged Gauge Int where
   dec _ = return ()
   sub _ _ = return ()
 
