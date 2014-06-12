@@ -341,7 +341,7 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
 
 generalizeType :: MonadMeta s m => WitnessM s a -> m (Type k t, Core Convention a)
 generalizeType w = do
-  Witness [] t c <- generalizeWitnessType 0 w
+  Witness [] t0 c0 <- generalizeWitnessType 0 w
   let scopeCheck (B x) = return x
       scopeCheck (F _) =
         fail "panic: generalizeType failed to abstract over all class constraints"
@@ -350,9 +350,12 @@ generalizeType w = do
         Nothing -> case k of
           Kind.Var _ -> return C
           _ -> fail "panic: generalizeType: failed to affix calling conventions"
-  c' <- bitraverse fixConvention scopeCheck (fromScope c)
+  t <- runSharing t0 $ zonkKindsAndTypesWith t0
+         (\k -> when (k^.metaValue) $ writeMeta k (HardKind Star))
+         (const $ pure ())
+  c <- bitraverse fixConvention scopeCheck (fromScope c0)
   case closedType t of
-    Just t' -> pure (t', c')
+    Just t' -> pure (t', c)
     Nothing -> fail "panic: generalizeType failed to generalize all variables"
 
 inferHardType :: MonadMeta s m => HardTerm -> m (WitnessM s a)
