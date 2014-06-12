@@ -228,7 +228,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
   bx <- pure <$> newMeta True noHint
   result <- pure <$> newMeta (Type bx) noHint
   t' <- runSharing result $ foldlM unifyType result bts
-  return $ Witness (r++rs) t' c'
+  simplifiedWitness (r++rs) t' c'
  where
  inferAlt (Alt p b) = do
    (sks, pt, pcxt) <- inferPatternType d p
@@ -479,10 +479,22 @@ inferPatternType d (ConP g ps)
     case ps of
       [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p
+                checkKind (view metaValue <$> ty) star
                 return (sks, maybe_ ty, \xs -> case xs of
                           FieldPP 0 pp -> f pp
                           _ -> error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
+  | g^.name == "Long#" =
+    case ps of
+      [] -> fail "under-applied constructor"
+      [p] -> do (sks, ty, f) <- inferPatternType d p
+                uncaring $ unifyType ty longh
+                return (sks, long, \xs -> case xs of
+                    FieldPP 0 pp -> f pp
+                    _ -> error "panic: bad pattern path"
+                  )
+      _ -> fail "over-applied constructor"
+
   | g^.name == "Nothing" =
     case ps of
       [] -> newShallowMeta d star (stringHint "a") >>= \x ->
