@@ -37,6 +37,7 @@ import Ermine.Diagnostic
 import Ermine.Pretty
 import Ermine.Pretty.Type
 import Ermine.Inference.Kind (checkKind)
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -131,7 +132,7 @@ unifyType t1 t2 = do
   go t1' t2'
   where
     go x@(Var tv1)                (Var tv2)              | tv1 == tv2 = return x
-    go x@(Var (Meta k i r d u)) y@(Var (Meta l j s e v)) = do
+    go x@(Var (Meta k _ i r d u)) y@(Var (Meta l _ j s e v)) = do
        () <$ unifyKind k l -- TODO: put the result in x/y?
        -- union-by-rank
        m <- liftST $ readSTRef u
@@ -140,10 +141,10 @@ unifyType t1 t2 = do
          LT -> unifyTV True i r d y $ return ()
          EQ -> unifyTV True i r d y $ writeSTRef v $! n + 1
          GT -> unifyTV False j s e x $ return ()
-    go (Var (Meta k i r d _)) t                       = do
+    go (Var (Meta k _ i r d _)) t                       = do
       checkKind (view metaValue <$> t) k
       unifyTV True i r d t $ return ()
-    go t                      (Var (Meta k i r d _))  = do
+    go t                      (Var (Meta k _ i r d _))  = do
       checkKind (view metaValue <$> t) k
       unifyTV False i r d t $ return () -- not as boring as it could be
     go (App f x)              (App g y)               = App <$> unifyType f g <*> unifyType x y
@@ -156,12 +157,12 @@ unifyType t1 t2 = do
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
         (sts, Any modified) <- listen $ do
-          sks <- for m $ \_ -> newSkolem False
+          sks <- for m $ newSkolem False
           let nxs = instantiateVars sks <$> fmap extract xs
               nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind x y
-            newSkolem k
+            newSkolem k noHint
           _ <- unifyType (instantiateKindVars sks (instantiateVars sts a))
                          (instantiateKindVars sks (instantiateVars sts b))
           return sts
@@ -187,7 +188,7 @@ unifyTV interesting i r d t bump = liftST (readSTRef r) >>= \ mt1 -> case mt1 of
     if m then liftST $ t' <$ writeSTRef r (Just t')
          else j <$ tell (Any True)
   Nothing -> case t of
-    Var v@(Meta k _ _ e _) -> do -- this has been semipruned so its not part of a chain
+    Var v@(Meta k _ _ _ e _) -> do -- this has been semipruned so its not part of a chain
       tell (Any interesting)
       zk <- zonkWith k $ \kv -> liftST $ do
         let f = kv^.metaDepth

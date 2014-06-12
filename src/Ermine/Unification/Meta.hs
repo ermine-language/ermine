@@ -29,7 +29,7 @@ module Ermine.Unification.Meta
   (
   -- * Meta variables
     Meta(Meta,Skolem)
-  , metaId, metaValue, metaRef
+  , metaId, metaValue, metaRef, metaHint
   -- * Meta Types
   , MetaT, TypeM
   -- * Meta Kinds
@@ -87,6 +87,7 @@ import Data.Traversable
 import Data.Word
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Hint
 import Ermine.Syntax.Type
 import Ermine.Syntax.Kind
 import Ermine.Unification.Sharing
@@ -122,12 +123,14 @@ bumpRank w = do
 -- | A meta variable for skolemization and unification
 data Meta s f a
   = Meta   { _metaValue :: a
+           , _metaHint :: Hint
            , _metaId :: !Int
            , _metaRef :: !(STRef s (Maybe (f (Meta s f a))))
            , _metaDepth :: !(STRef s Depth)
            , _metaRank :: !(STRef s Rank)
            }
   | Skolem { _metaValue :: a
+           , _metaHint :: Hint
            , _metaId :: !Int
            , _metaDepth :: !(STRef s Depth)
            }
@@ -166,9 +169,9 @@ instance HasRendering (MetaEnv s) where
 ------------------------------------------------------------------------------
 
 -- | This 'Prism' matches 'Skolem' variables.
-_Skolem :: Prism' (Meta s f a) (a, Int, STRef s Depth)
-_Skolem = prism (\(a,i,d) -> Skolem a i d) $ \t -> case t of
-  Skolem a i d -> Right (a, i, d)
+_Skolem :: Prism' (Meta s f a) (a, Hint, Int, STRef s Depth)
+_Skolem = prism (\(a,h,i,d) -> Skolem a h i d) $ \t -> case t of
+  Skolem a h i d -> Right (a, h, i, d)
   _ -> Left t
 
 {-
@@ -182,9 +185,9 @@ _Meta = prism (\(a,i,r,k,u) -> Meta a i r k u) $ \t -> case t of
 -}
 
 instance Show a => Show (Meta s f a) where
-  showsPrec d (Meta a i _ _ _) = showParen (d > 10) $
+  showsPrec d (Meta a _ i _ _ _) = showParen (d > 10) $
     showString "Meta " . showsPrec 11 a . showChar ' ' . showsPrec 11 i . showString " ..."
-  showsPrec d (Skolem a i _) = showParen (d > 10) $
+  showsPrec d (Skolem a _ i _) = showParen (d > 10) $
     showString "Skolem " . showsPrec 11 a . showChar ' ' . showsPrec 11 i
 
 instance Eq (Meta s f a) where
@@ -196,34 +199,41 @@ instance Ord (Meta s f a) where
   {-# INLINE compare #-}
 
 -- | Construct a new meta variable
-newMeta :: MonadMeta s m => a -> m (Meta s f a)
-newMeta a = Meta a <$> fresh <*> liftST (newSTRef Nothing) <*> liftST (newSTRef depthInf) <*> liftST (newSTRef 0)
+newMeta :: MonadMeta s m => a -> Hint -> m (Meta s f a)
+newMeta a h = Meta a h <$> fresh
+                       <*> liftST (newSTRef Nothing)
+                       <*> liftST (newSTRef depthInf)
+                       <*> liftST (newSTRef 0)
 {-# INLINE newMeta #-}
 
 -- | Construct a new meta variable at a given depth
-newShallowMeta :: MonadMeta s m => Depth -> a -> m (Meta s f a)
-newShallowMeta d a = Meta a <$> fresh <*> liftST (newSTRef Nothing) <*> liftST (newSTRef d) <*> liftST (newSTRef 0)
+newShallowMeta :: MonadMeta s m => Depth -> a -> Hint -> m (Meta s f a)
+newShallowMeta d a h =
+  Meta a h <$> fresh
+           <*> liftST (newSTRef Nothing)
+           <*> liftST (newSTRef d)
+           <*> liftST (newSTRef 0)
 {-# INLINE newShallowMeta #-}
 
 -- | Construct a new Skolem variable that unifies only with itself.
-newSkolem :: MonadMeta s m => a -> m (Meta s f a)
-newSkolem a = Skolem a <$> fresh <*> liftST (newSTRef depthInf)
+newSkolem :: MonadMeta s m => a -> Hint -> m (Meta s f a)
+newSkolem a h = Skolem a h <$> fresh <*> liftST (newSTRef depthInf)
 {-# INLINE newSkolem #-}
 
 -- | Construct a new Skolem variable at a given depth
-newShallowSkolem :: MonadMeta s m => Depth -> a -> m (Meta s f a)
-newShallowSkolem d a = Skolem a <$> fresh <*> liftST (newSTRef d)
+newShallowSkolem :: MonadMeta s m => Depth -> a -> Hint -> m (Meta s f a)
+newShallowSkolem d a h = Skolem a h <$> fresh <*> liftST (newSTRef d)
 {-# INLINE newShallowSkolem #-}
 
 -- | Read a meta variable
 readMeta :: MonadMeta s m => Meta s f a -> m (Maybe (f (Meta s f a)))
-readMeta (Meta _ _ r _ _) = liftST $ readSTRef r
+readMeta (Meta _ _ _ r _ _) = liftST $ readSTRef r
 readMeta Skolem{} = return Nothing
 {-# INLINE readMeta #-}
 
 -- | Write to a meta variable
 writeMeta :: MonadMeta s m => Meta s f a -> f (Meta s f a) -> m ()
-writeMeta (Meta _ _ r _ _) a = liftST $ writeSTRef r (Just a)
+writeMeta (Meta _ _ _ r _ _) a = liftST $ writeSTRef r (Just a)
 writeMeta Skolem{} _   = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 

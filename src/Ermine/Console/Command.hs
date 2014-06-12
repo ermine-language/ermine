@@ -154,9 +154,9 @@ parsing p k args s = case parseString (p <* eof) mempty s of
 kindBody :: [String] -> Type (Maybe Text) Text -> Console ()
 kindBody args s = do
   gk <- ioM mempty $ do
-    tm <- prepare (newMeta False)
-                  (const $ newMeta False)
-                  (const $ pure <$> newMeta False)
+    tm <- prepare (newMeta False noHint)
+                  (newMeta False . stringHint)
+                  (fmap pure . newMeta False . stringHint)
                   s
     k <- inferKind tm
     generalize k
@@ -177,9 +177,10 @@ dkindsBody _ dts = do
 checkAndCompile :: MonadConstraint (KindM s) s m
                 => Term Ann Text -> m (Maybe (Type t k, Core Convention c))
 checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> do
-  tm <- bitraverse (prepare (newMeta False)
-                          (const $ newMeta False)
-                          (const $ newMeta False >>= newMeta . pure))
+  tm <- bitraverse (prepare (newMeta False noHint)
+                          (newMeta False . stringHint)
+                          (\s -> newMeta False noHint >>=
+                                   flip newMeta (stringHint s) . pure))
                  pure
                  syn'
   w <- inferType 0 fst tm

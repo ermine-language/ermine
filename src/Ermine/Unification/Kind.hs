@@ -100,7 +100,7 @@ unifyKind k1 k2 = do
   go k1' k2'
   where
     go k@(Var kv1) (Var kv2) | kv1 == kv2 = return k -- boring
-    go a@(Var (Meta _ i r d u)) b@(Var (Meta _ j s e v)) = do
+    go a@(Var (Meta _ _ i r d u)) b@(Var (Meta _ _ j s e v)) = do
       -- union-by-rank
       m <- liftST $ readSTRef u
       n <- liftST $ readSTRef v
@@ -108,8 +108,8 @@ unifyKind k1 k2 = do
         LT -> unifyKV True i r d b $ return ()
         EQ -> unifyKV True i r d b $ writeSTRef v $! n + 1
         GT -> unifyKV False j s e a $ return ()
-    go (Var (Meta _ i r d _)) k    = unifyKV True i r d k $ return ()
-    go k (Var (Meta _ i r d _))    = unifyKV False i r d k $ return ()
+    go (Var (Meta _ _ i r d _)) k    = unifyKV True i r d k $ return ()
+    go k (Var (Meta _ _ i r d _))    = unifyKV False i r d k $ return ()
     go (a :-> b) (c :-> d)         = (:->) <$> unifyKind a c <*> unifyKind b d
     go k@(HardKind x) (HardKind y) | x == y = return k -- boring
     go (Type k) (Type k')          = Type <$> unifyKind k k'
@@ -128,7 +128,7 @@ unifyKV interesting i r d k bump = liftST (readSTRef r) >>= \mb -> case mb of
     if m then liftST $ k' <$ writeSTRef r (Just k') -- write back interesting changes
          else j <$ tell (Any True)                  -- short-circuit
   Nothing -> case k of
-    Var (Meta _ _ _ e _) -> do
+    Var (Meta _ _ _ _ e _) -> do
       tell (Any interesting)
       liftST $ do
         bump
@@ -147,6 +147,6 @@ unifyKV interesting i r d k bump = liftST (readSTRef r) >>= \mb -> case mb of
 unifyKindVar
   :: (MonadMeta s m, MonadWriter Any m)
   => MetaK s -> KindM s -> m (KindM s)
-unifyKindVar (Meta _ i r d _) kv = unifyKV True i r d kv $ return ()
+unifyKindVar (Meta _ _ i r d _) kv = unifyKV True i r d kv $ return ()
 unifyKindVar Skolem{} _ = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}

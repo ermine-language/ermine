@@ -87,15 +87,15 @@ matchFunType :: MonadMeta s m => TypeM s -> m (TypeM s, TypeM s)
 matchFunType (Type.App (Type.App (HardType Arrow) a) b) = return (a, b)
 matchFunType (HardType _) = fail "not a fun type"
 matchFunType t = do
-  bx <- pure <$> newMeta True
-  by <- pure <$> newMeta True
-  x <- pure <$> newMeta (Type bx)
-  y <- pure <$> newMeta (Type by)
+  bx <- pure <$> newMeta True noHint
+  by <- pure <$> newMeta True noHint
+  x <- pure <$> newMeta (Type bx) noHint
+  y <- pure <$> newMeta (Type by) noHint
   (x, y) <$ unsharingT (unifyType t (x ~> y))
 
 conventionForType :: MonadMeta s m => TypeM s -> m (KindM s)
 conventionForType ty = do
-  bx <- pure <$> newMeta True
+  bx <- pure <$> newMeta True noHint
   runSharing bx $ checkKind (view metaValue <$> ty) (Type bx) >> zonk bx
 
 type WMap = Map.Map Word64
@@ -177,7 +177,7 @@ inferType d cxt (Remember i t) = do
   remember i (r^.witnessType)
   return r
 inferType d cxt (Sig tm (Annot ks ty)) = do
-  ts <- for ks newMeta
+  ts <- for ks $ newMeta ?? noHint
   checkType d cxt tm (instantiateVars ts ty)
 inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
@@ -225,8 +225,8 @@ inferAltTypes d cxt (Witness r t c) bs = do
       rs = join rss
       c' = Pattern.compileCase ps c gcs dummyPatternEnv
   uncaring $ foldlM unifyType t pts
-  bx <- pure <$> newMeta True
-  result <- pure <$> newMeta (Type bx)
+  bx <- pure <$> newMeta True noHint
+  result <- pure <$> newMeta (Type bx) noHint
   t' <- runSharing result $ foldlM unifyType result bts
   return $ Witness (r++rs) t' c'
  where
@@ -243,8 +243,8 @@ inferAltTypes d cxt (Witness r t c) bs = do
 coalesceGuarded :: MonadMeta s m => Guarded (WitnessM s v) -> m ([TypeM s], TypeM s, Guarded (Scope v (Core (KindM s)) (TypeM s)))
 coalesceGuarded (Unguarded (Witness r' t' c')) = pure (r', t', Unguarded c')
 coalesceGuarded (Guarded l) = do
-  bx <- pure <$> newMeta True
-  rt <- pure <$> newMeta (Type bx)
+  bx <- pure <$> newMeta True noHint
+  rt <- pure <$> newMeta (Type bx) noHint
   (rs, ty, l') <- foldrM ?? ([], rt, []) ?? l $
     \(Witness gr gt gc, Witness br bt bc) (rs, ty, gcs) -> do
       uncaring $ unifyType gt Type.bool
@@ -276,7 +276,7 @@ checkType :: MonadConstraint (KindM s) s m
           => Depth -> (v -> TypeM s) -> TermM s v -> TypeM s -> m (WitnessM s v)
 checkType d cxt e t = do
   w <- inferType d cxt e
-  bx <- pure <$> newMeta False
+  bx <- pure <$> newMeta False noHint
   checkKind (view metaValue <$> t) (Type bx)
   subsumesType d w t
 
@@ -328,8 +328,8 @@ generalizeWitnessType min_d (Witness r0 t0 c0) = do
 
   withSharing zonkWitnessKindsAndTypes $ Witness r'
     (forall
-        (const noHint)
-        (const noHint)
+        (view metaHint)
+        (view metaHint)
         kvs
         (tvs <&> \tv -> (tv, tv^.metaValue))
         (allConstraints cc'')
@@ -366,12 +366,12 @@ inferHardType (Term.Lit l) =
   return $ Witness [] (literalType l) $
              dataCon [_Convention # U] 0 literalg ## (_Lit # l)
 inferHardType (Term.Tuple n) = do
-  vs <- replicateM (fromIntegral n) $ pure <$> newMeta star
+  vs <- replicateM (fromIntegral n) $ pure <$> newMeta star noHint
   return $ Witness [] (foldr (~>) (tup vs) vs) $
              dataCon (replicate (fromIntegral n) (_Convention # C)) 0 (tupleg n)
 inferHardType Hole = do
-  bx <- pure <$> newMeta True
-  tv <- newMeta (Type bx)
+  bx <- pure <$> newMeta True noHint
+  tv <- newMeta (Type bx) noHint
   r <- viewMeta metaRendering
   return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
 inferHardType (DataCon g t)
@@ -395,8 +395,8 @@ literalType Integer{} = Type.integer
 skolemize :: MonadMeta s m
           => Depth -> TypeM s -> m ([MetaK s], [MetaT s], [TypeM s], TypeM s)
 skolemize _ (Forall ks ts cs bd) = do
-  sks <- for ks $ \_ -> newSkolem False
-  sts <- for ts $ newSkolem . instantiateVars sks . extract
+  sks <- for ks $ newSkolem False
+  sts <- for ts $ \ht -> (newSkolem ?? void ht) . instantiateVars sks . extract $ ht
   let inst = instantiateKindVars sks . instantiateVars sts
   (rs, tcs) <- unfurlConstraints $ inst cs
   unless (null rs) $
@@ -407,8 +407,8 @@ skolemize _ t = return ([], [], [], t)
 unfurl :: MonadMeta s m
        => TypeM s -> Scope a (Core (KindM s)) (TypeM s) -> m (WitnessM s a)
 unfurl (Forall ks ts cs bd) co = do
-  mks <- for ks $ \_ -> newMeta False
-  mts <- for ts $ newMeta . instantiateVars mks . extract
+  mks <- for ks $ newMeta False
+  mts <- for ts $ \ht -> (newMeta ?? void ht) . instantiateVars mks . extract $ ht
   let inst = instantiateKindVars mks . instantiateVars mts
   (rcs, tcs) <- unfurlConstraints . inst $ cs
   return $ Witness rcs (inst bd) $ appDicts co (pure <$> tcs)
@@ -424,20 +424,20 @@ partConstraints c | isRowConstraint c = ([c], [])
 
 unfurlConstraints :: MonadMeta s m => TypeM s -> m ([TypeM s], [TypeM s])
 unfurlConstraints (Exists ks ts cs) = do
-  mks <- for ks $ \_ -> newMeta False
-  mts <- for ts $ newMeta . instantiateVars mks . extract
+  mks <- for ks $ newMeta False
+  mts <- for ts $ \ht -> (newMeta ?? void ht) . instantiateVars mks . extract $ ht
   pure . partConstraints . instantiateKindVars mks . instantiateVars mts $ cs
 unfurlConstraints c = pure $ partConstraints c
 
 inferPatternType :: MonadMeta s m =>  Depth -> PatM s
                  -> m ([MetaT s], TypeM s, PatternPath -> TypeM s)
 inferPatternType d (SigP ann)  = do
-  k <- Type . pure <$> newMeta True
+  k <- Type . pure <$> newMeta True noHint
   ty <- instantiateAnnot d k ann
   return ([], ty, \ xs -> case xs of LeafPP -> ty ; _ -> error "panic: bad pattern path")
 inferPatternType d WildcardP   = do
-  k <- Type . pure <$> newMeta True
-  pure <$> newShallowMeta d k <&> \m ->
+  k <- Type . pure <$> newMeta True noHint
+  pure <$> newShallowMeta d k noHint <&> \m ->
     ([], m, \ xs -> case xs of LeafPP -> m ; _ -> error "panic: bad pattern path")
 inferPatternType d (AsP p) =
   inferPatternType d p <&> \(sks, ty, pcxt) ->
@@ -460,7 +460,7 @@ inferPatternType _ (LitP l) =
 -- E : forall (x : *). x -> E
 inferPatternType d (ConP g ps)
   | g^.name == "E" =
-    newShallowSkolem d star >>= \x ->
+    newShallowSkolem d star (stringHint "e") >>= \x ->
     case ps of
       [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p
@@ -482,7 +482,7 @@ inferPatternType d (ConP g ps)
       _ -> fail "over-applied constructor"
   | g^.name == "Nothing" =
     case ps of
-      [] -> newShallowMeta d star >>= \x ->
+      [] -> newShallowMeta d star (stringHint "a") >>= \x ->
               return ([], maybe_ $ pure x, error "panic: bad pattern path")
       _ -> fail "over-applied constructor"
 inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
@@ -490,7 +490,7 @@ inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimpl
 instantiateAnnot :: MonadMeta s m
                  => Depth -> KindM s -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d k (Annot ks sc) = do
-  ty <- traverse (fmap pure . newShallowMeta d) ks <&> \tvs ->
+  ty <- traverse (\k' -> pure <$> newShallowMeta d k' noHint) ks <&> \tvs ->
     instantiate (tvs !!) sc
   ty <$ checkKind (view metaValue <$> ty) k
 
