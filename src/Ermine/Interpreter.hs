@@ -322,12 +322,12 @@ payload mv s n = do
 eval :: (Applicative m, PrimMonad m) => G -> Env m -> MachineState m -> m ()
 eval (App sz f xs) le ms = case f of
   Ref r -> do
-    a <- resolveClosure le ms r
+    addr <- resolveClosure le ms r
     ms'  <- pushArgs le xs ms
     let lxs = G.length <$> xs
     let lsz = fromIntegral <$> sz
     ms'' <- squash (lsz + lxs) lxs ms'
-    enter a ms''
+    enter addr ms''
   Con t -> pushArgs le xs ms >>= returnCon t (G.length <$> xs)
 eval (Let bs e) le ms = do
   let stk = ms^.stackB
