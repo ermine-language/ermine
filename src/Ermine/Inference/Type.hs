@@ -149,7 +149,7 @@ inferBindingGroupTypes
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
-  xs <- sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> subsumesType d w vt
+  xs <- typesSubsume d $ Map.intersectionWith (,) witnesses bgts
   traverse (generalizeWitnessType d) xs
 
 inferBindings
@@ -277,15 +277,16 @@ checkType d cxt e t = do
   w <- inferType d cxt e
   bx <- pure <$> newMeta False noHint
   checkKind (view metaValue <$> t) (Type bx)
-  subsumesType d w t
+  fmap runIdentity . typesSubsume d $ Identity (w, t)
 
-subsumesType :: MonadConstraint (KindM s) s m
-             => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
-subsumesType d (Witness rs t1 c) t2 = do
-  (_  , sts, cs, t2') <- skolemize d t2
-  uncaring $ unifyType t1 t2'
-  -- TODO: skolem kinds
-  abstractedWitness d sts rs cs t2 c
+typesSubsume :: (Traversable f, MonadConstraint (KindM s) s m)
+             => Depth -> f (WitnessM s v, TypeM s) -> m (f (WitnessM s v))
+typesSubsume d =
+  traverse (\(sts, rs, cs, t, c) -> abstractedWitness d sts rs cs t c)
+    <=< traverse (\(Witness rs t1 c, t2) -> do
+          (_  , sts, cs, t2') <- skolemize d t2
+          uncaring $ unifyType t1 t2'
+          return (sts, rs, cs, t2, c))
 
 cabs :: Eq a => [a] -> Var b a -> Maybe Word64
 cabs cls (F ty) = fromIntegral <$> elemIndex ty cls
