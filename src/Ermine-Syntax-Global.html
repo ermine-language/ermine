@@ -23,8 +23,8 @@
 <a name="line-14"></a>  <span class='hs-layout'>(</span>
 <a name="line-15"></a>  <span class='hs-comment'>-- * Globals</span>
 <a name="line-16"></a>    <span class='hs-conid'>Global</span><span class='hs-layout'>(</span><span class='hs-conid'>Global</span><span class='hs-layout'>)</span>
-<a name="line-17"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>HasGlobal</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
-<a name="line-18"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>AsGlobal</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-17"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>AsGlobal</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
+<a name="line-18"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>HasGlobal</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
 <a name="line-19"></a>  <span class='hs-comment'>-- * Fixity</span>
 <a name="line-20"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>Assoc</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
 <a name="line-21"></a>  <span class='hs-layout'>,</span> <span class='hs-conid'>Fixity</span><span class='hs-layout'>(</span><span class='hs-keyglyph'>..</span><span class='hs-layout'>)</span>
@@ -178,48 +178,49 @@
 <a name="line-169"></a><a name="instance%20HasName%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>HasName</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
 <a name="line-170"></a>  <span class='hs-varid'>name</span> <span class='hs-varid'>g</span> <span class='hs-layout'>(</span><span class='hs-conid'>Global</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>g</span> <span class='hs-varid'>n</span> <span class='hs-varop'>&lt;&amp;&gt;</span> <span class='hs-keyglyph'>\</span><span class='hs-varid'>n'</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>glob</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n'</span>
 <a name="line-171"></a>
-<a name="line-172"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-173"></a><span class='hs-comment'>-- HasGlobal</span>
-<a name="line-174"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-175"></a>
-<a name="line-176"></a><a name="HasGlobal"></a><span class='hs-keyword'>class</span> <span class='hs-conid'>HasGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyword'>where</span>
-<a name="line-177"></a>  <span class='hs-varid'>global</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Lens'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Global</span>
-<a name="line-178"></a>  <span class='hs-comment'>-- | A lens that will read or update the fixity (and compute a new digest)</span>
-<a name="line-179"></a>  <span class='hs-varid'>fixity</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Lens'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Fixity</span>
-<a name="line-180"></a>  <span class='hs-varid'>fixity</span> <span class='hs-varid'>f</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>global</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span> <span class='hs-layout'>(</span><span class='hs-conid'>Global</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>a</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>a'</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>glob</span> <span class='hs-varid'>a'</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>f</span> <span class='hs-varid'>a</span>
-<a name="line-181"></a>
-<a name="line-182"></a><a name="instance%20HasGlobal%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>HasGlobal</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-183"></a>  <span class='hs-varid'>global</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
-<a name="line-184"></a>
-<a name="line-185"></a><a name="instance%20Eq%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Eq</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-186"></a>  <span class='hs-layout'>(</span><span class='hs-varop'>==</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-layout'>(</span><span class='hs-varop'>==</span><span class='hs-layout'>)</span> <span class='hs-varop'>`on`</span> <span class='hs-sel'>_globalDigest</span>
-<a name="line-187"></a>
-<a name="line-188"></a><a name="instance%20Ord%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Ord</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-189"></a>  <span class='hs-varid'>compare</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>compare</span> <span class='hs-varop'>`on`</span> <span class='hs-sel'>_globalDigest</span>
-<a name="line-190"></a>
-<a name="line-191"></a><a name="instance%20Digestable%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Digestable</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-192"></a>  <span class='hs-varid'>digest</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>digest</span> <span class='hs-varid'>c</span> <span class='hs-varop'>.</span> <span class='hs-sel'>_globalDigest</span>
-<a name="line-193"></a>
-<a name="line-194"></a><a name="instance%20Hashable%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Hashable</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-195"></a>  <span class='hs-varid'>hashWithSalt</span> <span class='hs-varid'>s</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>hashWithSalt</span> <span class='hs-varid'>s</span> <span class='hs-layout'>(</span><span class='hs-sel'>_globalDigest</span> <span class='hs-varid'>c</span><span class='hs-layout'>)</span>
-<a name="line-196"></a>
-<a name="line-197"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-198"></a><span class='hs-comment'>-- AsGlobal</span>
-<a name="line-199"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-200"></a>
-<a name="line-201"></a><a name="AsGlobal"></a><span class='hs-keyword'>class</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyword'>where</span>
-<a name="line-202"></a>  <span class='hs-sel'>_Global</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Prism'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Global</span>
-<a name="line-203"></a>
-<a name="line-204"></a><a name="instance%20AsGlobal%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
-<a name="line-205"></a>  <span class='hs-sel'>_Global</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
-<a name="line-206"></a>
-<a name="line-207"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-208"></a><span class='hs-comment'>-- Combinators</span>
-<a name="line-209"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
-<a name="line-210"></a>
-<a name="line-211"></a><a name="glob"></a><span class='hs-comment'>-- | Construct a 'Global' with a correct digest.</span>
-<a name="line-212"></a><span class='hs-definition'>glob</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>Fixity</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>ModuleName</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Text</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>t</span>
-<a name="line-213"></a><span class='hs-definition'>glob</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_Global</span> <span class='hs-cpp'>#</span> <span class='hs-conid'>Global</span> <span class='hs-varid'>d</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span> <span class='hs-keyword'>where</span>
-<a name="line-214"></a>  <span class='hs-varid'>d</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MD5</span><span class='hs-varop'>.</span><span class='hs-varid'>finalize</span> <span class='hs-varop'>$</span> <span class='hs-varid'>digest</span> <span class='hs-conid'>MD5</span><span class='hs-varop'>.</span><span class='hs-varid'>init</span> <span class='hs-varid'>f</span> <span class='hs-varop'>`digest`</span> <span class='hs-varid'>m</span> <span class='hs-varop'>`digest`</span> <span class='hs-varid'>n</span>
+<a name="line-172"></a>
+<a name="line-173"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-174"></a><span class='hs-comment'>-- AsGlobal</span>
+<a name="line-175"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-176"></a>
+<a name="line-177"></a><a name="AsGlobal"></a><span class='hs-keyword'>class</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyword'>where</span>
+<a name="line-178"></a>  <span class='hs-sel'>_Global</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Prism'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Global</span>
+<a name="line-179"></a>
+<a name="line-180"></a><a name="instance%20AsGlobal%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-181"></a>  <span class='hs-sel'>_Global</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
+<a name="line-182"></a>
+<a name="line-183"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-184"></a><span class='hs-comment'>-- HasGlobal</span>
+<a name="line-185"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-186"></a>
+<a name="line-187"></a><a name="HasGlobal"></a><span class='hs-keyword'>class</span> <span class='hs-conid'>HasGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyword'>where</span>
+<a name="line-188"></a>  <span class='hs-varid'>global</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Lens'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Global</span>
+<a name="line-189"></a>  <span class='hs-comment'>-- | A lens that will read or update the fixity (and compute a new digest)</span>
+<a name="line-190"></a>  <span class='hs-varid'>fixity</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>Lens'</span> <span class='hs-varid'>t</span> <span class='hs-conid'>Fixity</span>
+<a name="line-191"></a>  <span class='hs-varid'>fixity</span> <span class='hs-varid'>f</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>global</span> <span class='hs-varop'>$</span> <span class='hs-keyglyph'>\</span> <span class='hs-layout'>(</span><span class='hs-conid'>Global</span> <span class='hs-keyword'>_</span> <span class='hs-varid'>a</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-layout'>(</span><span class='hs-keyglyph'>\</span><span class='hs-varid'>a'</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>glob</span> <span class='hs-varid'>a'</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span><span class='hs-layout'>)</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>f</span> <span class='hs-varid'>a</span>
+<a name="line-192"></a>
+<a name="line-193"></a><a name="instance%20HasGlobal%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>HasGlobal</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-194"></a>  <span class='hs-varid'>global</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>id</span>
+<a name="line-195"></a>
+<a name="line-196"></a><a name="instance%20Eq%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Eq</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-197"></a>  <span class='hs-layout'>(</span><span class='hs-varop'>==</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=</span> <span class='hs-layout'>(</span><span class='hs-varop'>==</span><span class='hs-layout'>)</span> <span class='hs-varop'>`on`</span> <span class='hs-sel'>_globalDigest</span>
+<a name="line-198"></a>
+<a name="line-199"></a><a name="instance%20Ord%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Ord</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-200"></a>  <span class='hs-varid'>compare</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>compare</span> <span class='hs-varop'>`on`</span> <span class='hs-sel'>_globalDigest</span>
+<a name="line-201"></a>
+<a name="line-202"></a><a name="instance%20Digestable%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Digestable</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-203"></a>  <span class='hs-varid'>digest</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>digest</span> <span class='hs-varid'>c</span> <span class='hs-varop'>.</span> <span class='hs-sel'>_globalDigest</span>
+<a name="line-204"></a>
+<a name="line-205"></a><a name="instance%20Hashable%20Global"></a><span class='hs-keyword'>instance</span> <span class='hs-conid'>Hashable</span> <span class='hs-conid'>Global</span> <span class='hs-keyword'>where</span>
+<a name="line-206"></a>  <span class='hs-varid'>hashWithSalt</span> <span class='hs-varid'>s</span> <span class='hs-varid'>c</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>hashWithSalt</span> <span class='hs-varid'>s</span> <span class='hs-layout'>(</span><span class='hs-sel'>_globalDigest</span> <span class='hs-varid'>c</span><span class='hs-layout'>)</span>
+<a name="line-207"></a>
+<a name="line-208"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-209"></a><span class='hs-comment'>-- Combinators</span>
+<a name="line-210"></a><span class='hs-comment'>------------------------------------------------------------------------------</span>
+<a name="line-211"></a>
+<a name="line-212"></a><a name="glob"></a><span class='hs-comment'>-- | Construct a 'Global' with a correct digest.</span>
+<a name="line-213"></a><span class='hs-definition'>glob</span> <span class='hs-keyglyph'>::</span> <span class='hs-conid'>AsGlobal</span> <span class='hs-varid'>t</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-conid'>Fixity</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>ModuleName</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-conid'>Text</span> <span class='hs-keyglyph'>-&gt;</span> <span class='hs-varid'>t</span>
+<a name="line-214"></a><span class='hs-definition'>glob</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span> <span class='hs-keyglyph'>=</span> <span class='hs-sel'>_Global</span> <span class='hs-cpp'>#</span> <span class='hs-conid'>Global</span> <span class='hs-varid'>d</span> <span class='hs-varid'>f</span> <span class='hs-varid'>m</span> <span class='hs-varid'>n</span> <span class='hs-keyword'>where</span>
+<a name="line-215"></a>  <span class='hs-varid'>d</span> <span class='hs-keyglyph'>=</span> <span class='hs-conid'>MD5</span><span class='hs-varop'>.</span><span class='hs-varid'>finalize</span> <span class='hs-varop'>$</span> <span class='hs-varid'>digest</span> <span class='hs-conid'>MD5</span><span class='hs-varop'>.</span><span class='hs-varid'>init</span> <span class='hs-varid'>f</span> <span class='hs-varop'>`digest`</span> <span class='hs-varid'>m</span> <span class='hs-varop'>`digest`</span> <span class='hs-varid'>n</span>
 </pre></body>
 </html>

@@ -27,7 +27,7 @@
 <a name="line-18"></a>
 <a name="line-19"></a><a name="literal"></a><span class='hs-comment'>-- | Parse a 'literal' number, string or character.</span>
 <a name="line-20"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>::</span> <span class='hs-layout'>(</span><span class='hs-conid'>Monad</span> <span class='hs-varid'>m</span><span class='hs-layout'>,</span> <span class='hs-conid'>TokenParsing</span> <span class='hs-varid'>m</span><span class='hs-layout'>)</span> <span class='hs-keyglyph'>=&gt;</span> <span class='hs-varid'>m</span> <span class='hs-conid'>Literal</span>
-<a name="line-21"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>either</span> <span class='hs-layout'>(</span><span class='hs-conid'>Int</span> <span class='hs-varop'>.</span> <span class='hs-varid'>fromIntegral</span><span class='hs-layout'>)</span> <span class='hs-conid'>Double</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>naturalOrDouble</span>
+<a name="line-21"></a><span class='hs-definition'>literal</span> <span class='hs-keyglyph'>=</span> <span class='hs-varid'>either</span> <span class='hs-conid'>Integer</span> <span class='hs-conid'>Double</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>naturalOrDouble</span>
 <a name="line-22"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>String</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>stringLiteral</span>
 <a name="line-23"></a>      <span class='hs-varop'>&lt;|&gt;</span> <span class='hs-conid'>Char</span> <span class='hs-varop'>&lt;$&gt;</span> <span class='hs-varid'>charLiteral</span>
 </pre></body>
