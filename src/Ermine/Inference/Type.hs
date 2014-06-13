@@ -149,9 +149,8 @@ inferBindingGroupTypes
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
-  sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> do
-    w' <- subsumesType d w vt
-    generalizeWitnessType d w'
+  xs <- sequenceA $ Map.intersectionWith ?? bgts ?? witnesses $ \vt w -> subsumesType d w vt
+  traverse (generalizeWitnessType d) xs
 
 inferBindings
   :: MonadConstraint (KindM s) s m
