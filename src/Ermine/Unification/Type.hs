@@ -16,7 +16,9 @@ module Ermine.Unification.Type
   ( unifyType
   , zonkKindsAndTypes
   , zonkKindsAndTypesWith
+  , skolemCheck
   , checkSkolemEscapes
+  , hasSkolems
   ) where
 
 import Control.Applicative
@@ -27,7 +29,7 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Bitraversable
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.Set as Set
 import Data.IntMap as IntMap
 import Data.Set.Lens
@@ -108,17 +110,29 @@ zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where
 -- | Check for escaped Skolem variables in any container full of types.
 --
 -- Dies due to an escaped Skolem or returns the container with all of its types fully zonked.
-checkSkolemEscapes
+skolemCheck
   :: MonadMeta s m
   => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
-checkSkolemEscapes md trav sks ts = do
-  for_ md $ \d -> for_ sks $ \s ->
-    liftST (readSTRef $ s^.metaDepth) >>= \d' -> when (d' < d) serr
-  trav (\t -> runSharing t $ zonkWith t tweak) ts
+skolemCheck md trav sks ts = do
+  for_ md $ checkSkolemEscapes ?? sks
+  hasSkolems trav sks ts
+
+-- | Checks if any of the skolems in the list escapes into the context defined
+-- by the given depth.
+checkSkolemEscapes
+  :: MonadMeta s m
+  => Depth -> [MetaT s] -> m ()
+checkSkolemEscapes d =
+  traverse_ $ \s -> liftST (readSTRef $ s^.metaDepth) >>= \d' ->
+  when (d' < d) $ fail "skolem escapes to environment"
+
+-- | Checks if any of the listed skolems exists in the types given in the
+-- traversal.
+hasSkolems :: MonadMeta s m => LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
+hasSkolems trav sks = trav $ \t -> runSharing t $ zonkWith t tweak
  where
- serr = fail "escaped skolem"
  skids = setOf (traverse.metaId) sks
- tweak v = when (has (ix $ v^.metaId) skids) $ lift serr
+ tweak v = when (has (ix $ v^.metaId) skids) $ fail "returning skolem"
 
 -- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
 --
@@ -171,7 +185,7 @@ unifyType t1 t2 = do
         --   (g : some a r. (forall b. a -> b) -> r) ->
         --     ((x y -> x) : some a. a -> a -> a) f g)
         if modified
-         then fst <$> checkSkolemEscapes Nothing both sts (t, t')
+         then fst <$> skolemCheck Nothing both sts (t, t')
          else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"

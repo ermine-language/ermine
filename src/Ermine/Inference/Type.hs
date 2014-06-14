@@ -127,7 +127,7 @@ inferBindingType d cxt lcxt bdg = do
         bodyCxt (BodyWhere w) = whereWitnesses^?!ix (fromIntegral w).witnessType
     gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
     (rs, t, cores) <- coalesceGuarded gd'
-    (rs', t', cores') <- checkSkolemEscapes (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
+    (rs', t', cores') <- skolemCheck (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
     let shuffle (B a)     = B (F a)
         shuffle (F (B a)) = B (B a)
         shuffle (F (F a)) = F a
@@ -149,8 +149,8 @@ inferBindingGroupTypes
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
   witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
-  xs <- typesSubsume d $ Map.intersectionWith (,) witnesses bgts
-  traverse (generalizeWitnessType d) xs
+  subsumeAndGeneralize d $ Map.intersectionWith (,) witnesses bgts
+  -- traverse (generalizeWitnessType d) xs
 
 inferBindings
   :: MonadConstraint (KindM s) s m
@@ -191,7 +191,7 @@ inferType d cxt (Term.Lam ps e) = do
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
-  rt <- checkSkolemEscapes (Just d) id (join skss) $ foldr (~~>) t pts
+  rt <- skolemCheck (Just d) id (join skss) $ foldr (~~>) t pts
   pccs <- traverse conventionForType pts
   return $ Witness rcs rt (lambda pccs cc)
 
@@ -233,7 +233,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
    (sks, pt, pcxt) <- inferPatternType d p
    let trav f (x, y, z) = (,,) <$> traverse f x <*> f y <*> (traverse.traverse) f z
    trip <- inferGuarded pcxt b
-   checkSkolemEscapes (Just d) (beside id trav) sks (pt, trip)
+   skolemCheck (Just d) (beside id trav) sks (pt, trip)
 
  inferGuarded pcxt gb = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
@@ -264,7 +264,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co <- runSharing co0 $ traverse zonk co0
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
-    checkSkolemEscapes (Just d) (traverse`beside`id`beside`traverse) sks
+    skolemCheck (Just d) (traverse`beside`id`beside`traverse) sks
       ((rs, ty),
         lambda (_Convention # D <$ cs) $
           abstract (fmap fromIntegral . flip elemIndex cs) co')
@@ -277,16 +277,32 @@ checkType d cxt e t = do
   w <- inferType d cxt e
   bx <- pure <$> newMeta False noHint
   checkKind (view metaValue <$> t) (Type bx)
-  fmap runIdentity . typesSubsume d $ Identity (w, t)
+  subsumesType d w t
 
-typesSubsume :: (Traversable f, MonadConstraint (KindM s) s m)
-             => Depth -> f (WitnessM s v, TypeM s) -> m (f (WitnessM s v))
-typesSubsume d =
-  traverse (\(sts, rs, cs, t, c) -> abstractedWitness d sts rs cs t c)
-    <=< traverse (\(Witness rs t1 c, t2) -> do
-          (_  , sts, cs, t2') <- skolemize d t2
-          uncaring $ unifyType t1 t2'
-          return (sts, rs, cs, t2, c))
+subsumesType :: MonadConstraint (KindM s) s m
+             => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
+subsumesType d (Witness rs t1 c) t2 = do
+  (_  , sts, cs, t2') <- skolemize d t2
+  uncaring $ unifyType t1 t2'
+  -- TODO: skolem kinds
+  abstractedWitness d sts rs cs t2 c
+
+subsumeAndGeneralize
+  :: (Traversable f, MonadConstraint (KindM s) s m)
+  => Depth -> f (WitnessM s v, TypeM s) -> m (f (WitnessM s v))
+subsumeAndGeneralize d wts = do
+  mess <- for wts $ \(Witness rs t1 c, t2) -> do
+            (_  , sts, cs, t2') <- skolemize d t2
+            t2'' <-  withSharing (unifyType t1) t2'
+            return (sts, rs, cs, t2'', c)
+  for mess $ \(sts, rs, cs0, ty, co0) -> do
+       checkSkolemEscapes d sts
+       cs <- withSharing (traverse zonk) cs0
+       co <- withSharing (traverse zonk) co0
+       co' <- simplifyVia cs co
+       generalizeWitnessType d . Witness rs ty $
+         lambda (_Convention # D <$ cs) $
+           abstract (fmap fromIntegral . flip elemIndex cs) co'
 
 cabs :: Eq a => [a] -> Var b a -> Maybe Word64
 cabs cls (F ty) = fromIntegral <$> elemIndex ty cls
