@@ -30,6 +30,7 @@ module Ermine.Syntax.Type
   , mergeConstraints
   , allConstraints
   , (~~>)
+  , (==>)
   , isTrivialConstraint
   , isRowConstraint
   , FieldName
@@ -582,6 +583,10 @@ allConstraints = foldl' mergeConstraints (And [])
 a ~~> Forall kn tks cs body =
   Forall kn tks cs (Scope $ bimap F (F . pure) a ~> unscope body)
 a ~~> b = a ~> b
+
+-- | A smart constructor for constrained types.
+(==>) :: (Ord k, Ord t) => [Type k t] -> Type k t -> Type k t
+cs ==> t = forall (const noHint) (const noHint) [] [] (allConstraints cs) t
 
 -- | Determines whether the type in question is a trivial constraint, which may be
 -- dropped from the type. The simplest example is 'And []', but the function works

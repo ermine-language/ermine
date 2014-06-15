@@ -300,7 +300,7 @@ subsumeAndGeneralize d wts = do
        cs <- withSharing (traverse zonk) cs0
        co <- withSharing (traverse zonk) co0
        co' <- simplifyVia cs co
-       generalizeWitnessType d . Witness rs ty $
+       generalizeWitnessType d . Witness rs (cs ==> ty) $
          lambda (_Convention # D <$ cs) $
            abstract (fmap fromIntegral . flip elemIndex cs) co'
 
