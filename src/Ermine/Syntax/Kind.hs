@@ -317,6 +317,9 @@ instance Kindly (Schema a) where
     HardKind k           -> Right k
     Var (F (HardKind k)) -> Right k
     _                    -> Left t
+  star = schema star
+  native = schema native
+  unboxed = schema unboxed
 
 instance HasKindVars (Schema a) (Schema b) a b where
   kindVars f (Schema hs s) = Schema hs <$> kindVars f s
