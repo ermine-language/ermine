@@ -235,7 +235,8 @@ inferAltTypes d cxt (Witness r t c) bs = do
    (sks, pt, pcxt) <- inferPatternType d p
    let trav f (x, y, z) = (,,) <$> traverse f x <*> f y <*> (traverse.traverse) f z
    trip <- inferGuarded pcxt b
-   checkSkolems (Just d) (beside id trav) sks (pt, trip)
+   sks' <- checkDistinct sks
+   checkSkolems (Just d) (beside id trav) sks' (pt, trip)
 
  inferGuarded pcxt gb = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
