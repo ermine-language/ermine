@@ -299,12 +299,12 @@ subsumeAndGeneralize d wts = do
   mess <- for wts $ \(Witness rs t1 c, t2) -> do
     (sks, sts, cs, t2') <- skolemize d t2
     t2'' <-  withSharing (unifyType t1) t2'
-    _ <- checkDistinct sks
+    return (sks, sts, rs, cs, t2'', c)
+  for mess $ \(sks, sts, rs, cs0, ty, co0) -> do
+    sks' <- checkDistinct sks
     sts' <- checkDistinct sts
-    return (sts', rs, cs, t2'', c)
-  -- TODO: skolem kinds
-  for mess $ \(sts, rs, cs0, ty, co0) -> do
-    checkEscapes d sts
+    checkEscapes d sks'
+    checkEscapes d sts'
     cs <- withSharing (traverse zonk) cs0
     co <- withSharing (traverse zonk) co0
     co' <- simplifyVia cs co
