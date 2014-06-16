@@ -155,9 +155,9 @@ unifyType t1 t2 = do
         --     ((x y -> x) : some a. a -> a -> a) f g)
         if modified
          then do
-           checkDistinct sts
-           checkDistinct sks
-           fst <$> checkSkolems Nothing both sts (t, t')
+           _ <- checkDistinct sks
+           sts' <- checkDistinct sts
+           fst <$> checkSkolems Nothing both sts' (t, t')
          else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"

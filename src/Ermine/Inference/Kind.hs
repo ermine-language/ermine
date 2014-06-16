@@ -201,4 +201,4 @@ checkConstructorKind (Constructor _ ks ts fs) = do
   let btys = instantiateVars sks . extract <$> ts
   for_ fs $ \fld ->
     checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
-  checkDistinct sks
+  () <$ checkDistinct sks

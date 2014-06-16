@@ -275,10 +275,9 @@ checkSkolems md trav sks ts = do
 -- | Checks if any of the listed skolems exists in the types given in the
 -- traversal.
 hasSkolems :: (Traversable f, Monad f, MonadMeta s m) => LensLike' m ts (f (Meta s f a)) -> [Meta s f a] -> ts -> m ts
-hasSkolems trav sks = trav $ \t -> runSharing t $ zonkWith t tweak
- where
- skids = setOf (traverse.metaId) sks
- tweak v = when (has (ix $ v^.metaId) skids) $ fail "returning skolem"
+hasSkolems trav sks = trav $ \t -> runSharing t $ zonkWith t tweak where
+  skids = setOf (traverse.metaId) sks
+  tweak v = when (has (ix $ v^.metaId) skids) $ fail "returning skolem"
 
 -- | Checks if any of the skolems in the list escapes into the context defined
 -- by the given depth.
@@ -291,11 +290,11 @@ checkEscapes d =
 
 checkDistinct
   :: (Traversable f, Monad f, Variable f, MonadMeta s m)
-  => [Meta s f a] -> m ()
+  => [Meta s f a] -> m [Meta s f a]
 checkDistinct xs = do
   ys <- for xs $ withSharing zonk . return
   zs <- for ys $ maybe (fail "bound skolem") pure . preview _Var
-  unless (Set.size (Set.fromList zs) == length zs) $ fail "indistinct skolems"
+  zs <$ unless (Set.size (Set.fromList zs) == length zs) (fail "indistinct skolems")
 
 ------------------------------------------------------------------------------
 -- Result

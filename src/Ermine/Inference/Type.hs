@@ -127,8 +127,8 @@ inferBindingType d cxt lcxt bdg = do
         bodyCxt (BodyWhere w) = whereWitnesses^?!ix (fromIntegral w).witnessType
     gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
     (rs, t, cores) <- coalesceGuarded gd'
-    (rs', t', cores') <- checkSkolems (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
-    for_ skss checkDistinct
+    skss' <- for skss checkDistinct
+    (rs', t', cores') <- checkSkolems (Just d) (beside3 traverse id $ traverse.traverse) (join skss') (rs ++ wrs, foldr (~~>) t pts, cores)
     let shuffle (B a)     = B (F a)
         shuffle (F (B a)) = B (B a)
         shuffle (F (F a)) = F a
@@ -192,7 +192,8 @@ inferType d cxt (Term.Lam ps e) = do
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
-  rt <- checkSkolems (Just d) id (join skss) $ foldr (~~>) t pts
+  skss' <- traverse checkDistinct skss
+  rt <- checkSkolems (Just d) id (join skss') $ foldr (~~>) t pts
   pccs <- traverse conventionForType pts
   return $ Witness rcs rt (lambda pccs cc)
 
@@ -286,9 +287,9 @@ subsumesType d (Witness rs t1 c) t2 = do
   (sks, sts, cs, t2') <- skolemize d t2
   uncaring $ unifyType t1 t2'
   -- TODO: skolem kinds
-  checkDistinct sks
-  checkDistinct sts
-  abstractedWitness d sts rs cs t2 c
+  _ <- checkDistinct sks
+  sts' <- checkDistinct sts
+  abstractedWitness d sts' rs cs t2 c
 
 subsumeAndGeneralize
   :: (Traversable f, MonadConstraint (KindM s) s m)
@@ -297,9 +298,9 @@ subsumeAndGeneralize d wts = do
   mess <- for wts $ \(Witness rs t1 c, t2) -> do
     (sks, sts, cs, t2') <- skolemize d t2
     t2'' <-  withSharing (unifyType t1) t2'
-    checkDistinct sks
-    checkDistinct sts
-    return (sts, rs, cs, t2'', c)
+    _ <- checkDistinct sks
+    sts' <- checkDistinct sts
+    return (sts', rs, cs, t2'', c)
   -- TODO: skolem kinds
   for mess $ \(sts, rs, cs0, ty, co0) -> do
     checkEscapes d sts
