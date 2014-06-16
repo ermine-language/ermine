@@ -127,7 +127,8 @@ inferBindingType d cxt lcxt bdg = do
         bodyCxt (BodyWhere w) = whereWitnesses^?!ix (fromIntegral w).witnessType
     gd' <- for gd $ inferTypeInScope (d+1) bodyCxt cxt
     (rs, t, cores) <- coalesceGuarded gd'
-    (rs', t', cores') <- skolemCheck (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
+    (rs', t', cores') <- checkSkolems (Just d) (beside3 traverse id $ traverse.traverse) (join skss) (rs ++ wrs, foldr (~~>) t pts, cores)
+    for_ skss checkDistinct
     let shuffle (B a)     = B (F a)
         shuffle (F (B a)) = B (B a)
         shuffle (F (F a)) = F a
@@ -191,7 +192,7 @@ inferType d cxt (Term.Lam ps e) = do
       pcxt _ = error "panic: bad argument reference in lambda term"
   Witness rcs t c <- inferTypeInScope (d+1) pcxt cxt e
   let cc = Pattern.compileLambda ps (splitScope c) dummyPatternEnv
-  rt <- skolemCheck (Just d) id (join skss) $ foldr (~~>) t pts
+  rt <- checkSkolems (Just d) id (join skss) $ foldr (~~>) t pts
   pccs <- traverse conventionForType pts
   return $ Witness rcs rt (lambda pccs cc)
 
@@ -233,7 +234,7 @@ inferAltTypes d cxt (Witness r t c) bs = do
    (sks, pt, pcxt) <- inferPatternType d p
    let trav f (x, y, z) = (,,) <$> traverse f x <*> f y <*> (traverse.traverse) f z
    trip <- inferGuarded pcxt b
-   skolemCheck (Just d) (beside id trav) sks (pt, trip)
+   checkSkolems (Just d) (beside id trav) sks (pt, trip)
 
  inferGuarded pcxt gb = do
    bgws <- traverse (inferTypeInScope (d+1) pcxt cxt) gb
@@ -264,7 +265,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   co <- runSharing co0 $ traverse zonk co0
   co' <- simplifyVia cs co
   ((rs', ty'), co'') <-
-    skolemCheck (Just d) (traverse`beside`id`beside`traverse) sks
+    checkSkolems (Just d) (traverse`beside`id`beside`traverse) sks
       ((rs, ty),
         lambda (_Convention # D <$ cs) $
           abstract (fmap fromIntegral . flip elemIndex cs) co')
@@ -282,9 +283,11 @@ checkType d cxt e t = do
 subsumesType :: MonadConstraint (KindM s) s m
              => Depth -> WitnessM s v -> TypeM s -> m (WitnessM s v)
 subsumesType d (Witness rs t1 c) t2 = do
-  (_  , sts, cs, t2') <- skolemize d t2
+  (sks, sts, cs, t2') <- skolemize d t2
   uncaring $ unifyType t1 t2'
   -- TODO: skolem kinds
+  checkDistinct sks
+  checkDistinct sts
   abstractedWitness d sts rs cs t2 c
 
 subsumeAndGeneralize
@@ -292,17 +295,20 @@ subsumeAndGeneralize
   => Depth -> f (WitnessM s v, TypeM s) -> m (f (WitnessM s v))
 subsumeAndGeneralize d wts = do
   mess <- for wts $ \(Witness rs t1 c, t2) -> do
-            (_  , sts, cs, t2') <- skolemize d t2
-            t2'' <-  withSharing (unifyType t1) t2'
-            return (sts, rs, cs, t2'', c)
+    (sks, sts, cs, t2') <- skolemize d t2
+    t2'' <-  withSharing (unifyType t1) t2'
+    checkDistinct sks
+    checkDistinct sts
+    return (sts, rs, cs, t2'', c)
+  -- TODO: skolem kinds
   for mess $ \(sts, rs, cs0, ty, co0) -> do
-       checkSkolemEscapes d sts
-       cs <- withSharing (traverse zonk) cs0
-       co <- withSharing (traverse zonk) co0
-       co' <- simplifyVia cs co
-       generalizeWitnessType d . Witness rs (cs ==> ty) $
-         lambda (_Convention # D <$ cs) $
-           abstract (fmap fromIntegral . flip elemIndex cs) co'
+    checkEscapes d sts
+    cs <- withSharing (traverse zonk) cs0
+    co <- withSharing (traverse zonk) co0
+    co' <- simplifyVia cs co
+    generalizeWitnessType d . Witness rs (cs ==> ty) $
+      lambda (_Convention # D <$ cs) $
+        abstract (fmap fromIntegral . flip elemIndex cs) co'
 
 cabs :: Eq a => [a] -> Var b a -> Maybe Word64
 cabs cls (F ty) = fromIntegral <$> elemIndex ty cls
@@ -414,8 +420,8 @@ literalType Integer{} = Type.integer
 skolemize :: MonadMeta s m
           => Depth -> TypeM s -> m ([MetaK s], [MetaT s], [TypeM s], TypeM s)
 skolemize _ (Forall ks ts cs bd) = do
-  sks <- for ks $ newSkolem False
-  sts <- for ts $ \ht -> (newSkolem ?? void ht) . instantiateVars sks . extract $ ht
+  sks <- for ks $ newMeta False
+  sts <- for ts $ \ht -> (newMeta ?? void ht) . instantiateVars sks . extract $ ht
   let inst = instantiateKindVars sks . instantiateVars sts
   (rs, tcs) <- unfurlConstraints $ inst cs
   unless (null rs) $
@@ -479,7 +485,7 @@ inferPatternType _ (LitP l) =
 -- E : forall (x : *). x -> E
 inferPatternType d (ConP g ps)
   | g^.name == "E" =
-    newShallowSkolem d star (stringHint "e") >>= \x ->
+    newShallowMeta d star (stringHint "e") >>= \x ->
     case ps of
       [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p

@@ -100,15 +100,17 @@ inferKind (App f x) = do
   b <$ checkKind x a
 inferKind (And cs) = constraint <$ traverse_ (checkKind ?? constraint) cs
 inferKind (Exists n tks cs) = do
-  sks <- for n $ newSkolem False
+  sks <- for n $ newMeta False
   let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks $ instantiateVars btys cs) constraint
+  -- TODO: check mutually exclusive sks?
   return constraint
 inferKind (Forall n tks cs b) = do
-  sks <- for n $ newSkolem False
+  sks <- for n $ newMeta False
   let btys = instantiateVars sks . extract <$> tks
   checkKind (instantiateKindVars sks (instantiateVars btys cs)) constraint
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
+  -- TODO: check mutually exclusive sks?
   return star
 
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
@@ -158,7 +160,7 @@ checkDataTypeGroup dts = do
  where
  closeKinds (sks, dt) = do
    dt' <- zonkDataType dt
-   let fvs = nub . toListOf (kindVars . filtered (isn't _Skolem)) $ dt'
+   let fvs = nub . toListOf kindVars $ dt'
        offset = length sks
        f (F m) | Just i <- m `elemIndex` fvs = pure . B $ i + offset
                | Just i <- m `elemIndex` sks = pure . B $ i + offset
@@ -173,7 +175,7 @@ checkDataTypeGroup dts = do
 checkDataTypeKind :: Map Text (DataType (MetaK s) a) -> DataType (MetaK s) Text
                   -> M s ([MetaK s], Schema v)
 checkDataTypeKind m dt = do
-  sks <- for (dt^.kparams) $ newSkolem False
+  sks <- for (dt^.kparams) $ newMeta False
   let Schema _ s = dataTypeSchema dt
       selfKind = instantiateVars sks s
   dt' <- for dt $ \t ->
@@ -185,7 +187,9 @@ checkDataTypeKind m dt = do
   let btys = instantiateVars sks . extract <$> (dt^.tparams)
   for_ (dt'^.constrs) $ \c ->
     checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
+  checkDistinct sks
   (sks,) <$> generalizeOver (setOf (traverse.metaId) sks) selfKind
+  -- TODO: check that sks is mutually exclusive
  where
  refresh (Schema ks s) =
    (instantiateVars ?? s) <$> traverse (newMeta False) ks
@@ -193,7 +197,8 @@ checkDataTypeKind m dt = do
 -- | Checks that the types in a data constructor have sensible kinds.
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
 checkConstructorKind (Constructor _ ks ts fs) = do
-  sks <- for ks $ newSkolem False
+  sks <- for ks $ newMeta False
   let btys = instantiateVars sks . extract <$> ts
   for_ fs $ \fld ->
     checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
+  checkDistinct sks

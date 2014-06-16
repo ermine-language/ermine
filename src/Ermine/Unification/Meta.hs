@@ -23,26 +23,23 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- Skolem and Meta variables
+-- Meta variables
 --------------------------------------------------------------------
 module Ermine.Unification.Meta
   (
   -- * Meta variables
-    Meta(Meta,Skolem)
+    Meta(Meta)
   , metaId, metaValue, metaRef, metaHint
   -- * Meta Types
   , MetaT, TypeM
   -- * Meta Kinds
   , MetaK, KindM
-  -- ** Meta Prisms
-  , _Skolem
   -- ** λ-Depth
   , Depth, metaDepth, depthInf
   -- ** Union-By-Rank
   , Rank, metaRank, bumpRank
   -- ** Working with Meta
   , newMeta, newShallowMeta
-  , newSkolem, newShallowSkolem
   , readMeta
   , writeMeta
   -- ** Pruning
@@ -52,6 +49,10 @@ module Ermine.Unification.Meta
   , zonkWith
   , zonkScope
   , zonkScope_
+  , hasSkolems
+  , checkSkolems
+  , checkEscapes
+  , checkDistinct
   -- * MetaEnv
   , MetaEnv
   , HasMetaEnv(..)
@@ -68,6 +69,7 @@ import Bound
 import Control.Applicative
 import Control.Exception
 import Control.Lens
+import Data.IntSet.Lens (setOf)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
@@ -78,10 +80,12 @@ import Control.Monad.Trans
 import Control.Monad.State.Lazy as Lazy
 import Control.Monad.State.Strict as Strict
 import Control.Monad.Writer.Class
+import Data.Foldable (for_, traverse_)
 import Data.Function (on)
 import Data.IntMap
 import Data.Monoid
 import Data.STRef
+import qualified Data.Set as Set
 import Data.Text (pack)
 import Data.Traversable
 import Data.Word
@@ -99,6 +103,7 @@ import Ermine.Unification.Sharing
 ------------------------------------------------------------------------------
 -- Meta
 ------------------------------------------------------------------------------
+
 
 -- | Kuan and MacQueen's notion of λ-ranking.
 type Depth = Int
@@ -128,11 +133,6 @@ data Meta s f a
            , _metaRef :: !(STRef s (Maybe (f (Meta s f a))))
            , _metaDepth :: !(STRef s Depth)
            , _metaRank :: !(STRef s Rank)
-           }
-  | Skolem { _metaValue :: a
-           , _metaHint :: Hint
-           , _metaId :: !Int
-           , _metaDepth :: !(STRef s Depth)
            }
 
 makeLenses ''Meta
@@ -168,12 +168,6 @@ instance HasRendering (MetaEnv s) where
 -- More Meta
 ------------------------------------------------------------------------------
 
--- | This 'Prism' matches 'Skolem' variables.
-_Skolem :: Prism' (Meta s f a) (a, Hint, Int, STRef s Depth)
-_Skolem = prism (\(a,h,i,d) -> Skolem a h i d) $ \t -> case t of
-  Skolem a h i d -> Right (a, h, i, d)
-  _ -> Left t
-
 {-
 _Meta :: Prism (Meta s f a)
                (Meta s g a)
@@ -187,8 +181,6 @@ _Meta = prism (\(a,i,r,k,u) -> Meta a i r k u) $ \t -> case t of
 instance Show a => Show (Meta s f a) where
   showsPrec d (Meta a _ i _ _ _) = showParen (d > 10) $
     showString "Meta " . showsPrec 11 a . showChar ' ' . showsPrec 11 i . showString " ..."
-  showsPrec d (Skolem a _ i _) = showParen (d > 10) $
-    showString "Skolem " . showsPrec 11 a . showChar ' ' . showsPrec 11 i
 
 instance Eq (Meta s f a) where
   (==) = (==) `on` view metaId
@@ -215,26 +207,14 @@ newShallowMeta d a h =
            <*> liftST (newSTRef 0)
 {-# INLINE newShallowMeta #-}
 
--- | Construct a new Skolem variable that unifies only with itself.
-newSkolem :: MonadMeta s m => a -> Hint -> m (Meta s f a)
-newSkolem a h = Skolem a h <$> fresh <*> liftST (newSTRef depthInf)
-{-# INLINE newSkolem #-}
-
--- | Construct a new Skolem variable at a given depth
-newShallowSkolem :: MonadMeta s m => Depth -> a -> Hint -> m (Meta s f a)
-newShallowSkolem d a h = Skolem a h <$> fresh <*> liftST (newSTRef d)
-{-# INLINE newShallowSkolem #-}
-
 -- | Read a meta variable
 readMeta :: MonadMeta s m => Meta s f a -> m (Maybe (f (Meta s f a)))
 readMeta (Meta _ _ _ r _ _) = liftST $ readSTRef r
-readMeta Skolem{} = return Nothing
 {-# INLINE readMeta #-}
 
 -- | Write to a meta variable
 writeMeta :: MonadMeta s m => Meta s f a -> f (Meta s f a) -> m ()
 writeMeta (Meta _ _ _ r _ _) a = liftST $ writeSTRef r (Just a)
-writeMeta Skolem{} _   = fail "writeMeta: skolem"
 {-# INLINE writeMeta #-}
 
 -- | Path-compression
@@ -281,6 +261,41 @@ zonkScope (Scope e) = Scope <$> (traverse.traverse) zonk e
 zonkScope_ :: (MonadMeta s m, Traversable f, Monad f)
            => Scope b f (Meta s f a) -> m (Scope b f (Meta s f a))
 zonkScope_ (Scope e) = Scope <$> (traverse.traverse) zonk_ e
+
+-- | Check for escaped Skolem variables in any container full of types.
+--
+-- Dies due to an escaped Skolem or returns the container with all of its types fully zonked.
+checkSkolems
+  :: MonadMeta s m
+  => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
+checkSkolems md trav sks ts = do
+  for_ md $ checkEscapes ?? sks
+  hasSkolems trav sks ts
+
+-- | Checks if any of the listed skolems exists in the types given in the
+-- traversal.
+hasSkolems :: (Traversable f, Monad f, MonadMeta s m) => LensLike' m ts (f (Meta s f a)) -> [Meta s f a] -> ts -> m ts
+hasSkolems trav sks = trav $ \t -> runSharing t $ zonkWith t tweak
+ where
+ skids = setOf (traverse.metaId) sks
+ tweak v = when (has (ix $ v^.metaId) skids) $ fail "returning skolem"
+
+-- | Checks if any of the skolems in the list escapes into the context defined
+-- by the given depth.
+checkEscapes
+  :: MonadMeta s m
+  => Depth -> [Meta s f a] -> m ()
+checkEscapes d =
+  traverse_ $ \s -> liftST (readSTRef $ s^.metaDepth) >>= \d' ->
+  when (d' < d) $ fail "skolem escapes to environment"
+
+checkDistinct
+  :: (Traversable f, Monad f, Variable f, MonadMeta s m)
+  => [Meta s f a] -> m ()
+checkDistinct xs = do
+  ys <- for xs $ withSharing zonk . return
+  zs <- for ys $ maybe (fail "bound skolem") pure . preview _Var
+  unless (Set.size (Set.fromList zs) == length zs) $ fail "indistinct skolems"
 
 ------------------------------------------------------------------------------
 -- Result

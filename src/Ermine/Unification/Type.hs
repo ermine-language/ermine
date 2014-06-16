@@ -16,9 +16,6 @@ module Ermine.Unification.Type
   ( unifyType
   , zonkKindsAndTypes
   , zonkKindsAndTypesWith
-  , skolemCheck
-  , checkSkolemEscapes
-  , hasSkolems
   ) where
 
 import Control.Applicative
@@ -106,34 +103,6 @@ zonkKindsAndTypesWith fs0 tweakKind tweakType = go fs0 where
         r <$ writeMeta m r
 {-# INLINE zonkKindsAndTypesWith #-}
 
-
--- | Check for escaped Skolem variables in any container full of types.
---
--- Dies due to an escaped Skolem or returns the container with all of its types fully zonked.
-skolemCheck
-  :: MonadMeta s m
-  => Maybe Depth -> LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
-skolemCheck md trav sks ts = do
-  for_ md $ checkSkolemEscapes ?? sks
-  hasSkolems trav sks ts
-
--- | Checks if any of the skolems in the list escapes into the context defined
--- by the given depth.
-checkSkolemEscapes
-  :: MonadMeta s m
-  => Depth -> [MetaT s] -> m ()
-checkSkolemEscapes d =
-  traverse_ $ \s -> liftST (readSTRef $ s^.metaDepth) >>= \d' ->
-  when (d' < d) $ fail "skolem escapes to environment"
-
--- | Checks if any of the listed skolems exists in the types given in the
--- traversal.
-hasSkolems :: MonadMeta s m => LensLike' m ts (TypeM s) -> [MetaT s] -> ts -> m ts
-hasSkolems trav sks = trav $ \t -> runSharing t $ zonkWith t tweak
- where
- skids = setOf (traverse.metaId) sks
- tweak v = when (has (ix $ v^.metaId) skids) $ fail "returning skolem"
-
 -- | Unify two types, with access to a visited set, logging via 'MonadWriter' whether or not the answer differs from the first type argument.
 --
 -- This returns the result of unification with any modifications expanded, as we calculated it in passing
@@ -170,22 +139,25 @@ unifyType t1 t2 = do
       | m /= n                 = fail "unifyType: forall: mismatched kind arity"
       | length xs /= length ys = fail "unifyType: forall: mismatched type arity"
       | otherwise = do
-        (sts, Any modified) <- listen $ do
-          sks <- for m $ newSkolem False
+        ((sts, sks), Any modified) <- listen $ do
+          sks <- for m $ newMeta False
           let nxs = instantiateVars sks <$> fmap extract xs
               nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind x y
-            newSkolem k noHint
+            newMeta k noHint
           _ <- unifyType (instantiateKindVars sks (instantiateVars sts a))
                          (instantiateKindVars sks (instantiateVars sts b))
-          return sts
+          return (sts, sks)
         -- checking skolem escapes here is important for cases like:
         --  ((f : some b r. (forall a. a -> b) -> r)
         --   (g : some a r. (forall b. a -> b) -> r) ->
         --     ((x y -> x) : some a. a -> a -> a) f g)
         if modified
-         then fst <$> skolemCheck Nothing both sts (t, t')
+         then do
+           checkDistinct sts
+           checkDistinct sks
+           fst <$> checkSkolems Nothing both sts (t, t')
          else return t
     go t@(HardType x) (HardType y) | x == y = return t
     go _ _ = fail "type mismatch"

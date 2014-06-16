@@ -81,11 +81,11 @@ generalizeOver sks k0 = do
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
   return $ Schema (replicate n $ Unhinted ()) (Scope r)
   where
-   go s@Skolem{}
-     | not $ sks^.contains (s^.metaId) = StateT $ \ _ -> fail "escaped skolem"
-   go m = StateT $ \imn@(im, n) -> case im^.at i of
-     Just b  -> return (B b, imn)
-     Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
+   go m
+    | not $ sks^.contains (m^.metaId) = StateT $ \ _ -> fail "escaped skolem"
+    | otherwise = StateT $ \imn@(im, n) -> case im^.at i of
+       Just b  -> return (B b, imn)
+       Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
     where i = m ^. metaId
 
 -- | Returns the a unified form if different from the left argument.
@@ -148,5 +148,4 @@ unifyKindVar
   :: (MonadMeta s m, MonadWriter Any m)
   => MetaK s -> KindM s -> m (KindM s)
 unifyKindVar (Meta _ _ i r d _) kv = unifyKV True i r d kv $ return ()
-unifyKindVar Skolem{} _ = fail "unifyKindVar: Skolem"
 {-# INLINE unifyKindVar #-}
