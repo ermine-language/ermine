@@ -15,6 +15,7 @@ module Ermine.Parser.Data
   ) where
 
 import Bound
+import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
 import Data.List
@@ -36,7 +37,7 @@ abstractSimple :: Eq v => [v] -> v -> Var Int v
 abstractSimple l v = maybe (F v) B $ elemIndex v l
 
 -- | Parse a data constructor
-constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe Text) Text)
+constr :: (Monad m, TokenParsing m) => m (Constructor (Maybe Text) (Var Text Text))
 constr = build . fromMaybe ([], [])
      <$> optional (quantifier "forall")
      <*> globalIdent termCon
@@ -44,7 +45,7 @@ constr = build . fromMaybe ([], [])
  where
  build (ks, ts) g as = Constructor g (map stringHint ks) ts' as'
   where
-  ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ stringHint tn) ts
+  ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ unvar stringHint stringHint tn) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
 -- | Data a data declaration
@@ -54,12 +55,13 @@ dataType = build <$ symbol "data"
        <*> typVarBindings
        <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
- build nm ts cs = over kindVars semiClosed $ DataType nm (map stringHint ks) ts' cs'
+ build nm ts cs = bimap semiClosedKind semiClosedType $ DataType nm (map stringHint ks) ts' cs'
   where
   ks  = nub . catMaybes $ toListOf kindVars (snd <$> ts, cs)
   jks = Just <$> ks
-  ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ stringHint tn) ts
+  ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ unvar stringHint stringHint tn) ts
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
-  semiClosed (Just _) = error "dataType: Impossible"
-  semiClosed Nothing  = ()
-
+  semiClosedKind (Just _) = error "dataType: Impossible kind"
+  semiClosedKind Nothing  = ()
+  semiClosedType (B x) = x
+  semiClosedType (F _) = error "dataType: Impossible type"

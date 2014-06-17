@@ -24,6 +24,7 @@ module Ermine.Console.Command
   ) where
 
 import Bound
+import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
 import Control.Monad.IO.Class
@@ -151,12 +152,12 @@ parsing p k args s = case parseString (p <* eof) mempty s of
   Success a   -> k args a
   Failure doc -> sayLn doc
 
-kindBody :: [String] -> Type (Maybe Text) Text -> Console ()
+kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args s = do
   gk <- ioM mempty $ do
     tm <- prepare (newMeta False noHint)
                   (newMeta False . stringHint)
-                  (fmap pure . newMeta False . stringHint)
+                  (fmap pure . newMeta False . unvar stringHint stringHint)
                   s
     k <- inferKind tm
     generalize k
@@ -269,7 +270,7 @@ echoBody args =
      disp = procArgs args $
               ("pretty", sayLn . (prettySchema ?? names))
           :| [("ugly", liftIO . putStrLn . groom)]
-    "type" -> parsing typ (const $ disp . Type.abstractAll stringHint stringHint) args
+    "type" -> parsing typ (const $ disp . Type.abstractAll stringHint (unvar stringHint stringHint)) args
      where
      disp = procArgs args $
               ("pretty", pt)

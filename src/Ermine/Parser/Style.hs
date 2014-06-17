@@ -32,6 +32,15 @@ import Text.Parser.Token
 import Text.Parser.Token.Highlight
 import Text.Parser.Token.Style
 
+variable :: TokenParsing m => IdentifierStyle m
+variable = IdentifierStyle
+        { _styleName = "variable"
+        , _styleStart = lower
+        , _styleLetter = alphaNum <|> oneOf "_'"
+        , _styleReserved = HashSet.empty
+        , _styleHighlight = Identifier
+        , _styleReservedHighlight = ReservedIdentifier
+        }
 
 baseIdent, termIdent, typeIdent, kindIdent :: TokenParsing m => IdentifierStyle m
 
@@ -44,7 +53,7 @@ baseIdent = haskellIdents & styleReserved .~ keywords
 termIdent = baseIdent & styleName .~ "term variable"
 
 -- | The identifier style for type variables.
-typeIdent = baseIdent & styleName .~ "type variable"
+typeIdent = variable & styleName .~ "type variable"
 
 -- | The identifier style for kind variables.
 kindIdent = baseIdent & styleName .~ "kind variable"
@@ -71,9 +80,9 @@ op = haskellOps
 operator :: (Monad m, TokenParsing m) => m Text
 operator = ident op
 
-capital :: TokenParsing m => IdentifierStyle m
-capital = IdentifierStyle
-        { _styleName = "capital"
+constructor :: TokenParsing m => IdentifierStyle m
+constructor = IdentifierStyle
+        { _styleName = "constructor"
         , _styleStart = upper
         , _styleLetter = alphaNum <|> oneOf "_'"
         , _styleReserved = HashSet.empty
@@ -83,8 +92,8 @@ capital = IdentifierStyle
 
 -- | Specifies the data constructor identifier style
 termCon :: TokenParsing m => IdentifierStyle m
-termCon = capital & styleName .~ "term constructor"
+termCon = constructor & styleName .~ "term constructor"
 
 -- | Specifies the type constructor identifier style
 typeCon :: TokenParsing m => IdentifierStyle m
-typeCon = capital & styleName .~ "type constructor"
+typeCon = constructor & styleName .~ "type constructor"
