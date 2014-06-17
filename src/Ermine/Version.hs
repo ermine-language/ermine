@@ -37,14 +37,15 @@ logos :: IO String
 logos = do
   let txt = filter ((>3).length)
           . splitOn [""] . lines . toString $ $(embedFile $ "etc" </> "logos.txt")
-  nm:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
+  small:xs@(l1:l2:l3:l4:rest) <- (txt !!) <$> randomRIO (0, length txt - 1)
   let n = maximum (map length xs)
   let pad ys = ys ++ replicate (n - length ys) ' '
+      (nm, slogan) = drop 1 <$> break (';'==) small
   return $ unlines $
     [ l1
     , pad l2 ++ ' ' : nm ++ ' ' : version
     , l3
-    , l4
+    , pad l4 ++ slogan
     ] ++ rest
 
 rat :: String
