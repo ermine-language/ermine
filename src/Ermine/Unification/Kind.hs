@@ -14,7 +14,6 @@ module Ermine.Unification.Kind
   , unifyKindVar
   , kindOccurs
   , generalize
-  , generalizeOver
   ) where
 
 import Bound
@@ -24,7 +23,6 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
-import Data.IntSet as IntSet
 import Data.IntMap as IntMap
 import Data.Set as Set
 import Data.Set.Lens
@@ -39,6 +37,7 @@ import Ermine.Pretty.Kind
 
 -- $setup
 -- >>> :set -XFlexibleContexts -XConstraintKinds -XTypeFamilies -XRankNTypes
+-- >>> :set -XOverloadedStrings
 -- >>> import Ermine.Syntax
 -- >>> import Text.Trifecta.Rendering
 -- >>> import Control.Comonad
@@ -46,11 +45,11 @@ import Ermine.Pretty.Kind
 
 -- | Die with an error message due to a cycle between the specified kinds.
 --
--- >>> test $ do k <- Var <$> newMeta False; unifyKind k (star ~> k)
+-- >>> test $ do k <- Var <$> newMeta False (stringHint "k"); unifyKind k (star ~> k)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = * -> a
 --
--- >>> test $ do k1 <- Var <$> newMeta False; k2 <- Var <$> newMeta False; unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
+-- >>> test $ do k1 <- Var <$> newMeta False (stringHint "k1"); k2 <- Var <$> newMeta False (stringHint "k2"); unifyKind k1 (k1 ~> k2); unifyKind k2 (k1 ~> k2); return (k1 ~> k2)
 -- *** Exception: (interactive):1:1: error: infinite kind detected
 -- cyclic kind: a = a -> b
 kindOccurs
@@ -71,19 +70,14 @@ kindOccurs depth1 k p = zonkWith k tweak where
         Var m <$ when (depth2 > depth1) (writeSTRef d depth1)
 {-# INLINE kindOccurs #-}
 
--- | Generalize a 'Kind', checking for escaped Skolems.
+-- | Generalize a 'Kind'.
 generalize :: MonadMeta s m => KindM s -> m (Schema a)
-generalize = generalizeOver IntSet.empty
-
-generalizeOver :: MonadMeta s m => IntSet -> KindM s -> m (Schema a)
-generalizeOver sks k0 = do
+generalize k0 = do
   k <- runSharing k0 $ zonk k0
   (r,(_,n)) <- runStateT (traverse go k) (IntMap.empty, 0)
   return $ Schema (replicate n $ Unhinted ()) (Scope r)
   where
-   go m
-    | not $ sks^.contains (m^.metaId) = StateT $ \ _ -> fail "escaped skolem"
-    | otherwise = StateT $ \imn@(im, n) -> case im^.at i of
+   go m = StateT $ \imn@(im, n) -> case im^.at i of
        Just b  -> return (B b, imn)
        Nothing -> let n' = n + 1 in n' `seq` return (B n, (im & at i ?~ n, n'))
     where i = m ^. metaId
