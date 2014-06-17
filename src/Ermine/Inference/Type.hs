@@ -266,6 +266,7 @@ abstractedWitness d sks rs cs0 ty co0 = do
   cs <- runSharing cs0 $ traverse zonk cs0
   co <- runSharing co0 $ traverse zonk co0
   co' <- simplifyVia cs co
+  unless (Foldable.all (`Foldable.elem` cs) co') $ fail "undischarged obligation"
   ((rs', ty'), co'') <-
     checkSkolems (Just d) (traverse`beside`id`beside`traverse) sks
       ((rs, ty),
@@ -308,6 +309,7 @@ subsumeAndGeneralize d wts = do
     cs <- withSharing (traverse zonk) cs0
     co <- withSharing (traverse zonk) co0
     co' <- simplifyVia cs co
+    unless (Foldable.all (`Foldable.elem` cs) co') $ fail "undischarged obligation"
     generalizeWitnessType d . Witness rs (cs ==> ty) $
       lambda (_Convention # D <$ cs) $
         abstract (fmap fromIntegral . flip elemIndex cs) co'
