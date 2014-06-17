@@ -148,8 +148,9 @@ inferBindingGroupTypes
   :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
-  bgts <- for bg $ \ b -> instantiateAnnot d star $ fromMaybe anyStar $ b^?bindingType._Explicit
-  witnesses <- for bg $ inferBindingType (d+1) cxt (bgts <> lcxt)
+  bgts <- for bg $ \ b -> let me = b^?bindingType._Explicit in
+    (,) (isJust me) <$> instantiateAnnot d star (fromMaybe anyStar me)
+  witnesses <- for bg $ inferBindingType (d+1) cxt (fmap snd bgts <> lcxt)
   subsumeAndGeneralize d $ Map.intersectionWith (,) witnesses bgts
   -- traverse (generalizeWitnessType d) xs
 
@@ -295,13 +296,13 @@ subsumesType d (Witness rs t1 c) t2 = do
 
 subsumeAndGeneralize
   :: (Traversable f, MonadConstraint (KindM s) s m)
-  => Depth -> f (WitnessM s v, TypeM s) -> m (f (WitnessM s v))
+  => Depth -> f (WitnessM s v, (Bool, TypeM s)) -> m (f (WitnessM s v))
 subsumeAndGeneralize d wts = do
-  mess <- for wts $ \(Witness rs t1 c, t2) -> do
+  mess <- for wts $ \(Witness rs t1 c, (signed, t2)) -> do
     (sks, sts, cs, t2') <- skolemize d t2
     t2'' <-  withSharing (unifyType t1) t2'
-    return (sks, sts, rs, cs, t2'', c)
-  for mess $ \(sks, sts, rs, cs0, ty, co0) -> do
+    return (sks, sts, rs, cs, t2'', signed, c)
+  for mess $ \(sks, sts, rs, cs0, ty, signed, co0) -> do
     sks' <- checkDistinct sks
     sts' <- checkDistinct sts
     checkEscapes d sks'
@@ -309,7 +310,7 @@ subsumeAndGeneralize d wts = do
     cs <- withSharing (traverse zonk) cs0
     co <- withSharing (traverse zonk) co0
     co' <- simplifyVia cs co
-    unless (Foldable.all (`Foldable.elem` cs) co') $ fail "undischarged obligation"
+    unless (not signed || Foldable.all (`Foldable.elem` cs) co') $ fail "undischarged obligation"
     generalizeWitnessType d . Witness rs (cs ==> ty) $
       lambda (_Convention # D <$ cs) $
         abstract (fmap fromIntegral . flip elemIndex cs) co'
