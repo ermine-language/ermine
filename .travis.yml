@@ -21,6 +21,7 @@ before_install:
       export CABAL=cabal-1.18
       export PATH=/opt/ghc/$GHCVER/bin:$PATH
     fi
+  - export PATH=$HOME/.cabal/bin:$PATH
   # Uncomment whenever hackage is down.
   # - mkdir -p ~/.cabal && cp travis/config ~/.cabal/config && $CABAL update
   - $CABAL update
@@ -29,7 +30,6 @@ before_install:
   - |
     if [ $GHCVER = "head" ] || [ $GHCVER = "7.8.2" ]; then
       $CABAL install happy alex
-      export PATH=$HOME/.cabal/bin:$PATH
     fi
   - $CABAL install hlint packdeps packunused --constraint 'packunused >= 0.1.1.2'
 
