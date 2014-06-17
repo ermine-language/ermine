@@ -118,6 +118,7 @@ constraint =
       buildE <$ symbol "exists" <*> quantBindings <* dot <*> constraint
   <|> parens constraints
   <|> apps lame <$ symbol "Lame" <*> many typ0
+  <|> apps fromInteg <$ symbol "FromInteger" <*> many typ0
   -- Single constraints
   <|> Var <$> typeIdentifier
  where buildE (kvs, tvks) =
