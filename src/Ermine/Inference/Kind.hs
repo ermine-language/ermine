@@ -35,7 +35,6 @@ import Control.Monad
 import Control.Monad.State
 import Data.Foldable hiding (concat)
 import Data.Graph (stronglyConnComp, flattenSCC)
-import Data.IntSet.Lens
 import Data.List (nub, elemIndex)
 import qualified Data.Map as Map
 import Data.Map (Map)
@@ -188,7 +187,7 @@ checkDataTypeKind m dt = do
   for_ (dt'^.constrs) $ \c ->
     checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
   checkDistinct sks
-  (sks,) <$> generalizeOver (setOf (traverse.metaId) sks) selfKind
+  (sks,) <$> generalize selfKind
   -- TODO: check that sks is mutually exclusive
  where
  refresh (Schema ks s) =
