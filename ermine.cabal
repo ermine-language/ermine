@@ -221,7 +221,6 @@ library
   if flag(ekg)
     build-depends:
       ekg      >= 0.4 && < 0.5,
-      ekg-core >= 0.1 && < 0.2,
       process  >= 1.2 && < 1.3
     hs-source-dirs: opt/ekg
   else
@@ -273,7 +272,6 @@ executable ermine
     ghc-options: -O0
 
   if flag(ekg)
-    build-depends: ekg
     ghc-options: -with-rtsopts=-T
 
   if !flag(repl)
@@ -322,12 +320,10 @@ test-suite properties
       prelude-extras,
       QuickCheck                 >= 2.4,
       quickcheck-instances       >= 0.3.1,
-      tagged                     >= 0.4.4 && < 1,
       test-framework             >= 0.6,
       test-framework-quickcheck2 >= 0.2,
       test-framework-th          >= 0.2,
       transformers,
-      unordered-containers,
       void                       >= 0.6     && < 1
 
 
@@ -358,15 +354,9 @@ test-suite doctests
   else
     build-depends:
       base,
-      bytestring,
-      containers,
       directory >= 1.0,
       doctest >= 0.9.1,
-      exceptions,
-      file-embed,
-      filepath,
-      groom >= 0.1.1 && < 0.2,
-      mtl
+      filepath
 
   if impl(ghc<7.6.1)
     ghc-options: -Werror
