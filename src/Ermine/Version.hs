@@ -45,7 +45,7 @@ logos = do
     [ l1
     , pad l2 ++ ' ' : nm ++ ' ' : version
     , l3
-    , pad l4 ++ slogan
+    , pad l4 ++ ' ' : slogan
     ] ++ rest
 
 rat :: String
