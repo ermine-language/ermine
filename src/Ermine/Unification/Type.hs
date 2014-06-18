@@ -26,7 +26,6 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Bitraversable
-import Data.Foldable (for_, traverse_)
 import Data.Set as Set
 import Data.IntMap as IntMap
 import Data.Set.Lens

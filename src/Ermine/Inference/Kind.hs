@@ -186,7 +186,7 @@ checkDataTypeKind m dt = do
   let btys = instantiateVars sks . extract <$> (dt^.tparams)
   for_ (dt'^.constrs) $ \c ->
     checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
-  checkDistinct sks
+  void $ checkDistinct sks
   (sks,) <$> generalize selfKind
   -- TODO: check that sks is mutually exclusive
  where
