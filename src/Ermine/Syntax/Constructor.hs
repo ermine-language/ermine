@@ -45,7 +45,7 @@ import Prelude.Extras
 data Constructor k t =
   Constructor { _cname  :: Global
               , _ekinds :: [Hint]
-              , _etypes :: [Hinted (Scope Int Kind k)]
+              , _etypes :: [(Hint, Scope Int Kind k)]
               , _fields :: [Scope Int (TK k) t]
               }
  deriving (Show, Eq, Functor, Foldable, Traversable, Typeable, Generic)
@@ -56,7 +56,7 @@ instance HasGlobal (Constructor k t) where
 ekinds :: Lens' (Constructor k t) [Hint]
 ekinds = lens _ekinds (\c ks -> c { _ekinds = ks })
 
-etypes :: Lens' (Constructor k t) [Hinted (Scope Int Kind k)]
+etypes :: Lens' (Constructor k t) [(Hint, Scope Int Kind k)]
 etypes = lens _etypes (\c ts -> c { _etypes = ts })
 
 fields :: Lens' (Constructor k t) [Scope Int (TK k) t]

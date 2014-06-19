@@ -23,7 +23,7 @@ import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 
 data Class = Class { _kindArgs :: [Hint]
-                   , _typeArgs :: [Hinted (Scope Int Kind Void)]
+                   , _typeArgs :: [(Hint, Scope Int Kind Void)]
                    , _context  :: [Type Void Int]
                    }
 

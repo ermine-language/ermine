@@ -53,7 +53,7 @@ import Prelude.Extras
 data DataType k t =
   DataType { _dtname  :: Global
            , _kparams :: [Hint]
-           , _tparams :: [Hinted (Scope Int Kind k)]
+           , _tparams :: [(Hint, Scope Int Kind k)]
            , _constrs :: [Constructor (Var Int k) (Var Int t)]
            }
   deriving (Show, Eq, Foldable, Traversable, Functor, Typeable, Generic)
@@ -67,10 +67,10 @@ instance HasName (DataType k t) where
 kparams :: Lens' (DataType k t) [Hint]
 kparams = lens _kparams (\dt ks -> dt { _kparams = ks })
 
-tparams :: Lens' (DataType k t) [Hinted (Scope Int Kind k)]
+tparams :: Lens' (DataType k t) [(Hint, Scope Int Kind k)]
 tparams = lens _tparams (\dt ks -> dt { _tparams = ks })
 
-typeParameters :: Traversal' (DataType k t) (Hinted (Scope Int Kind k))
+typeParameters :: Traversal' (DataType k t) ((Hint, Scope Int Kind k))
 typeParameters = tparams.traverse
 
 constrs :: Lens (DataType k t)

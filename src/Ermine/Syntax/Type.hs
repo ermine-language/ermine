@@ -231,9 +231,9 @@ data Type k a
   = Var a
   | App !(Type k a) !(Type k a)
   | HardType !HardType
-  | Forall [Hint] [Hinted (Scope Int Kind k)] (Scope Int (TK k) a) !(Scope Int (TK k) a)
+  | Forall [Hint] [(Hint, Scope Int Kind k)] (Scope Int (TK k) a) !(Scope Int (TK k) a)
   | Loc !Rendering !(Type k a)
-  | Exists [Hint] [Hinted (Scope Int Kind k)] (Scope Int (TK k) a)
+  | Exists [Hint] [(Hint, Scope Int Kind k)] (Scope Int (TK k) a)
   | And [Type k a]
   deriving (Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
 
@@ -640,10 +640,6 @@ instance HasTypeVars s t a b => HasTypeVars (IntMap s) (IntMap t) a b where
 instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
-
--- instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
---   typeVars = traverse.typeVars
---   {-# INLINE typeVars #-}
 
 ------------------------------------------------------------------------------
 -- TK
