@@ -32,9 +32,6 @@ import Test.QuickCheck.Instances
 instance Arbitrary HardKind where
   arbitrary = oneof $ return <$> [ Star, Constraint, Rho, Phi, Unboxed ]
 
-instance Arbitrary a => Arbitrary (Hinted a) where
-  arbitrary = oneof [ Unhinted <$> arbitrary, Hinted <$> arbitrary <*> arbitrary ]
-
 instance Arbitrary a => Arbitrary (Kind a) where
   arbitrary = genKind $ Just arbitrary
 
@@ -128,15 +125,15 @@ genType mgk mgt = sized go
  go n | n <= 0 = HardType <$> arbitrary
       | n > 0  = smaller . oneof $ maybeGen mgt ++
                    [ HardType <$> arbitrary
-                   , Type.App <$> (genType mgk mgt) <*> (genType mgk mgt)
+                   , Type.App <$> genType mgk mgt <*> genType mgk mgt
                    , Forall <$> arbitrary
-                            <*> (listOf (Unhinted <$> genScope arbitrary genKind mgk))
-                            <*> (genScope arbitrary (genTK mgk) mgt)
-                            <*> (genScope arbitrary (genTK mgk) mgt)
+                            <*> listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)
+                            <*> genScope arbitrary (genTK mgk) mgt
+                            <*> genScope arbitrary (genTK mgk) mgt
                    , Exists <$> arbitrary
-                            <*> (listOf (Unhinted <$> genScope arbitrary genKind mgk))
-                            <*> (genScope arbitrary (genTK mgk) mgt)
-                   , And <$> (listOf (genType mgk mgt))
+                            <*> listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)
+                            <*> genScope arbitrary (genTK mgk) mgt
+                   , And <$> listOf (genType mgk mgt)
                    ]
 
 -- | A simple combinator to generate TKs, as Types.
@@ -281,13 +278,13 @@ instance (Arbitrary k, Arbitrary t) => Arbitrary (DataType k t) where
 genConstructor :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (Constructor.Constructor k t)
 genConstructor mgk mgt =
   smaller $ Constructor.Constructor <$> arbitrary <*>  arbitrary <*>
-    (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
+    (listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)) <*>
     (listOf (genScope arbitrary (genTK mgk) mgt))
 
 genDataType :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (DataType k t)
 genDataType mgk mgt =
   smaller $ DataType <$> arbitrary <*> arbitrary <*>
-    (listOf (Unhinted <$> genScope arbitrary genKind mgk)) <*>
+    (listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)) <*>
     (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
 
 instance Arbitrary Module where
@@ -305,7 +302,6 @@ instance Arbitrary a => Arbitrary1 ((,) a)
 instance Arbitrary1 Maybe
 instance Arbitrary1 []
 instance Arbitrary a => Arbitrary1 (Either a)
-instance Arbitrary1 Hinted
 instance Arbitrary1 Kind
 instance Arbitrary cc => Arbitrary1 (Core cc)
 instance Arbitrary k => Arbitrary1 (Type k)
