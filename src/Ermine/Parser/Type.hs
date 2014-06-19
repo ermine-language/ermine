@@ -26,9 +26,7 @@ module Ermine.Parser.Type
 import Bound
 import Bound.Var
 import Control.Applicative
-import Control.Lens (folded, filtered, to, (^..), (<&>), beside, forOf)
-import Control.Monad.State.Strict
-import Data.List (elemIndex)
+import Control.Lens (folded, filtered, to, (^..))
 import Data.Text (Text)
 import Data.Traversable (for)
 import Ermine.Builtin.Type
@@ -41,7 +39,7 @@ import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type Ann = Annot Text Text
+type Ann = Annot Text
 type Typ = Type (Maybe Text) (Var Text Text)
 
 banana :: (Monad m, TokenParsing m) => m a -> m a
@@ -75,10 +73,13 @@ typ2 = chainr1 typ1 ((~~>) <$ symbol "->")
 --   typVarBinding ::= ( ident : kind )
 --                   | ident
 typVarBinding :: (Monad m, TokenParsing m) => m ([Text], Kind (Maybe Text))
-typVarBinding = flip (,) unk <$> some typeIdentifier
+typVarBinding = flip (,) unk <$> simpleTypVarBinding
             <|> parens ((,) <$> some typeIdentifier <* colon <*> (fmap Just <$> kind))
  where
  unk = pure Nothing
+
+simpleTypVarBinding :: (Monad m, TokenParsing m) => m [Text]
+simpleTypVarBinding = some typeIdentifier
 
 -- | Parses a series of type var bindings, processing the result to a more
 -- usable format.
@@ -155,21 +156,10 @@ anyTyp = typ
 
 annotation :: (Monad m, TokenParsing m) => m Ann
 annotation = do
-  xs <- build <$> optional (symbol "some" *> someTypVarBindings <* dot) <*> typ
+  xs <- build <$> optional (symbol "some" *> some typeIdentifier <* dot) <*> typ
   for xs $ unvar (\x -> fail $ "bound variable in annotation: " ++ show x) pure
  where
- build Nothing    t = annot (quant [] t)
- build (Just vks) t =
-   Annot (replicate n noHint) (fmap toScope <$> hks') $ abstract (`elemIndex` vs) $ b'
-  where
-  vs = map fst vks
-  hks = vks <&> \(v,k) -> k <$ unvar stringHint stringHint v
-
-  ((hks', b'),n) =
-    flip runState 0 . forOf (beside kindVars kindVars) (hks, quant vs t) $ \case
-      Just k -> pure $ F k
-      Nothing -> state $ \i -> (B i, i+1)
-
- quant ss t = forall maybeHint (unvar stringHint stringHint) [] ts (And []) t
-  where ts = t^..folded.filtered (`notElem` ss).to (, pure Nothing)
-
+   build mvs t = annot stringHint (unvar stringHint stringHint) [] vs (quant vs t)
+     where vs = maybe [] (fmap B) mvs
+   quant ss t = forall maybeHint (unvar stringHint stringHint) [] ts (And []) t
+     where ts = t^..folded.filtered (`notElem` ss).to (, pure Nothing)

@@ -47,6 +47,7 @@ module Ermine.Syntax.Type
   , bindType
   , bindTK
   , closedType
+  , bimemoverse
   , memoverse
   , abstractAll
   -- * Type Variables
@@ -67,7 +68,7 @@ import Control.Applicative
 import Control.Comonad
 import Control.Monad.Identity
 import Control.Monad.Trans
-import Control.Monad.State hiding (put, get)
+import Control.Monad.State as State
 import Data.Bifunctor
 import Data.Bifoldable
 import qualified Data.Binary as Binary
@@ -103,7 +104,7 @@ import Ermine.Syntax.Global
 import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
-import GHC.Generics
+import GHC.Generics hiding (to)
 import Prelude.Extras
 
 #ifdef HLINT
@@ -447,7 +448,7 @@ instance (Binary k, Binary t) => Binary (Type k t) where
 -- order if necessary. The map should only contain bindings v -> k where
 -- k is less than the size of the map.
 --
--- Now augmented to generate hints for the chozen variables.
+-- Now augmented to generate hints for the chosen variables.
 abstractM :: (MonadState s m, Ord v) => Lens' s (Map v Int) -> v -> m Int
 abstractM l v = use l >>= \m -> case m ^. at v of
   Just i  -> return i
@@ -700,7 +701,7 @@ abstractKinds f = first k where
 abstractAll :: (Ord k, Ord a)
             => (k -> Hint) -> (a -> Hint)
             -> Type (Maybe k) a -> (Scope Int (TK ()) b, ([Hint], [Hint]))
-abstractAll kh th = flip runState ([], []) . fmap Scope . memoverse kv tv
+abstractAll kh th = flip runState ([], []) . fmap Scope . bimemoverse kv tv
  where
  kv Nothing = pure $ F ()
  kv (Just s) = B . length <$> (_1 <<%= (kh s:))
@@ -725,10 +726,10 @@ instantiateKindVars as = first (unvar (as!!) id)
 -- | A version of bitraverse that only runs the functions in question once for
 -- each distinct value in the traversable container, remembering the result on
 -- the first run, and reusing it.
-memoverse :: (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
+bimemoverse :: (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
           => (k -> f l) -> (a -> f b)
           -> t k a -> f (t l b)
-memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed _1 knd) (memoed _2 typ)
+bimemoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed _1 knd) (memoed _2 typ)
  where
  memoed :: (Ord v, Monad f) => Lens' s (Map v u) -> (v -> f u) -> v -> StateT s f u
  memoed l g v = use l >>= \m -> case m ^. at v of
@@ -737,139 +738,84 @@ memoverse knd typ = flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed 
                  l.at v ?= v'
                  return v'
 
+memoverse :: (Traversable t, Applicative f, Monad f, Ord a)
+          => (a -> f b)
+          -> t a -> f (t b)
+memoverse typ = flip evalStateT Map.empty . traverse (memoed typ)
+ where
+ -- memoed :: (Ord v, Monad f) => (v -> f u) -> v -> StateT s f u
+ memoed g v = State.get >>= \m -> case m ^. at v of
+   Just v' -> return v'
+   Nothing -> do v' <- lift (g v)
+                 at v ?= v'
+                 return v'
+
 ------------------------------------------------------------------------------
 -- Annot
 ------------------------------------------------------------------------------
 
 -- | A type annotation
-data Annot k a = Annot [Hint] [Hinted (Scope Int Kind k)] !(Scope Int (TK k) a)
+data Annot a = Annot [Hint] [Hint] !(Scope Int (Type Int) a)
   deriving Show
 
-annot :: Type (Maybe k) a -> Annot k a
-annot t = Annot (replicate n noHint) [] $ lift t'
+annot :: (Ord k, Ord a)
+      => (k -> Hint)
+      -> (a -> Hint)
+      -> [k]
+      -> [a]
+      -> Type (Maybe k) a -> Annot a
+annot hk ht sks sts t
+ = Annot (replicate n noHint ++ map hk sks) (map ht sts) $ abstract (`elemIndex` sts) t''
  where
- (t', n) = flip runState 0 . forOf kindVars t $ \case
-   Just k -> pure $ F k
-   Nothing -> state $ \i -> (B i, i+1)
+   -- t' :: Type (Var Int k) a = TK k a
+   (t', n) = runState (kindVars ak t) 0
+   ak (Just k) = pure $ case elemIndex k sks of
+     Nothing -> F k
+     Just i  -> B $ n+i -- tied the knot
+   ak Nothing = state $ \i -> let i' = i + 1 in i' `seq` (B i, i')
+   -- t'' :: Type Int a
+   t'' = forall (unvar (const noHint) hk) ht (t'^..kindVars._F.to F) [] (And []) t' &
+     kindVars %~ unvar id (error "impossibru")
 {-# INLINE annot #-}
 
-instance Functor (Annot k) where
+instance Functor Annot where
   fmap f (Annot ks tks b) = Annot ks tks (fmap f b)
   {-# INLINE fmap #-}
 
-instance Foldable (Annot k) where
+instance Foldable Annot where
   foldMap f (Annot _ _ b) = foldMap f b
   {-# INLINE foldMap #-}
 
-instance Traversable (Annot k) where
+instance Traversable Annot where
   traverse f (Annot ks tks b) = Annot ks tks <$> traverse f b
   {-# INLINE traverse #-}
 
-instance Bifunctor Annot where
-  bimap = bimapDefault
-  {-# INLINE bimap #-}
-
-instance Bifoldable Annot where
-  bifoldMap = bifoldMapDefault
-  {-# INLINE bifoldMap #-}
-
-instance Bitraversable Annot where
-  bitraverse f g (Annot ks tks b) =
-    Annot ks <$> (traverse.traverse.traverse) f tks <*> bitraverseScope (_F f) g b
-  {-# INLINE bitraverse #-}
-
-instance HasKindVars (Annot k a) (Annot k' a) k k' where
-  kindVars f (Annot ks tks t) =
-    Annot ks <$> (traverse.traverse.kindVars) f tks
-             <*> bitraverseScopeTK f pure t
-  {-# INLINE kindVars #-}
-
-instance HasTypeVars (Annot k a) (Annot k a') a a' where
+instance HasTypeVars (Annot a) (Annot a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
-{-
-instance Fun (Annot k) where
-  _Fun = prism hither yon
-    where
-    hither (Annot ks (Scope s), Annot ls t) = Annot (ks ++ ls) $
-      let Scope t' = mapBound (+ length ks) t
-      in Scope (s ~> t')
-    yon t@(Annot ks s) = case fromScope s of
-      App (App (HardType Arrow) l) r ->
-        case (maximumOf (traverse._B) l, minimumOf (traverse._B) r) of
-          (Nothing, Nothing) ->
-            Right (Annot [] (toScope l), Annot [] (toScope r))
-          (Nothing, Just 0)  ->
-            Right (Annot [] (toScope l), Annot ks (toScope r))
-          (Just m, Nothing)  | length ks == m + 1 ->
-            Right (Annot ks (toScope l), Annot [] (toScope r))
-          (Just m, Just o)   | m == o - 1 ->
-            let (ls, rs) = splitAt o ks in
-            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped._B -~ o)))
-          _                               -> Left t
-      _                                 -> Left t
-
-instance App (Annot k) where
-  _App = prism hither yon
-    where
-    hither (Annot ks tks (Scope s), Annot ls tls t) =
-      Annot (ks ++ ls) (tks ++ tls') $ Scope (App s t')
-     where
-     nk = length ks
-     tls' = fmap (mapBound (+ nk)) <$> tls
-     Scope t' = hoistScope (over (kindVars._B) (+nk)) . mapBound (+ length tks) $ t
-    yon t@(Annot ks tks s) = case fromScope s of
-    yon t@(Annot ks tks s) = case fromScope s of
-      App l r ->
-        case (maximumOf (traverse._B) l, minimumOf (traverse._B) r) of
-          (Nothing, Nothing) ->
-            Right (Annot [] (toScope l), Annot [] (toScope r))
-          (Nothing, Just 0) ->
-            Right (Annot [] (toScope l), Annot ks (toScope r))
-          (Just m, Nothing) | length ks == m + 1 ->
-            Right (Annot ks (toScope l), Annot [] (toScope r))
-          (Just m, Just o) | m == o - 1 ->
-            let (ls, rs) = splitAt o ks in
-            Right (Annot ls (toScope l), Annot rs (toScope (r & mapped._B -~ o)))
-          _                               -> Left t
-      _                                 -> Left t
--}
-
-instance Variable (Annot k) where
-  _Var = prism (annot . return) $ \ t@(Annot _ _ (Scope b)) -> case b of
+instance Variable Annot where
+  _Var = prism (Annot [] [] . return) $ \ t@(Annot _ _ (Scope b)) -> case b of
     Var (F (Var k)) -> Right k
     _               -> Left  t
   {-# INLINE _Var #-}
 
-instance Typical (Annot k a) where
-  hardType = prism (annot . review hardType) $ \ t@(Annot _ _ (Scope b)) -> case b of
+instance Typical (Annot a) where
+  hardType = prism (Annot [] [] . lift . review hardType) $ \ t@(Annot _ _ (Scope b)) -> case b of
     HardType a           -> Right a
     Var (F (HardType a)) -> Right a
     _                    -> Left t
   {-# INLINE hardType #-}
 
-instance Serial2 Annot where
-  serializeWith2 pk pt (Annot ks tks s) =
-    serialize ks *>
-    serializeWith (serializeWith $ serializeScope3 serialize serializeWith pk) tks *>
-    serializeScope3 serialize (serializeTK pk) pt s
+instance Serial1 Annot where
+  serializeWith pt (Annot ks ts s) = serialize ks *> serialize ts *> serializeWith pt s
+  deserializeWith gt = Annot <$> deserialize <*> deserialize <*> deserializeWith gt
 
-  deserializeWith2 gk gt =
-    Annot <$> deserialize
-          <*> deserializeWith
-                (deserializeWith $ deserializeScope3 deserialize deserializeWith gk)
-          <*> deserializeScope3 deserialize (deserializeTK gk) gt
-
-instance Serial t => Serial1 (Annot t) where
-  serializeWith = serializeWith2 serialize
-  deserializeWith = deserializeWith2 deserialize
-
-instance (Serial t, Serial v) => Serial (Annot t v) where
+instance Serial a => Serial (Annot a) where
   serialize = serializeWith serialize
   deserialize = deserializeWith deserialize
 
-instance (Binary k, Binary t) => Binary (Annot k t) where
-  put = serializeWith2   Binary.put Binary.put
-  get = deserializeWith2 Binary.get Binary.get
+instance Binary a => Binary (Annot a) where
+  put = serializeWith   Binary.put
+  get = deserializeWith Binary.get
 
