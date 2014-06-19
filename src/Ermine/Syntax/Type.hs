@@ -65,6 +65,7 @@ import Bound.Scope
 import Bound.Var
 import Control.Lens
 import Control.Applicative
+import Control.Arrow ((&&&))
 import Control.Comonad
 import Control.Monad.Identity
 import Control.Monad.Trans
@@ -469,7 +470,7 @@ forall kh th ks0 tks0 cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tvm  <- use _2
   let tvs = vars tvm
-  tks' <- (traverse.traverse.kindVars) tkn $ (\v -> (th v, tm Map.! v)) <$> tvs
+  tks' <- (traverse.traverse.kindVars) tkn $ (th &&& (Map.!) tm) <$> tvs
   body'' <- kindVars tkn body'
   kvm <- use _1
   let kvs = vars kvm
