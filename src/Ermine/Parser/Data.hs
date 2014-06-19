@@ -63,5 +63,5 @@ dataType = build <$ symbol "data"
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
   semiClosedKind (Just _) = error "dataType: Impossible kind"
   semiClosedKind Nothing  = ()
-  semiClosedType (B x) = x
-  semiClosedType (F _) = error "dataType: Impossible type"
+  semiClosedType (B _) = error "dataType: Impossible type"
+  semiClosedType (F x) = x
