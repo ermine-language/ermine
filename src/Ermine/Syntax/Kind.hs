@@ -247,14 +247,14 @@ instance Serialize k => Serialize (Kind k) where
 class HasKindVars s t a b | s -> a, s b -> t, t -> b, t a -> s where
   -- >>> ("b" :-> "a") ^.. kindVars
   -- ["b","a"]
-  kindVars :: IndexedTraversal Bool s t a b
+  kindVars :: Traversal s t a b
 
 instance HasKindVars (Kind a) (Kind b) a b where
-  kindVars f x0 = go False x0 where
-    go t (Var a)   = Var   <$> indexed f t a
-    go _ (Type k)  = Type  <$> go True k
-    go t (x :-> y) = (:->) <$> go t x <*> go t y
-    go _ (HardKind hk) = pure $ HardKind hk
+  kindVars f x0 = go x0 where
+    go (Var a)   = Var   <$> f a
+    go (Type k)  = Type  <$> go k
+    go (x :-> y) = (:->) <$> go x <*> go y
+    go (HardKind hk) = pure $ HardKind hk
 
 instance HasKindVars s t a b => HasKindVars [s] [t] a b where
   kindVars = traverse.kindVars
@@ -310,7 +310,7 @@ instance Variable Schema where
     _               -> Left  t
 
 instance (k ~ Kind, k' ~ Kind, b ~ b') => HasKindVars (Scope b k a) (Scope b' k' a') a a' where
-  kindVars f (Scope s) = Scope <$> icompose (||) kindVars (traverse.kindVars) f s
+  kindVars f (Scope s) = Scope <$> (kindVars.traverse.kindVars) f s
 
 instance Kindly (Schema a) where
   hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
