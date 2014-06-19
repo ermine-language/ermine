@@ -117,11 +117,13 @@ log = view trace
 note :: (Monad m, Show a) => MachineState m -> String -> a -> m ()
 note ms n a = log ms (n ++ ": " ++ show a)
 
+{-
 watch :: (Monad m, Show a) => MachineState m -> String -> m a -> m a
 watch ms n m = do
   a <- m
   note ms n a
   return a
+-}
 
 nargs :: MachineState m -> Sorted Int
 nargs ms = ms^.fp -ms^.sp
