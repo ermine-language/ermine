@@ -374,19 +374,19 @@ schema k = Schema [] (lift k)
 -- When working with 'Ermine.Kind.Inference.Meta' variables, you want to use
 -- generalize to 'zonk' the kind and check skolems.
 --
--- >>> general "a" (Hinted ?? ())
--- Schema [Hinted "a" ()] (Scope (Var (B 0)))
+-- >>> general "a" Just
+-- Schema [Just "a"] (Scope (Var (B 0)))
 --
--- >>> general ("a" ~> "a") (Hinted ?? ())
--- Schema [Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 0)))
+-- >>> general ("a" ~> "a") Just
+-- Schema [Just "a"] (Scope (Var (B 0) :-> Var (B 0)))
 --
--- >>> general ("a" ~> "b") (Hinted ?? ())
--- Schema [Hinted "a" (),Hinted "b" ()] (Scope (Var (B 0) :-> Var (B 1)))
+-- >>> general ("a" ~> "b") Just
+-- Schema [Just "a",Just "b"] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general ("b" ~> "a") (Hinted ?? ())
--- Schema [Hinted "b" (),Hinted "a" ()] (Scope (Var (B 0) :-> Var (B 1)))
+-- >>> general ("b" ~> "a") Just
+-- Schema [Just "b",Just "a"] (Scope (Var (B 0) :-> Var (B 1)))
 --
--- >>> general (star ~> star) (Hinted ?? ())
+-- >>> general (star ~> star) Just
 -- Schema [] (Scope (Type (HardKind Star) :-> Type (HardKind Star)))
 general :: Ord k => Kind k -> (k -> Hint) -> Schema a
 general k0 h = Schema (reverse hs) (Scope r) where
