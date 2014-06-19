@@ -355,24 +355,10 @@ instance Bitraversable Type where
   bitraverse f g (And cs)           = And <$> traverse (bitraverse f g) cs
 
 bitraverseScopeTK :: Applicative f => (k -> f k') -> (a -> f a') -> Scope b (TK k) a -> f (Scope b (TK k') a')
-bitraverseScopeTK f = bitransverseScope $ (bitraverseType.traverse) f
-
-bitraverseType :: Applicative f => (k -> f k') -> (a -> f a') -> Type k a -> f (Type k' a')
-bitraverseType _ g (Var a)            = Var <$> g a
-bitraverseType f g (App l r)          = App <$> bitraverseType f g l <*> bitraverseType f g r
-bitraverseType _ _ (HardType t)       = pure $ HardType t
-bitraverseType f g (Forall n ks cs b) =
-  Forall n <$> traverse (traverse (kindVars f)) ks
-           <*> bitraverseScopeTK f g cs
-           <*> bitraverseScopeTK f g b
-bitraverseType f g (Loc r as)         = Loc r <$> bitraverseType f g as
-bitraverseType f g (Exists n ks cs)   =
-  Exists n <$> traverse (traverse (kindVars f)) ks
-           <*> bitraverseScopeTK f g cs
-bitraverseType f g (And cs)           = And <$> traverse (bitraverseType f g) cs
+bitraverseScopeTK f = bitransverseScope $ (bitraverse.traverse) f
 
 instance HasKindVars (Type k a) (Type k' a) k k' where
-  kindVars f = bitraverseType f pure
+  kindVars f = bitraverse f pure
 
 instance Eq k => Eq1 (Type k)
 instance Show k => Show1 (Type k)
