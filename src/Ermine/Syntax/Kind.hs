@@ -268,9 +268,6 @@ instance HasKindVars s t a b => HasKindVars (IntMap s) (IntMap t) a b where
 instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
   kindVars = traverse.kindVars
 
-instance HasKindVars s t a b => HasKindVars (Hinted s) (Hinted t) a b where
-  kindVars = traverse.kindVars
-
 ------------------------------------------------------------------------------
 -- Schema
 ------------------------------------------------------------------------------
