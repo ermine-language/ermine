@@ -81,14 +81,14 @@ say = liftIO . displayIO stdout . renderPretty 0.8 80
 sayLn :: MonadIO m => Doc -> m ()
 sayLn d = say (d <> linebreak)
 
-chooseNames :: (String -> Bool) -> [Hinted v] -> [String] -> ([String], [String])
+chooseNames :: (String -> Bool) -> [Hint] -> [String] -> ([String], [String])
 chooseNames p ahs = go p ahs . filter (\n -> n `notElem` avoid && not (p n))
  where
- avoid = [ unpack h | Hinted h _ <- ahs ]
+ avoid = [ unpack h | Just h <- ahs ]
 
  go _     [] supply = ([], supply)
- go taken (Unhinted _ : hs) (n:supply) = (n:) `first` go taken hs supply
- go taken (Hinted h _ : hs) supply@(n:ns)
+ go taken (Nothing : hs) (n:supply) = (n:) `first` go taken hs supply
+ go taken (Just h  : hs) supply@(n:ns)
    | taken h'  = (n:) `first` go taken hs ns
    | otherwise = (h':) `first` go (\x -> x == h' || taken x) hs supply
   where h' = unpack h

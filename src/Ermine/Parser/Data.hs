@@ -26,7 +26,6 @@ import Ermine.Parser.Style
 import Ermine.Parser.Type
 import Ermine.Syntax.Constructor
 import Ermine.Syntax.Data
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind (HasKindVars(..))
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
@@ -43,9 +42,9 @@ constr = build . fromMaybe ([], [])
      <*> globalIdent termCon
      <*> many typ0
  where
- build (ks, ts) g as = Constructor g (map stringHint ks) ts' as'
+ build (ks, ts) g as = Constructor g (map Just ks) ts' as'
   where
-  ts' = map (\(tn, tk) -> abstract (`elemIndex` map Just ks) tk <$ unvar stringHint stringHint tn) ts
+  ts' = map (bimap (unvar Just Just) (abstract (`elemIndex` map Just ks))) ts
   as' = abstract (`elemIndex` map fst ts) . abstractKinds (`elemIndex` map Just ks) <$> as
 
 -- | Data a data declaration
@@ -55,11 +54,11 @@ dataType = build <$ symbol "data"
        <*> typVarBindings
        <*> (fromMaybe [] <$> optional (symbolic '=' *> sepBy constr (symbolic '|')))
  where
- build nm ts cs = bimap semiClosedKind semiClosedType $ DataType nm (map stringHint ks) ts' cs'
+ build nm ts cs = bimap semiClosedKind semiClosedType $ DataType nm (map Just ks) ts' cs'
   where
   ks  = nub . catMaybes $ toListOf kindVars (snd <$> ts, cs)
   jks = Just <$> ks
-  ts' = map (\(tn, tk) -> abstract (`elemIndex` jks) tk <$ unvar stringHint stringHint tn) ts
+  ts' = map (bimap (unvar Just Just) (abstract (`elemIndex` jks))) ts
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
   semiClosedKind (Just _) = error "dataType: Impossible kind"
   semiClosedKind Nothing  = ()

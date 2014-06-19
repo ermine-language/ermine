@@ -73,7 +73,6 @@ import Ermine.Syntax.Convention
 import Ermine.Syntax.Data (DataType, dataTypeSchema)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global as Global
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Literal (Literal(Long, Int))
@@ -155,8 +154,8 @@ parsing p k args s = case parseString (p <* eof) mempty s of
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args s = do
   gk <- ioM mempty $ do
-    tm <- memoverse (fmap pure . newMeta False . unvar stringHint stringHint)
-                    (annot stringHint (unvar stringHint stringHint) [] [] s)
+    tm <- memoverse (fmap pure . newMeta False . unvar Just Just)
+                    (annot Just (unvar Just Just) [] [] s)
     k <- inferAnnotKind tm
     generalize k
   disp gk
@@ -177,8 +176,8 @@ checkAndCompile :: MonadConstraint (KindM s) s m
                 => Term Ann Text -> m (Maybe (Type t k, Core Convention c))
 checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> do
   tm <- bitraverse (memoverse
-                          (\s -> newMeta False noHint >>=
-                                   flip newMeta (stringHint s) . pure))
+                          (\s -> newMeta False Nothing >>=
+                                   flip newMeta (Just s) . pure))
                  pure
                  syn'
   w <- inferType 0 fst tm
@@ -187,12 +186,12 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  clame :: Type k t
  clame = con lame (star ~> constraint)
  tyLame :: Type k t
- tyLame = Forall [] [Unhinted $ Scope star]
+ tyLame = Forall [] [(Nothing,Scope star)]
             (Scope $ apps clame [pure $ B 0]) (Scope . pure $ B 0)
  cfromInteger :: Type k t
  cfromInteger = con fromInteg (star ~> constraint)
  tyFromInteger :: Type k t
- tyFromInteger = Forall [] [Unhinted $ Scope star]
+ tyFromInteger = Forall [] [(Nothing,Scope star)]
                    (Scope $ apps cfromInteger [pure $ B 0])
                    (Scope $ integer ~> (pure $ B 0))
  tyPSL :: Type k t
@@ -207,15 +206,15 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
  tyAL = long ~> long ~> long
  predefs "Nothing" =
    Term.dataCon Idfix "Ermine" "Nothing" $
-     Forall [] [Unhinted $ Scope star]
+     Forall [] [(Nothing, Scope star)]
             (Scope $ And []) (Scope . maybe_ . pure $ B 0)
  predefs "Just"    =
    Term.dataCon Idfix "Ermine" "Just" $
-     Forall [] [Unhinted $ Scope star]
+     Forall [] [(Nothing, Scope star)]
             (Scope $ And []) (Scope $ pure (B 0) ~> maybe_ (pure $ B 0))
  predefs "E"       =
    Term.dataCon Idfix "Ermine" "E" $
-     Forall [] [Unhinted $ Scope star]
+     Forall [] [(Nothing, Scope star)]
             (Scope $ And []) (Scope $ pure (B 0) ~> ee)
  predefs  x = pure x
  resolveGlobals :: AsConvention cc => Text -> Maybe (Type t k, Core cc c)
@@ -262,12 +261,12 @@ gBody args syn = ioM mempty (runCM (checkAndCompile syn) dummyConstraintEnv) >>=
 echoBody :: [String] -> String -> Console ()
 echoBody args =
   case procArgs args $ ("term", "term") :| [("type", "type"), ("kind", "kind")] of
-    "kind" -> parsing kind (\_ s -> disp $ Kind.general s stringHint) args
+    "kind" -> parsing kind (\_ s -> disp $ Kind.general s Just) args
      where
      disp = procArgs args $
               ("pretty", sayLn . (prettySchema ?? names))
           :| [("ugly", liftIO . putStrLn . groom)]
-    "type" -> parsing typ (const $ disp . Type.abstractAll stringHint (unvar stringHint stringHint)) args
+    "type" -> parsing typ (const $ disp . Type.abstractAll Just (unvar Just Just)) args
      where
      disp = procArgs args $
               ("pretty", pt)

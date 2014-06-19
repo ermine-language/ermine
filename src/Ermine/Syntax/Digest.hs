@@ -61,6 +61,9 @@ class Digestable1 t where
   digest1 = digest
 #endif
 
+instance Digestable1 Maybe
+instance Digestable a => Digestable (Maybe a)
+
 instance (Digestable b, Digestable v) => Digestable (Var b v) where
 
 instance (Digestable1 f, Digestable a) => Digestable (Lift1 f a) where
@@ -80,6 +83,9 @@ instance Digestable LText.Text where
            . LText.toChunks
 
 instance Digestable ()
+
+instance Digestable a => Digestable1 ((,) a)
+instance (Digestable a, Digestable b) => Digestable (a,b)
 
 digestBinary :: Binary b => Ctx -> b -> Ctx
 digestBinary c = digest c . runPut . put

@@ -461,7 +461,7 @@ forall kh th ks tks cs (Forall n tls ds b) =
     forall kh' th' ks' tks' (mergeConstraints cs' $ fromScope ds) (fromScope b)
  where
  kh' = unvar (n!!) kh
- th' = unvar (void . (tls!!)) th
+ th' = unvar (fst . (tls!!)) th
  cs' = bimap F F cs
  ks' = map F ks ++ zipWith (const . B) [0..] n
  tks' = map (bimap F $ fmap F) tks ++ imap (\i l -> (B i, fromScope $ extract l)) tls
@@ -469,7 +469,7 @@ forall kh th ks0 tks0 cs body = evalState ?? (Map.empty, Map.empty) $ do
   body' <- typeVars tty body
   tvm  <- use _2
   let tvs = vars tvm
-  tks' <- kindVars tkn $ (\v -> tm Map.! v <$ th v) <$> tvs
+  tks' <- (traverse.traverse.kindVars) tkn $ (\v -> (th v, tm Map.! v)) <$> tvs
   body'' <- kindVars tkn body'
   kvm <- use _1
   let kvs = vars kvm
@@ -508,7 +508,7 @@ exists kh th ks tks body = case body of
 
  ks'  = filter (`Set.member` oks) ks
  (ts', tks') = unzip $ filter (\(t, _) -> t `Set.member` ots) tks
- htks' = zipWith (<$) tks' (th <$> ts')
+ htks' = zip (th <$> ts') tks'
 
  ex n l b
    | not (null n) || not (null l) = Exists n l b
@@ -573,7 +573,7 @@ a ~~> b = a ~> b
 
 -- | A smart constructor for constrained types.
 (==>) :: (Ord k, Ord t) => [Type k t] -> Type k t -> Type k t
-cs ==> t = forall (const noHint) (const noHint) [] [] (allConstraints cs) t
+cs ==> t = forall (const Nothing) (const Nothing) [] [] (allConstraints cs) t
 
 -- | Determines whether the type in question is a trivial constraint, which may be
 -- dropped from the type. The simplest example is 'And []', but the function works
@@ -640,9 +640,9 @@ instance HasTypeVars s t a b => HasTypeVars (Map k s) (Map k t) a b where
   typeVars = traverse.typeVars
   {-# INLINE typeVars #-}
 
-instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
-  typeVars = traverse.typeVars
-  {-# INLINE typeVars #-}
+-- instance HasTypeVars s t a b => HasTypeVars (Hinted s) (Hinted t) a b where
+--   typeVars = traverse.typeVars
+--   {-# INLINE typeVars #-}
 
 ------------------------------------------------------------------------------
 -- TK
@@ -751,7 +751,7 @@ annot :: (Ord k, Ord a)
       -> [a]
       -> Type (Maybe k) a -> Annot a
 annot hk ht sks sts t
- = Annot (replicate n noHint ++ map hk sks) (map ht sts) $ abstract (`elemIndex` sts) t''
+ = Annot (replicate n Nothing ++ map hk sks) (map ht sts) $ abstract (`elemIndex` sts) t''
  where
    -- t' :: Type (Var Int k) a = TK k a
    (t', n) = runState (kindVars ak t) 0
@@ -760,7 +760,7 @@ annot hk ht sks sts t
      Just i  -> B $ n+i -- tied the knot
    ak Nothing = state $ \i -> let i' = i + 1 in i' `seq` (B i, i')
    -- t'' :: Type Int a
-   t'' = forall (unvar (const noHint) hk) ht (t'^..kindVars._F.to F) [] (And []) t' &
+   t'' = forall (unvar (const Nothing) hk) ht (t'^..kindVars._F.to F) [] (And []) t' &
      kindVars %~ unvar id (error "impossibru")
 {-# INLINE annot #-}
 

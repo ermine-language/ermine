@@ -47,7 +47,6 @@ import Ermine.Diagnostic
 import Ermine.Syntax.Constructor as Data
 import Ermine.Syntax.Data as Data
 import Ermine.Syntax.Global
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
@@ -65,8 +64,8 @@ productKind n = star :-> productKind (n - 1)
 matchFunKind :: MonadMeta s m => KindM s -> m (KindM s, KindM s)
 matchFunKind (a :-> b)    = return (a, b)
 matchFunKind (Var kv) = do
-  a <- Var <$> newMeta False noHint
-  b <- Var <$> newMeta False noHint
+  a <- Var <$> newMeta False Nothing
+  b <- Var <$> newMeta False Nothing
   (a, b) <$ unsharingT (unifyKindVar kv (a :-> b))
 matchFunKind (Type _)     = fail "not a fun kind"
 matchFunKind (HardKind _) = fail "not a fun kind"
@@ -88,8 +87,8 @@ inferKind :: MonadMeta s m => Type (MetaK s) (KindM s) -> m (KindM s)
 inferKind (Loc l t)                = set rendering l `localMeta` inferKind t
 inferKind (Type.Var tk)            = return tk
 inferKind (HardType Arrow)         = do
-  a <- Var <$> newMeta True noHint
-  b <- Var <$> newMeta True noHint
+  a <- Var <$> newMeta True Nothing
+  b <- Var <$> newMeta True Nothing
   return $ Type a :-> Type b :-> star
 inferKind (HardType (Con _ s))     = instantiateSchema (vacuous s)
 inferKind (HardType (Tuple n))     = return $ productKind n
@@ -156,7 +155,7 @@ checkDataTypeKinds dts = flip evalStateT Map.empty
 
 checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  dts' <- traverse (kindVars (\_ -> newMeta False noHint)) dts
+  dts' <- traverse (kindVars (\_ -> newMeta False Nothing)) dts
   let m = Map.fromList $ map (\dt -> (dt^.name, dt)) dts'
   checked <- for dts' $ \dt -> (dt,) <$> checkDataTypeKind m dt
   let sm = Map.fromList $ (\(dt, (_, sch)) -> (dt^.name, con (dt^.global) sch)) <$> checked
@@ -175,7 +174,7 @@ checkDataTypeGroup dts = do
        reabstr = fmap toScope . traverse f . fromScope
    ts' <- (traverse . traverse) reabstr $ dt'^.tparams
    cs' <- (traverse . kindVars) f $ dt'^.constrs
-   return $ DataType (dt^.global) (dt^.kparams ++ (Unhinted () <$ fvs)) ts' cs'
+   return $ DataType (dt^.global) (dt^.kparams ++ (Nothing <$ fvs)) ts' cs'
 
 -- | Checks that the types in a data declaration have sensible kinds.
 checkDataTypeKind :: Map Text (DataType (MetaK s) a) -> DataType (MetaK s) Text

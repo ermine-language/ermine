@@ -73,7 +73,7 @@ prettyType (Exists n ks cs) vs d =
  where
  kAvoid = member ?? skvs ks `union` tkvs cs
  tAvoid = member ?? setOf (traverseScope pure) cs
- (kvs, (tvs, rvs)) = chooseNames tAvoid ks <$> chooseNames kAvoid n vs
+ (kvs, (tvs, rvs)) = chooseNames tAvoid (fmap fst ks) <$> chooseNames kAvoid n vs
 
  tks = map (\k -> prettyKind (instantiate (pure . (kvs!!)) $ extract k) False) ks
 
@@ -97,7 +97,7 @@ prettyType (Forall n ks cs bdy) vs d =
             `union` tkvs bdy
  tAvoid = member ?? setOf (traverseScope pure) cs `union` setOf (traverseScope pure) bdy
 
- (kvs, (tvs, rvs)) = chooseNames tAvoid ks <$> chooseNames kAvoid n vs
+ (kvs, (tvs, rvs)) = chooseNames tAvoid (fmap fst ks) <$> chooseNames kAvoid n vs
 
  tks = map (\k -> prettyKind (instantiate (pure . (kvs!!)) $ extract k) False) ks
 

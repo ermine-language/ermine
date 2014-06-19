@@ -34,7 +34,6 @@ import Ermine.Builtin.Type as Type
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Instance as Instance
 import Ermine.Syntax.Kind as Kind hiding (Var)
 import Ermine.Syntax.Literal
@@ -59,7 +58,7 @@ dummyConstraintEnv = ConstraintEnv
   }
  where
  -- class Lame a where lame :: a
- clame = Class [] [Unhinted $ Scope star] []
+ clame = Class [] [(Just "a", Scope star)] []
  -- instance Lame Int where lame = 5
  dlameI = Dict [] [_Lit # Int 5]
  ilameI = Instance [] hlameI dlameI
@@ -68,7 +67,7 @@ dummyConstraintEnv = ConstraintEnv
  ilameL = Instance [] hlameL dlameL
 
  -- class FromInteger a where fromInteger :: Integer -> a
- cfromInteger = Class [] [Unhinted $ Scope star] []
+ cfromInteger = Class [] [(Just "a", Scope star)] []
  -- instance FromInteger Int where fromInteger = fromIntegerToInt
  dfromIntegerI = Dict [] [_Global # fromIntegerToIntg]
  ifromIntegerI = Instance [] hfromIntegerI dfromIntegerI

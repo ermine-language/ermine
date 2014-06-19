@@ -35,7 +35,6 @@ import Ermine.Diagnostic
 import Ermine.Pretty
 import Ermine.Pretty.Type
 import Ermine.Inference.Kind (checkKind)
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Kind as Kind hiding (Var)
@@ -144,7 +143,7 @@ unifyType t1 t2 = do
               nys = instantiateVars sks <$> fmap extract ys
           sts <- for (zip nxs nys) $ \(x,y) -> do
             k <- unifyKind x y
-            newMeta k noHint
+            newMeta k Nothing
           _ <- unifyType (instantiateKindVars sks (instantiateVars sts a))
                          (instantiateKindVars sks (instantiateVars sts b))
           return (sts, sks)

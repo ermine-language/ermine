@@ -55,7 +55,6 @@ import Bound
 import Data.Text (pack)
 import Ermine.Syntax
 import Ermine.Syntax.Global
-import Ermine.Syntax.Hint
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Type as Type
 import Ermine.Syntax.Kind as Kind
@@ -78,7 +77,7 @@ class Builtin t where
   builtin :: Ord k => Kind k -> String -> t
 
 instance Builtin HardType where
-  builtin s n = con (builtin s n) (Kind.general s (const $ Unhinted ()))
+  builtin s n = con (builtin s n) (Kind.general s (const Nothing))
 
 instance Builtin Global where
   builtin _ n = glob Idfix (mkModuleName_ "Prelude") (pack n)
@@ -272,4 +271,4 @@ fromInteg = builtin (star ~> constraint) "FromInteger"
 
 -- | A type annotation that can be applied to anything.
 anyType :: Annot a
-anyType = Annot [] [noHint] $ Scope $ return $ B 0
+anyType = Annot [] [Nothing] $ Scope $ return $ B 0

@@ -33,7 +33,6 @@ import Ermine.Builtin.Type
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
 import Ermine.Syntax
-import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind hiding (Var, constraint)
 import Ermine.Syntax.Type
 import Text.Parser.Combinators
@@ -134,17 +133,17 @@ constraint =
   -- Single constraints
   <|> typic
  where buildE (kvs, tvks) =
-         exists maybeHint (unvar stringHint stringHint) (Just <$> kvs) tvks
+         exists id (unvar Just Just) (Just <$> kvs) tvks
 
 typ3 :: (Applicative m, Monad m, TokenParsing m) => m Typ
-typ3 = forall maybeHint (unvar stringHint stringHint) [] [] <$> try (constraint <* reserve op "=>") <*> typ4
+typ3 = forall id (unvar Just Just) [] [] <$> try (constraint <* reserve op "=>") <*> typ4
     <|> typ2
 
 typ4 :: (Applicative m, Monad m, TokenParsing m) => m Typ
 typ4 =  build <$ symbol "forall" <*> quantBindings <* dot <*> typ4
     <|> typ3
  where
- build (kvs, tvks) = forall maybeHint (unvar stringHint stringHint) (Just <$> kvs) tvks (And [])
+ build (kvs, tvks) = forall id (unvar Just Just) (Just <$> kvs) tvks (And [])
 
 -- | Parse a 'Type'.
 typ :: (Monad m, TokenParsing m) => m Typ
@@ -159,7 +158,7 @@ annotation = do
   xs <- build <$> optional (symbol "some" *> some typeIdentifier <* dot) <*> typ
   for xs $ unvar (\x -> fail $ "bound variable in annotation: " ++ show x) pure
  where
-   build mvs t = annot stringHint (unvar stringHint stringHint) [] vs (quant vs t)
+   build mvs t = annot Just (unvar Just Just) [] vs (quant vs t)
      where vs = maybe [] (fmap B) mvs
-   quant ss t = forall maybeHint (unvar stringHint stringHint) [] ts (And []) t
+   quant ss t = forall id (unvar Just Just) [] ts (And []) t
      where ts = t^..folded.filtered (`notElem` ss).to (, pure Nothing)
