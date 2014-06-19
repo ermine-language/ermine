@@ -47,7 +47,7 @@ prettyHardType (Con (Global _ (Postfix _) _ n) _) = parens ("postfix" <+> text (
 prettyHardType (Con (Global _ _ _ n) _)           = parens (text (unpack n))
 prettyHardType (ConcreteRho xs) = bananas (fillSep (punctuate (text ",") (text . unpack <$> toList xs)))
 
-skvs :: Ord k => [Hinted (Scope b Kind k)] -> Set k
+skvs :: Ord k => [(Hint, Scope b Kind k)] -> Set k
 skvs = setOf (traverse.traverse.traverseScope pure)
 
 tkvs :: Ord k => Scope b (TK k) t -> Set k
