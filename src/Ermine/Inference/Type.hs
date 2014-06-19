@@ -177,9 +177,10 @@ inferType d cxt (Remember i t) = do
   r <- inferType d cxt t
   remember i (r^.witnessType)
   return r
-inferType d cxt (Sig tm (Annot ks ty)) = do
-  ts <- for ks $ newMeta ?? noHint
-  checkType d cxt tm (instantiateVars ts ty)
+inferType d cxt (Sig tm (Annot hs hks ty)) = do
+  ks <- for hs $ newMeta False
+  ts <- for hks $ \hk -> newMeta (instantiateVars ks $ extract hk) (() <$ hk)
+  checkType d cxt tm (instantiateKindVars ks $ instantiateVars ts ty)
 inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
@@ -531,9 +532,10 @@ inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimpl
 
 instantiateAnnot :: MonadMeta s m
                  => Depth -> KindM s -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
-instantiateAnnot d k (Annot ks sc) = do
-  ty <- traverse (\k' -> pure <$> newShallowMeta d k' noHint) ks <&> \tvs ->
-    instantiate (tvs !!) sc
+instantiateAnnot d k (Annot hs hks sc) = do
+  kvs <- for hs $ \h -> newShallowMeta d False h
+  tvs <- for hks $ \hk -> newShallowMeta d (instantiateVars kvs $ extract hk) (()<$hk)
+  let ty = instantiateKindVars kvs $ instantiateVars tvs sc
   ty <$ checkKind (view metaValue <$> ty) k
 
 zonkWitnessKindsAndTypes

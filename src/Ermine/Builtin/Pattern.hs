@@ -42,9 +42,9 @@ import Data.Monoid
 import Data.String
 import Data.Tagged
 import Data.Traversable
+import Ermine.Builtin.Type
 import Ermine.Syntax
 import Ermine.Syntax.Global
-import Ermine.Syntax.Kind
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Type
@@ -90,7 +90,7 @@ instance IsString s => IsString (P (Annot k t) s) where
 
 -- | A pattern that binds a variable with (effectively) no type annotation.
 varp :: v -> P (Annot k t) v
-varp v = sigp v (Annot [star] . Scope . pure . B $ 0)
+varp v = sigp v anyType
 
 -- | A pattern that binds a variable with a type annotation.
 sigp :: v -> t -> P t v

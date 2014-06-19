@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
@@ -25,7 +26,8 @@ module Ermine.Parser.Type
 import Bound
 import Bound.Var
 import Control.Applicative
-import Control.Lens (folded, filtered, to, (^..))
+import Control.Lens (folded, filtered, to, (^..), (<&>), beside, forOf)
+import Control.Monad.State.Strict
 import Data.List (elemIndex)
 import Data.Text (Text)
 import Data.Traversable (for)
@@ -39,7 +41,7 @@ import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type Ann = Annot (Maybe Text) Text
+type Ann = Annot Text Text
 type Typ = Type (Maybe Text) (Var Text Text)
 
 banana :: (Monad m, TokenParsing m) => m a -> m a
@@ -157,8 +159,17 @@ annotation = do
   for xs $ unvar (\x -> fail $ "bound variable in annotation: " ++ show x) pure
  where
  build Nothing    t = annot (quant [] t)
- build (Just vks) t = Annot ks $ abstract (`elemIndex` vs) $ quant vs t
-  where (vs, ks) = unzip vks
+ build (Just vks) t =
+   Annot (replicate n noHint) (fmap toScope <$> hks') $ abstract (`elemIndex` vs) $ b'
+  where
+  vs = map fst vks
+  hks = vks <&> \(v,k) -> k <$ unvar stringHint stringHint v
+
+  ((hks', b'),n) =
+    flip runState 0 . forOf (beside kindVars kindVars) (hks, quant vs t) $ \case
+      Just k -> pure $ F k
+      Nothing -> state $ \i -> (B i, i+1)
+
  quant ss t = forall maybeHint (unvar stringHint stringHint) [] ts (And []) t
   where ts = t^..folded.filtered (`notElem` ss).to (, pure Nothing)
 

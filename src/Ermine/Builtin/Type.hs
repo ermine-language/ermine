@@ -53,6 +53,7 @@ module Ermine.Builtin.Type
   ) where
 
 import Bound
+import Data.Functor ((<$))
 import Data.Text (pack)
 import Ermine.Syntax
 import Ermine.Syntax.Global
@@ -272,9 +273,9 @@ fromInteg = builtin (star ~> constraint) "FromInteger"
 ------------------------------------------------------------------------------
 
 -- | A type annotation that can be applied to anything.
-anyType :: Annot (Maybe t) a
-anyType = Annot [Kind.Var Nothing] $ Scope $ return $ B 0
+anyType :: Annot k a
+anyType = Annot [noHint] [Scope (return $ B 0) <$ noHint] $ Scope $ return $ B 0
 
 -- | A type annotation that can be applied to anything.
-anyStar :: Annot t a
-anyStar = Annot [star] $ Scope $ return $ B 0
+anyStar :: Annot k a
+anyStar = Annot [] [Scope star <$ noHint] $ Scope $ return $ B 0

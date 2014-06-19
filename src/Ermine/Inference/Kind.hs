@@ -19,6 +19,7 @@
 --------------------------------------------------------------------
 module Ermine.Inference.Kind
   ( inferKind
+  , inferAnnotKind
   , checkKind
   , checkDataTypeKinds
   , checkDataTypeGroup
@@ -111,6 +112,12 @@ inferKind (Forall n tks cs b) = do
   checkKind (instantiateKindVars sks (instantiateVars btys b)) star
   -- TODO: check mutually exclusive sks?
   return star
+
+inferAnnotKind :: MonadMeta s m => Annot (MetaK s) (KindM s) -> m (KindM s)
+inferAnnotKind (Annot hs hks ty) = do
+  ks <- for hs $ newMeta False
+  let ts = instantiateVars ks . extract <$> hks
+  inferKind . instantiateKindVars ks $ instantiateVars ts ty
 
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
 fixCons m f = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m)
