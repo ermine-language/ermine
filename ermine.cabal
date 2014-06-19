@@ -151,7 +151,6 @@ library
     Ermine.Syntax.Core
     Ermine.Syntax.Data
     Ermine.Syntax.Digest
-    Ermine.Syntax.Exposed
     Ermine.Syntax.Global
     Ermine.Syntax.Head
     Ermine.Syntax.Hint
