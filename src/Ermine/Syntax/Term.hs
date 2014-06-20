@@ -161,8 +161,17 @@ instance Bitraversable Body where
 
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
 -- and a list of right hand side bindings.
-data Binding t a = Binding { _bindingLoc :: !Rendering, _bindingType :: !(BindingType t), _bindingBodies :: [Body t a] }
-  deriving (Show, Functor, Foldable, Traversable)
+data Binding t a = Binding
+                 { _bindingLoc :: !Rendering
+                 , _bindingType :: !(BindingType t)
+                 , _bindingBodies :: [Body t a]
+                 }
+  deriving (Functor, Foldable, Traversable)
+
+instance (Show t, Show a) => Show (Binding t a) where
+  show (Binding _ t b) =
+    "Binding { _bindingLoc = emptyRendering,\
+    \_bindingType = " ++ show t ++ ", _bindingBodies = " ++ show b ++ " }"
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
   Binding _ t bs == Binding _ t' bs' = t == t' && bs == bs'
