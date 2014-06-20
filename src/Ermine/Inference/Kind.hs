@@ -36,7 +36,7 @@ import Control.Monad
 import Control.Monad.State
 import Data.Foldable hiding (concat)
 import Data.Graph (stronglyConnComp, flattenSCC)
-import Data.List (nub, elemIndex)
+import Data.List (nub, elemIndex, (\\))
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
@@ -163,12 +163,13 @@ checkDataTypeGroup dts = do
                (sks, fixCons sm (\_ -> error "checkDataTypeGroup: IMPOSSIBLE") dt)
   traverse closeKinds sdts
  where
- closeKinds (sks, dt) = do
+ closeKinds (sks0, dt) = do
+   sks <- checkDistinct sks0
    dt' <- zonkDataType dt
-   let fvs = nub . toListOf kindVars $ dt'
+   let fvs = (\\sks) . nub . toListOf kindVars $ dt'
        offset = length sks
        f (F m) | Just i <- m `elemIndex` fvs = pure . B $ i + offset
-               | Just i <- m `elemIndex` sks = pure . B $ i + offset
+               | Just i <- m `elemIndex` sks = pure . B $ i
                | otherwise                   = fail "escaped skolem"
        f (B i)                               = pure $ B i
        reabstr = fmap toScope . traverse f . fromScope
