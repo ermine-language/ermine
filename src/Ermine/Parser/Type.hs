@@ -104,6 +104,11 @@ quantBindings = optional (braces $ some typeIdentifier) >>= \mks -> case mks of
   Just ks -> (,) ks <$> typVarBindings
   Nothing -> (,) [] <$> someTypVarBindings
 
+simpleQuantBindings :: (Monad m, TokenParsing m) => m ([Text], [Text])
+simpleQuantBindings = optional (braces $ some kindIdentifier) >>= \mks -> case mks of
+  Just ks -> (,) ks <$> many typeIdentifier
+  Nothing -> (,) [] <$> some typeIdentifier
+
 -- | Parses a quantifier.
 --
 --   quantifier ::= Q quantBindings .
@@ -155,10 +160,10 @@ anyTyp = typ
 
 annotation :: (Monad m, TokenParsing m) => m Ann
 annotation = do
-  xs <- build <$> optional (symbol "some" *> some typeIdentifier <* dot) <*> typ
+  xs <- build <$> optional (symbol "some" *> simpleQuantBindings <* dot) <*> typ
   for xs $ unvar (\x -> fail $ "bound variable in annotation: " ++ show x) pure
  where
-   build mvs t = annot Just (unvar Just Just) [] vs (quant vs t)
-     where vs = maybe [] (fmap B) mvs
+   build mkvs t = annot Just (unvar Just Just) ks vs (quant vs t)
+     where (ks, vs) = maybe ([],[]) (fmap $ fmap B) mkvs
    quant ss t = forall id (unvar Just Just) [] ts (And []) t
      where ts = t^..folded.filtered (`notElem` ss).to (, pure Nothing)
