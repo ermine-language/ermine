@@ -205,7 +205,6 @@ library
     prelude-extras            >= 0.3,
     primitive                 >= 0.5.2.1,
     random                    >= 1.0.0.3,
-    semigroupoids             >= 4,
     semigroups                >= 0.9,
     split                     >= 0.2.1.1,
     tagged                    >= 0.7,
