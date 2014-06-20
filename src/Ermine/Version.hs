@@ -27,7 +27,7 @@ import System.IO.Unsafe
 
 -- | Obtain a copy of the Ermine logo.
 logo :: String
-logo = unsafePerformIO $ randomRIO (0,29 :: Int) >>= \n -> if n == 0 then logos else return rat
+logo = unsafePerformIO $ randomRIO (0,9 :: Int) >>= \n -> if n == 0 then logos else return rat
 
 -- | Grab the version number from this project.
 version :: String
