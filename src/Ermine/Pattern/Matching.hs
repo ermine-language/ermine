@@ -42,7 +42,7 @@ import Bound
 import Bound.Scope
 import Control.Applicative
 import Control.Comonad
-import Control.Lens
+import Control.Lens hiding (matching)
 import Control.Monad.Trans (lift)
 import Data.Either (partitionEithers)
 import Data.Foldable hiding (concatMap)
