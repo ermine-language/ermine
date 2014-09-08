@@ -40,5 +40,5 @@ parseOptions = do
   dd <- getDataDir
   return $ Options
        <$> parseMonitorOptions
-       <*> option (long "libdir" <> short 'l' <> help "location of the ermine library" <> metavar "DIR" <> action "directory" <> value dd)
+       <*> option auto (long "libdir" <> short 'l' <> help "location of the ermine library" <> metavar "DIR" <> action "directory" <> value dd)
        <*> many (argument Just $ help "files" <> metavar "FILE" <> action "file")
