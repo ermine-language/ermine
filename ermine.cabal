@@ -208,7 +208,6 @@ library
     semigroups                >= 0.9,
     split                     >= 0.2.1.1,
     tagged                    >= 0.7,
-    template-haskell,
     text                      >= 1.1,
     transformers              >= 0.3,
     trifecta                  >= 1.4.1,
