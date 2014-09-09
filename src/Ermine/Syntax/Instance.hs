@@ -34,6 +34,7 @@ import Ermine.Syntax.Head
 import Ermine.Syntax.Id
 import Ermine.Syntax.Type
 import GHC.Generics
+import Language.Haskell.TH (mkName)
 
 ------------------------------------------------------------------------------
 -- Instance
@@ -51,7 +52,7 @@ data Instance c = Instance
   , _instanceBody :: Core c Id
   } deriving (Eq, Typeable, Generic, Show)
 
-makeLensesWith ?? ''Instance $ classyRules & lensClass .~ \_ -> Just ("HasInstance","instance_")
+makeLensesWith ?? ''Instance $ classyRules & lensClass .~ \_ -> Just (mkName "HasInstance",mkName "instance_")
 
 instance HasHead (Instance a) where
   head_ = instanceHead
