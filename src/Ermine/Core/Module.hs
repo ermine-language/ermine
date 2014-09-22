@@ -1,4 +1,4 @@
-module Ermine.Syntax.Module
+module Ermine.Core.Module
  ( Module(Module)
  , definitions
  , termExports

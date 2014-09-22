@@ -6,7 +6,7 @@ import qualified Data.Binary as Binary
 import qualified Data.ByteString.Lazy as B
 import Data.List (intersperse)
 import Data.Monoid (mappend, mconcat)
-import Ermine.Syntax.Module
+import Ermine.Core.Module
 
 main :: IO ()
 main = do

@@ -111,6 +111,7 @@ library
     Ermine.Constraint.Env
     Ermine.Constraint.Simplification
     Ermine.Core.Lint
+    Ermine.Core.Module
     Ermine.Core.Optimizer
     Ermine.Core.Compiler
     Ermine.Diagnostic
@@ -157,7 +158,6 @@ library
     Ermine.Syntax.Id
     Ermine.Syntax.Instance
     Ermine.Syntax.Kind
-    Ermine.Syntax.Module
     Ermine.Syntax.ModuleName
     Ermine.Syntax.Name
     Ermine.Syntax.Pattern
