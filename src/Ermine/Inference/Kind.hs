@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternGuards #-}
@@ -23,20 +24,18 @@ module Ermine.Inference.Kind
   , checkKind
   , checkDataTypeKinds
   , checkDataTypeGroup
-  , checkDataTypeKind
+  , inferDataTypeKind
   , checkConstructorKind
   ) where
 
 import Bound
-import Bound.Var
 import Control.Applicative
 import Control.Comonad
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
-import Data.Foldable hiding (concat)
+import Data.Foldable hiding (concat, foldr)
 import Data.Graph (stronglyConnComp, flattenSCC)
-import Data.List (nub, elemIndex, (\\))
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
@@ -44,6 +43,7 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
+import Ermine.Syntax
 import Ermine.Syntax.Constructor as Data
 import Ermine.Syntax.Data as Data
 import Ermine.Syntax.Global
@@ -155,56 +155,37 @@ checkDataTypeKinds dts = flip evalStateT Map.empty
 
 checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
 checkDataTypeGroup dts = do
-  dts' <- traverse (kindVars (\_ -> newMeta False Nothing)) dts
-  let m = Map.fromList $ map (\dt -> (dt^.name, dt)) dts'
-  checked <- for dts' $ \dt -> (dt,) <$> checkDataTypeKind m dt
-  let sm = Map.fromList $ (\(dt, (_, sch)) -> (dt^.name, con (dt^.global) sch)) <$> checked
-      sdts = checked <&> \(dt, (sks, _)) ->
-               (sks, fixCons sm (\_ -> error "checkDataTypeGroup: IMPOSSIBLE") dt)
-  traverse closeKinds sdts
- where
- closeKinds (sks0, dt) = do
-   sks <- checkDistinct sks0
-   dt' <- zonkDataType dt
-   let fvs = (\\sks) . nub . toListOf kindVars $ dt'
-       offset = length sks
-       f (F m) | Just i <- m `elemIndex` fvs = pure . B $ i + offset
-               | Just i <- m `elemIndex` sks = pure . B $ i
-               | otherwise                   = fail "escaped skolem"
-       f (B i)                               = pure $ B i
-       reabstr = fmap toScope . traverse f . fromScope
-   ts' <- (traverse . traverse) reabstr $ dt'^.tparams
-   cs' <- (traverse . kindVars) f $ dt'^.constrs
-   return $ DataType (dt^.global) (dt^.kparams ++ (Nothing <$ fvs)) ts' cs'
+  insts <- traverse instantiateDataType dts
+  let m = Map.fromList $ map (\(sch, dc) -> (dc^.name, sch)) insts
+  inferred <- for (map snd insts) $ inferDataTypeKind m
+  mess <- for (insts `zip` inferred) $ \((Schema ks s, dc), k) -> do
+    sks <- for ks $ newMeta False
+    let declared = instantiateVars sks s
+    uncaring $ unifyKind k declared
+    pure (sks, dc)
+  checked <- for mess $ \(sks, dc) -> do
+    () <$ checkDistinct sks
+    generalizeDataCheck dc
+  let cm = Map.fromList
+             $ map (\dt -> (dt^.name, (dt^.global, dataTypeSchema dt))) checked
+  pure $ map (boundBy $ \t -> uncurry con $ cm Map.! t) checked
 
 -- | Checks that the types in a data declaration have sensible kinds.
-checkDataTypeKind :: Map Text (DataType (MetaK s) a) -> DataType (MetaK s) Text
-                  -> M s ([MetaK s], Schema v)
-checkDataTypeKind m dt = do
-  sks <- for (dt^.kparams) $ newMeta False
-  let Schema _ s = dataTypeSchema dt
-      selfKind = instantiateVars sks s
-  dt' <- for dt $ \t ->
-           if t == dt^.name
-             then pure selfKind
-             else case Map.lookup t m of
-               Just sc -> refresh (dataTypeSchema sc)
-               Nothing -> fail "unknown reference"
-  let btys = instantiateVars sks . extract <$> (dt^.tparams)
-  for_ (dt'^.constrs) $ \c ->
-    checkConstructorKind $ bimap (unvar (sks!!) id) (unvar (btys !!) id) c
-  void $ checkDistinct sks
-  (sks,) <$> generalize selfKind
-  -- TODO: check that sks is mutually exclusive
- where
- refresh (Schema ks s) =
-   (instantiateVars ?? s) <$> traverse (newMeta False) ks
+inferDataTypeKind :: Map Text (Schema (MetaK s))-> DataCheck s -> M s (KindM s)
+inferDataTypeKind m (DataCheck _ hks cs) = do
+   cs' <- for cs $ \c -> for c $ \case
+            B i -> pure $ ks !! i
+            F t -> case Map.lookup t m of
+              Just (Schema sks s) ->
+                (instantiateVars ?? s) <$> traverse (newMeta False) sks
+              Nothing -> fail "unknown reference"
+   foldr (~>) star ks <$ traverse_ checkConstructorKind cs'
+ where ks = map snd hks
 
--- | Checks that the types in a data constructor have sensible kinds.
 checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
 checkConstructorKind (Constructor _ ks ts fs) = do
-  sks <- for ks $ newMeta False
+  sks <- for ks $ newShallowMeta 1 False
   let btys = instantiateVars sks . extract <$> ts
   for_ fs $ \fld ->
     checkKind (instantiateKindVars sks $ instantiateVars btys fld) star
-  () <$ checkDistinct sks
+  () <$ (checkEscapes 1 =<< checkDistinct sks)

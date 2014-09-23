@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -32,11 +33,18 @@ module Ermine.Syntax
   , Tup(_Tup)
   , tup
   , tup'
+  -- * Utilities
+  , memoverse
+  , bimemoverse
   ) where
 
 import Bound
 import Bound.Var
 import Control.Lens
+import Control.Applicative
+import qualified Data.Map as Map
+import Control.Monad.State
+import Data.Bitraversable
 import Data.Tagged
 import Ermine.Syntax.Scope
 
@@ -167,3 +175,27 @@ tup = review _Tup
 tup' :: Tup Tagged Identity t => [t] -> t
 tup' [x] = x
 tup' xs = review _Tup xs
+
+------------------------------------------------------------------------------
+-- Utilities
+------------------------------------------------------------------------------
+
+-- | A version of bitraverse that only runs the functions in question once for
+-- each distinct value in the traversable container, remembering the result on
+-- the first run, and reusing it.
+bimemoverse :: (Bitraversable t, Applicative f, Monad f, Ord k, Ord a)
+            => (k -> f l) -> (a -> f b)
+            -> t k a -> f (t l b)
+bimemoverse knd typ =
+  flip evalStateT (Map.empty, Map.empty) . bitraverse (memoed _1 knd) (memoed _2 typ)
+
+memoverse :: (Traversable t, Applicative f, Monad f, Ord a) => (a -> f b) -> t a -> f (t b)
+memoverse typ = flip evalStateT Map.empty . traverse (memoed id typ)
+
+memoed :: (Ord v, Monad f) => Lens' s (Map.Map v u) -> (v -> f u) -> v -> StateT s f u
+memoed l g v = use l >>= \m -> case m ^. at v of
+ Just v' -> return v'
+ Nothing -> do v' <- lift (g v)
+               l.at v ?= v'
+               return v'
+
