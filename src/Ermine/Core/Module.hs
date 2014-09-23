@@ -17,8 +17,6 @@ import Data.Foldable
 import Data.Map
 import Data.Serialize as Serialize
 import Data.Void
-import Ermine.Syntax.Convention
-import Ermine.Syntax.Core
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global
 import Ermine.Syntax.ModuleName
