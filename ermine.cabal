@@ -111,6 +111,7 @@ library
     Ermine.Constraint.Env
     Ermine.Constraint.Simplification
     Ermine.Core.Lint
+    Ermine.Core.Module
     Ermine.Core.Optimizer
     Ermine.Core.Compiler
     Ermine.Diagnostic

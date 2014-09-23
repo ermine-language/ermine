@@ -1,78 +1,67 @@
-module Ermine.Syntax.Module
- ( Module(Module)
- , definitions
- , termExports
- , instances
- , types
- , dataDecls
- ) where
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell #-}
+module Ermine.Syntax.Module where
 
-import Control.Applicative
 import Control.Lens
-import Data.Binary
 import Data.Bytes.Serial
-import Data.ByteString
-import Data.Map
+import Data.Binary
 import Data.Serialize
-import Data.Void
-import Ermine.Syntax.Convention
-import Ermine.Syntax.Core
+import Data.Data hiding (DataType)
+import Data.Ix
+import Data.Text
 import Ermine.Syntax.Data
-import Ermine.Syntax.Global
+import Ermine.Syntax.Global as Global
 import Ermine.Syntax.ModuleName
-import Ermine.Syntax.Name
+import Ermine.Syntax.Term
 import Ermine.Syntax.Type
+import GHC.Generics hiding (moduleName)
 
-data Module = Module {
-  _name         :: ModuleName,
-  _dependencies :: [ModuleName],
-  _definitions  :: [Core Convention Int],
-  _termExports  :: Map Global (Either Global Int),
-  _instances    :: Map ByteString Int,
-  _types        :: Map Global (Type Void Void),
-  _data         :: [DataType Void Void]
-} deriving (Eq,Show)
+data Privacy = Private | Public deriving (Eq,Ord,Show,Read,Enum,Bounded,Ix,Generic,Typeable,Data)
 
-instance HasName Module where
-  name = module_.name
+instance Serial Privacy
 
-instance HasModuleName Module where
-  module_ f m@Module{_name = nm} = f nm <&> \nm' -> m { _name = nm' }
-
-dependencies :: Lens' Module [ModuleName]
-dependencies f (Module n deps defs ts is tys d) = f deps <&> \deps' -> Module n deps' defs ts is tys d
-
-definitions :: Lens' Module [Core Convention Int]
-definitions f (Module n deps defs ts is tys d) = f defs <&> \defs' -> Module n deps defs' ts is tys d
-
-termExports :: Lens' Module (Map Global (Either Global Int))
-termExports f (Module n deps defs ts is tys d) = f ts <&> \ts' -> Module n deps defs ts' is tys d
-
-instances :: Lens' Module (Map ByteString Int)
-instances f (Module n deps defs ts is tys d) = f is <&> \is' -> Module n deps defs ts is' tys d
-
-types :: Lens' Module (Map Global (Type Void Void))
-types f (Module n deps defs ts is tys d) = f tys <&> \tys' -> Module n deps defs ts is tys' d
-
-dataDecls :: Lens' Module [DataType Void Void]
-dataDecls f (Module n deps defs ts is tys d) = f d <&> \d' -> Module n deps defs ts is tys d'
-
-instance Serial Module where
-  serialize m =
-    serialize (m^.module_)      >>
-    serialize (m^.dependencies) >>
-    serialize (m^.definitions)  >>
-    serialize (m^.termExports)  >>
-    serialize (m^.instances)    >>
-    serialize (m^.types)        >>
-    serialize (m^.dataDecls)
-  deserialize =
-    Module <$> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize <*> deserialize
-
-instance Binary Module where
+instance Binary Privacy where
   put = serialize
   get = deserialize
 
-instance Serialize Module where
+instance Serialize Privacy where
   put = serialize
   get = deserialize
+
+data Explicit = Explicit
+  { _explicitGlobal :: Global
+  , _explicitIsType :: Bool
+  , _explicitLocal  :: Maybe String
+  } deriving (Eq,Ord,Show,Read,Typeable)
+
+makeClassy ''Explicit
+
+data Import = Import -- TODO: add a location
+  { _importPrivacy   :: Privacy
+  , _importModule    :: ModuleName
+  , _importAs        :: Maybe String
+  , _importExplicits :: [Explicit]
+  , _importUsing     :: Bool
+  } deriving (Eq,Ord,Show,Read,Typeable)
+
+makeClassy ''Import
+
+data FixityDecl = FixityDecl
+  { _fixityDeclType   :: Bool
+  , _fixityDeclFixity :: Global.Fixity
+  , _fixityDeclNames  :: [Text]
+  } deriving (Show,Typeable)
+
+data Module = Module
+  { _moduleName      :: ModuleName
+  , _moduleImports   :: [Import]
+  , _moduleFixities  :: [FixityDecl]
+  , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
+  , _moduleBindings  :: [(Privacy, Binding (Annot Text) Text)]
+  -- Annot isn't sufficient now
+  -- , _moduleClasses   :: Map Text (Class, Binding (Annot (Either Text Int)) (Either Text Int))
+  -- , _moduleInstances :: Map Head () 
+  } deriving (Typeable)
+
+makeClassy ''Module
