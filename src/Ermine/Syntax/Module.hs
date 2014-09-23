@@ -5,11 +5,17 @@ module Ermine.Syntax.Module where
 
 import Control.Lens
 import Data.Bytes.Serial
-import Data.Binary (Binary)
-import Data.Serialize (Serialize)
-import Data.Data
+import Data.Binary
+import Data.Serialize
+import Data.Data hiding (DataType)
 import Data.Ix
+import Data.Text
+import Ermine.Syntax.Data
+import Ermine.Syntax.Global as Global
 import Ermine.Syntax.ModuleName
+import Ermine.Syntax.Term
+import Ermine.Syntax.Type
+import GHC.Generics hiding (moduleName)
 
 data Privacy = Private | Public deriving (Eq,Ord,Show,Read,Enum,Bounded,Ix,Generic,Typeable,Data)
 
@@ -43,7 +49,7 @@ makeClassy ''Import
 
 data FixityDecl = FixityDecl
   { _fixityDeclType   :: Bool
-  , _fixityDeclFixity :: Fixity
+  , _fixityDeclFixity :: Global.Fixity
   , _fixityDeclNames  :: [Text]
   } deriving (Show,Typeable)
 

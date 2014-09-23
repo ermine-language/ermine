@@ -158,6 +158,7 @@ library
     Ermine.Syntax.Id
     Ermine.Syntax.Instance
     Ermine.Syntax.Kind
+    Ermine.Syntax.Module
     Ermine.Syntax.ModuleName
     Ermine.Syntax.Name
     Ermine.Syntax.Pattern
