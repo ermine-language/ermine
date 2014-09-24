@@ -27,6 +27,7 @@ import Bound
 import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
+import Control.Monad ((<=<))
 import Control.Monad.IO.Class
 import Data.Bifunctor
 import Data.Bitraversable
@@ -152,11 +153,13 @@ parsing p k args s = case parseString (p <* eof) mempty s of
   Failure doc -> sayLn doc
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
-kindBody args s = do
+kindBody args ty = do
   gk <- ioM mempty $ do
-    tm <- memoverse (fmap pure . newMeta False . unvar Just Just)
-                    (annot Just (unvar Just Just) [] [] s)
-    k <- inferAnnotKind tm
+    tm <- kindVars (maybe (newMeta False Nothing) pure)
+      <=< bimemoverse (traverse $ newMeta False . Just)
+                      (fmap pure . newMeta False . unvar Just Just)
+        $ ty
+    k <- inferKind tm
     generalize k
   disp gk
  where
