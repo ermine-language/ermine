@@ -47,8 +47,6 @@ module Ermine.Syntax.Type
   , bindType
   , bindTK
   , closedType
-  , bimemoverse
-  , memoverse
   , abstractAll
   -- * Type Variables
   , HasTypeVars(..)
