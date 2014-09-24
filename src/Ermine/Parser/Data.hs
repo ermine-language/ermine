@@ -20,7 +20,7 @@ import Control.Applicative
 import Control.Lens
 import Data.List
 import Data.Maybe
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Ermine.Parser.Global
 import Ermine.Parser.Style
 import Ermine.Parser.Type
@@ -62,5 +62,5 @@ dataType = build <$ symbol "data"
   cs' = bimap (abstractSimple jks) (abstractSimple $ map fst ts) <$> cs
   semiClosedKind (Just _) = error "dataType: Impossible kind"
   semiClosedKind Nothing  = ()
-  semiClosedType (B _) = error "dataType: Impossible type"
+  semiClosedType (B v) = error $ "Unbound type variable: " ++ unpack v
   semiClosedType (F x) = x
