@@ -21,13 +21,21 @@ import Data.FileEmbed
 import Data.List.Split
 import Data.Version
 import qualified Paths_ermine
+import System.Directory
 import System.FilePath
 import System.Random
 import System.IO.Unsafe
 
 -- | Obtain a copy of the Ermine logo.
 logo :: String
-logo = unsafePerformIO $ randomRIO (0,9 :: Int) >>= \n -> if n == 0 then logos else return rat
+logo = unsafePerformIO $ do
+  home <- getHomeDirectory
+  let rc = home </> ".erminerc"
+  test <- doesFileExist rc
+  r <- if test
+         then read <$> readFile rc
+         else return 9
+  randomRIO (0,r :: Int) >>= \n -> if n == 0 then logos else return rat
 
 -- | Grab the version number from this project.
 version :: String
