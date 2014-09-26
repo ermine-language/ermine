@@ -29,6 +29,7 @@ import Control.Applicative
 import Control.Lens (folded, filtered, to, (^..))
 import Data.Text (Text)
 import Data.Traversable (for)
+import Data.Void
 import Ermine.Builtin.Type
 import Ermine.Parser.Kind
 import Ermine.Parser.Style
@@ -38,7 +39,7 @@ import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
-type Ann = Annot Text
+type Ann = Annot Void Text
 type Typ = Type (Maybe Text) (Var Text Text)
 
 banana :: (Monad m, TokenParsing m) => m a -> m a

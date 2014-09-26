@@ -705,7 +705,7 @@ instantiateKindVars as = first (unvar (as!!) id)
 ------------------------------------------------------------------------------
 
 -- | A type annotation
-data Annot a = Annot [Hint] [Hint] !(Scope Int (Type Int) a)
+data Annot k a = Annot [Hint] [Hint] !(Scope Int (TK k) a)
   deriving Show
 
 annot :: (Ord k, Ord a)
@@ -713,7 +713,7 @@ annot :: (Ord k, Ord a)
       -> (a -> Hint)
       -> [k]
       -> [a]
-      -> Type (Maybe k) a -> Annot a
+      -> Type (Maybe k) a -> Annot Void a
 annot hk ht sks sts t
  = Annot (replicate n Nothing ++ map hk sks) (map ht sts) $ abstract (`elemIndex` sts) t''
  where
@@ -725,47 +725,54 @@ annot hk ht sks sts t
    ak Nothing = state $ \i -> let i' = i + 1 in i' `seq` (B i, i')
    -- t'' :: Type Int a
    t'' = forall (unvar (const Nothing) hk) ht (t'^..kindVars._F.to F) [] (And []) t' &
-     kindVars %~ unvar id (error "impossibru")
+     kindVars %~ unvar B (error "impossibru")
 {-# INLINE annot #-}
 
-instance Functor Annot where
+instance Functor (Annot k) where
   fmap f (Annot ks tks b) = Annot ks tks (fmap f b)
   {-# INLINE fmap #-}
 
-instance Foldable Annot where
+instance Bifunctor Annot where
+  bimap f g (Annot ks ts b) = Annot ks ts . hoistScope (first $ fmap f) . fmap g $ b
+
+instance Foldable (Annot k) where
   foldMap f (Annot _ _ b) = foldMap f b
   {-# INLINE foldMap #-}
 
-instance Traversable Annot where
+instance Traversable (Annot k) where
   traverse f (Annot ks tks b) = Annot ks tks <$> traverse f b
   {-# INLINE traverse #-}
 
-instance HasTypeVars (Annot a) (Annot a') a a' where
+instance HasTypeVars (Annot k a) (Annot k a') a a' where
   typeVars = traverse
   {-# INLINE typeVars #-}
 
-instance Variable Annot where
+instance Variable (Annot k) where
   _Var = prism (Annot [] [] . return) $ \ t@(Annot _ _ (Scope b)) -> case b of
     Var (F (Var k)) -> Right k
     _               -> Left  t
   {-# INLINE _Var #-}
 
-instance Typical (Annot a) where
+instance Typical (Annot k a) where
   hardType = prism (Annot [] [] . lift . review hardType) $ \ t@(Annot _ _ (Scope b)) -> case b of
     HardType a           -> Right a
     Var (F (HardType a)) -> Right a
     _                    -> Left t
   {-# INLINE hardType #-}
 
-instance Serial1 Annot where
-  serializeWith pt (Annot ks ts s) = serialize ks *> serialize ts *> serializeWith pt s
-  deserializeWith gt = Annot <$> deserialize <*> deserialize <*> deserializeWith gt
+instance Serial2 Annot where
+  serializeWith2 pk pt (Annot ks ts s) = serialize ks *> serialize ts *> serializeScope3 serialize (serializeTK pk) pt s
+  deserializeWith2 gk gt = Annot <$> deserialize <*> deserialize <*> deserializeScope3 deserialize (deserializeTK gk) gt
 
-instance Serial a => Serial (Annot a) where
+instance Serial k => Serial1 (Annot k) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial k, Serial a) => Serial (Annot k a) where
   serialize = serializeWith serialize
   deserialize = deserializeWith deserialize
 
-instance Binary a => Binary (Annot a) where
-  put = serializeWith   Binary.put
-  get = deserializeWith Binary.get
+instance (Binary k, Binary a) => Binary (Annot k a) where
+  put = serializeWith2 Binary.put  Binary.put
+  get = deserializeWith2 Binary.get Binary.get
 

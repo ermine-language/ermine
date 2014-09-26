@@ -85,11 +85,11 @@ instance (p ~ Tagged, f ~ Identity, Tup Tagged Identity t) => Tup p f (Binder v 
 -- | Smart pattern
 type P t v = Binder v (Pattern t)
 
-instance IsString s => IsString (P (Annot t) s) where
+instance IsString s => IsString (P (Annot k t) s) where
   fromString = varp . fromString
 
 -- | A pattern that binds a variable with (effectively) no type annotation.
-varp :: v -> P (Annot t) v
+varp :: v -> P (Annot k t) v
 varp v = sigp v anyType
 
 -- | A pattern that binds a variable with a type annotation.

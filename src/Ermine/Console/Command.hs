@@ -183,7 +183,7 @@ checkAndCompile syn = traverse resolveGlobals (syn >>= predefs) `for` \syn' -> d
                                    flip newMeta (Just s) . pure))
                  pure
                  syn'
-  w <- inferType 0 fst tm
+  w <- inferType 0 fst $ first (first absurd) tm
   over _2 (>>= snd) <$> generalizeType w
  where
  clame :: Type k t

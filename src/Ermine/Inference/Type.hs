@@ -74,7 +74,7 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), empty, (<>))
 import Text.Trifecta.Result
 
 type WitnessM s a = Witness (KindM s) (TypeM s) a
-type AnnotM s = Annot (MetaT s)
+type AnnotM s = Annot (MetaK s) (MetaT s)
 type PatM s = Pattern (AnnotM s)
 type TermM s a = Term (AnnotM s) a
 type AltM s a = Alt (AnnotM s) (Term (AnnotM s)) a
@@ -177,11 +177,11 @@ inferType d cxt (Remember i t) = do
   remember i (r^.witnessType)
   return r
 inferType d cxt (Sig tm (Annot hs hks ty)) = do
-  ks <- for hs $ newMeta False
+  ks <- for hs $ fmap pure . newMeta False
   ts <- for hks $ \h -> do
     k <- newMeta False Nothing
     newMeta (pure k) h
-  checkType d cxt tm (over kindVars (ks!!) $ instantiateVars ts ty)
+  checkType d cxt tm (instantiateKinds (ks!!) $ instantiateVars ts ty)
 inferType d cxt (Term.App f x) = do
   Witness frcs ft fc <- inferType d cxt f
   (i, o) <- matchFunType ft
@@ -532,13 +532,13 @@ inferPatternType d (ConP g ps)
 inferPatternType _ c@(ConP _ _)  = error $ "inferPatternType: constructor unimplemented: " ++ show c
 
 instantiateAnnot :: MonadMeta s m
-                 => Depth -> KindM s -> Annot (MetaT s) -> m (TypeM s)
+                 => Depth -> KindM s -> Annot (MetaK s) (MetaT s) -> m (TypeM s)
 instantiateAnnot d k (Annot hs hks sc) = do
-  kvs <- for hs $ \h -> newShallowMeta d False h
+  kvs <- for hs $ \h -> pure <$> newShallowMeta d False h
   tvs <- for hks $ \hk -> do
     tk <- newShallowMeta d False Nothing
     newShallowMeta d (pure tk) hk
-  let ty = over kindVars (kvs!!) $ instantiateVars tvs sc
+  let ty = instantiateKinds (kvs!!) $ instantiateVars tvs sc
   ty <$ checkKind (view metaValue <$> ty) k
 
 zonkWitnessKindsAndTypes

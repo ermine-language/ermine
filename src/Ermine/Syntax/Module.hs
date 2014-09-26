@@ -10,6 +10,7 @@ import Data.Serialize
 import Data.Data hiding (DataType)
 import Data.Ix
 import Data.Text
+import Data.Void
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global as Global
 import Ermine.Syntax.ModuleName
@@ -58,7 +59,7 @@ data Module = Module
   , _moduleImports   :: [Import]
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
-  , _moduleBindings  :: [(Privacy, Binding (Annot Text) Text)]
+  , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
   -- Annot isn't sufficient now
   -- , _moduleClasses   :: Map Text (Class, Binding (Annot (Either Text Int)) (Either Text Int))
   -- , _moduleInstances :: Map Head () 

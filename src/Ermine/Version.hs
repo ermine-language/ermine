@@ -32,10 +32,9 @@ logo = unsafePerformIO $ do
   home <- getHomeDirectory
   let rc = home </> ".erminerc"
   test <- doesFileExist rc
-  r <- if test
-         then read <$> readFile rc
-         else return 9
-  randomRIO (0,r :: Int) >>= \n -> if n == 0 then logos else return rat
+  if test
+    then readFile rc >>= \s -> randomRIO (0,read s :: Int) >>= \n -> if n == 0 then logos else return rat
+    else return rat
 
 -- | Grab the version number from this project.
 version :: String

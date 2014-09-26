@@ -270,5 +270,5 @@ fromInteg = builtin (star ~> constraint) "FromInteger"
 ------------------------------------------------------------------------------
 
 -- | A type annotation that can be applied to anything.
-anyType :: Annot a
+anyType :: Annot k a
 anyType = Annot [] [Nothing] $ Scope $ return $ B 0
