@@ -128,6 +128,7 @@ library
     Ermine.Parser.Keywords
     Ermine.Parser.Kind
     Ermine.Parser.Literal
+    Ermine.Parser.JoshTest
     Ermine.Parser.Pattern
     Ermine.Parser.Style
     Ermine.Parser.Type
@@ -286,7 +287,28 @@ executable ermine
       mtl,
       optparse-applicative
 
--- Verify the properties of lenses with QuickCheck
+test-suite unit-tests
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          UnitTests.hs
+  ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N -v0
+  hs-source-dirs:   tests tests/unit-tests
+
+  if flag(j) && impl(ghc >= 7.8)
+    ghc-options: -j3
+
+  if !flag(properties)
+    buildable: False
+  else
+    build-depends:
+      base,
+      directory             >= 1.2.0.1,
+      filemanip             >= 0.3.6.2,
+      HUnit,
+      test-framework        >= 0.6,
+      test-framework-hunit
+
+-- Verify properties with QuickCheck
 test-suite properties
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
