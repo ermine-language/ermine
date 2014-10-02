@@ -10,6 +10,7 @@ import Control.Applicative
 import Data.Map
 import Data.Monoid
 import Data.Void
+import Ermine.Core.Module        as Module
 import Ermine.Syntax.Constructor as Constructor
 import Ermine.Syntax.Convention  as Convention
 import Ermine.Syntax.Core        as Core
@@ -18,7 +19,6 @@ import Ermine.Syntax.Global      as Global
 import Ermine.Syntax.Hint        as Hint
 import Ermine.Syntax.Kind        as Kind
 import Ermine.Syntax.Literal     as Lit
-import Ermine.Syntax.Module      as Module
 import Ermine.Syntax.ModuleName  as ModuleName
 import Ermine.Syntax.Pattern     as Pat
 import Ermine.Syntax.Type        as Type
@@ -287,7 +287,7 @@ genDataType mgk mgt =
     (listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)) <*>
     (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
 
-instance Arbitrary Module where
+instance Arbitrary a => Arbitrary (Module a) where
   arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
     arbTypes =  fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
     dataTypes = listOf (genDataType Nothing Nothing)
