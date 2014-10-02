@@ -119,6 +119,7 @@ library
     Ermine.Inference.Type
     Ermine.Inference.Witness
     Ermine.Interpreter
+    Ermine.Loader.Core
     Ermine.Monitor
     Ermine.Monitor.Combinators
     Ermine.Monitor.Exception
