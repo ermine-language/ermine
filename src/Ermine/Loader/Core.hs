@@ -50,5 +50,5 @@ compose :: Monad m => Loader e2 a m b -> Loader e n m a
                    -> Loader (e, e2) n m b
 compose (Loader r2) (Loader r1) =
   Loader (\n cv -> do
-             (e', a) <- r1 n (cv ^? _Just._1)
-             r2 a (cv ^? _Just._2) & lifted._1 %~ (e',))
+             (e', a) <- r1 n (fmap fst cv)
+             r2 a (fmap snd cv) & lifted._1 %~ (e',))
