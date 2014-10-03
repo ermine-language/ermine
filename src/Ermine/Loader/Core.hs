@@ -31,11 +31,11 @@ instance Functor m => Functor (Loader e n m) where
 -- | Lift a transformation on the results of a loader.
 loaded :: IndexPreservingSetter (Loader e n m a) (Loader e n f b)
                                 (m (e, a)) (f (e, b))
-loaded = setting $ over (loadOrReload.mapped.mapped)
+loaded = cloneIndexPreservingSetter (loadOrReload.mapped.mapped)
 
 xmapCacheKey :: Functor m => AnIso' e e2 -> Loader e n m a -> Loader e2 n m a
-xmapCacheKey i l = withIso i $ \t f ->
-  l {_loadOrReload = (\q -> (mapped._1 %~ t) . q . fmap f) . _loadOrReload l}
+xmapCacheKey i = withIso i $ \t f ->
+  loadOrReload.mapped %~ (\q -> (mapped._1 %~ t) . q . fmap f)
 
 -- | A loader without reloadability.
 alwaysFresh :: Functor m => (n -> m a) -> Loader () n m a
