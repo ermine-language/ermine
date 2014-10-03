@@ -26,14 +26,14 @@ data Loader e n m a = Loader
 makeLenses ''Loader
 
 instance Functor m => Functor (Loader e n m) where
-  fmap = trans . fmap . fmap
+  fmap = over loaded . fmap . fmap
 
 -- | Lift a transformation on the results of a loader.
-trans :: (m (e, a) -> m' (e, a'))
-      -> Loader e n m a
-      -> Loader e n m' a'
-trans f l = l {_load = f . _load l,
-               _reload = fmap f . _reload l}
+loaded :: IndexPreservingSetter (Loader e n m a) (Loader e n f b)
+                                (m (e, a)) (f (e, b))
+loaded = setting go
+  where go f l = l {_load = f . _load l,
+                    _reload = fmap f . _reload l}
 
 xmapCacheKey :: Functor m => AnIso' e e2 -> Loader e n m a -> Loader e2 n m a
 xmapCacheKey i l = withIso i $ \t f ->
