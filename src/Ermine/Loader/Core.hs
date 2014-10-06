@@ -84,3 +84,14 @@ product :: Applicative m => Loader e a m c -> Loader e2 b m d
 product (Loader l1) (Loader l2) =
   Loader (\(a, b) cv -> liftA2 (\(e, c) (e2, d) -> ((e, e2), (c, d)))
                                (l1 a (fmap fst cv)) (l2 b (fmap snd cv)))
+
+-- | Try the left loader, then the right loader.
+orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->
+          Loader (Maybe e, Maybe e2) a m b
+orElse = undefined
+{-
+orElse (Loader l1) (Loader l2) =
+  Loader (\n cv -> (l1 n (fst =<< cv) & cvside (,snd =<< cv))
+                    <|> (l2 n (snd =<< cv) & cvside (fst =<< cv,)))
+  where cvside = over (lifted._1) . (. Just)
+-}
