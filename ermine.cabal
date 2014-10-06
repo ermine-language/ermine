@@ -202,7 +202,7 @@ library
     lens                      >= 4.4,
     mtl                       >= 2.1,
     monad-st                  >= 0.2.3,
-    optparse-applicative      >= 0.10,
+    optparse-applicative      >= 0.11,
     parsers                   >= 0.8,
     prelude-extras            >= 0.3,
     primitive                 >= 0.5.2.1,

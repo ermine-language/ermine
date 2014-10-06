@@ -41,4 +41,4 @@ parseOptions = do
   return $ Options
        <$> parseMonitorOptions
        <*> option auto (long "libdir" <> short 'l' <> help "location of the ermine library" <> metavar "DIR" <> action "directory" <> value dd)
-       <*> many (argument Just $ help "files" <> metavar "FILE" <> action "file")
+       <*> many (argument str $ help "files" <> metavar "FILE" <> action "file")
