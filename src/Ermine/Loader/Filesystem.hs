@@ -9,5 +9,20 @@
 --------------------------------------------------------------------
 
 module Ermine.Loader.Filesystem
-  (
+  ( filesystemLoader
+  , FilesystemLoaderFreshness()
   ) where
+
+import Control.Monad.Error.Class
+import Control.Monad.IO.Class
+import Ermine.Loader.Core
+
+-- | A 'Loader' that searches an area of the filesystem for modules matching
+filesystemLoader :: (Error e, MonadError e m, MonadIO m) =>
+                    String         -- ^ Filesystem root to start the search.
+                    -> String      -- ^ File extension.
+                    -> Loader FilesystemLoaderFreshness String m String
+filesystemLoader root ext =
+  Loader (\n cv -> undefined)
+
+data FilesystemLoaderFreshness = FilesystemLoaderFreshness Int
