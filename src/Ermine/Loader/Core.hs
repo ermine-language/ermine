@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
@@ -33,9 +33,10 @@ loaded :: IndexPreservingSetter (Loader e n m a) (Loader e n f b)
                                 (m (e, a)) (f (e, b))
 loaded = cloneIndexPreservingSetter (loadOrReload.mapped.mapped)
 
-xmapCacheKey :: Functor m => AnIso' e e2 -> Loader e n m a -> Loader e2 n m a
-xmapCacheKey i = withIso i $ \t f ->
-  loadOrReload.mapped %~ dimap (fmap f) (mapped._1 %~ t)
+xmapCacheKey :: Functor m =>
+                AnIso' e e2 -> Iso' (Loader e n m a) (Loader e2 n m a)
+xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
+  where xf t f = loadOrReload.mapped %~ dimap (fmap f) (mapped._1 %~ t)
 
 -- | A loader without reloadability.
 alwaysFresh :: Functor m => (n -> m a) -> Loader () n m a
