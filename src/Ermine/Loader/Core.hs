@@ -85,6 +85,10 @@ product (Loader l1) (Loader l2) =
   Loader (\(a, b) cv -> liftA2 (\(e, c) (e2, d) -> ((e, e2), (c, d)))
                                (l1 a (fmap fst cv)) (l2 b (fmap snd cv)))
 
+-- | The 'orElse' identity; never succeeds.
+alwaysFail :: Alternative m => Loader e a m b
+alwaysFail = Loader . const . const $ empty
+
 -- | Try the left loader, then the right loader.
 orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->
           Loader (Maybe e, Maybe e2) a m b
