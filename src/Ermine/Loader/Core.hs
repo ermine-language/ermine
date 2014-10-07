@@ -23,7 +23,7 @@ module Ermine.Loader.Core
   ) where
 
 import Control.Applicative
-import Control.Arrow ((&&&))
+import Control.Arrow ((&&&), (|||))
 import Control.Lens
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
@@ -90,6 +90,10 @@ contramapName f = loadOrReload %~ (. f)
 -- ideas of the "freshness test"; that is why 'Loader' doesn't form a
 -- 'Category', while the version that existentializes the freshness
 -- test does.
+--
+-- NB: if the first reloader returns Nothing, the second loader will
+-- not be tried; it assumes that if the first loader says the cache is
+-- fresh, the second will as well
 compose :: Monad m => Loader e2 a m b -> Loader e n m a
                    -> Loader (e, e2) n m b
 compose l2 =
@@ -97,8 +101,6 @@ compose l2 =
   let (l1, r1) = l1' n
   in (do (e', a) <- l1
          (l2 ^. load) a & lifted._1 %~ (e',),
-      -- NB: if the first loader returns Nothing, the second loader
-      -- will not be tried.
       \(e, e2) ->
       r1 e >>= maybe (return Nothing)
                      (\(e', a) ->
@@ -120,12 +122,18 @@ alwaysFail :: Alternative m => Loader e a m b
 alwaysFail = Loader (const empty) (const . const $ empty)
 
 -- | Try the left loader, then the right loader.
+--
+-- NB: the reload will only try the loader that succeeded before.  We
+-- could fall over to the other (fresh) loader if a given reloader
+-- fails in 'm'; a successful 'm' of 'Nothing' indicates that the
+-- "load" was successful, but the resource was fresh, so there is no
+-- need to reload, and it didn't bother giving back an 'a'.
 orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->
-          Loader (Maybe e, Maybe e2) a m b
-orElse = undefined
-{-
-orElse (Loader l1) (Loader l2) =
-  Loader (\n cv -> (l1 n (fst =<< cv) & cvside (,snd =<< cv))
-                    <|> (l2 n (snd =<< cv) & cvside (fst =<< cv,)))
-  where cvside = over (lifted._1) . (. Just)
--}
+          Loader (Either e e2) a m b
+orElse l1 =
+  let mix ((fresh1, rel1), (fresh2, rel2)) =
+        (over (mapped._1) Left fresh1
+         <|> over (mapped._1) Right fresh2
+        ,(over (mapped.mapped._1) Left . rel1)
+         ||| (over (mapped.mapped._1) Right . rel2))
+  in loadOrReload %~ \lr2 -> mix . (l1 ^. loadOrReload &&& lr2)
