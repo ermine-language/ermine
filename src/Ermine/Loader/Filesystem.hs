@@ -17,7 +17,10 @@ import Control.Monad.Error.Class
 import Control.Monad.IO.Class
 import Ermine.Loader.Core
 
--- | A 'Loader' that searches an area of the filesystem for modules matching
+-- | A 'Loader' that searches an area of the filesystem for modules
+-- matching the given module name, and results in the textual contents
+-- of that module file.  Non-IO errors are reported as 'e' to 'm' via
+-- 'MonadError'.
 filesystemLoader :: (Error e, MonadError e m, MonadIO m) =>
                     String         -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.

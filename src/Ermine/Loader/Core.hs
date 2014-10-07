@@ -124,10 +124,11 @@ alwaysFail = Loader (const empty) (const . const $ empty)
 -- | Try the left loader, then the right loader.
 --
 -- NB: the reload will only try the loader that succeeded before.  We
--- could fall over to the other (fresh) loader if a given reloader
+-- *could* fall over to the other (fresh) loader if a given reloader
 -- fails in 'm'; a successful 'm' of 'Nothing' indicates that the
 -- "load" was successful, but the resource was fresh, so there is no
--- need to reload, and it didn't bother giving back an 'a'.
+-- need to reload, and it didn't bother giving back an 'a'.  That's
+-- not what happens now, though.
 orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->
           Loader (Either e e2) a m b
 orElse l1 =
