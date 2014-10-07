@@ -14,12 +14,16 @@
 module Ermine.Loader.Core
   ( -- * Loaders with cache states
     Loader(Loader)
-  , loadOrReload
+  , load
+  , reload
   , loaded
   , alwaysFresh
+  , alwaysFail
+  , orElse
   ) where
 
 import Control.Applicative
+import Control.Arrow ((&&&))
 import Control.Lens
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
@@ -33,31 +37,50 @@ import Control.Lens
 --
 -- 'Loader' forms a 'Profunctor' over 'n' and 'a' where 'Functor m'.
 data Loader e n m a = Loader
-  { _loadOrReload :: n -> Maybe e -> m (e, a) }
+  { _load :: n -> m (e, a)
+  , _reload :: n -> e -> m (Maybe (e, a))}
 
 makeLenses ''Loader
 
 instance Functor m => Functor (Loader e n m) where
-  fmap = over loaded . fmap . fmap
+  fmap f = setCovariant (fmap (fmap f)) (fmap (fmap (fmap f)))
+
+-- | A more convenient representation of 'Loader' for writing
+-- combinators.
+loadOrReload :: Lens (Loader e n m a) (Loader e' n' m' a')
+                     (n -> (m (e, a), e -> m (Maybe (e, a))))
+                     (n' -> (m' (e', a'), e' -> m' (Maybe (e', a'))))
+loadOrReload f (Loader l r) =
+  (\g -> Loader (fst . g) (snd . g)) <$> f (l &&& r)
+
+-- | Alter the covariant parts of a 'Loader'.
+setCovariant :: (m (e, a) -> f (e, b))
+                -> (m (Maybe (e, a)) -> f (Maybe (e, b)))
+                -> Loader e n m a -> Loader e n f b
+setCovariant tl tr (Loader l r) =
+  Loader (tl . l) ((tr .) . r)
 
 -- | Lift a transformation on the results of a loader.  This has
--- various uses; for example, 'loaded %~ lift' transforms the 'm' of a
+-- various uses; for example, 'loaded lift' transforms the 'm' of a
 -- 'Loader' into 't m' for a given 'MonadTrans t'; other natural
 -- transformations are commonly needed to get two 'Loader's speaking
 -- different languages to speak the same language.
-loaded :: IndexPreservingSetter (Loader e n m a) (Loader e n f b)
-                                (m (e, a)) (f (e, b))
-loaded = cloneIndexPreservingSetter (loadOrReload.mapped.mapped)
+loaded :: (forall t. m t -> f t) -> Loader e n m a -> Loader e n f a
+loaded nt = setCovariant nt nt
 
 -- | Lift a cache key isomorphism.
 xmapCacheKey :: Functor m =>
                 AnIso' e e2 -> Iso' (Loader e n m a) (Loader e2 n m a)
 xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
-  where xf t f = loadOrReload.mapped %~ dimap (fmap f) (mapped._1 %~ t)
+  where xf t f (Loader l r) =
+          Loader (l & mapped.mapped._1 %~ t)
+                 (r & fmap (over argument f
+                            . over (mapped.mapped.mapped._1) t))
 
 -- | A loader without reloadability.
 alwaysFresh :: Functor m => (n -> m a) -> Loader () n m a
-alwaysFresh f = Loader (const . fmap ((),) . f)
+alwaysFresh f = Loader (fmap ((),) . f)
+                       (const . fmap (pure.pure) . f)
 
 -- | Contramap the name parameter.
 contramapName :: (n' -> n) -> Loader e n m a -> Loader e n' m a
@@ -67,27 +90,34 @@ contramapName f = loadOrReload %~ (. f)
 -- ideas of the "freshness test"; that is why 'Loader' doesn't form a
 -- 'Category', while the version that existentializes the freshness
 -- test does.
---
--- (Only really needs Bind.)
 compose :: Monad m => Loader e2 a m b -> Loader e n m a
                    -> Loader (e, e2) n m b
-compose (Loader r2) (Loader r1) =
-  Loader (\n cv -> do
-             (e', a) <- r1 n (fmap fst cv)
-             r2 a (fmap snd cv) & lifted._1 %~ (e',))
+compose l2 =
+  loadOrReload %~ \l1' n ->
+  let (l1, r1) = l1' n
+  in (do (e', a) <- l1
+         (l2 ^. load) a & lifted._1 %~ (e',),
+      -- NB: if the first loader returns Nothing, the second loader
+      -- will not be tried.
+      \(e, e2) ->
+      r1 e >>= maybe (return Nothing)
+                     (\(e', a) ->
+                       (l2 ^. reload) a e2 & lifted.mapped._1 %~ (e',)))
 
 -- | The product of two loaders.
 --
 -- (Only really needs Apply.)
 product :: Applicative m => Loader e a m c -> Loader e2 b m d
                          -> Loader (e, e2) (a, b) m (c, d)
-product (Loader l1) (Loader l2) =
+product (Loader l1 r1) (Loader l2 r2) = undefined -- TODO
+{-
   Loader (\(a, b) cv -> liftA2 (\(e, c) (e2, d) -> ((e, e2), (c, d)))
                                (l1 a (fmap fst cv)) (l2 b (fmap snd cv)))
+-}
 
 -- | The 'orElse' identity; never succeeds.
 alwaysFail :: Alternative m => Loader e a m b
-alwaysFail = Loader . const . const $ empty
+alwaysFail = Loader (const empty) (const . const $ empty)
 
 -- | Try the left loader, then the right loader.
 orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->

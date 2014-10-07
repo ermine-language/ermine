@@ -23,6 +23,6 @@ filesystemLoader :: (Error e, MonadError e m, MonadIO m) =>
                     -> String      -- ^ File extension.
                     -> Loader FilesystemLoaderFreshness String m String
 filesystemLoader root ext =
-  Loader (\n cv -> undefined)
+  Loader (\n -> undefined) (\n cv -> undefined)
 
 data FilesystemLoaderFreshness = FilesystemLoaderFreshness Int
