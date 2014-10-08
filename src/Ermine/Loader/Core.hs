@@ -25,6 +25,7 @@ module Ermine.Loader.Core
 import Control.Applicative
 import Control.Arrow
 import Control.Lens
+import Control.Monad
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
 -- depends on whether an 'e' is passed.
@@ -110,18 +111,27 @@ compose l2 =
 
 -- | The product of two loaders.
 --
--- NB: if either reloader returns Nothing, the whole reload returns
--- Nothing.  This may not be right.
-product :: Applicative m => Loader e a m c -> Loader e2 b m d
-                         -> Loader (e, e2) (a, b) m (c, d)
+-- NB: if one reloader returns Nothing, but not the other, the other's
+-- loader is always run instead.
+product :: Monad m => Loader e a m c -> Loader e2 b m d
+                   -> Loader (e, e2) (a, b) m (c, d)
 product (Loader l1 r1) (Loader l2 r2) =
-  Loader ((l1 *** l2) >>> uncurry (liftA2 reorder))
-         (\(a, b) (e, e2) -> liftA2 (liftA2 reorder) (r1 a e) (r2 b e2))
-  where reorder (e, c) (e2, d) = ((e, e2), (c, d))
-{-
-  Loader (\(a, b) cv -> liftA2 (\(e, c) (e2, d) -> ((e, e2), (c, d)))
-                               (l1 a (fmap fst cv)) (l2 b (fmap snd cv)))
--}
+  Loader ((l1 *** l2) >>> uncurry (liftM2 reorder)) reload'
+  where reload' = (\(a, b) (e, e2) -> do
+                      r1r <- r1 a e
+                      r2r <- r2 b e2
+                      defaulting2 (l1 a) (l2 b) r1r r2r) &
+                        lifted.mapped %~ uncurry reorder
+        reorder (e, c) (e2, d) = ((e, e2), (c, d))
+
+-- | Fall back to 'ma' or 'mb' iff 'Maybe a' xor 'Maybe b' is
+-- undefined.  (Really needs just 'Applicative'.)
+defaulting2 :: Monad m => m a -> m b -> Maybe a -> Maybe b -> m (Maybe (a, b))
+defaulting2 ma mb = go
+  where go Nothing Nothing = return Nothing
+        go Nothing (Just b) = liftM (Just . (,b)) ma
+        go (Just a) Nothing = liftM (Just . (a,)) mb
+        go (Just a) (Just b) = return (Just (a, b))
 
 -- | The 'orElse' identity; never succeeds.
 alwaysFail :: Alternative m => Loader e a m b
