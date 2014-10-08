@@ -47,11 +47,11 @@ instance Functor m => Functor (Loader e n m) where
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
-loadOrReload :: Lens (Loader e n m a) (Loader e' n' m' a')
-                     (n -> (m (e, a), e -> m (Maybe (e, a))))
-                     (n' -> (m' (e', a'), e' -> m' (Maybe (e', a'))))
-loadOrReload f (Loader l r) =
-  (\g -> Loader (fst . g) (snd . g)) <$> f (l &&& r)
+loadOrReload :: Iso (Loader e n m a) (Loader e' n' m' a')
+                    (n -> (m (e, a), e -> m (Maybe (e, a))))
+                    (n' -> (m' (e', a'), e' -> m' (Maybe (e', a'))))
+loadOrReload  =
+  iso (\(Loader l r) -> l &&& r) (\g -> Loader (fst . g) (snd . g))
 
 -- | Alter the covariant parts of a 'Loader'.
 setCovariant :: (m (e, a) -> f (e, b))
@@ -101,6 +101,8 @@ compose l2 =
   let (l1, r1) = l1' n
   in (do (e', a) <- l1
          (l2 ^. load) a & lifted._1 %~ (e',),
+      -- TODO if existing composes are cheap on the right, only use
+      -- the load from the compose
       \(e, e2) ->
       r1 e >>= maybe (return Nothing)
                      (\(e', a) ->
