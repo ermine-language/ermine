@@ -23,7 +23,7 @@ module Ermine.Loader.Core
   ) where
 
 import Control.Applicative
-import Control.Arrow ((&&&), (|||))
+import Control.Arrow
 import Control.Lens
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
@@ -50,7 +50,7 @@ instance Functor m => Functor (Loader e n m) where
 loadOrReload :: Iso (Loader e n m a) (Loader e' n' m' a')
                     (n -> (m (e, a), e -> m (Maybe (e, a))))
                     (n' -> (m' (e', a'), e' -> m' (Maybe (e', a'))))
-loadOrReload  =
+loadOrReload =
   iso (\(Loader l r) -> l &&& r) (\g -> Loader (fst . g) (snd . g))
 
 -- | Alter the covariant parts of a 'Loader'.
@@ -110,10 +110,14 @@ compose l2 =
 
 -- | The product of two loaders.
 --
--- (Only really needs Apply.)
+-- NB: if either reloader returns Nothing, the whole reload returns
+-- Nothing.  This may not be right.
 product :: Applicative m => Loader e a m c -> Loader e2 b m d
                          -> Loader (e, e2) (a, b) m (c, d)
-product (Loader l1 r1) (Loader l2 r2) = undefined -- TODO
+product (Loader l1 r1) (Loader l2 r2) =
+  Loader ((l1 *** l2) >>> uncurry (liftA2 reorder))
+         (\(a, b) (e, e2) -> liftA2 (liftA2 reorder) (r1 a e) (r2 b e2))
+  where reorder (e, c) (e2, d) = ((e, e2), (c, d))
 {-
   Loader (\(a, b) cv -> liftA2 (\(e, c) (e2, d) -> ((e, e2), (c, d)))
                                (l1 a (fmap fst cv)) (l2 b (fmap snd cv)))
