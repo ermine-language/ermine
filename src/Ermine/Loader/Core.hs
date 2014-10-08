@@ -120,8 +120,8 @@ product (Loader l1 r1) (Loader l2 r2) =
   where reload' = (\(a, b) (e, e2) -> do
                       r1r <- r1 a e
                       r2r <- r2 b e2
-                      defaulting2 (l1 a) (l2 b) r1r r2r) &
-                        lifted.mapped %~ uncurry reorder
+                      defaulting2 (l1 a) (l2 b) r1r r2r &
+                        lifted.mapped %~ uncurry reorder)
         reorder (e, c) (e2, d) = ((e, e2), (c, d))
 
 -- | Fall back to 'ma' or 'mb' iff 'Maybe a' xor 'Maybe b' is
