@@ -79,7 +79,7 @@ finalizeBindings :: Eq v => Binder v [PreBinding t v] -> [Binding t v]
 finalizeBindings (Binder vs pbs) = finalizeBinding vs <$> pbs
 
 finalizeBinding :: Eq v => [v] -> PreBinding t v -> Binding t v
-finalizeBinding vs (PreBinding r bt bs) = Binding r bt $ finalizeBody vs <$> bs
+finalizeBinding vs (PreBinding r bt bs) = Binding bt $ Bodies r $ finalizeBody vs <$> bs
 
 finalizeBody :: Eq v => [v] -> PreBody t v -> Body t v
 finalizeBody ns (PreBody (Binder vs ps) gs (Binder ws wh)) =

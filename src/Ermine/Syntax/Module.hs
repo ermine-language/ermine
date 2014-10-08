@@ -52,7 +52,20 @@ data FixityDecl = FixityDecl
   { _fixityDeclType   :: Bool
   , _fixityDeclFixity :: Global.Fixity
   , _fixityDeclNames  :: [Text]
-  } deriving (Show,Typeable)
+  } deriving (Show, Typeable)
+
+{-
+data ClassDecl = ClassDecl
+  { _classDeclClass      :: Class
+  , _classDeclSignatures :: Map Global (Type (Var Int ()) (Var Int Text))
+  , _classDeclDefaults   :: Map Global (Bodies (Annot Void Text) Void)
+  } deriving (Show, Typeable)
+
+data InstanceDecl = InstanceDecl
+  { _instanceDeclClass    :: Class
+  , _instanceDeclDefaults :: ClassBinding
+  } deriving (Show, Typeable)
+-}
 
 data Module = Module
   { _moduleName      :: ModuleName
@@ -60,7 +73,6 @@ data Module = Module
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
   , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
-  -- Annot isn't sufficient now
   -- , _moduleClasses   :: Map Text (Class, Binding (Annot (Either Text Int)) (Either Text Int))
   -- , _moduleInstances :: Map Head () 
   } deriving (Typeable)
