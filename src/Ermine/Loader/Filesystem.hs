@@ -18,8 +18,8 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
+import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.IO.Class
 import Data.Data
 import Data.Monoid
 import Data.Text
@@ -29,8 +29,11 @@ import qualified System.FilePath as P
 
 -- | A 'Loader' that searches an area of the filesystem for modules
 -- matching the given module name, and results in the textual contents
--- of that module file.  Non-IO errors are reported as 'e' to 'm' via
--- 'MonadError'.
+-- of that module file.
+--
+-- Non-IO errors are reported as 'LoadRefusal'.  Use
+-- 'Ermine.Loader.Core.loaded' and 'withExceptT' to translate this to
+-- a monoidal type (e.g. '[]') for combination with other loaders.
 filesystemLoader :: MonadIO m =>
                     P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
