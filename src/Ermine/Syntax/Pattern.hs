@@ -9,7 +9,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable

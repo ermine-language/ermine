@@ -13,7 +13,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2012
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable (DeriveDataTypeable)
@@ -32,6 +32,8 @@ module Ermine.Syntax.Term
   , BodyBound(..)
   , WhereBound(..)
   , AsDecl(..)
+  , Bodies(..)
+  , HasBodies(..)
   , Binding(..)
   , HasBinding(..)
   , BindingType(..)
@@ -58,6 +60,7 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.Foldable
+import Data.Function (on)
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
 import Data.Monoid
@@ -159,22 +162,37 @@ instance Bitraversable Body where
          <*> traverse (bitraverseScope f g) ss
          <*> traverse (bitraverse f (traverse g)) wh
 
+data Bodies t a = Bodies
+  { _loc   :: !Rendering
+  , _cases :: [Body t a] 
+  } deriving (Functor, Foldable, Traversable)
+
+instance (Eq t, Eq a) => Eq (Bodies t a) where
+  (==) = (==) `on` _cases
+
+instance (Show t, Show a) => Show (Bodies t a) where
+  show (Bodies _ xs) =
+    "Binding { _loc = emptyRendering,\
+    \ _cases = " ++ show xs ++ "}"
+
+instance Bifunctor Bodies where
+  bimap = bimapDefault
+
+instance Bifoldable Bodies where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable Bodies where
+  bitraverse f g (Bodies l xs) = Bodies l <$> traverse (bitraverse f g) xs
+
 -- | A Binding provides its source location as a rendering, knowledge of if it is explicit or implicitly bound
 -- and a list of right hand side bindings.
 data Binding t a = Binding
-                 { _bindingLoc :: !Rendering
-                 , _bindingType :: !(BindingType t)
-                 , _bindingBodies :: [Body t a]
-                 }
-  deriving (Functor, Foldable, Traversable)
-
-instance (Show t, Show a) => Show (Binding t a) where
-  show (Binding _ t b) =
-    "Binding { _bindingLoc = emptyRendering,\
-    \_bindingType = " ++ show t ++ ", _bindingBodies = " ++ show b ++ " }"
+  { _bindingType :: !(BindingType t)
+  , _bindingBodies :: Bodies t a
+  } deriving (Show, Functor, Foldable, Traversable)
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
-  Binding _ t bs == Binding _ t' bs' = t == t' && bs == bs'
+  Binding t bs == Binding t' bs' = t == t' && bs == bs'
 
 instance Bifunctor Binding where
   bimap = bimapDefault
@@ -183,7 +201,7 @@ instance Bifoldable Binding where
   bifoldMap = bifoldMapDefault
 
 instance Bitraversable Binding where
-  bitraverse f g (Binding l bt bs) = Binding l <$> traverse f bt <*> traverse (bitraverse f g) bs
+  bitraverse f g (Binding t xs) = Binding <$> traverse f t <*> bitraverse f g xs
 
 -- | Terms in the Ermine language.
 data Term t a
@@ -284,7 +302,7 @@ bindBody f g (Body ps gs wh) =
          (fmap (bindBinding f (unvar (pure . B) (fmap F . g))) wh)
 
 bindBinding :: (t -> t') -> (a -> Term t' b) -> Binding t a -> Binding t' b
-bindBinding f g (Binding r bt bs) = Binding r (fmap f bt) (bindBody f g <$> bs)
+bindBinding f g (Binding bt (Bodies r bs)) = Binding (f <$> bt) $ Bodies r $ bindBody f g <$> bs
 
 bindAlt :: (t -> t') -> (a -> Term t' b) -> Alt t (Term t) a -> Alt t' (Term t') b
 bindAlt f g (Alt p gs) =
@@ -360,13 +378,30 @@ instance Serialize t => Serialize (BindingType t) where
   put = serializeWith Serialize.put
   get = deserializeWith Serialize.get
 
-instance Serial2 Binding where
-  serializeWith2 pt pa (Binding _ bt body) =
-    serializeWith pt bt *> serializeWith (serializeWith2 pt pa) body
+instance Serial2 Bodies where
+  serializeWith2 pt pa (Bodies _ xs) =
+    serializeWith (serializeWith2 pt pa) xs
 
-  deserializeWith2 gt ga = Binding <$> return mempty
-                                   <*> deserializeWith gt
-                                   <*> deserializeWith (deserializeWith2 gt ga)
+  deserializeWith2 gt ga = Bodies <$> return mempty
+                                  <*> deserializeWith (deserializeWith2 gt ga)
+
+instance Serial t => Serial1 (Bodies t) where
+  serializeWith = serializeWith2 serialize
+  deserializeWith = deserializeWith2 deserialize
+
+instance (Serial t, Serial v) => Serial (Bodies t v) where
+  serialize = serialize1 ; deserialize = deserialize1
+
+instance (Binary t, Binary v) => Binary (Bodies t v) where
+  put = serializeWith2   Binary.put Binary.put
+  get = deserializeWith2 Binary.get Binary.get
+
+instance Serial2 Binding where
+  serializeWith2 pt pa (Binding bt body) =
+    serializeWith pt bt *> serializeWith2 pt pa body
+
+  deserializeWith2 gt ga = Binding <$> deserializeWith gt
+                                   <*> deserializeWith2 gt ga
 
 instance Serial t => Serial1 (Binding t) where
   serializeWith = serializeWith2 serialize
@@ -458,6 +493,10 @@ instance (Serialize t, Serialize v) => Serialize (Term t v) where
   put = serializeWith2 Serialize.put Serialize.put
   get = deserializeWith2 Serialize.get Serialize.get
 
+makeClassy ''Bodies
 makeClassy ''Binding
 makePrisms ''BindingType
 makeLenses ''Body
+
+instance HasBodies (Binding t a) t a where
+  bodies = bindingBodies

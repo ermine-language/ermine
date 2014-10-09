@@ -12,7 +12,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2011-2014
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
@@ -106,12 +106,12 @@ inferBindingType
   :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v -> m (WitnessM s (Var Word64 v))
 inferBindingType d cxt lcxt bdg = do
-  let ps = bdg^..bindingBodies.traverse.bodyPatterns
+  let ps = bdg^..cases.traverse.bodyPatterns
   case compare (length (List.group $ map length ps)) 1 of
     LT -> fail "panic: missing right hand sides"
     EQ -> return ()
     GT -> fail "pattern arity mismatch"
-  mess <- for (bdg^.bindingBodies) $ \(Body bps gd wc) -> do
+  mess <- for (bdg^.cases) $ \(Body bps gd wc) -> do
     (skss, pts, ppts) <- unzip3 <$> traverse (inferPatternType d) bps
     let pcxt (ArgPP i pp)
           | Just f <- ppts ^? ix (fromIntegral i) = f pp
@@ -162,7 +162,7 @@ inferBindings d cxt bgs = do
  where
   is = zip [0..] bgs
   sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
-  comp ib = (ib, fst ib, ib^.._2.bindingBodies.traverse.bodyDecls)
+  comp ib = (ib, fst ib, ib^.._2.cases.traverse.bodyDecls)
   step (ws,ts) cc = do
     nws <- inferBindingGroupTypes (d+1) cxt ts cc
     return (ws <> nws, ts <> fmap (view witnessType) nws)

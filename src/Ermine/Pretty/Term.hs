@@ -1,7 +1,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Dan Doel 2013
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
@@ -74,7 +74,7 @@ prettyTerm (Let bs e)     vars prec kt kv =
 prettyBinding :: Applicative f
               => Doc -> Binding t v -> [Doc] -> [String]
               -> (t -> Int -> f Doc) -> (v -> Int -> f Doc) -> f [Doc]
-prettyBinding nm (Binding _ bt bs) dvs vs kt kv =
+prettyBinding nm (Binding bt (Bodies _ bs)) dvs vs kt kv =
   h <*> traverse (\bd -> prettyBody nm bd dvs vs kt kv) bs
  where
  h = case bt of
