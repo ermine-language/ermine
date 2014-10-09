@@ -1,7 +1,7 @@
 name:          ermine
 category:      Compiler
 version:       0.6
-license:       BSD3
+license:       BSD2
 cabal-version: >= 1.16
 license-file:  LICENSE
 author:        Edward A. Kmett

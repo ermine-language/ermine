@@ -1,7 +1,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Dan Doel 2013
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
