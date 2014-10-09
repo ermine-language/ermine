@@ -92,22 +92,18 @@ contramapName f = loadOrReload %~ (. f)
 -- 'Category', while the version that existentializes the freshness
 -- test does.
 --
--- NB: if the first reloader returns Nothing, the second loader will
--- not be tried; it assumes that if the first loader says the cache is
--- fresh, the second will as well
+-- NB: The right reloader is never used.  Therefore, this 'compose'
+-- has no left identity.
 compose :: Monad m => Loader e2 a m b -> Loader e n m a
                    -> Loader (e, e2) n m b
 compose l2 =
   loadOrReload %~ \l1' n ->
-  let (l1, r1) = l1' n
+  let l1 = fst (l1' n)
   in (do (e', a) <- l1
-         (l2 ^. load) a & lifted._1 %~ (e',),
-      -- TODO if existing composes are cheap on the right, only use
-      -- the load from the compose
-      \(e, e2) ->
-      r1 e >>= maybe (return Nothing)
-                     (\(e', a) ->
-                       (l2 ^. reload) a e2 & lifted.mapped._1 %~ (e',)))
+         view load l2 a & lifted._1 %~ (e',),
+      \(_, e2) ->
+      do (e', a) <- l1
+         view reload l2 a e2 & lifted.mapped._1 %~ (e',))
 
 -- | The product of two loaders.
 --
