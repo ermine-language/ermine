@@ -38,38 +38,38 @@ import GHC.Generics
 -- | A pure loader or reloader.  Whether you are loading or reloading
 -- depends on whether an 'e' is passed.
 --
--- 'n' is the "module name"; 'e' is the "freshness test" answered on
+-- 'a' is the "module name"; 'e' is the "freshness test" answered on
 -- the side by an initial load, for example a timestamp for filesystem
 -- loads; 'm' is the effect context of loading, e.g. '(MaybeT IO)' for
--- filesystem loads (where a module might not be found); 'a' is the
+-- filesystem loads (where a module might not be found); 'b' is the
 -- result of the load.
 --
--- 'Loader' forms a 'Profunctor' over 'n' and 'a' where 'Functor m'.
+-- 'Loader' forms a 'Profunctor' over 'a' and 'b' where 'Functor m'.
 -- The simplest way to make a loader is with 'alwaysFresh'; from
 -- there, an 'arr'-equivalent is obvious, though there is no lawful
 -- 'Arrow' for 'Loader'.
-data Loader e n m a = Loader
-  { _load :: n -> m (e, a)
-  , _reload :: n -> e -> m (Maybe (e, a))}
+data Loader e a m b = Loader
+  { _load :: a -> m (e, b)
+  , _reload :: a -> e -> m (Maybe (e, b))}
   deriving (Generic)
 
 makeLenses ''Loader
 
-instance Functor m => Functor (Loader e n m) where
+instance Functor m => Functor (Loader e a m) where
   fmap f = setCovariant (fmap (fmap f)) (fmap (fmap (fmap f)))
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
-loadOrReload :: Iso (Loader e n m a) (Loader e' n' m' a')
-                    (n -> (m (e, a), e -> m (Maybe (e, a))))
-                    (n' -> (m' (e', a'), e' -> m' (Maybe (e', a'))))
+loadOrReload :: Iso (Loader e a m b) (Loader e' a' m' b')
+                    (a -> (m (e, b), e -> m (Maybe (e, b))))
+                    (a' -> (m' (e', b'), e' -> m' (Maybe (e', b'))))
 loadOrReload =
   iso (\(Loader l r) -> l &&& r) (\g -> Loader (fst . g) (snd . g))
 
 -- | Alter the covariant parts of a 'Loader'.
-setCovariant :: (m (e, a) -> f (e, b))
-                -> (m (Maybe (e, a)) -> f (Maybe (e, b)))
-                -> Loader e n m a -> Loader e n f b
+setCovariant :: (m (e, b) -> f (e, c))
+                -> (m (Maybe (e, b)) -> f (Maybe (e, c)))
+                -> Loader e a m b -> Loader e a f c
 setCovariant tl tr (Loader l r) =
   Loader (tl . l) ((tr .) . r)
 
@@ -78,12 +78,12 @@ setCovariant tl tr (Loader l r) =
 -- 'Loader' into 't m' for a given 'MonadTrans t'; other natural
 -- transformations are commonly needed to get two 'Loader's speaking
 -- different languages to speak the same language.
-loaded :: (forall t. m t -> f t) -> Loader e n m a -> Loader e n f a
+loaded :: (forall t. m t -> f t) -> Loader e a m b -> Loader e a f b
 loaded nt = setCovariant nt nt
 
 -- | Lift a cache key isomorphism.
 xmapCacheKey :: Functor m =>
-                AnIso' e e2 -> Iso' (Loader e n m a) (Loader e2 n m a)
+                AnIso' e e2 -> Iso' (Loader e a m b) (Loader e2 a m b)
 xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
   where xf t f (Loader l r) =
           Loader (l & mapped.mapped._1 %~ t)
@@ -92,14 +92,14 @@ xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
 
 -- | A loader without reloadability.  This is the simplest way to make
 -- a loader.
-alwaysFresh :: Functor m => (n -> m a) -> Loader () n m a
+alwaysFresh :: Functor m => (a -> m b) -> Loader () a m b
 alwaysFresh f = Loader (fmap ((),) . f)
                        (const . fmap (pure.pure) . f)
 
 -- | Contramap the name parameter.  Can be implemented in terms of
 -- 'composeLoaders', 'alwaysFresh', and 'xmapCacheKey', but this is
 -- simpler.
-contramapName :: (n' -> n) -> Loader e n m a -> Loader e n' m a
+contramapName :: (c -> a) -> Loader e a m b -> Loader e c m b
 contramapName f = loadOrReload %~ (. f)
 
 -- | Compose two loaders.  The loaders are assumed to have independent
@@ -109,8 +109,8 @@ contramapName f = loadOrReload %~ (. f)
 --
 -- NB: The right reloader is never used.  Therefore, this 'compose'
 -- has no left identity.
-composeLoaders :: Monad m => Loader e2 a m b -> Loader e n m a
-                          -> Loader (e, e2) n m b
+composeLoaders :: Monad m => Loader e2 b m c -> Loader e a m b
+                          -> Loader (e, e2) a m c
 composeLoaders l2 =
   loadOrReload %~ \l1' n ->
   let l1 = fst (l1' n)
