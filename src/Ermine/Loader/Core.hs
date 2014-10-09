@@ -20,8 +20,8 @@ module Ermine.Loader.Core
   , reload
     -- * Manipulating loaders
   , loaded
-  , contramapName
   , xmapCacheKey
+  , contramapName
     -- * Combining multiple loaders
   , alwaysFail
   , orElse
@@ -54,7 +54,9 @@ data Loader e m a b = Loader
 
 makeLenses ''Loader
 
--- instance Functor m => Profunctor Loader e m
+instance Functor m => Profunctor (Loader e m) where
+  lmap = contramapName
+  rmap = fmap
 
 instance Functor m => Functor (Loader e m a) where
   fmap f = setCovariant (fmap (fmap f)) (fmap (fmap (fmap f)))
@@ -97,9 +99,8 @@ alwaysFresh :: Functor m => (a -> m b) -> Loader () m a b
 alwaysFresh f = Loader (fmap ((),) . f)
                        (const . fmap (pure.pure) . f)
 
--- | Contramap the name parameter.  Can be implemented in terms of
--- 'composeLoaders', 'alwaysFresh', and 'xmapCacheKey', but this is
--- simpler.
+-- | Contramap the name parameter.  A specialization of 'lmap' that
+-- doesn't require the 'Functor' constraint.
 contramapName :: (c -> a) -> Loader e m a b -> Loader e m c b
 contramapName f = loadOrReload %~ (. f)
 
@@ -129,11 +130,11 @@ productLoader :: Monad m => Loader e m a c -> Loader e2 m b d
                  -> Loader (e, e2) m (a, b) (c, d)
 productLoader (Loader l1 r1) (Loader l2 r2) =
   Loader ((l1 *** l2) >>> uncurry (liftM2 reorder)) reload'
-  where reload' = (\(a, b) (e, e2) -> do
-                      r1r <- r1 a e
-                      r2r <- r2 b e2
-                      defaulting2 (l1 a) (l2 b) r1r r2r &
-                        lifted.mapped %~ uncurry reorder)
+  where reload' (a, b) (e, e2) = do
+          r1r <- r1 a e
+          r2r <- r2 b e2
+          defaulting2 (l1 a) (l2 b) r1r r2r &
+            lifted.mapped %~ uncurry reorder
         reorder (e, c) (e2, d) = ((e, e2), (c, d))
 
 -- | Fall back to 'ma' or 'mb' iff 'Maybe a' xor 'Maybe b' is
