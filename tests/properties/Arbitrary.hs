@@ -201,10 +201,13 @@ instance (Arbitrary t, Arbitrary a) => Arbitrary (Body t a) where
     body' 0 = Body <$> return [] <*> arbitrary <*> return []
     body' n = smaller $ Body <$> arbitrary <*> arbitrary <*> arbitrary
 
+instance (Arbitrary t, Arbitrary a) => Arbitrary (Bodies t a) where
+  arbitrary = sized bodies where
+    bodies 0 = return $ Bodies mempty []
+    bodies _ = smaller $ Bodies mempty <$> arbitrary
+
 instance (Arbitrary t, Arbitrary a) => Arbitrary (Binding t a) where
-  arbitrary = sized binding' where
-    binding' 0 = Binding <$> return mempty <*> arbitrary <*> return []
-    binding' n = smaller $ Binding <$> return mempty <*> arbitrary <*> arbitrary
+  arbitrary = Binding <$> arbitrary <*> arbitrary
 
 instance Arbitrary HardTerm where
   arbitrary = oneof

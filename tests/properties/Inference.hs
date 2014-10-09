@@ -86,8 +86,8 @@ bazInstance = Instance [] (mkHead baz 0 [] [] [int]) (Dict [barInstance^.instanc
 dumbConstraintEnv = ConstraintEnv
                  { _classes = Map.fromList
                            [ (foo, Class [] [(Nothing, Scope star)] [])
-                           , (baz, Class [] [(Nothing, Scope star)] [barCon `App` pure 0])
-                           , (bar, Class [] [(Nothing, Scope star)] [fooCon `App` pure 0])
+                           , (baz, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ barCon `App` pure 0])
+                           , (bar, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ fooCon `App` pure 0])
                            ]
                  , _instances = Map.fromList
                      [ (foo, [fooInstance])
