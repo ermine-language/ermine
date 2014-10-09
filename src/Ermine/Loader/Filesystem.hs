@@ -37,7 +37,7 @@ import qualified System.FilePath as P
 filesystemLoader :: MonadIO m =>
                     P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
-                    -> Loader Freshness Text (ExceptT LoadRefusal m) Text
+                    -> Loader Freshness (ExceptT LoadRefusal m) Text Text
 filesystemLoader root ext =
   Loader (\n -> undefined) (\n cv -> undefined)
 

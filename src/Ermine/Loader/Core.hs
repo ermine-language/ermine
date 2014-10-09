@@ -44,23 +44,24 @@ import GHC.Generics
 -- filesystem loads (where a module might not be found); 'b' is the
 -- result of the load.
 --
--- 'Loader' forms a 'Profunctor' over 'a' and 'b' where 'Functor m'.
 -- The simplest way to make a loader is with 'alwaysFresh'; from
 -- there, an 'arr'-equivalent is obvious, though there is no lawful
 -- 'Arrow' for 'Loader'.
-data Loader e a m b = Loader
+data Loader e m a b = Loader
   { _load :: a -> m (e, b)
   , _reload :: a -> e -> m (Maybe (e, b))}
   deriving (Generic)
 
 makeLenses ''Loader
 
-instance Functor m => Functor (Loader e a m) where
+-- instance Functor m => Profunctor Loader e m
+
+instance Functor m => Functor (Loader e m a) where
   fmap f = setCovariant (fmap (fmap f)) (fmap (fmap (fmap f)))
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
-loadOrReload :: Iso (Loader e a m b) (Loader e' a' m' b')
+loadOrReload :: Iso (Loader e m a b) (Loader e' m' a' b')
                     (a -> (m (e, b), e -> m (Maybe (e, b))))
                     (a' -> (m' (e', b'), e' -> m' (Maybe (e', b'))))
 loadOrReload =
@@ -69,7 +70,7 @@ loadOrReload =
 -- | Alter the covariant parts of a 'Loader'.
 setCovariant :: (m (e, b) -> f (e, c))
                 -> (m (Maybe (e, b)) -> f (Maybe (e, c)))
-                -> Loader e a m b -> Loader e a f c
+                -> Loader e m a b -> Loader e f a c
 setCovariant tl tr (Loader l r) =
   Loader (tl . l) ((tr .) . r)
 
@@ -78,12 +79,12 @@ setCovariant tl tr (Loader l r) =
 -- 'Loader' into 't m' for a given 'MonadTrans t'; other natural
 -- transformations are commonly needed to get two 'Loader's speaking
 -- different languages to speak the same language.
-loaded :: (forall t. m t -> f t) -> Loader e a m b -> Loader e a f b
+loaded :: (forall t. m t -> f t) -> Loader e m a b -> Loader e f a b
 loaded nt = setCovariant nt nt
 
 -- | Lift a cache key isomorphism.
 xmapCacheKey :: Functor m =>
-                AnIso' e e2 -> Iso' (Loader e a m b) (Loader e2 a m b)
+                AnIso' e e2 -> Iso' (Loader e m a b) (Loader e2 m a b)
 xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
   where xf t f (Loader l r) =
           Loader (l & mapped.mapped._1 %~ t)
@@ -92,14 +93,14 @@ xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
 
 -- | A loader without reloadability.  This is the simplest way to make
 -- a loader.
-alwaysFresh :: Functor m => (a -> m b) -> Loader () a m b
+alwaysFresh :: Functor m => (a -> m b) -> Loader () m a b
 alwaysFresh f = Loader (fmap ((),) . f)
                        (const . fmap (pure.pure) . f)
 
 -- | Contramap the name parameter.  Can be implemented in terms of
 -- 'composeLoaders', 'alwaysFresh', and 'xmapCacheKey', but this is
 -- simpler.
-contramapName :: (c -> a) -> Loader e a m b -> Loader e c m b
+contramapName :: (c -> a) -> Loader e m a b -> Loader e m c b
 contramapName f = loadOrReload %~ (. f)
 
 -- | Compose two loaders.  The loaders are assumed to have independent
@@ -109,8 +110,8 @@ contramapName f = loadOrReload %~ (. f)
 --
 -- NB: The right reloader is never used.  Therefore, this 'compose'
 -- has no left identity.
-composeLoaders :: Monad m => Loader e2 b m c -> Loader e a m b
-                          -> Loader (e, e2) a m c
+composeLoaders :: Monad m => Loader e2 m b c -> Loader e m a b
+                          -> Loader (e, e2) m a c
 composeLoaders l2 =
   loadOrReload %~ \l1' n ->
   let l1 = fst (l1' n)
@@ -124,8 +125,8 @@ composeLoaders l2 =
 --
 -- NB: if one reloader returns Nothing, but not the other, the other's
 -- loader is always run instead.
-productLoader :: Monad m => Loader e a m c -> Loader e2 b m d
-                 -> Loader (e, e2) (a, b) m (c, d)
+productLoader :: Monad m => Loader e m a c -> Loader e2 m b d
+                 -> Loader (e, e2) m (a, b) (c, d)
 productLoader (Loader l1 r1) (Loader l2 r2) =
   Loader ((l1 *** l2) >>> uncurry (liftM2 reorder)) reload'
   where reload' = (\(a, b) (e, e2) -> do
@@ -145,7 +146,7 @@ defaulting2 ma mb = go
         go (Just a) (Just b) = return (Just (a, b))
 
 -- | The 'orElse' identity; never succeeds.
-alwaysFail :: Alternative m => Loader e a m b
+alwaysFail :: Alternative m => Loader e m a b
 alwaysFail = Loader (const empty) (const . const $ empty)
 
 -- | Try the left loader, then the right loader.
@@ -156,8 +157,8 @@ alwaysFail = Loader (const empty) (const . const $ empty)
 -- "load" was successful, but the resource was fresh, so there is no
 -- need to reload, and it didn't bother giving back an 'a'.  That's
 -- not what happens now, though.
-orElse :: Alternative m => Loader e a m b -> Loader e2 a m b ->
-          Loader (Either e e2) a m b
+orElse :: Alternative m => Loader e m a b -> Loader e2 m a b ->
+          Loader (Either e e2) m a b
 orElse l1 =
   let mix ((fresh1, rel1), (fresh2, rel2)) =
         (over (mapped._1) Left fresh1
