@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
@@ -26,6 +27,7 @@ import Control.Applicative
 import Control.Arrow
 import Control.Lens
 import Control.Monad
+import GHC.Generics
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
 -- depends on whether an 'e' is passed.
@@ -40,6 +42,7 @@ import Control.Monad
 data Loader e n m a = Loader
   { _load :: n -> m (e, a)
   , _reload :: n -> e -> m (Maybe (e, a))}
+  deriving (Generic)
 
 makeLenses ''Loader
 

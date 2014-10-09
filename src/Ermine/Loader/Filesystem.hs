@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -10,22 +13,44 @@
 
 module Ermine.Loader.Filesystem
   ( filesystemLoader
-  , FilesystemLoaderFreshness()
+  , LoadRefusal(..)
+  , explainLoadRefusal
+  , Freshness()
   ) where
 
-import Control.Monad.Error.Class
+import Control.Monad.Trans.Except
 import Control.Monad.IO.Class
+import Data.Data
+import Data.Monoid
+import Data.Text
 import Ermine.Loader.Core
+import GHC.Generics
+import qualified System.FilePath as P
 
 -- | A 'Loader' that searches an area of the filesystem for modules
 -- matching the given module name, and results in the textual contents
 -- of that module file.  Non-IO errors are reported as 'e' to 'm' via
 -- 'MonadError'.
-filesystemLoader :: (Error e, MonadError e m, MonadIO m) =>
-                    String         -- ^ Filesystem root to start the search.
+filesystemLoader :: MonadIO m =>
+                    P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
-                    -> Loader FilesystemLoaderFreshness String m String
+                    -> Loader Freshness Text (ExceptT LoadRefusal m) Text
 filesystemLoader root ext =
   Loader (\n -> undefined) (\n cv -> undefined)
 
-data FilesystemLoaderFreshness = FilesystemLoaderFreshness Int
+-- | A recoverable load error that shouldn't prevent alternative
+-- loaders from being tried for a given module.
+data LoadRefusal =
+    FileNotFound P.FilePath -- ^ No file with that name was found.
+  | NoFilenameMapping       -- ^ There's no mapping from the module
+                            -- name to a valid filesystem name.
+  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
+
+explainLoadRefusal :: LoadRefusal -> Text
+explainLoadRefusal (FileNotFound fp) =
+  "There was no file named " <> (pack fp)
+explainLoadRefusal NoFilenameMapping =
+  "The module's name has no valid associated filename"
+
+newtype Freshness = Freshness Int
+  deriving (Show, Read, Data, Typeable, Generic)
