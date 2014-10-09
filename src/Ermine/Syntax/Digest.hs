@@ -6,7 +6,7 @@
 -- |
 -- Module    :  Ermine.Syntax.Digest
 -- Copyright :  (c) Edward Kmett 2011-12
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable

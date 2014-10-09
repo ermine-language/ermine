@@ -18,7 +18,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011-2012
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
