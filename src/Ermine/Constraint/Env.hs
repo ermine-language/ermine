@@ -43,7 +43,7 @@ import Ermine.Unification.Meta
 import Prelude hiding (sequence)
 
 data ConstraintEnv cc = ConstraintEnv
-  { _classes   :: Map Global Class
+  { _classes   :: Map Global (Class Void Void)
   , _instances :: Map Global [Instance cc]
   }
 
@@ -121,9 +121,10 @@ superclasses = go []
  where
  go stk (App f x) = go (x:stk) f
  go stk (HardType (Con g _)) = viewConstraint (classes.at g) >>= \ xs -> case xs of
-   Just clazz -> traverse (fmap join . bitraverse (pure . absurd) look) $ clazz^.context
+   Just clazz -> traverse (fmap join . bitraverse todo look . view trivialTK) $ clazz^.context
     where look i | Just t <- stk ^? ix i = pure t
                  | otherwise = fail "Under-applied class"
+          todo _ = error "TODO: application of classes to particular kinds?"
    Nothing -> fail $ "Unknown class: " ++ unpack (g^.name)
  go _   _ = fail "Malformed class"
 

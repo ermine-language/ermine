@@ -46,6 +46,7 @@ module Ermine.Syntax.Type
   , bitraverseScopeTK
   , bindType
   , bindTK
+  , trivialTK
   , closedType
   , abstractAll
   -- * Type Variables
@@ -663,6 +664,12 @@ serializeTK = serializeWith2 . serializeWith
 
 deserializeTK :: MonadGet m => m k -> m t -> m (TK k t)
 deserializeTK = deserializeWith2 . deserializeWith
+
+-- | Witnesses the isomorphism between 'Type Int t' and 'Scope t (TK Void) Void'
+trivialTK
+  :: Iso (Scope b (TK Void) Void) (Scope b' (TK Void) Void) (Type Int b) (Type Int b')
+trivialTK = iso (bimap trivVar trivVar . fromScope) (toScope . bimap B B)
+ where trivVar = unvar id absurd
 
 -- | Bind some of the kinds referenced by a 'Type'.
 -- N.B. This doesn't do any checking to assure that the integers given

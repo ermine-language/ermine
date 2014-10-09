@@ -1,4 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 --------------------------------------------------------------------
 ---- |
@@ -17,14 +20,14 @@ module Ermine.Syntax.Class
 
 import Bound
 import Control.Lens
-import Data.Void
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Type as Type
 
-data Class = Class { _kindArgs :: [Hint]
-                   , _typeArgs :: [(Hint, Scope Int Kind Void)]
-                   , _context  :: [Type Void Int]
-                   }
+data Class k t = Class
+               { _kindArgs :: [Hint]
+               , _typeArgs :: [(Hint, Scope Int Kind k)]
+               , _context  :: [Scope Int (TK k) t]
+               }
 
 makeClassy ''Class
