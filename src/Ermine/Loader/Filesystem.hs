@@ -1,7 +1,7 @@
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
--- License   :  BSD3
+-- License   :  BSD2
 -- Maintainer:  Stephen Compall <scompall@nocandysw.com>
 -- Stability :  experimental
 -- Portability: non-portable
