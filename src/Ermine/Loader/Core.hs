@@ -15,12 +15,18 @@
 module Ermine.Loader.Core
   ( -- * Loaders with cache states
     Loader(Loader)
+  , alwaysFresh
   , load
   , reload
+    -- * Manipulating loaders
   , loaded
-  , alwaysFresh
+  , contramapName
+  , xmapCacheKey
+    -- * Combining multiple loaders
   , alwaysFail
   , orElse
+  , composeLoaders
+  , productLoader
   ) where
 
 import Control.Applicative
@@ -39,6 +45,9 @@ import GHC.Generics
 -- result of the load.
 --
 -- 'Loader' forms a 'Profunctor' over 'n' and 'a' where 'Functor m'.
+-- The simplest way to make a loader is with 'alwaysFresh'; from
+-- there, an 'arr'-equivalent is obvious, though there is no lawful
+-- 'Arrow' for 'Loader'.
 data Loader e n m a = Loader
   { _load :: n -> m (e, a)
   , _reload :: n -> e -> m (Maybe (e, a))}
@@ -81,12 +90,15 @@ xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
                  (r & fmap (over argument f
                             . over (mapped.mapped.mapped._1) t))
 
--- | A loader without reloadability.
+-- | A loader without reloadability.  This is the simplest way to make
+-- a loader.
 alwaysFresh :: Functor m => (n -> m a) -> Loader () n m a
 alwaysFresh f = Loader (fmap ((),) . f)
                        (const . fmap (pure.pure) . f)
 
--- | Contramap the name parameter.
+-- | Contramap the name parameter.  Can be implemented in terms of
+-- 'composeLoaders', 'alwaysFresh', and 'xmapCacheKey', but this is
+-- simpler.
 contramapName :: (n' -> n) -> Loader e n m a -> Loader e n' m a
 contramapName f = loadOrReload %~ (. f)
 
@@ -97,9 +109,9 @@ contramapName f = loadOrReload %~ (. f)
 --
 -- NB: The right reloader is never used.  Therefore, this 'compose'
 -- has no left identity.
-compose :: Monad m => Loader e2 a m b -> Loader e n m a
-                   -> Loader (e, e2) n m b
-compose l2 =
+composeLoaders :: Monad m => Loader e2 a m b -> Loader e n m a
+                          -> Loader (e, e2) n m b
+composeLoaders l2 =
   loadOrReload %~ \l1' n ->
   let l1 = fst (l1' n)
   in (do (e', a) <- l1
@@ -112,9 +124,9 @@ compose l2 =
 --
 -- NB: if one reloader returns Nothing, but not the other, the other's
 -- loader is always run instead.
-product :: Monad m => Loader e a m c -> Loader e2 b m d
-                   -> Loader (e, e2) (a, b) m (c, d)
-product (Loader l1 r1) (Loader l2 r2) =
+productLoader :: Monad m => Loader e a m c -> Loader e2 b m d
+                 -> Loader (e, e2) (a, b) m (c, d)
+productLoader (Loader l1 r1) (Loader l2 r2) =
   Loader ((l1 *** l2) >>> uncurry (liftM2 reorder)) reload'
   where reload' = (\(a, b) (e, e2) -> do
                       r1r <- r1 a e
