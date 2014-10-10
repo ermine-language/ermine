@@ -18,11 +18,15 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
+import Control.Lens
+import Control.Monad.State
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Writer
 import Data.Data
-import Data.Monoid
 import Data.Text
+import qualified Data.Text as T
+import Data.Text.Lens (text)
 import Ermine.Loader.Core
 import GHC.Generics
 import qualified System.FilePath as P
@@ -57,3 +61,22 @@ explainLoadRefusal NoFilenameMapping =
 
 newtype Freshness = Freshness Int
   deriving (Show, Read, Data, Typeable, Generic)
+
+-- | Answer the positions of filesystem-invalid characters in the
+-- given module name, and explain the problem with each.
+invalidChars :: Text -> [(Int, Text)]
+invalidChars t = (if anyOf folded (=='.') (firstOf text t)
+                  then [(0, "Can't start with a dot")] else [])
+                 ++ checkChars t
+                 ++ (if anyOf folded (=='.') (lastOf text t)
+                     then [(T.length t - 1, "Can't end with a dot")] else [])
+  where checkChars = flip evalState False . execWriterT
+                     . itraverseOf_ text lookAtChar
+        lookAtChar :: Int -> Char -> WriterT [(Int, Text)] (State Bool) ()
+        lookAtChar i ch = do
+          let err s = tell [(i, s)]
+              isDot = ch == '.'
+          lastDot <- get
+          put isDot
+          if lastDot && isDot then err "Two dots in a row aren't allowed" else return ()
+          -- TODO: check for path separator, NUL
