@@ -55,7 +55,7 @@ data LoadRefusal =
 
 explainLoadRefusal :: LoadRefusal -> Text
 explainLoadRefusal (FileNotFound fp) =
-  "There was no file named " <> (pack fp)
+  "There was no file named " <> pack fp
 explainLoadRefusal NoFilenameMapping =
   "The module's name has no valid associated filename"
 
@@ -65,11 +65,10 @@ newtype Freshness = Freshness Int
 -- | Answer the positions of filesystem-invalid characters in the
 -- given module name, and explain the problem with each.
 invalidChars :: Text -> [(Int, Text)]
-invalidChars t = (if anyOf folded (=='.') (firstOf text t)
-                  then [(0, "Can't start with a dot")] else [])
+invalidChars t = [(0, "Can't start with a dot") | anyOf folded (=='.') (firstOf text t)]
                  ++ checkChars t
-                 ++ (if anyOf folded (=='.') (lastOf text t)
-                     then [(T.length t - 1, "Can't end with a dot")] else [])
+                 ++ [(T.length t - 1, "Can't end with a dot")
+                     | anyOf folded (=='.') (lastOf text t)]
   where checkChars = flip evalState False . execWriterT
                      . itraverseOf_ text lookAtChar
         lookAtChar :: Int -> Char -> WriterT [(Int, Text)] (State Bool) ()
@@ -78,5 +77,5 @@ invalidChars t = (if anyOf folded (=='.') (firstOf text t)
               isDot = ch == '.'
           lastDot <- get
           put isDot
-          if lastDot && isDot then err "Two dots in a row aren't allowed" else return ()
+          (lastDot && isDot) `when` err "Two dots in a row aren't allowed"
           -- TODO: check for path separator, NUL
