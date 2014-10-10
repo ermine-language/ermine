@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -18,6 +20,7 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
+import Control.Exception (bracket, handleJust)
 import Control.Lens
 import Control.Monad.State
 import Control.Monad.Trans
@@ -30,6 +33,9 @@ import Data.Text.Lens (text)
 import Ermine.Loader.Core
 import GHC.Generics
 import qualified System.FilePath as P
+import System.FilePath.Manip (readAll)
+import System.IO (hClose, IOMode(ReadMode), openFile)
+import System.IO.Error.Lens (errorType, _NoSuchThing)
 
 -- | A 'Loader' that searches an area of the filesystem for modules
 -- matching the given module name, and results in the textual contents
@@ -38,12 +44,27 @@ import qualified System.FilePath as P
 -- Non-IO errors are reported as 'LoadRefusal'.  Use
 -- 'Ermine.Loader.Core.loaded' and 'withExceptT' to translate this to
 -- a monoidal type (e.g. '[]') for combination with other loaders.
-filesystemLoader :: MonadIO m =>
+filesystemLoader :: forall m. MonadIO m =>
                     P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
                     -> Loader Freshness (ExceptT LoadRefusal m) Text Text
 filesystemLoader root ext =
-  Loader (\n -> undefined) (\n cv -> undefined)
+  Loader (\n -> do
+             pn <- pathName n
+             load pn)
+         (\n cv -> do
+             pn <- pathName n
+             Just `liftM` load pn)
+  where pathName = mapExceptT (return . runIdentity)
+                   . fmap (\n -> root P.</> n P.<.> ext)
+                   . moduleFileName
+        load :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
+        load pn = undefined{-bracket (openFile pn ReadMode) hClose
+                          (fmap (Right . (undefined :: Freshness,)) . readAll)
+                  & handleJust (^. errorType._NoSuchThing)
+                               (const . return . Left . FileNotFound $ pn)
+                  & liftIO & ExceptT
+-}
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
