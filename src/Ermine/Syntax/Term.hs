@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -39,6 +40,7 @@ module Ermine.Syntax.Term
   , BindingType(..)
   , _Implicit
   , _Explicit
+  , fullAnnotation
   , Body(..)
   , bodyPatterns
   , bodyGuarded
@@ -190,6 +192,13 @@ data Binding t a = Binding
   { _bindingType :: !(BindingType t)
   , _bindingBodies :: Bodies t a
   } deriving (Show, Functor, Foldable, Traversable)
+
+fullAnnotation :: Fold (Binding (Annot k t) a) (Type k t)
+fullAnnotation = folding $ \case
+  Binding (Explicit (Annot [] [] sc)) _ ->
+    Just . instantiateKinds (imposs "kind") . instantiate (imposs "type") $ sc
+  _ -> Nothing
+ where imposs s = error $ "fullAnnotation: dangling " ++ s
 
 instance (Eq t, Eq a) => Eq (Binding t a) where
   Binding t bs == Binding t' bs' = t == t' && bs == bs'

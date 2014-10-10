@@ -145,7 +145,8 @@ inferBindingType d cxt lcxt bdg = do
 
 inferBindingGroupTypes
   :: MonadConstraint (KindM s) s m
-  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v) -> m (WMap (WitnessM s (Var Word64 v)))
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> WMap (BindingM s v)
+  -> m (WMap (WitnessM s (Var Word64 v)))
 inferBindingGroupTypes d cxt lcxt bg = do
   bgts <- for bg $ \ b -> let me = b^?bindingType._Explicit in
     (,) (isJust me) <$> instantiateAnnot d star (fromMaybe anyType me)
@@ -153,15 +154,39 @@ inferBindingGroupTypes d cxt lcxt bg = do
   subsumeAndGeneralize d $ Map.intersectionWith (,) witnesses bgts
   -- traverse (generalizeWitnessType d) xs
 
+checkFullyAnnotatedBinding
+  :: MonadConstraint (KindM s) s m
+  => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v
+  -> m (WitnessM s (Var Word64 v))
+checkFullyAnnotatedBinding d cxt lcxt bdg = do
+  Witness rs t1 co0 <- inferBindingType (d+1) cxt lcxt bdg
+  (sks, sts, cs0, t2) <- skolemize d $ bdg^?!fullAnnotation
+  ty <- withSharing (unifyType t1) t2
+  sks' <- checkDistinct sks
+  sts' <- checkDistinct sts
+  checkEscapes d sks'
+  checkEscapes d sts'
+  cs <- withSharing (traverse zonk) cs0
+  co <- withSharing (traverse zonk) co0
+  co' <- simplifyVia cs co
+  unless (Foldable.all (`Foldable.elem` cs) co') $
+    fail "undischarged obligation"
+  generalizeWitnessType d . Witness rs (cs ==> ty) $
+    lambda (_Convention # D <$ cs) $
+      abstract (fmap fromIntegral . flip elemIndex cs) co'
+
 inferBindings
   :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word64 v)]
 inferBindings d cxt bgs = do
-  (ws,_ts) <- foldlM step (Map.empty, Map.empty) sccs
-  return $ toList ws
+  (ws,ts) <- foldlM step (Map.empty, (^?!fullAnnotation) <$> fullM) sccs
+  fws <- for fullM $ checkFullyAnnotatedBinding d cxt ts
+  return . toList $ ws <> fws
  where
   is = zip [0..] bgs
-  sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> is)
+  (full, partial) = partition (has $ _2.fullAnnotation) is
+  fullM = Map.fromList full
+  sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> partial)
   comp ib = (ib, fst ib, ib^.._2.cases.traverse.bodyDecls)
   step (ws,ts) cc = do
     nws <- inferBindingGroupTypes (d+1) cxt ts cc
