@@ -62,6 +62,8 @@ explainLoadRefusal NoFilenameMapping =
 newtype Freshness = Freshness Int
   deriving (Show, Read, Data, Typeable, Generic)
 
+-- | Convert a module name to a relative filename, minus the
+-- extension, or fail for some reason.
 moduleFileName :: Text -> Except LoadRefusal P.FilePath
 moduleFileName modName = do
   let modName' = modName ^.. text
