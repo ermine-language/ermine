@@ -159,21 +159,8 @@ checkFullyAnnotatedBinding
   => Depth -> (v -> TypeM s) -> WMap (TypeM s) -> BindingM s v
   -> m (WitnessM s (Var Word64 v))
 checkFullyAnnotatedBinding d cxt lcxt bdg = do
-  Witness rs t1 co0 <- inferBindingType (d+1) cxt lcxt bdg
-  (sks, sts, cs0, t2) <- skolemize d $ bdg^?!fullAnnotation
-  ty <- withSharing (unifyType t1) t2
-  sks' <- checkDistinct sks
-  sts' <- checkDistinct sts
-  checkEscapes d sks'
-  checkEscapes d sts'
-  cs <- withSharing (traverse zonk) cs0
-  co <- withSharing (traverse zonk) co0
-  co' <- simplifyVia cs co
-  unless (Foldable.all (`Foldable.elem` cs) co') $
-    fail "undischarged obligation"
-  generalizeWitnessType d . Witness rs (cs ==> ty) $
-    lambda (_Convention # D <$ cs) $
-      abstract (fmap fromIntegral . flip elemIndex cs) co'
+  w <- inferBindingType (d+1) cxt lcxt bdg
+  fmap runIdentity . subsumeAndGeneralize d $ Identity (w, (True, bdg^?!fullAnnotation))
 
 inferBindings
   :: MonadConstraint (KindM s) s m
