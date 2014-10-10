@@ -24,7 +24,7 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Writer
 import Data.Data
-import Data.Text
+import Data.Text hiding (null)
 import qualified Data.Text as T
 import Data.Text.Lens (text)
 import Ermine.Loader.Core
@@ -62,6 +62,14 @@ explainLoadRefusal NoFilenameMapping =
 newtype Freshness = Freshness Int
   deriving (Show, Read, Data, Typeable, Generic)
 
+moduleFileName :: Text -> Except LoadRefusal P.FilePath
+moduleFileName modName = do
+  let modName' = modName ^.. text
+  null (invalidChars modName) `when` throwE NoFilenameMapping
+  let relPath = set (mapped.filtered ('.'==)) P.pathSeparator modName'
+  P.isValid relPath `when` throwE NoFilenameMapping
+  return relPath
+
 -- | Answer the positions of filesystem-invalid characters in the
 -- given module name, and explain the problem with each.
 invalidChars :: Text -> [(Int, Text)]
@@ -77,5 +85,6 @@ invalidChars t = [(0, "Can't start with a dot") | anyOf folded (=='.') (firstOf 
               isDot = ch == '.'
           lastDot <- get
           put isDot
-          (lastDot && isDot) `when` err "Two dots in a row aren't allowed"
-          -- TODO: check for path separator, NUL
+          (lastDot && isDot) `when` err "Empty module path components aren't allowed"
+          P.isPathSeparator ch `when` err ("Disallowed character: " <> pack [ch])
+          ('\NUL' == ch) `when` err "Null characters aren't allowed"
