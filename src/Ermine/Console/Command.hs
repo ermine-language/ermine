@@ -159,7 +159,7 @@ kindBody args ty = do
       <=< bimemoverse (traverse $ newMeta False . Just)
                       (fmap pure . newMeta False . unvar Just Just)
         $ ty
-    k <- inferKind tm
+    k <- inferKind id tm
     generalize k
   disp gk
  where

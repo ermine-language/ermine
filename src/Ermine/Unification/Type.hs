@@ -123,10 +123,10 @@ unifyType t1 t2 = do
          EQ -> unifyTV True i r d y $ writeSTRef v $! n + 1
          GT -> unifyTV False j s e x $ return ()
     go (Var (Meta k _ i r d _)) t                       = do
-      checkKind (view metaValue <$> t) k
+      checkKind (view metaValue) t k
       unifyTV True i r d t $ return ()
     go t                      (Var (Meta k _ i r d _))  = do
-      checkKind (view metaValue <$> t) k
+      checkKind (view metaValue) t k
       unifyTV False i r d t $ return () -- not as boring as it could be
     go (App f x)              (App g y)               = App <$> unifyType f g <*> unifyType x y
     go (Loc l s)              t                       = Loc l <$> unifyType s t

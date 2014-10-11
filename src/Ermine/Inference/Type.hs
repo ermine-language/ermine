@@ -95,7 +95,7 @@ matchFunType t = do
 conventionForType :: MonadMeta s m => TypeM s -> m (KindM s)
 conventionForType ty = do
   bx <- pure <$> newMeta True Nothing
-  runSharing bx $ checkKind (view metaValue <$> ty) (Type bx) >> zonk bx
+  runSharing bx $ checkKind (view metaValue) ty (Type bx) >> zonk bx
 
 type WMap = Map.Map Word64
 
@@ -162,22 +162,62 @@ checkFullyAnnotatedBinding d cxt lcxt bdg = do
   w <- inferBindingType (d+1) cxt lcxt bdg
   fmap runIdentity . subsumeAndGeneralize d $ Identity (w, (True, bdg^?!fullAnnotation))
 
+inferObviousAnnotKinds
+  :: MonadMeta s m => Annot (MetaK s) (MetaT s) -> m (Annot (MetaK s) (MetaT s))
+inferObviousAnnotKinds (Annot hks hts s) = do
+  ks <- for hks $ fmap pure . newMeta False
+  tks <- for hts $ fmap pure . newMeta False
+  let ty0 = instantiateKinds (ks!!) . fromScope $ s
+  () <$ inferKind (unvar (tks!!) $ view metaValue) ty0
+  ty <- zonkKinds ty0
+  defaultQuantifiers id ty
+  ty' <- zonkKinds ty
+  ks' <- nub . toListOf kindVars <$> traverse zonk_ ks
+  pure . Annot (view metaHint <$> ks') hts
+       . toScope . abstractKinds (`elemIndex`ks') $ ty'
+
+zonkKinds :: MonadMeta s m => Type (MetaK s) t -> m (Type (MetaK s) t)
+zonkKinds = fmap (bindType id pure) . kindVars (zonk_.pure)
+
+defaultQuantifiers :: MonadMeta s m => Fold k (MetaK s) -> Type k t -> m ()
+defaultQuantifiers f (Forall _ tks cxt body) =
+  (traverse_.traverse_) (starBoxity (_F.f).fromScope) tks >>
+  defaultQuantifiers (_F.f) (fromScope cxt) >>
+  defaultQuantifiers (_F.f) (fromScope body)
+defaultQuantifiers f (Exists _ tks body) =
+  (traverse_.traverse_) (starBoxity (_F.f).fromScope) tks >>
+  defaultQuantifiers (_F.f) (fromScope body)
+defaultQuantifiers f (Type.Loc _ t) = defaultQuantifiers f t
+defaultQuantifiers f (Type.App g x) =
+  defaultQuantifiers f g >> defaultQuantifiers f x
+defaultQuantifiers _ _ = return ()
+
+starBoxity :: MonadMeta s m => Fold k (MetaK s) -> Kind k -> m ()
+starBoxity f = traverseOf_ (traverse.f) $ \meta ->
+  when (meta^.metaValue) $
+    writeMeta meta (HardKind Star)
+
 inferBindings
   :: MonadConstraint (KindM s) s m
   => Depth -> (v -> TypeM s) -> [BindingM s v] -> m [WitnessM s (Var Word64 v)]
-inferBindings d cxt bgs = do
-  (ws,ts) <- foldlM step (Map.empty, (^?!fullAnnotation) <$> fullM) sccs
-  fws <- for fullM $ checkFullyAnnotatedBinding d cxt ts
-  return . toList $ ws <> fws
+inferBindings d cxt bgs0 =
+  (traverse.bindingType._Explicit) inferObviousAnnotKinds bgs0 >>= body
  where
+ comp ib = (ib, fst ib, ib^.._2.cases.traverse.bodyDecls)
+
+ step (ws,ts) cc = do
+   nws <- inferBindingGroupTypes (d+1) cxt ts cc
+   return (ws <> nws, ts <> fmap (view witnessType) nws)
+
+ body bgs = do
+   (ws,ts) <- foldlM step (Map.empty, (^?!fullAnnotation) <$> fullM) sccs
+   fws <- for fullM $ checkFullyAnnotatedBinding d cxt ts
+   return . toList $ ws <> fws
+  where
   is = zip [0..] bgs
   (full, partial) = partition (has $ _2.fullAnnotation) is
   fullM = Map.fromList full
   sccs = Map.fromList . flattenSCC <$> stronglyConnComp (comp <$> partial)
-  comp ib = (ib, fst ib, ib^.._2.cases.traverse.bodyDecls)
-  step (ws,ts) cc = do
-    nws <- inferBindingGroupTypes (d+1) cxt ts cc
-    return (ws <> nws, ts <> fmap (view witnessType) nws)
 
 inferType :: MonadConstraint (KindM s) s m
           => Depth -> (v -> TypeM s) -> TermM s v -> m (WitnessM s v)
@@ -295,7 +335,7 @@ checkType :: MonadConstraint (KindM s) s m
 checkType d cxt e t = do
   w <- inferType d cxt e
   bx <- pure <$> newMeta False Nothing
-  checkKind (view metaValue <$> t) (Type bx)
+  checkKind (view metaValue) t (Type bx)
   subsumesType d w t
 
 subsumesType :: MonadConstraint (KindM s) s m
@@ -520,7 +560,7 @@ inferPatternType d (ConP g ps)
     case ps of
       [ ] -> fail "under-applied constructor"
       [p] -> do (sks, ty, f) <- inferPatternType d p
-                checkKind (view metaValue <$> ty) star
+                checkKind (view metaValue) ty star
                 return (sks, maybe_ ty, \xs -> case xs of
                           FieldPP 0 pp -> f pp
                           _ -> error "panic: bad pattern path")
@@ -551,7 +591,7 @@ instantiateAnnot d k (Annot hs hks sc) = do
     tk <- newShallowMeta d False Nothing
     newShallowMeta d (pure tk) hk
   let ty = instantiateKinds (kvs!!) $ instantiateVars tvs sc
-  ty <$ checkKind (view metaValue <$> ty) k
+  ty <$ checkKind (view metaValue) ty k
 
 zonkWitnessKindsAndTypes
   :: (MonadMeta s m, MonadWriter Any m)
