@@ -37,6 +37,7 @@ import Control.Monad
 import Control.Monad.State
 import Data.Foldable hiding (concat, foldr)
 import Data.Graph (stronglyConnComp, flattenSCC)
+import Data.List (partition)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
@@ -145,10 +146,14 @@ fixCons m f = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m)
 -- possible. One solution may be to infer first and then check against
 -- annotations. Kind checking is Hindley-Milner, so this is viable.
 checkDataTypeKinds :: [DataType () Text] -> M s [DataType Void Void]
-checkDataTypeKinds dts = flip evalStateT Map.empty
-                       . fmap concat . traverse (ck.flattenSCC) $ stronglyConnComp graph
+checkDataTypeKinds dts = evalStateT ?? fullM $ do
+  pdts <- fmap concat . traverse (ck.flattenSCC) $ stronglyConnComp graph
+  fdts <- traverse (fmap head.ck.pure) full
+  pure $ pdts ++ fdts
  where
- graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) dts
+ (full, partial) = partition (has cusk) dts
+ fullM = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) $ dt^?!cusk)) $ full
+ graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) partial
  conMap = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) (dataTypeSchema dt)))
  ck scc = StateT $ \m -> do
    let scc' = map (fixCons m pure) scc

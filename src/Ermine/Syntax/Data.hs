@@ -18,6 +18,7 @@
 
 module Ermine.Syntax.Data
   ( DataType(DataType)
+  , cusk
   , kparams
   , tparams
   , typeParameters
@@ -57,6 +58,12 @@ data DataType k t =
            , _constrs :: [Constructor (Var Int k) (Var Int t)]
            }
   deriving (Show, Eq, Foldable, Traversable, Functor, Typeable, Generic)
+
+-- Gets the "complete user specified kind" of a data type, if it has one. These
+-- allow us to break cycles in mutually defined data types for the purposes of
+-- inferring better kinds.
+cusk :: Fold (DataType k t) (Schema void)
+cusk = folding $ traverse (const Nothing) . dataTypeSchema
 
 instance HasGlobal (DataType k t) where
   global = lens _dtname (\dt g -> dt { _dtname = g })
