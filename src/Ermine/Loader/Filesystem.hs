@@ -55,8 +55,12 @@ filesystemLoader root ext =
              load' pn & trapNoSuchThing pn)
          (\n cv -> do
              pn <- pathName n
-             mt <- getModificationTime pn & trapNoSuchThing pn
-             Just `liftM` (load' pn & trapNoSuchThing pn))
+             let trap = trapNoSuchThing pn
+             mtime <- getModificationTime pn & trap
+             if mtime == modTime cv
+               then TIO.readFile pn & trap
+                    & liftM (\txt -> Just (Freshness mtime, txt))
+               else return Nothing)
   where pathName = mapExceptT (return . runIdentity)
                    . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
@@ -81,7 +85,7 @@ explainLoadRefusal (FileNotFound fp) =
 explainLoadRefusal NoFilenameMapping =
   "The module's name has no valid associated filename"
 
-newtype Freshness = Freshness UTCTime
+newtype Freshness = Freshness {modTime :: UTCTime}
   deriving (Show, Read, Data, Typeable, Generic)
 
 -- | Convert a module name to a relative filename, minus the
