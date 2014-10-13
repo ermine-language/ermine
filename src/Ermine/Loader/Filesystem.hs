@@ -20,21 +20,25 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
-import Control.Exception (bracket, handleJust)
+import Control.DeepSeq (NFData, deepseq)
+import Control.Exception (handleJust)
 import Control.Lens
 import Control.Monad.State
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Writer
 import Data.Data
+import Data.Functor ((<$>))
 import Data.Text hiding (null)
 import qualified Data.Text as T
+import Data.Text.Encoding (decodeUtf8)
 import Data.Text.Lens (text)
+import Data.Time.Clock (UTCTime)
 import Ermine.Loader.Core
 import GHC.Generics
+import System.Directory (getModificationTime)
 import qualified System.FilePath as P
 import System.FilePath.Manip (readAll)
-import System.IO (hClose, IOMode(ReadMode), openFile)
+import System.IO (IOMode(ReadMode), withFile)
 import System.IO.Error.Lens (errorType, _NoSuchThing)
 
 -- | A 'Loader' that searches an area of the filesystem for modules
@@ -51,20 +55,26 @@ filesystemLoader :: forall m. MonadIO m =>
 filesystemLoader root ext =
   Loader (\n -> do
              pn <- pathName n
-             load pn)
+             load' pn)
          (\n cv -> do
              pn <- pathName n
-             Just `liftM` load pn)
+             Just `liftM` load' pn)
   where pathName = mapExceptT (return . runIdentity)
                    . fmap (\n -> root P.</> n P.<.> ext)
                    . moduleFileName
-        load :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
-        load pn = undefined{-bracket (openFile pn ReadMode) hClose
-                          (fmap (Right . (undefined :: Freshness,)) . readAll)
-                  & handleJust (^. errorType._NoSuchThing)
-                               (const . return . Left . FileNotFound $ pn)
-                  & liftIO & ExceptT
--}
+        load' :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
+        load' pn = (do mtime <- getModificationTime pn
+                       Right . (Freshness mtime,) . decodeUtf8
+                         <$> loadRaw pn)
+                   & handleJust (^? errorType._NoSuchThing)
+                                (const . return . Left . FileNotFound $ pn)
+                   & liftIO & ExceptT
+        loadRaw pn = withFile pn ReadMode (readAll >=> forceM)
+
+-- | Like 'return', but force the argument before the 'm' becomes
+-- visible.
+forceM :: (Monad m, NFData a) => a -> m a
+forceM a = a `deepseq` return a
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
@@ -80,7 +90,7 @@ explainLoadRefusal (FileNotFound fp) =
 explainLoadRefusal NoFilenameMapping =
   "The module's name has no valid associated filename"
 
-newtype Freshness = Freshness Int
+newtype Freshness = Freshness UTCTime
   deriving (Show, Read, Data, Typeable, Generic)
 
 -- | Convert a module name to a relative filename, minus the
