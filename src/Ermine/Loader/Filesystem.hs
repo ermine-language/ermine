@@ -20,7 +20,6 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
-import Control.DeepSeq (NFData, deepseq)
 import Control.Exception (handleJust)
 import Control.Lens
 import Control.Monad.State
@@ -29,15 +28,13 @@ import Control.Monad.Writer
 import Data.Data
 import Data.Text hiding (null)
 import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8)
+import qualified Data.Text.IO as TIO
 import Data.Text.Lens (text)
 import Data.Time.Clock (UTCTime)
 import Ermine.Loader.Core
 import GHC.Generics
 import System.Directory (getModificationTime)
 import qualified System.FilePath as P
-import System.FilePath.Manip (readAll)
-import System.IO (IOMode(ReadMode), withFile)
 import System.IO.Error.Lens (errorType, _NoSuchThing)
 
 -- | A 'Loader' that searches an area of the filesystem for modules
@@ -63,16 +60,10 @@ filesystemLoader root ext =
                    . moduleFileName
         load' :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
         load' pn = liftM2 (\mtime txt -> Right (Freshness mtime, txt))
-                          (getModificationTime pn) (loadRaw pn)
+                          (getModificationTime pn) (TIO.readFile pn)
                    & handleJust (^? errorType._NoSuchThing)
                                 (const . return . Left . FileNotFound $ pn)
                    & liftIO & ExceptT
-        loadRaw pn = withFile pn ReadMode (forceM <=< fmap decodeUtf8 . readAll)
-
--- | Like 'return', but force the argument before the 'm' becomes
--- visible.
-forceM :: (Monad m, NFData a) => a -> m a
-forceM a = a `deepseq` return a
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
