@@ -27,7 +27,6 @@ import Control.Monad.State
 import Control.Monad.Trans.Except
 import Control.Monad.Writer
 import Data.Data
-import Data.Functor ((<$>))
 import Data.Text hiding (null)
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
@@ -63,8 +62,8 @@ filesystemLoader root ext =
                    . fmap (\n -> root P.</> n P.<.> ext)
                    . moduleFileName
         load' :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
-        load' pn = (do mtime <- getModificationTime pn
-                       Right . (Freshness mtime,) <$> loadRaw pn)
+        load' pn = liftM2 (\mtime txt -> Right (Freshness mtime, txt))
+                          (getModificationTime pn) (loadRaw pn)
                    & handleJust (^? errorType._NoSuchThing)
                                 (const . return . Left . FileNotFound $ pn)
                    & liftIO & ExceptT
