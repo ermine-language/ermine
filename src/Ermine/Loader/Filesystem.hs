@@ -2,7 +2,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -45,7 +44,7 @@ import System.IO.Error.Lens (errorType, _NoSuchThing)
 -- Non-IO errors are reported as 'LoadRefusal'.  Use
 -- 'Ermine.Loader.Core.loaded' and 'withExceptT' to translate this to
 -- a monoidal type (e.g. '[]') for combination with other loaders.
-filesystemLoader :: forall m. MonadIO m =>
+filesystemLoader :: MonadIO m =>
                     P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
                     -> Loader Freshness (ExceptT LoadRefusal m) Text Text
