@@ -101,10 +101,12 @@ moduleFileName modName = do
 -- | Answer the positions of filesystem-invalid characters in the
 -- given module name, and explain the problem with each.
 invalidChars :: Text -> [(Int, Text)]
-invalidChars t = [(0, "Can't start with a dot") | anyOf folded (=='.') (firstOf text t)]
+invalidChars t = [(-1, "Can't be empty") | T.null t ]
+                 ++ [(0, "Can't start with a dot")
+                    | anyOf folded (=='.') (firstOf text t)]
                  ++ checkChars t
                  ++ [(T.length t - 1, "Can't end with a dot")
-                     | anyOf folded (=='.') (lastOf text t)]
+                    | anyOf folded (=='.') (lastOf text t)]
   where checkChars = flip evalState False . execWriterT
                      . itraverseOf_ text lookAtChar
         lookAtChar :: Int -> Char -> WriterT [(Int, Text)] (State Bool) ()
