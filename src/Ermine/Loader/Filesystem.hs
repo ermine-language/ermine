@@ -51,20 +51,19 @@ filesystemLoader :: MonadIO m =>
 filesystemLoader root ext =
   Loader (\n -> do
              pn <- pathName n
-             load' pn & trapNoSuchThing pn)
+             load' (getModificationTime pn) pn & trapNoSuchThing pn)
          (\n cv -> do
              pn <- pathName n
              let trap = trapNoSuchThing pn
              mtime <- getModificationTime pn & trap
              if mtime == modTime cv
-               then TIO.readFile pn & trap
-                    & liftM (\txt -> Just (Freshness mtime, txt))
+               then load' (return mtime) pn & trap & liftM Just
                else return Nothing)
   where pathName = mapExceptT (return . runIdentity)
                    . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
-        load' pn = liftM2 (\mtime txt -> (Freshness mtime, txt))
-                          (getModificationTime pn) (TIO.readFile pn)
+        load' mtimeAct pn = liftM2 (\mtime txt -> (Freshness mtime, txt))
+                                   mtimeAct (TIO.readFile pn)
         trapNoSuchThing pn = ExceptT . liftIO
                              . handleJust (^? errorType._NoSuchThing)
                                           (const . return . Left . FileNotFound $ pn)
