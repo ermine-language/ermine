@@ -21,12 +21,12 @@ module Ermine.Loader.Filesystem
   ) where
 
 import Control.Exception (handleJust)
-import Control.Lens
+import Control.Lens hiding ((<.>))
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Control.Monad.Writer
 import Data.Data
-import Data.Text hiding (null)
+import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Text.Lens (text)
@@ -34,6 +34,7 @@ import Data.Time.Clock (UTCTime)
 import Ermine.Loader.Core
 import GHC.Generics
 import System.Directory (getModificationTime)
+import System.FilePath ((</>), (<.>))
 import qualified System.FilePath as P
 import System.IO.Error.Lens (errorType, _NoSuchThing)
 
@@ -51,19 +52,20 @@ filesystemLoader :: forall m. MonadIO m =>
 filesystemLoader root ext =
   Loader (\n -> do
              pn <- pathName n
-             load' pn)
+             load' pn & trapNoSuchThing pn)
          (\n cv -> do
              pn <- pathName n
-             Just `liftM` load' pn)
+             mt <- getModificationTime pn & trapNoSuchThing pn
+             Just `liftM` (load' pn & trapNoSuchThing pn))
   where pathName = mapExceptT (return . runIdentity)
-                   . fmap (\n -> root P.</> n P.<.> ext)
+                   . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
-        load' :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
-        load' pn = liftM2 (\mtime txt -> Right (Freshness mtime, txt))
+        load' pn = liftM2 (\mtime txt -> (Freshness mtime, txt))
                           (getModificationTime pn) (TIO.readFile pn)
-                   & handleJust (^? errorType._NoSuchThing)
-                                (const . return . Left . FileNotFound $ pn)
-                   & liftIO & ExceptT
+        trapNoSuchThing pn = ExceptT . liftIO
+                             . handleJust (^? errorType._NoSuchThing)
+                                          (const . return . Left . FileNotFound $ pn)
+                             . fmap Right
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
