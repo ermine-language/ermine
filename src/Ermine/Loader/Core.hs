@@ -87,7 +87,8 @@ loaded nt = setCovariant nt nt
 
 -- | Lift a Kleisli arrow on the results of a loader.
 --
--- NB: flip thenM return = id, but composeLoaders return /= id
+-- NB: flip thenM return = id, but composeLoaders (uncachedLoader
+-- return) /= id
 thenM :: Monad m => Loader e m a b -> ((e, b) -> m (e, c)) -> Loader e m a c
 thenM l f = setCovariant (>>= f) (>>= maybe (return Nothing) (liftM Just . f)) l
 
