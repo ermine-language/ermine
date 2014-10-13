@@ -19,12 +19,13 @@ module Ermine.Loader.Filesystem
   , Freshness()
   ) where
 
+import Control.Applicative
 import Control.Exception (handleJust)
 import Control.Lens hiding ((<.>))
 import Control.Monad.State
 import Control.Monad.Trans.Except
-import Control.Monad.Writer
 import Data.Data
+import Data.Monoid
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -96,6 +97,11 @@ moduleFileName modName = do
   P.isValid relPath `when` throwE NoFilenameMapping
   return relPath
 
+newtype ApMonoid f a = ApMonoid {runApMonoid :: f a}
+instance (Applicative f, Monoid a) => Monoid (ApMonoid f a) where
+  mempty = ApMonoid $ pure mempty
+  ApMonoid l `mappend` ApMonoid r = ApMonoid $ liftA2 mappend l r
+
 -- | Answer the positions of filesystem-invalid characters in the
 -- given module name, and explain the problem with each.
 invalidChars :: Text -> [(Int, Text)]
@@ -105,14 +111,14 @@ invalidChars t = [(-1, "Can't be empty") | T.null t ]
                  ++ checkChars t
                  ++ [(T.length t - 1, "Can't end with a dot")
                     | anyOf folded (=='.') (lastOf text t)]
-  where checkChars = flip evalState False . execWriterT
-                     . itraverseOf_ text lookAtChar
-        lookAtChar :: Int -> Char -> WriterT [(Int, Text)] (State Bool) ()
+  where checkChars = flip evalState False . runApMonoid
+                     . ifoldMapOf text (fmap ApMonoid . lookAtChar)
+        lookAtChar :: Int -> Char -> State Bool [(Int, Text)]
         lookAtChar i ch = do
-          let err s = tell [(i, s)]
-              isDot = ch == '.'
+          let isDot = ch == '.'
           lastDot <- get
           put isDot
-          (lastDot && isDot) `when` err "Empty module path components aren't allowed"
-          P.isPathSeparator ch `when` err ("Disallowed character: " <> pack [ch])
-          ('\NUL' == ch) `when` err "Null characters aren't allowed"
+          return . map (i,) $
+            ["Empty module path components aren't allowed" | lastDot && isDot]
+            ++ ["Disallowed character: " <> pack [ch] | P.isPathSeparator ch]
+            ++ ["Null characters aren't allowed" | ('\NUL' == ch)]
