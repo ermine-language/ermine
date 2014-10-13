@@ -17,7 +17,7 @@
 module Ermine.Loader.Core
   ( -- * Loaders with cache states
     Loader(Loader)
-  , alwaysFresh
+  , uncachedLoader
   , load
   , reload
     -- * Manipulating loaders
@@ -47,7 +47,7 @@ import GHC.Generics
 -- filesystem loads (where a module might not be found); 'b' is the
 -- result of the load.
 --
--- The simplest way to make a loader is with 'alwaysFresh'; from
+-- The simplest way to make a loader is with 'uncachedLoader'; from
 -- there, an 'arr'-equivalent is obvious, though there is no lawful
 -- 'Arrow' for 'Loader'.
 data Loader e m a b = Loader
@@ -95,9 +95,9 @@ xmapCacheKey i = withIso i $ \t f -> iso (xf t f) (xf f t)
 
 -- | A loader without reloadability.  This is the simplest way to make
 -- a loader.
-alwaysFresh :: Functor m => (a -> m b) -> Loader () m a b
-alwaysFresh f = Loader (fmap ((),) . f)
-                       (const . fmap (pure.pure) . f)
+uncachedLoader :: Functor m => (a -> m b) -> Loader () m a b
+uncachedLoader f = Loader (fmap ((),) . f)
+                          (const . fmap (pure.pure) . f)
 
 -- | Contramap the name parameter.  A specialization of 'lmap' that
 -- doesn't require the 'Functor' constraint.
