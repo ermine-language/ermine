@@ -64,12 +64,11 @@ filesystemLoader root ext =
                    . moduleFileName
         load' :: P.FilePath -> ExceptT LoadRefusal m (Freshness, Text)
         load' pn = (do mtime <- getModificationTime pn
-                       Right . (Freshness mtime,) . decodeUtf8
-                         <$> loadRaw pn)
+                       Right . (Freshness mtime,) <$> loadRaw pn)
                    & handleJust (^? errorType._NoSuchThing)
                                 (const . return . Left . FileNotFound $ pn)
                    & liftIO & ExceptT
-        loadRaw pn = withFile pn ReadMode (readAll >=> forceM)
+        loadRaw pn = withFile pn ReadMode (forceM <=< fmap decodeUtf8 . readAll)
 
 -- | Like 'return', but force the argument before the 'm' becomes
 -- visible.
