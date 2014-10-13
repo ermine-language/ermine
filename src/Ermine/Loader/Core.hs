@@ -1,7 +1,9 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -33,6 +35,7 @@ import Control.Applicative
 import Control.Arrow
 import Control.Lens
 import Control.Monad
+import Data.Data
 import GHC.Generics
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
@@ -50,16 +53,13 @@ import GHC.Generics
 data Loader e m a b = Loader
   { _load :: a -> m (e, b)
   , _reload :: a -> e -> m (Maybe (e, b))}
-  deriving (Generic)
+  deriving (Functor, Generic, Typeable)
 
 makeLenses ''Loader
 
 instance Functor m => Profunctor (Loader e m) where
   lmap = contramapName
   rmap = fmap
-
-instance Functor m => Functor (Loader e m a) where
-  fmap f = setCovariant (fmap (fmap f)) (fmap (fmap (fmap f)))
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
