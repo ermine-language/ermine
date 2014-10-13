@@ -92,9 +92,9 @@ newtype Freshness = Freshness {modTime :: UTCTime}
 moduleFileName :: Text -> Except LoadRefusal P.FilePath
 moduleFileName modName = do
   let modName' = modName ^.. text
-  null (invalidChars modName) `when` throwE NoFilenameMapping
+  null (invalidChars modName) `unless` throwE NoFilenameMapping
   let relPath = set (mapped.filtered ('.'==)) P.pathSeparator modName'
-  P.isValid relPath `when` throwE NoFilenameMapping
+  P.isValid relPath `unless` throwE NoFilenameMapping
   return relPath
 
 newtype ApMonoid f a = ApMonoid {runApMonoid :: f a}
@@ -121,4 +121,4 @@ invalidChars t = [(-1, "Can't be empty") | T.null t ]
           return . map (i,) $
             ["Empty module path components aren't allowed" | lastDot && isDot]
             ++ ["Disallowed character: " <> pack [ch] | P.isPathSeparator ch]
-            ++ ["Null characters aren't allowed" | ('\NUL' == ch)]
+            ++ ["Null characters aren't allowed" | '\NUL' == ch]
