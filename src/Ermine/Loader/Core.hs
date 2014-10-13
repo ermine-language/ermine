@@ -22,6 +22,7 @@ module Ermine.Loader.Core
   , reload
     -- * Manipulating loaders
   , loaded
+  , thenM
   , xmapCacheKey
   , contramapName
     -- * Combining multiple loaders
@@ -83,6 +84,12 @@ setCovariant tl tr (Loader l r) =
 -- different languages to speak the same language.
 loaded :: (forall t. m t -> f t) -> Loader e m a b -> Loader e f a b
 loaded nt = setCovariant nt nt
+
+-- | Lift a Kleisli arrow on the results of a loader.
+--
+-- NB: flip thenM return = id, but composeLoaders return /= id
+thenM :: Monad m => Loader e m a b -> ((e, b) -> m (e, c)) -> Loader e m a c
+thenM l f = setCovariant (>>= f) (>>= maybe (return Nothing) (liftM Just . f)) l
 
 -- | Lift a cache key isomorphism.
 xmapCacheKey :: Functor m =>
