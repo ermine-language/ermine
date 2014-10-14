@@ -1,4 +1,7 @@
-module ParserTests (ermineParserTests) where
+module ParserTests
+  ( ermineParserTests
+  , stdLibDir
+  ) where
 
 import Control.Applicative
 import Data.Traversable
