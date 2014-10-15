@@ -293,12 +293,17 @@ executable ermine
 test-suite unit-tests
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
-  main-is:          unittests.hs
+  main-is:          UnitTests.hs
   ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N -v0
-  hs-source-dirs:   tests tests/unit-tests
+  hs-source-dirs:   tests/unit-tests
 
   if flag(j) && impl(ghc >= 7.8)
     ghc-options: -j3
+
+  other-modules:
+    LoaderTests
+    ParserTests
+    TestDef
 
   if !flag(properties)
     buildable: False

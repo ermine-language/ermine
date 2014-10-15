@@ -7,10 +7,16 @@ import Test.Framework.Providers.HUnit
 import Test.HUnit
 
 import TestDef
+import qualified LoaderTests
 import ParserTests
 
 main :: IO ()
-main = do g <- fileBasedTestGroup; defaultMain [g]
+main = do
+  g <- fileBasedTestGroup
+  defaultMain
+    [ g
+    , LoaderTests.main
+    ]
 
 fileBasedTestGroup :: IO API.Test
 fileBasedTestGroup = do

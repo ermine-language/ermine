@@ -5,11 +5,12 @@ module ParserTests
 
 import Control.Applicative
 import Data.Traversable
+import System.FilePath ((</>))
 import Test.HUnit
 
 import TestDef
 
-stdLibDir = "./stdlib/Prelude/"
+stdLibDir = "stdlib" </> "Prelude"
 
 ermineParserTests  = TestDef {
    name            = "Ermine Parser Tests"
