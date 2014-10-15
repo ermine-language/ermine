@@ -57,7 +57,7 @@ filesystemLoader root ext =
              pn <- pathName n
              let trap = trapNoSuchThing pn
              mtime <- getModificationTime pn & trap
-             if mtime == modTime cv
+             if mtime /= modTime cv
                then load' (return mtime) pn & trap & liftM Just
                else return Nothing)
   where pathName = mapExceptT (return . runIdentity)

@@ -44,8 +44,15 @@ recognizesMissingFiles = do
   assertEqual "reloader recognizes missing files"
     (Left (FileNotFound exFile)) (void lr)
 
+cachesWhenCacheable = do
+  let modname = "Byte"
+  Right (freshness, _) <- (stdLibLoader ^. load) modname & runExceptT
+  reloaded <- (stdLibLoader ^. reload) modname freshness & runExceptT
+  assertEqual "cache hit" (Right Nothing) (fmap (fmap snd) reloaded)
+
 main = TestGroup "LoaderTests"
   [ testCase "loads a file" loadsAFile
   , testCase "recognizes bad names" recognizesBadNames
   , testCase "recognizes missing files" recognizesMissingFiles
+  , testCase "caches when cacheable" cachesWhenCacheable
   ]
