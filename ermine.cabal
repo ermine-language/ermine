@@ -310,7 +310,6 @@ test-suite unit-tests
   else
     build-depends:
       base,
-      directory             >= 1.2.0.1,
       ermine,
       filemanip             >= 0.3.6.2,
       filepath,
