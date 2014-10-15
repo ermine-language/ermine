@@ -12,7 +12,6 @@ import Test.Framework.Providers.API
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
-import TestDef
 import ParserTests (stdLibDir)
 
 stdLibLoader :: Loader Freshness (ExceptT LoadRefusal IO) Text Text
