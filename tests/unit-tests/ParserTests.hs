@@ -9,7 +9,7 @@ import Test.HUnit
 
 import TestDef
 
-stdLibDir = "./stdlib/"
+stdLibDir = "./stdlib/Prelude/"
 
 ermineParserTests  = TestDef {
    name            = "Ermine Parser Tests"

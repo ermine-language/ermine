@@ -293,7 +293,7 @@ executable ermine
 test-suite unit-tests
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
-  main-is:          UnitTests.hs
+  main-is:          unittests.hs
   ghc-options:      -w -threaded -rtsopts -with-rtsopts=-N -v0
   hs-source-dirs:   tests tests/unit-tests
 
@@ -306,10 +306,15 @@ test-suite unit-tests
     build-depends:
       base,
       directory             >= 1.2.0.1,
+      ermine,
       filemanip             >= 0.3.6.2,
+      filepath,
+      lens,
       HUnit,
       test-framework        >= 0.6,
-      test-framework-hunit
+      test-framework-hunit,
+      text,
+      transformers-compat
 
 -- Verify properties with QuickCheck
 test-suite properties
@@ -326,6 +331,7 @@ test-suite properties
     Arbitrary
     Binary
     Inference
+    Loader
     Pattern
     Syntax
     Var
