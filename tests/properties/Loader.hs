@@ -23,7 +23,7 @@ prop_thenM_right_identity = let l = uncachedLoader Identity `thenM` return in
         && ((l ^. reload) a () == return (return ((), a)))
 
 prop_thenM_preserves_reload =
-  let l = Loader (const . Right $ ((), 42)) (const . const $ Right Nothing)
+  let l = permCachedLoader (const . Right $ 42)
           `thenM` (\a -> Left a `asTypeOf` Right a)
   in \a -> (l ^. reload) (a :: Int) () == return Nothing
 
