@@ -1,4 +1,7 @@
-module ParserTests (ermineParserTests) where
+module ParserTests
+  ( ermineParserTests
+  , stdLibDir
+  ) where
 
 import Control.Applicative
 import Data.Traversable
@@ -6,7 +9,7 @@ import Test.HUnit
 
 import TestDef
 
-stdLibDir = "./stdlib/"
+stdLibDir = "./stdlib/Prelude/"
 
 ermineParserTests  = TestDef {
    name            = "Ermine Parser Tests"

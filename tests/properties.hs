@@ -16,6 +16,7 @@ import Test.Framework.Providers.QuickCheck2
 
 import Binary
 import Inference
+import Loader
 import Syntax
 import Var
 
@@ -26,6 +27,7 @@ main :: IO ()
 main = defaultMain
   [ Binary.tests
   , Inference.tests
+  , Loader.tests
   , Syntax.tests
   , Var.tests
   ]
