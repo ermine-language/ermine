@@ -65,7 +65,7 @@ import Ermine.Syntax.Kind as Kind
 -- >>> :m + Ermine.Unification.Kind Ermine.Inference.Kind
 -- >>> :m + Text.Trifecta.Rendering Data.Functor.Identity Ermine.Pretty.Kind
 -- >>> import Ermine.Pretty (names, plain, Doc, Pretty(..))
--- >>> let infer :: (forall k t. Type k t) -> Doc; infer t = prettySchema ?? names $ runM_ emptyRendering $ generalize =<< inferKind t
+-- >>> let infer :: (forall k t. Type k t) -> Doc; infer t = prettySchema ?? names $ runM_ emptyRendering $ generalize =<< inferKind id t
 
 ------------------------------------------------------------------------------
 -- Builtin
