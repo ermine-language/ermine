@@ -34,7 +34,18 @@ recognizesBadNames =
     rr <- (stdLibLoader ^. reload) modName undefined & runExceptT
     badMod rr
 
+recognizesMissingFiles = do
+  let modName = "Control.NotAModuleNoSiree"
+      exFile = stdLibDir </> "Control" </> "NotAModuleNoSiree.e"
+  lr <- (stdLibLoader ^. load) modName & runExceptT
+  assertEqual "loader recognizes missing files"
+    (Left (FileNotFound exFile)) (void lr)
+  rr <- (stdLibLoader ^. reload) modName undefined & runExceptT
+  assertEqual "reloader recognizes missing files"
+    (Left (FileNotFound exFile)) (void lr)
+
 main = TestGroup "LoaderTests"
   [ testCase "loads a file" loadsAFile
   , testCase "recognizes bad names" recognizesBadNames
+  , testCase "recognizes missing files" recognizesMissingFiles
   ]
