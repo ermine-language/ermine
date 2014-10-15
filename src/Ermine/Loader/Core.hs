@@ -18,6 +18,7 @@ module Ermine.Loader.Core
   ( -- * Loaders with cache states
     Loader(Loader)
   , uncachedLoader
+  , permCachedLoader
   , load
   , reload
     -- * Manipulating loaders
@@ -107,15 +108,20 @@ uncachedLoader :: Functor m => (a -> m b) -> Loader () m a b
 uncachedLoader f = Loader (fmap ((),) . f)
                           (const . fmap (pure.pure) . f)
 
+-- | A loader that only loads each value once, always telling the
+-- caller that the old value is fresh enough on each subsequent
+-- reload.
+permCachedLoader :: Applicative m => (a -> m b) -> Loader () m a b
+permCachedLoader f = Loader (fmap ((),) . f)
+                            (const . const $ pure Nothing)
+
 -- | Contramap the name parameter.  A specialization of 'lmap' that
 -- doesn't require the 'Functor' constraint.
 contramapName :: (c -> a) -> Loader e m a b -> Loader e m c b
 contramapName f = loadOrReload %~ (. f)
 
 -- | Compose two loaders.  The loaders are assumed to have independent
--- ideas of the "freshness test"; that is why 'Loader' doesn't form a
--- 'Category', while the version that existentializes the freshness
--- test does.
+-- ideas of the "freshness test".
 --
 -- NB: The right reloader is never used.  Therefore, this 'compose'
 -- has no left identity.
