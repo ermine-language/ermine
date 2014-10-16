@@ -208,6 +208,7 @@ library
     parsers                   >= 0.8,
     prelude-extras            >= 0.3,
     primitive                 >= 0.5.2.1,
+    profunctors               >= 4.2,
     random                    >= 1.0.0.3,
     semigroups                >= 0.9,
     split                     >= 0.2.1.1,

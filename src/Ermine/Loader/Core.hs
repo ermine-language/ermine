@@ -38,6 +38,7 @@ import Control.Arrow
 import Control.Lens
 import Control.Monad
 import Data.Data
+import Data.Profunctor (Strong(..))
 import GHC.Generics
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
@@ -62,6 +63,14 @@ makeLenses ''Loader
 instance Functor m => Profunctor (Loader e m) where
   lmap = contramapName
   rmap = fmap
+
+instance Functor m => Strong (Loader e m) where
+  first' (Loader l r) =
+    Loader (\ ~(a, c) -> l a & mapped.mapped %~ (,c))
+           (\ ~(a, c) -> r a >>> mapped.mapped.mapped %~ (,c))
+  second' (Loader l r) =
+    Loader (\ ~(c, a) -> l a & mapped.mapped %~ (c,))
+           (\ ~(c, a) -> r a >>> mapped.mapped.mapped %~ (c,))
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
