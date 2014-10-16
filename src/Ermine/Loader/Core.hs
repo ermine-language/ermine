@@ -1,4 +1,5 @@
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
@@ -17,6 +18,7 @@
 module Ermine.Loader.Core
   ( -- * Loaders with cache states
     Loader(Loader)
+  , LoadResult()
   , uncachedLoader
   , permCachedLoader
   , load
@@ -37,9 +39,10 @@ import Control.Applicative
 import Control.Arrow
 import Control.Lens
 import Control.Monad
-import Data.Data
+import Data.Data (Typeable)
 import Data.Profunctor (Strong(..))
-import GHC.Generics
+import Data.Profunctor.Rep (Representable(..))
+import GHC.Generics (Generic)
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
 -- depends on whether an 'e' is passed.
@@ -58,6 +61,9 @@ data Loader e m a b = Loader
   , _reload :: a -> e -> m (Maybe (e, b))}
   deriving (Functor, Generic, Typeable)
 
+data LoadResult e m b = LoadResult (m (e, b)) (e -> m (Maybe (e, b)))
+  deriving (Functor, Generic, Typeable)
+
 makeLenses ''Loader
 
 instance Functor m => Profunctor (Loader e m) where
@@ -71,6 +77,14 @@ instance Functor m => Strong (Loader e m) where
   second' (Loader l r) =
     Loader (\ ~(c, a) -> l a & mapped.mapped %~ (c,))
            (\ ~(c, a) -> r a >>> mapped.mapped.mapped %~ (c,))
+
+instance Functor m => Representable (Loader e m) where
+  type Rep (Loader e m) = LoadResult e m
+
+  rep = view loadOrReload >>> mapped %~ uncurry LoadResult
+
+  tabulate = mapped %~ (\(LoadResult l r) -> (l, r))
+             >>> view (from loadOrReload)
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
