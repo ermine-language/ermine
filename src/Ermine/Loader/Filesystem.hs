@@ -25,6 +25,7 @@ import Control.Lens hiding ((<.>))
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.Data
+import Data.Function (on)
 import Data.Monoid
 import Data.Text (Text, pack)
 import qualified Data.Text as T
@@ -50,21 +51,14 @@ filesystemLoader :: MonadIO m =>
                     -> String      -- ^ File extension.
                     -> Loader Freshness (ExceptT LoadRefusal m) Text Text
 filesystemLoader root ext =
-  Loader (\n -> do
-             pn <- pathName n
-             load' (getModificationTime pn) pn & trapNoSuchThing pn)
-         (\n cv -> do
-             pn <- pathName n
-             let trap = trapNoSuchThing pn
-             mtime <- getModificationTime pn & trap
-             if mtime /= modTime cv
-               then load' (return mtime) pn & trap & liftM Just
-               else return Nothing)
+  testBasedCacheLoader pathName
+      (\pn -> trapNoSuchThing pn . TIO.readFile $ pn)
+      (\pn -> liftM Freshness . trapNoSuchThing pn
+              . getModificationTime $ pn)
+      ((/=) `on` modTime)
   where pathName = mapExceptT (return . runIdentity)
                    . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
-        load' mtimeAct pn = liftM2 (\mtime txt -> (Freshness mtime, txt))
-                                   mtimeAct (TIO.readFile pn)
         trapNoSuchThing pn = ExceptT . liftIO
                              . handleJust (^? errorType._NoSuchThing)
                                           (const . return . Left . FileNotFound $ pn)

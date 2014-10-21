@@ -21,6 +21,7 @@ module Ermine.Loader.Core
   , LoadResult()
   , uncachedLoader
   , permCachedLoader
+  , testBasedCacheLoader
   , load
   , reload
     -- * Manipulating loaders
@@ -137,6 +138,23 @@ uncachedLoader f = Loader (fmap ((),) . f)
 permCachedLoader :: Applicative m => (a -> m b) -> Loader () m a b
 permCachedLoader f = Loader (fmap ((),) . f)
                             (const . const $ pure Nothing)
+
+-- | A loader whose freshness is based on a monadic predicate.
+testBasedCacheLoader ::
+  Monad m
+  => (a -> m x)        -- ^ Initial state for either load or reload.
+  -> (x -> m b)        -- ^ Fresh loader.
+  -> (x -> m e)        -- ^ Find a freshness value.
+  -> (e -> e -> Bool)  -- ^ Given prior & new e, reload? (e.g. '(/=)')
+  -> Loader e m a b
+testBasedCacheLoader inits loadm getE cmpE =
+  Loader (inits >=> runKleisli (Kleisli getE &&& Kleisli loadm))
+         (\n cv -> do
+             x <- inits n
+             e <- getE x
+             if cv `cmpE` e
+               then (\b -> Just (e, b)) `liftM` loadm x
+               else return Nothing)
 
 -- | Contramap the name parameter.  A specialization of 'lmap' that
 -- doesn't require the 'Functor' constraint.
