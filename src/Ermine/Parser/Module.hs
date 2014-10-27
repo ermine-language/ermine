@@ -15,6 +15,7 @@ module Ermine.Parser.Module
   ) where
 
 import Control.Applicative
+import Control.Lens
 import Data.Text (Text)
 import Data.Void (Void)
 import Ermine.Syntax.Data
@@ -36,12 +37,24 @@ wholeModule = uncurry3
 moduleDecl :: TokenParsing m => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
 
-imports :: (Monad m, TokenParsing m) => m [Import]
-imports = undefined
+imports :: TokenParsing m => m [Import]
+imports = many $ imp <$> (Private <$ symbol "import"
+                          <|> Public <$ symbol "export")
+          <*> option False (True <$ symbol "qualified")
+          <*> moduleIdentifier
+          <*> (Left <$> (symbol "as" *> moduleIdentifierPart)
+               <|> Right <$> optional (parens impList))
+  where imp pop qual mi asOrList =
+          Import pop mi (asOrList ^? _Left)
+                 (asOrList ^.. _Right._Just.folded)
+                 undefined
+        impList = undefined :: m [Explicit]
 
 moduleIdentifier :: TokenParsing m => m ModuleName
-moduleIdentifier = mkModuleName_ . concat <$> part `sepBy` dot
-  where part = (:) <$> upper <*> many (alphaNum <|> char '_')
+moduleIdentifier = mkModuleName_ . concat <$> moduleIdentifierPart `sepBy` dot
+
+moduleIdentifierPart :: TokenParsing m => m String
+moduleIdentifierPart = (:) <$> upper <*> many (alphaNum <|> char '_')
 
 definitions :: (Monad m, TokenParsing m) =>
                m ([FixityDecl],
