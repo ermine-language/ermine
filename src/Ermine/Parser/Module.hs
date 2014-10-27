@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -16,14 +15,15 @@ module Ermine.Parser.Module
 
 import Control.Applicative
 import Control.Lens
+import Data.List (intercalate)
 import Data.Text (Text)
 import Data.Void (Void)
+import Ermine.Parser.Style (termCon)
 import Ermine.Syntax.Data
 import Ermine.Syntax.Module
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Term
 import Ermine.Syntax.Type
-import Text.Parser.Char (alphaNum, char, upper)
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -34,27 +34,34 @@ wholeModule = uncurry3
           <*> definitions
   where uncurry3 f (a, b, c) = f a b c
 
-moduleDecl :: TokenParsing m => m ModuleName
+moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
+             <?> "module header"
 
-imports :: TokenParsing m => m [Import]
-imports = many $ imp <$> (Private <$ symbol "import"
-                          <|> Public <$ symbol "export")
-          <*> option False (True <$ symbol "qualified")
-          <*> moduleIdentifier
-          <*> (Left <$> (symbol "as" *> moduleIdentifierPart)
-               <|> Right <$> optional (parens impList))
-  where imp pop qual mi asOrList =
-          Import pop mi (asOrList ^? _Left)
-                 (asOrList ^.. _Right._Just.folded)
-                 undefined
+imports :: (Monad m, TokenParsing m) => m [Import]
+imports = importExportStatement `sepEndBy` semi <?> "import statements"
+
+importExportStatement :: (Monad m, TokenParsing m) => m Import
+importExportStatement =
+  imp <$> (Private <$ symbol "import"
+           <|> Public <$ symbol "export")
+  <*> moduleIdentifier
+  <*> optional (symbol "as" *> moduleIdentifierPart)
+  <*> optional ((,) <$> (False <$ symbol "using" <|> True <$ symbol "hiding")
+                <*> impList)
+  <?> "import/export statement"
+  where imp pop mi as usingpExps =
+          Import pop mi as (usingpExps ^.. _Just._2.folded)
+                 (maybe False fst usingpExps)
         impList = undefined :: m [Explicit]
 
-moduleIdentifier :: TokenParsing m => m ModuleName
-moduleIdentifier = mkModuleName_ . concat <$> moduleIdentifierPart `sepBy` dot
+moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
+moduleIdentifier = mkModuleName_ . intercalate "."
+                   <$> moduleIdentifierPart `sepBy` dot
+                   <?> "module name"
 
-moduleIdentifierPart :: TokenParsing m => m String
-moduleIdentifierPart = (:) <$> upper <*> many (alphaNum <|> char '_')
+moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
+moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 
 definitions :: (Monad m, TokenParsing m) =>
                m ([FixityDecl],
