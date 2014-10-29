@@ -41,9 +41,9 @@ import Test.Framework.Providers.QuickCheck2
 newtype DD s a = DD { unDD :: M s (Maybe a) }
 
 fooCon, barCon, bazCon :: Type k t
-fooCon = con foo (schema $ constraint ~> star)
-barCon = con bar (schema $ constraint ~> star)
-bazCon = con baz (schema $ constraint ~> star)
+fooCon = con foo (constraint ~> star)
+barCon = con bar (constraint ~> star)
+bazCon = con baz (constraint ~> star)
 
 foo, bar, baz :: Global
 foo = glob Idfix (mkModuleName_ "Ermine") "Foo"
@@ -85,9 +85,9 @@ bazInstance = Instance [] (mkHead baz 0 [] [] [int]) (Dict [barInstance^.instanc
 
 dumbConstraintEnv = ConstraintEnv
                  { _classes = Map.fromList
-                           [ (foo, Class [] [(Nothing, Scope star)] [])
-                           , (baz, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ barCon `App` pure 0])
-                           , (bar, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ fooCon `App` pure 0])
+                           [ (foo, Class [] [(Nothing, Scope star)] [] Map.empty Map.empty)
+                           , (baz, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ barCon `App` pure 0] Map.empty Map.empty)
+                           , (bar, Class [] [(Nothing, Scope star)] [view (from trivialTK) $ fooCon `App` pure 0] Map.empty Map.empty)
                            ]
                  , _instances = Map.fromList
                      [ (foo, [fooInstance])

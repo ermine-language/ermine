@@ -28,7 +28,7 @@ module Ermine.Syntax.Kind
   , Kindly(..)
   -- * Kind Schemas
   , Schema(..)
-  , schema
+  , Schematic(..)
   , general
   -- * Kind Variables
   , HasKindVars(..)
@@ -302,7 +302,7 @@ instance Fun Schema where
       _                                 -> Left t
 
 instance Variable Schema where
-  _Var = prism (schema . return) $ \ t@(Schema _ (Scope b)) -> case b of
+  _Var = prism (Schema [] . lift . return) $ \ t@(Schema _ (Scope b)) -> case b of
     Var (F (Var k)) -> Right k
     _               -> Left  t
 
@@ -310,13 +310,13 @@ instance (k ~ Kind, k' ~ Kind, b ~ b') => HasKindVars (Scope b k a) (Scope b' k'
   kindVars f (Scope s) = Scope <$> (kindVars.traverse.kindVars) f s
 
 instance Kindly (Schema a) where
-  hardKind = prism (schema . review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
+  hardKind = prism (Schema [] . lift .  review hardKind) $ \ t@(Schema _ (Scope b)) -> case b of
     HardKind k           -> Right k
     Var (F (HardKind k)) -> Right k
     _                    -> Left t
-  star = schema star
-  native = schema native
-  unboxed = schema unboxed
+  star = Schema [] . lift $ star
+  native = Schema [] . lift $ native
+  unboxed = Schema [] . lift $ unboxed
 
 instance HasKindVars (Schema a) (Schema b) a b where
   kindVars f (Schema hs s) = Schema hs <$> kindVars f s
@@ -362,12 +362,18 @@ wfhb _       = False
 
 wfhk = not . wfhb
 
--- | Lift a kind into a kind schema
+-- | Compute a kind schema for a given type. For 'Kind', this simply lifts into
+-- a trivial schema, but other structures have non-trivial schematic
+-- information.
 --
--- >>> schema (star ~> star)
+-- >>> schema (star ~> star :: Kind a)
 -- Schema [] (Scope (Var (F (Type (HardKind Star) :-> Type (HardKind Star)))))
-schema :: Kind a -> Schema a
-schema k = Schema [] (lift k)
+class Schematic t k | t -> k where
+  schema :: t -> Schema k
+
+instance Schematic (Kind k) k where
+  schema k = Schema [] (lift k)
+
 
 -- | Construct a schema from a kind, generalizing all free variables.
 --

@@ -713,7 +713,7 @@ instantiateKindVars as = first (unvar (as!!) id)
 
 -- | A type annotation
 data Annot k a = Annot [Hint] [Hint] !(Scope Int (TK k) a)
-  deriving Show
+  deriving (Show, Eq)
 
 annot :: (Ord k, Ord a)
       => (k -> Hint)

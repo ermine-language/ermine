@@ -2,13 +2,18 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011-2012
@@ -46,6 +51,7 @@ import Data.Traversable (for)
 import Data.Void
 import Ermine.Diagnostic
 import Ermine.Syntax
+import Ermine.Syntax.Class
 import Ermine.Syntax.Constructor as Data
 import Ermine.Syntax.Data as Data
 import Ermine.Syntax.Global
@@ -58,6 +64,7 @@ import Ermine.Unification.Data
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Unification.Sharing
+import GHC.Generics (Generic)
 
 productKind :: Int -> Kind k
 productKind 0 = star
@@ -124,6 +131,16 @@ inferAnnotKind (Annot hs hts ty) = do
 fixCons :: (Ord t) => Map t (Type k u) -> (t -> Type k u) -> DataType k t -> DataType k u
 fixCons m f = boundBy (\t -> fromMaybe (f t) $ Map.lookup t m)
 
+-- Gets the "complete user specified kind" of a data type, if it has one. These
+-- allow us to break cycles in mutually defined data types for the purposes of
+-- inferring better kinds.
+cusk :: Schematic t k => Fold t (Schema void)
+cusk = folding $ traverse (const Nothing) . schema
+
+data TypeDecl k t = DataDecl (DataType k t)
+                  | ClassDecl (Class k t)
+  deriving (Eq, Show, Generic, Functor, Foldable,Traversable)
+
 -- | Checks a list of data types for well-kindedness. The unit in the kind
 -- variables is interpreted as an unknown, which must be determined by the
 -- algorithm. The string variables may refer to other data types in the
@@ -154,7 +171,7 @@ checkDataTypeKinds dts = evalStateT ?? fullM $ do
  (full, partial) = partition (has cusk) dts
  fullM = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) $ dt^?!cusk)) $ full
  graph = map (\dt -> (dt, dt^.name, toListOf typeVars dt)) partial
- conMap = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) (dataTypeSchema dt)))
+ conMap = Map.fromList . map (\dt -> (dt^.name, con (dt^.global) (schema dt)))
  ck scc = StateT $ \m -> do
    let scc' = map (fixCons m pure) scc
    cscc <- checkDataTypeGroup scc'
@@ -174,7 +191,7 @@ checkDataTypeGroup dts = do
     () <$ checkDistinct sks
     generalizeDataCheck dc
   let cm = Map.fromList
-             $ map (\dt -> (dt^.name, (dt^.global, dataTypeSchema dt))) checked
+             $ map (\dt -> (dt^.name, (dt^.global, schema dt))) checked
   pure $ map (boundBy $ \t -> uncurry con $ cm Map.! t) checked
 
 -- | Checks that the types in a data declaration have sensible kinds.

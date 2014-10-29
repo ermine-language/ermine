@@ -6,11 +6,13 @@ module Ermine.Syntax.Module where
 import Control.Lens
 import Data.Bytes.Serial
 import Data.Binary
+import Data.Map (Map)
 import Data.Serialize
 import Data.Data hiding (DataType)
 import Data.Ix
 import Data.Text
 import Data.Void
+import Ermine.Syntax.Class
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global as Global
 import Ermine.Syntax.ModuleName
@@ -55,12 +57,6 @@ data FixityDecl = FixityDecl
   } deriving (Show, Typeable)
 
 {-
-data ClassDecl = ClassDecl
-  { _classDeclClass      :: Class
-  , _classDeclSignatures :: Map Global (Type (Var Int ()) (Var Int Text))
-  , _classDeclDefaults   :: Map Global (Bodies (Annot Void Text) Void)
-  } deriving (Show, Typeable)
-
 data InstanceDecl = InstanceDecl
   { _instanceDeclClass    :: Class
   , _instanceDeclDefaults :: ClassBinding
@@ -73,7 +69,7 @@ data Module = Module
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
   , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
-  -- , _moduleClasses   :: Map Text (Class, Binding (Annot (Either Text Int)) (Either Text Int))
+  , _moduleClasses   :: Map Text (Class () Text)
   -- , _moduleInstances :: Map Head () 
   } deriving (Typeable)
 

@@ -55,7 +55,7 @@ instantiateDataType dt = do
   dt'@(DataType g ks ts cs) <- kindVars (\_ -> newShallowMeta 0 False Nothing) dt
   mks <- for ks $ newMeta False
   tks <- for ts $ \(h,_) -> (,) h . pure <$> newShallowMeta 0 False Nothing
-  return ( dataTypeSchema dt'
+  return ( schema dt'
          , DataCheck g tks $ over kindVars (unvar (mks!!) id) <$> cs
          )
 
