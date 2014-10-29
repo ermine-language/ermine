@@ -20,6 +20,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import Ermine.Parser.Style (termCon)
 import Ermine.Syntax.Data
+import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Term
@@ -51,7 +52,7 @@ importExportStatement =
                 <*> impList)
   <?> "import/export statement"
   where imp pop mi as usingpExps =
-          Import pop mi as (usingpExps ^.. _Just._2.folded)
+          Import pop mi as (usingpExps ^. _Just._2)
                  (maybe False fst usingpExps)
         impList = undefined :: m [Explicit]
 
@@ -68,3 +69,21 @@ definitions :: (Monad m, TokenParsing m) =>
                   [(Privacy, DataType () Text)],
                   [(Privacy, Binding (Annot Void Text) Text)])
 definitions = undefined
+
+fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
+fixityDecl = FixityDecl
+         <$> option False (True <$ symbol "type")
+         <*> (fixity <*> prec)
+         <*> undefined
+  where fixity = Infix L <$ symbol "infixl"
+             <|> Infix R <$ symbol "infixr"
+             <|> Infix N <$ symbol "infix"
+             <|> Prefix <$ symbol "prefix"
+             <|> Postfix <$ symbol "postfix"
+
+prec :: (Monad m, TokenParsing m) => m Int
+prec = (do n <- natural
+           if n <= 10
+             then return (fromInteger n)
+             else empty)
+       <?> "precedence between 0 and 10"
