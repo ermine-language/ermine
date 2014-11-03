@@ -78,3 +78,6 @@ instance Schematic (Class k t) k where
   schema clazz =
     Schema (clazz^.kindArgs)
            (Scope . Prelude.foldr (~>) constraint $ unscope . snd <$> clazz^.typeArgs)
+
+instance HasKindVars (Class k t) (Class k' t) k k' where
+  kindVars f = bitraverse f pure

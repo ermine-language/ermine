@@ -169,6 +169,7 @@ library
     Ermine.Syntax.Sort
     Ermine.Syntax.Term
     Ermine.Syntax.Type
+    Ermine.Unification.Class
     Ermine.Unification.Data
     Ermine.Unification.Kind
     Ermine.Unification.Meta
