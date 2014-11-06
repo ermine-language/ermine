@@ -19,18 +19,19 @@ module Ermine.Constraint.Env
   ) where
 
 import Bound
-import Control.Applicative
+import Control.Applicative hiding (empty)
 import Control.Lens
 import Control.Monad hiding (sequence)
 import Control.Monad.ST.Class
 import Control.Monad.Trans.Maybe
 import Data.Bitraversable
-import Data.Map as Map hiding (map, empty, delete, filter)
+import Data.Map as Map hiding (map, delete, filter)
 import Data.Text (unpack)
 import Data.Void
 import Ermine.Builtin.Global (fromIntegerToIntg, fromIntegerToLongg)
 import Ermine.Builtin.Head
 import Ermine.Builtin.Type as Type
+import Ermine.Syntax ((~>))
 import Ermine.Syntax.Class
 import Ermine.Syntax.Core as Core hiding (App, Var)
 import Ermine.Syntax.Global as Global
@@ -58,7 +59,12 @@ dummyConstraintEnv = ConstraintEnv
   }
  where
  -- class Lame a where lame :: a
- clame = Class [] [(Just "a", Scope star)] []
+ clame =
+   Class []
+         [(Just "a", Scope star)]
+         []
+         (singleton (builtin_ "lame") . Var $ B 0)
+         empty
  -- instance Lame Int where lame = 5
  dlameI = Dict [] [_Lit # Int 5]
  ilameI = Instance [] hlameI dlameI
@@ -67,7 +73,12 @@ dummyConstraintEnv = ConstraintEnv
  ilameL = Instance [] hlameL dlameL
 
  -- class FromInteger a where fromInteger :: Integer -> a
- cfromInteger = Class [] [(Just "a", Scope star)] []
+ cfromInteger =
+   Class []
+         [(Just "a", Scope star)]
+         []
+         (singleton (builtin_ "fromInteger") $ integer ~> (Var $ B 0))
+         empty
  -- instance FromInteger Int where fromInteger = fromIntegerToInt
  dfromIntegerI = Dict [] [_Global # fromIntegerToIntg]
  ifromIntegerI = Instance [] hfromIntegerI dfromIntegerI

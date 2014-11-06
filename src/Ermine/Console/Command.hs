@@ -71,7 +71,7 @@ import Ermine.Pretty.Type
 import Ermine.Pretty.Term
 import Ermine.Syntax
 import Ermine.Syntax.Convention
-import Ermine.Syntax.Data (DataType, dataTypeSchema)
+import Ermine.Syntax.Data (DataType)
 import Ermine.Syntax.Core as Core
 import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Id
@@ -173,7 +173,7 @@ dkindsBody _ dts = do
   for_ ckdts $ \ckdt ->
     sayLn $ text (unpack $ ckdt^.name)
         <+> colon
-        <+> prettySchema (vacuous $ dataTypeSchema ckdt) names
+        <+> prettySchema (vacuous $ schema ckdt) names
 
 checkAndCompile :: MonadConstraint (KindM s) s m
                 => Term Ann Text -> m (Maybe (Type t k, Core Convention c))
