@@ -16,9 +16,11 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Data.List (intercalate)
+import Data.Map (Map)
 import Data.Text (Text)
 import Data.Void (Void)
 import Ermine.Parser.Style (termCon)
+import Ermine.Syntax.Class
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module
@@ -30,10 +32,10 @@ import Text.Parser.Token
 
 -- | Parser for a module.
 wholeModule :: (Monad m, TokenParsing m) => m Module
-wholeModule = uncurry3
+wholeModule = uncurry'
           <$> (Module <$> moduleDecl <*> imports)
           <*> definitions
-  where uncurry3 f (a, b, c) = f a b c
+  where uncurry' f (a, b, c, d) = f a b c d
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
@@ -67,7 +69,8 @@ moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 definitions :: (Monad m, TokenParsing m) =>
                m ([FixityDecl],
                   [(Privacy, DataType () Text)],
-                  [(Privacy, Binding (Annot Void Text) Text)])
+                  [(Privacy, Binding (Annot Void Text) Text)],
+                  Map Text (Class () Text))
 definitions = undefined
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
