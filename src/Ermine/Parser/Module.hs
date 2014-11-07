@@ -19,7 +19,7 @@ import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text)
 import Ermine.Parser.Data (dataType)
-import Ermine.Parser.Style (termCon)
+import Ermine.Parser.Style (operator, termCon)
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
@@ -88,7 +88,7 @@ fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
          <$> option False (True <$ symbol "type")
          <*> (fixity <*> prec)
-         <*> undefined
+         <*> many operator
   where fixity = Infix L <$ symbol "infixl"
              <|> Infix R <$ symbol "infixr"
              <|> Infix N <$ symbol "infix"
