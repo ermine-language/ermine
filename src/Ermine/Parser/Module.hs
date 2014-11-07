@@ -16,26 +16,23 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Data.List (intercalate)
-import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Text (Text)
-import Data.Void (Void)
+import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style (termCon)
-import Ermine.Syntax.Class
-import Ermine.Syntax.Data
+-- import Ermine.Syntax.Class
+-- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module
 import Ermine.Syntax.ModuleName
-import Ermine.Syntax.Term
-import Ermine.Syntax.Type
+-- import Ermine.Syntax.Term
+-- import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parser for a module.
 wholeModule :: (Monad m, TokenParsing m) => m Module
-wholeModule = uncurry'
-          <$> (Module <$> moduleDecl <*> imports)
-          <*> definitions
-  where uncurry' f (a, b, c, d) = f a b c d
+wholeModule = assembleModule <$> moduleDecl <*> imports <*> statements
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
@@ -66,12 +63,26 @@ moduleIdentifier = mkModuleName_ . intercalate "."
 moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
 moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 
-definitions :: (Monad m, TokenParsing m) =>
-               m ([FixityDecl],
-                  [(Privacy, DataType () Text)],
-                  [(Privacy, Binding (Annot Void Text) Text)],
-                  Map Text (Class () Text))
-definitions = undefined
+assembleModule :: ModuleName -> [Import] -> [Statement Text Text] -> Module
+assembleModule nm im stmts = Module nm im (these _FixityDeclStmt)
+                                          (these _DataTypeStmt)
+                                          (these _BindingStmt)
+                                          (M.fromList $ these _ClassStmt)
+  where these p = stmts ^.. folded . p
+
+statements :: (Monad m, TokenParsing m) =>
+              m [Statement Text Text]
+statements = ([] <$ eof) <|> ((:) <$> statement <*> (semi *> statements))
+
+defaultPrivacyTODO :: Privacy
+defaultPrivacyTODO = Public
+
+statement :: (Monad m, TokenParsing m) =>
+             m (Statement Text Text)
+statement = FixityDeclStmt <$> fixityDecl
+        <|> DataTypeStmt defaultPrivacyTODO <$> dataType
+        <|> BindingStmt defaultPrivacyTODO <$> undefined
+        <|> ClassStmt <$> undefined <*> undefined
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
