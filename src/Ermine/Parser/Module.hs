@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -17,13 +18,13 @@ import Control.Applicative
 import Control.Lens
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Ermine.Parser.Data (dataType)
-import Ermine.Parser.Style (operator, termCon)
+import Ermine.Parser.Style
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
-import Ermine.Syntax.Module
+import Ermine.Syntax.Module hiding (explicit)
 import Ermine.Syntax.ModuleName
 -- import Ermine.Syntax.Term
 -- import Ermine.Syntax.Type
@@ -45,15 +46,17 @@ importExportStatement :: (Monad m, TokenParsing m) => m Import
 importExportStatement =
   imp <$> (Private <$ symbol "import"
            <|> Public <$ symbol "export")
-  <*> moduleIdentifier
-  <*> optional (symbol "as" *> moduleIdentifierPart)
-  <*> optional ((,) <$> (False <$ symbol "using" <|> True <$ symbol "hiding")
-                <*> impList)
+  <*> do
+    src <- moduleIdentifier
+    (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
+            <*> optional ((,) <$> (False <$ symbol "using"
+                                   <|> True <$ symbol "hiding")
+                          <*> impList src)
   <?> "import/export statement"
-  where imp pop mi as usingpExps =
+  where imp pop (mi, as, usingpExps) =
           Import pop mi as (usingpExps ^. _Just._2)
                  (maybe False fst usingpExps)
-        impList = undefined :: m [Explicit]
+        impList src = explicit src `sepEndBy` semi <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
 moduleIdentifier = mkModuleName_ . intercalate "."
@@ -62,6 +65,17 @@ moduleIdentifier = mkModuleName_ . intercalate "."
 
 moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
 moduleIdentifierPart = ident (termCon & styleName .~ "module name")
+
+explicit :: (Monad m, TokenParsing m) => ModuleName -> m Explicit
+explicit fromModule = do
+  isTy <- option False (True <$ symbol "type")
+  let name = operator <|> (if isTy then ident typeCon
+                           else (ident termCon <|> termIdentifier))
+  flip Explicit isTy
+      . undefined -- TODO look up Global conversion in fromModule parsestate
+    <$> name
+    -- TODO: check 'as' name's fixity
+    <*> optional (symbol "as" *> (unpack <$> name))
 
 assembleModule :: ModuleName -> [Import] -> [Statement Text Text] -> Module
 assembleModule nm im stmts = Module nm im (these _FixityDeclStmt)
