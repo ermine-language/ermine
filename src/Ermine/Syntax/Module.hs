@@ -1,5 +1,11 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ermine.Syntax.Module where
 
@@ -9,6 +15,7 @@ import Data.Binary
 import Data.Map (Map)
 import Data.Serialize
 import Data.Data hiding (DataType)
+import Data.Foldable (Foldable)
 import Data.Ix
 import Data.Text
 import Data.Void
@@ -54,7 +61,7 @@ data FixityDecl = FixityDecl
   { _fixityDeclType   :: Bool
   , _fixityDeclFixity :: Global.Fixity
   , _fixityDeclNames  :: [Text]
-  } deriving (Show, Typeable)
+  } deriving (Show, Eq, Data, Typeable)
 
 {-
 data InstanceDecl = InstanceDecl
@@ -62,6 +69,15 @@ data InstanceDecl = InstanceDecl
   , _instanceDeclDefaults :: ClassBinding
   } deriving (Show, Typeable)
 -}
+
+-- | Combine top-level statements into a single type.
+data Statement t a = FixityDeclStmt FixityDecl
+                   | DataTypeStmt Privacy (DataType () t)
+                   | BindingStmt Privacy (Binding (Annot Void t) a)
+                   | ClassStmt a (Class () t)
+  deriving (Show, Eq, Functor, Foldable, Traversable)
+
+makeClassyPrisms ''Statement
 
 data Module = Module
   { _moduleName      :: ModuleName
