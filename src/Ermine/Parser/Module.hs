@@ -19,16 +19,15 @@ import Control.Lens
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text, unpack)
-import Data.Void (Void)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
+import Ermine.Parser.Type (Ann)
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit)
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Term hiding (Explicit)
-import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -86,9 +85,9 @@ assembleModule nm im stmts =
                (M.fromList $ these _ClassStmt)
   where these p = stmts ^.. folded . p
 
-assembleBindings :: [(Privacy, [a], (Annot Void t))]
-                 -> [(Privacy, a, (Bodies t a))]
-                 -> [(Privacy, Binding (Annot Void t) a)]
+assembleBindings :: [(Privacy, [a], Ann)]
+                 -> [(Privacy, a, (Bodies Text a))]
+                 -> [(Privacy, Binding Ann a)]
 assembleBindings = undefined
 
 statements :: (Monad m, TokenParsing m) =>
