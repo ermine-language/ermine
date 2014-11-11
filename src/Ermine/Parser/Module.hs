@@ -21,7 +21,7 @@ import qualified Data.Map as M
 import Data.Text (Text, unpack)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
-import Ermine.Parser.Type (Ann)
+import Ermine.Parser.Type (Ann, annotation)
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
@@ -101,7 +101,7 @@ statement :: (Monad m, TokenParsing m) =>
              m (Statement Text Text)
 statement = FixityDeclStmt <$> fixityDecl
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
-        <|> SigStmt defaultPrivacyTODO <$> undefined <*> undefined
+        <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
         <|> TermStmt defaultPrivacyTODO <$> undefined <*> undefined
         <|> ClassStmt <$> undefined <*> undefined
 
@@ -122,3 +122,7 @@ prec = (do n <- natural
              then return (fromInteger n)
              else empty)
        <?> "precedence between 0 and 10"
+
+sigs :: (Monad m, TokenParsing m) => m ([Text], Ann)
+sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
+           <*> annotation
