@@ -73,7 +73,8 @@ data InstanceDecl = InstanceDecl
 -- | Combine top-level statements into a single type.
 data Statement t a = FixityDeclStmt FixityDecl
                    | DataTypeStmt Privacy (DataType () t)
-                   | BindingStmt Privacy (Binding (Annot Void t) a)
+                   | SigStmt Privacy [a] (Annot Void t)
+                   | TermStmt Privacy a (Bodies t a)
                    | ClassStmt a (Class () t)
   deriving (Show, Eq, Functor, Foldable, Traversable)
 

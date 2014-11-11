@@ -19,6 +19,7 @@ import Control.Lens
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text, unpack)
+import Data.Void (Void)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 -- import Ermine.Syntax.Class
@@ -26,8 +27,8 @@ import Ermine.Parser.Style
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit)
 import Ermine.Syntax.ModuleName
--- import Ermine.Syntax.Term
--- import Ermine.Syntax.Type
+import Ermine.Syntax.Term hiding (Explicit)
+import Ermine.Syntax.Type
 import Text.Parser.Combinators
 import Text.Parser.Token
 
@@ -72,17 +73,23 @@ explicit fromModule = do
   let name = operator <|> (if isTy then ident typeCon
                            else (ident termCon <|> termIdentifier))
   flip Explicit isTy
-      . undefined -- TODO look up Global conversion in fromModule parsestate
-    <$> name
-    -- TODO: check 'as' name's fixity
+    <$> (name >>= undefined) -- TODO look up Global conversion in
+                             -- fromModule parsestate TODO: check 'as'
+                             -- name's fixity
     <*> optional (symbol "as" *> (unpack <$> name))
 
 assembleModule :: ModuleName -> [Import] -> [Statement Text Text] -> Module
-assembleModule nm im stmts = Module nm im (these _FixityDeclStmt)
-                                          (these _DataTypeStmt)
-                                          (these _BindingStmt)
-                                          (M.fromList $ these _ClassStmt)
+assembleModule nm im stmts =
+  Module nm im (these _FixityDeclStmt)
+               (these _DataTypeStmt)
+               (assembleBindings (these _SigStmt) (these _TermStmt))
+               (M.fromList $ these _ClassStmt)
   where these p = stmts ^.. folded . p
+
+assembleBindings :: [(Privacy, [a], (Annot Void t))]
+                 -> [(Privacy, a, (Bodies t a))]
+                 -> [(Privacy, Binding (Annot Void t) a)]
+assembleBindings = undefined
 
 statements :: (Monad m, TokenParsing m) =>
               m [Statement Text Text]
@@ -95,7 +102,8 @@ statement :: (Monad m, TokenParsing m) =>
              m (Statement Text Text)
 statement = FixityDeclStmt <$> fixityDecl
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
-        <|> BindingStmt defaultPrivacyTODO <$> undefined
+        <|> SigStmt defaultPrivacyTODO <$> undefined <*> undefined
+        <|> TermStmt defaultPrivacyTODO <$> undefined <*> undefined
         <|> ClassStmt <$> undefined <*> undefined
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
