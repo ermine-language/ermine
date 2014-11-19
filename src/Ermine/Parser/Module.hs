@@ -19,8 +19,10 @@ import Control.Lens
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text, unpack)
+import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
+import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
@@ -85,8 +87,8 @@ assembleModule nm im stmts =
                (M.fromList $ these _ClassStmt)
   where these p = stmts ^.. folded . p
 
-assembleBindings :: [(Privacy, [a], Ann)] -- ^ types
-                 -> [(Privacy, a, (Bodies Ann a))] -- ^ terms
+assembleBindings :: [(Privacy, [a], Ann)]           -- ^ types
+                 -> [(Privacy, a, [PreBody Ann a])] -- ^ terms
                  -> [(Privacy, Binding Ann a)]      -- ^ bindings
 assembleBindings = undefined
 
@@ -101,9 +103,9 @@ statement :: (Monad m, TokenParsing m) =>
              m (Statement Text Text)
 statement = FixityDeclStmt <$> fixityDecl
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
+        <|> ClassStmt <$> undefined <*> undefined
         <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
         <|> uncurry (TermStmt defaultPrivacyTODO) <$> termStatement
-        <|> ClassStmt <$> undefined <*> undefined
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
@@ -127,5 +129,8 @@ sigs :: (Monad m, TokenParsing m) => m ([Text], Ann)
 sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
            <*> annotation
 
-termStatement :: (Monad m, TokenParsing m) => m (Text, (Bodies Ann Text))
-termStatement = undefined
+termStatement :: (Monad m, TokenParsing m) => m (Text, [PreBody Ann Text])
+termStatement = do
+  (name, headBody) <- termDeclClause termIdentifier
+  many (semi *> termDeclClause (name <$ symbol (unpack name)))
+    <&> \tailBodies -> (name, headBody : map snd tailBodies)

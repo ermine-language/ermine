@@ -15,6 +15,7 @@
 module Ermine.Parser.Term
   ( term
   , terms
+  , termDeclClause
   , declarations
   , letBlock
   ) where
@@ -97,10 +98,11 @@ typeDecl :: (Monad m, TokenParsing m) => m TyDecl
 typeDecl = (,) <$> try (termIdentifier <* colon) <*> annotation
 
 termDeclClause :: (Monad m, TokenParsing m)
-               => m (Text, PBody)
-termDeclClause =
-    (,) <$> termIdentifier
-        <*> (PreBody <$> pattern0s <*> guarded (reserve op "=") <*> whereClause)
+               => m Text -> m (Text, PBody)
+termDeclClause nameParser =
+    try ((\tid pats g w -> (tid, pats g w))
+         <$> nameParser <*> (PreBody <$> pattern0s))
+    <*> guarded (reserve op "=") <*> whereClause
  where
  pattern0s = do ps <- sequenceA <$> many pattern0
                 ps <$ validate ps
@@ -120,7 +122,7 @@ whereClause :: (Monad m, TokenParsing m) => m Where
 whereClause = symbol "where" *> braces declarations <|> pure (pure [])
 
 declClauses :: (Monad m, TokenParsing m) => m [Either TyDecl (Text, PBody)]
-declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause)
+declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause termIdentifier)
 
 type TyDecl = (Text, Ann)
 type TmDecl = (Text, [PBody])

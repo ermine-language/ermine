@@ -54,6 +54,7 @@ let_ (Binder vs ds) b = Let ds $ abstract (\i -> fromIntegral <$> List.elemIndex
 data PreBinding t v = PreBinding Rendering (BindingType t) [PreBody t v]
 
 data PreBody t v = PreBody (Binder v [Pattern t]) (Guarded (Term t v)) (Binder v [Binding t v])
+  deriving (Show, Eq)
 
 body :: Binder v [Pattern t] -> Term t v -> Binder v [Binding t v] -> PreBody t v
 body ps = PreBody ps . Unguarded

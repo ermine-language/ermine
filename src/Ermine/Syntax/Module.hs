@@ -1,8 +1,5 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -15,10 +12,10 @@ import Data.Binary
 import Data.Map (Map)
 import Data.Serialize
 import Data.Data hiding (DataType)
-import Data.Foldable (Foldable)
 import Data.Ix
 import Data.Text
 import Data.Void
+import Ermine.Builtin.Term (PreBody())
 import Ermine.Syntax.Class
 import Ermine.Syntax.Data
 import Ermine.Syntax.Global as Global
@@ -74,9 +71,9 @@ data InstanceDecl = InstanceDecl
 data Statement t a = FixityDeclStmt FixityDecl
                    | DataTypeStmt Privacy (DataType () t)
                    | SigStmt Privacy [a] (Annot Void t)
-                   | TermStmt Privacy a (Bodies (Annot Void t) a)
+                   | TermStmt Privacy a [PreBody (Annot Void t) a]
                    | ClassStmt a (Class () t)
-  deriving (Show, Eq, Functor, Foldable, Traversable)
+  deriving (Show, Eq)
 
 makeClassyPrisms ''Statement
 
