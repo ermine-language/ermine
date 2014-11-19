@@ -74,9 +74,9 @@ explicit fromModule = do
   let name = operator <|> (if isTy then ident typeCon
                            else (ident termCon <|> termIdentifier))
   flip Explicit isTy
-    <$> (name >>= undefined) -- TODO look up Global conversion in
-                             -- fromModule parsestate TODO: check 'as'
-                             -- name's fixity
+    <$> (name >>= undefined fromModule)
+    -- TODO ↑ look up Global conversion in fromModule parsestate
+    -- TODO ↓ check 'as' name's fixity
     <*> optional (symbol "as" *> (unpack <$> name))
 
 assembleModule :: ModuleName -> [Import] -> [Statement Text Text] -> Module
@@ -132,5 +132,5 @@ sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
 termStatement :: (Monad m, TokenParsing m) => m (Text, [PreBody Ann Text])
 termStatement = do
   (name, headBody) <- termDeclClause termIdentifier
-  many (semi *> termDeclClause (name <$ symbol (unpack name)))
+  many (termDeclClause (semi *> (name <$ symbol (unpack name))))
     <&> \tailBodies -> (name, headBody : map snd tailBodies)
