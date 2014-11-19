@@ -85,9 +85,9 @@ assembleModule nm im stmts =
                (M.fromList $ these _ClassStmt)
   where these p = stmts ^.. folded . p
 
-assembleBindings :: [(Privacy, [a], Ann)]
-                 -> [(Privacy, a, (Bodies Text a))]
-                 -> [(Privacy, Binding Ann a)]
+assembleBindings :: [(Privacy, [a], Ann)] -- ^ types
+                 -> [(Privacy, a, (Bodies Ann a))] -- ^ terms
+                 -> [(Privacy, Binding Ann a)]      -- ^ bindings
 assembleBindings = undefined
 
 statements :: (Monad m, TokenParsing m) =>
@@ -102,7 +102,7 @@ statement :: (Monad m, TokenParsing m) =>
 statement = FixityDeclStmt <$> fixityDecl
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
         <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
-        <|> TermStmt defaultPrivacyTODO <$> undefined <*> undefined
+        <|> uncurry (TermStmt defaultPrivacyTODO) <$> termStatement
         <|> ClassStmt <$> undefined <*> undefined
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
@@ -126,3 +126,6 @@ prec = (do n <- natural
 sigs :: (Monad m, TokenParsing m) => m ([Text], Ann)
 sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
            <*> annotation
+
+termStatement :: (Monad m, TokenParsing m) => m (Text, (Bodies Ann Text))
+termStatement = undefined

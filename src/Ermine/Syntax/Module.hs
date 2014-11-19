@@ -74,7 +74,7 @@ data InstanceDecl = InstanceDecl
 data Statement t a = FixityDeclStmt FixityDecl
                    | DataTypeStmt Privacy (DataType () t)
                    | SigStmt Privacy [a] (Annot Void t)
-                   | TermStmt Privacy a (Bodies t a)
+                   | TermStmt Privacy a (Bodies (Annot Void t) a)
                    | ClassStmt a (Class () t)
   deriving (Show, Eq, Functor, Foldable, Traversable)
 
