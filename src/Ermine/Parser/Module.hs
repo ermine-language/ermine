@@ -16,8 +16,10 @@ module Ermine.Parser.Module
 
 import Control.Applicative
 import Control.Lens
+import Control.Monad (foldM)
 import Data.List (intercalate)
 import qualified Data.Map as M
+import Data.Monoid (mempty)
 import Data.Text (Text, unpack)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
@@ -29,13 +31,17 @@ import Ermine.Parser.Type (Ann, annotation)
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit)
 import Ermine.Syntax.ModuleName
-import Ermine.Syntax.Term hiding (Explicit)
+import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parser for a module.
 wholeModule :: (Monad m, TokenParsing m) => m Module
-wholeModule = assembleModule <$> moduleDecl <*> imports <*> statements
+wholeModule = do
+  m <- moduleDecl
+  i <- imports
+  s <- statements
+  assembleModule m i s
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
@@ -79,18 +85,39 @@ explicit fromModule = do
     -- TODO ↓ check 'as' name's fixity
     <*> optional (symbol "as" *> (unpack <$> name))
 
-assembleModule :: ModuleName -> [Import] -> [Statement Text Text] -> Module
+assembleModule :: (Monad m, TokenParsing m) =>
+                  ModuleName
+               -> [Import]
+               -> [Statement Text Text]
+               -> m Module
 assembleModule nm im stmts =
-  Module nm im (these _FixityDeclStmt)
-               (these _DataTypeStmt)
-               (assembleBindings (these _SigStmt) (these _TermStmt))
-               (M.fromList $ these _ClassStmt)
+  Module nm im (these _FixityDeclStmt) (these _DataTypeStmt) <$>
+               (assembleBindings (these _SigStmt) (these _TermStmt)) <*>
+               (return . M.fromList $ these _ClassStmt)
   where these p = stmts ^.. folded . p
 
-assembleBindings :: [(Privacy, [a], Ann)]           -- ^ types
-                 -> [(Privacy, a, [PreBody Ann a])] -- ^ terms
-                 -> [(Privacy, Binding Ann a)]      -- ^ bindings
-assembleBindings = undefined
+-- TODO: We'll want/need to give location information on errors.
+-- TODO: That may or may not require some extra info to be passed into this function.
+-- TODO: We also might consider differentiating these errors:
+--  multiple type annotations for: t
+--  multiple bindings with name: t
+assembleBindings :: (Monad m, TokenParsing m, Ord a, Show a) =>
+                    [(Privacy, [a], Ann)]             -- ^ types
+                 -> [(Privacy, a, [PreBody Ann a])]   -- ^ terms
+                 -> m [(Privacy, Term.Binding Ann a)] -- ^ bindings
+assembleBindings types terms = do
+  types' <- foldM (\m (p, ts, a) -> foldM (\acc t -> insertGuarded t (p, a) acc) m ts) M.empty types
+  terms' <- foldM (\m (privy, t, body) -> insertGuarded t (privy, body) m) M.empty terms
+  assembleBindings' types' terms' where
+    insertGuarded k _ m | M.member k m = fail   $ "multiple bindings with names(s): " ++ show k
+    insertGuarded k a m | otherwise    = return $ M.insert k a m
+    assembleBindings' types terms = foldM f [] (M.toList terms) where
+      f acc (name, (p, ts)) = do
+        x <- maybe (binding Term.Implicit) g $ M.lookup name types
+        return $ x : acc where
+        g (p', ann) | p == p'   = binding (Term.Explicit ann)
+        g _         | otherwise = fail $ "found conflicting privacies for: " ++ show name
+        binding bt = return (p, finalizeBinding [name] $ PreBinding mempty bt ts)
 
 statements :: (Monad m, TokenParsing m) =>
               m [Statement Text Text]
