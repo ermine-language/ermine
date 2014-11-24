@@ -91,9 +91,9 @@ assembleModule :: (Monad m, TokenParsing m) =>
                -> [Statement Text Text]
                -> m Module
 assembleModule nm im stmts =
-  Module nm im (these _FixityDeclStmt) (these _DataTypeStmt) <$>
-               (assembleBindings (these _SigStmt) (these _TermStmt)) <*>
-               (return . M.fromList $ these _ClassStmt)
+  Module nm im (these _FixityDeclStmt) (these _DataTypeStmt)
+           <$> assembleBindings (these _SigStmt) (these _TermStmt)
+            ?? M.fromList (these _ClassStmt)
   where these p = stmts ^.. folded . p
 
 -- TODO: We'll want/need to give location information on errors.
