@@ -41,7 +41,9 @@ import Ermine.Syntax
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
+import Ermine.Syntax.Module (HasFixities(..))
 import Text.Parser.Combinators
+import Text.Parser.Expression
 import Text.Parser.Token
 
 type Tm = Term Ann Text
@@ -59,6 +61,13 @@ term1 :: (Monad m, TokenParsing m) => m Tm
 term1 = match
     <|> foldl1 App <$> some term0
     -- TODO: handle AppHash
+
+-- | Take our list of fixity declarations in scope and make a
+-- 'parsers' table of operators for it.
+mkOperators :: (HasFixities a, TokenParsing m)
+            => a                -- ^ The source of [FixityDecl].
+            -> OperatorTable m Tm -- ^ Operator index for expression parser.
+mkOperators = undefined -- NB: use 'App' for making the Operator functions
 
 sig :: (Monad m, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)

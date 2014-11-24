@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -88,3 +89,12 @@ data Module = Module
   } deriving (Typeable)
 
 makeClassy ''Module
+
+class HasFixities a where
+  fixityDecls :: Lens' a [FixityDecl]
+
+instance (a ~ FixityDecl) => HasFixities [a] where
+  fixityDecls = id
+
+instance HasFixities Module where
+  fixityDecls = moduleFixities
