@@ -29,6 +29,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad ((<=<))
 import Control.Monad.IO.Class
+import Control.Monad.State (StateT(..), evalStateT)
 import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
@@ -61,6 +62,7 @@ import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
+import Ermine.Parser.State
 import Ermine.Parser.Type
 import Ermine.Parser.Term
 import Ermine.Pretty hiding (string, int, integer)
@@ -151,6 +153,15 @@ parsing :: Parser a -> ([String] -> a -> Console ())
 parsing p k args s = case parseString (p <* eof) mempty s of
   Success a   -> k args a
   Failure doc -> sayLn doc
+
+-- TODO generalize with parsing
+parsingS :: StateT s Parser a -> ([String] -> a -> Console ())
+        -> [String] -> String -> StateT s Console ()
+parsingS p k args s = StateT $ \st ->
+  let p' = runStateT p st
+  in case parseString (p' <* eof) mempty s of
+      Success (a, st') -> k args a <&> (,st')
+      Failure doc      -> sayLn doc <&> (,st)
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do
@@ -276,7 +287,8 @@ echoBody args =
           :| [("ugly", liftIO . putStrLn . groom . fst)]
      pt (tsch, hs) = let stsch = hoistScope (first ("?" <$)) tsch
                       in sayLn $ prettyTypeSchema stsch hs names
-    _ {- "term" -} -> parsing term (\_ tm -> disp tm) args
+    _ {- "term" -} -> flip evalStateT initialParserState -- TODO thread new state through
+                      . parsingS term (\_ tm -> disp tm) args
      where
      disp = procArgs args $
               ("pretty", pt)
@@ -333,12 +345,15 @@ commands =
   , cmd "kind" & desc .~ "infer the kind of a type"
       & body .~ parsing typ kindBody
   , cmd "type" & desc .~ "infer the type of a term"
-      & body .~ parsing term typeBody
+      & body .~ (\args s -> evalStateT (parsingS term typeBody args s)
+                                       initialParserState)
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
-      & body .~ parsing term coreBody
+      & body .~ (\args s -> evalStateT (parsingS term coreBody args s)
+                                       initialParserState)
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
-      & body .~ parsing term gBody
+      & body .~ (\args s -> evalStateT (parsingS term gBody args s)
+                                       initialParserState)
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
@@ -347,7 +362,8 @@ commands =
       & body .~ echoBody
   , cmd "eval"
       & desc .~ "type check and evaluate a term"
-      & body .~ parsing term evalBody
+      & body .~ (\args s -> evalStateT (parsingS term evalBody args s)
+                                       initialParserState)
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)

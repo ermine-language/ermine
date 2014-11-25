@@ -49,7 +49,7 @@ import Text.Parser.Token
 type Tm = Term Ann Text
 
 -- | Parse an atomic term
-term0 :: (Monad m, TokenParsing m) => m Tm
+term0 :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 term0 = Var <$> termIdentifier
    <|> tweakLiteral <$> literal
    <|> parens (tup' <$> terms)
@@ -57,9 +57,10 @@ term0 = Var <$> termIdentifier
  tweakLiteral i@(Integer _) = App (Var "fromInteger") . HardTerm . Lit $ i
  tweakLiteral l = HardTerm $ Lit l
 
-term1 :: (Monad m, TokenParsing m) => m Tm
+term1 :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 term1 = match
-    <|> foldl1 App <$> some term0
+    <|> (get >>= flip buildExpressionParser (foldl1 App <$> some term0)
+                 . mkOperators)
     -- TODO: handle AppHash
 
 -- | Take our list of fixity declarations in scope and make a
@@ -69,20 +70,20 @@ mkOperators :: (HasFixities a, TokenParsing m)
             -> OperatorTable m Tm -- ^ Operator index for expression parser.
 mkOperators = undefined -- NB: use 'App' for making the Operator functions
 
-sig :: (Monad m, TokenParsing m) => m Tm
+sig :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
 
-branch :: (Monad m, TokenParsing m) => m (Alt Ann (Term Ann) Text)
+branch :: (MonadState s m, HasFixities s, TokenParsing m) => m (Alt Ann (Term Ann) Text)
 branch = do pp <- pattern
             g <- guarded (reserve op "->")
             validate pp $ \n ->
                 unexpected $ "duplicate bindings in pattern for: " ++ unpack n
             return $ alt pp g
 
-match :: (Monad m, TokenParsing m) => m Tm
+match :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 match = Case <$ symbol "case" <*> term <* symbol "of" <*> braces (semiSep branch)
 
-term2 :: (Monad m, TokenParsing m) => m Tm
+term2 :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 term2 = lambda <|> sig
 
 patterns :: (Monad m, TokenParsing m) => m (Binder Text [Pattern Ann])
@@ -91,22 +92,22 @@ patterns = do pps <- sequenceA <$> some pattern1
                   unexpected $ "duplicate bindings in pattern for: " ++ unpack n
               return pps
 
-lambda :: (Monad m, TokenParsing m) => m Tm
+lambda :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 lambda = lam <$> try (patterns <* reserve op "->") <*> term
 
-term :: (Monad m, TokenParsing m) => m Tm
+term :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 term = letBlock <|> term2
 
-letBlock :: (Monad m, TokenParsing m) => m Tm
+letBlock :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 letBlock = let_ <$ symbol "let" <*> braces declarations <* symbol "in" <*> term
 
-terms :: (Monad m, TokenParsing m) => m [Tm]
+terms :: (MonadState s m, HasFixities s, TokenParsing m) => m [Tm]
 terms = commaSep term
 
 typeDecl :: (Monad m, TokenParsing m) => m TyDecl
 typeDecl = (,) <$> try (termIdentifier <* colon) <*> annotation
 
-termDeclClause :: (Monad m, TokenParsing m)
+termDeclClause :: (MonadState s m, HasFixities s, TokenParsing m)
                => m Text -> m (Text, PBody)
 termDeclClause nameParser =
     try ((\tid pats g w -> (tid, pats g w))
@@ -117,26 +118,26 @@ termDeclClause nameParser =
                 ps <$ validate ps
                         (\n -> unexpected $ "duplicate bindings in pattern for: " ++ unpack n)
 
-guard :: (Monad m, TokenParsing m) => m a -> m (Tm, Tm)
+guard :: (MonadState s m, HasFixities s, TokenParsing m) => m a -> m (Tm, Tm)
 guard side = (,) <$ reserve op "|" <*> term1 <* side <*> term
 
-guarded :: (Monad m, TokenParsing m) => m a -> m (Guarded Tm)
+guarded :: (MonadState s m, HasFixities s, TokenParsing m) => m a -> m (Guarded Tm)
 guarded side = Guarded <$> some (guard side)
       <|> Unguarded <$ side <*> term
 
 type PBody = PreBody Ann Text
 type Where = Binder Text [Binding Ann Text]
 
-whereClause :: (Monad m, TokenParsing m) => m Where
+whereClause :: (MonadState s m, HasFixities s, TokenParsing m) => m Where
 whereClause = symbol "where" *> braces declarations <|> pure (pure [])
 
-declClauses :: (Monad m, TokenParsing m) => m [Either TyDecl (Text, PBody)]
+declClauses :: (MonadState s m, HasFixities s, TokenParsing m) => m [Either TyDecl (Text, PBody)]
 declClauses = semiSep $ (Left <$> typeDecl) <|> (Right <$> termDeclClause termIdentifier)
 
 type TyDecl = (Text, Ann)
 type TmDecl = (Text, [PBody])
 
-decls :: (Monad m, TokenParsing m) => m ([TyDecl], [TmDecl])
+decls :: (MonadState s m, HasFixities s, TokenParsing m) => m ([TyDecl], [TmDecl])
 decls = do (ts, cs) <- partitionEithers <$> declClauses
            fmap (ts,) . mapM validateShape $ groupBy ((==) `on` (^._1)) cs
  where
@@ -158,7 +159,7 @@ validateDecls tys tms
  tyns = map fst tys
  tmns = map fst tms
 
-declarations :: (Monad m, TokenParsing m) => m (Binder Text [Binding Ann Text])
+declarations :: (MonadState s m, HasFixities s, TokenParsing m) => m (Binder Text [Binding Ann Text])
 declarations = do
   (tys, tms) <- decls
   let -- TODO: Rendering

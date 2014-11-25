@@ -16,7 +16,7 @@ module Ermine.Parser.Module
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad (foldM)
+import Control.Monad.State
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Monoid (mempty)
@@ -36,7 +36,7 @@ import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parser for a module.
-wholeModule :: (Monad m, TokenParsing m) => m Module
+wholeModule :: (MonadState s m, HasFixities s, TokenParsing m) => m Module
 wholeModule = do
   m <- moduleDecl
   i <- imports
@@ -119,14 +119,14 @@ assembleBindings types terms = do
         g _         | otherwise = fail $ "found conflicting privacies for: " ++ show name
         binding bt = return (p, finalizeBinding [name] $ PreBinding mempty bt ts)
 
-statements :: (Monad m, TokenParsing m) =>
+statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
 statements = ([] <$ eof) <|> ((:) <$> statement <*> (semi *> statements))
 
 defaultPrivacyTODO :: Privacy
 defaultPrivacyTODO = Public
 
-statement :: (Monad m, TokenParsing m) =>
+statement :: (MonadState s m, HasFixities s, TokenParsing m) =>
              m (Statement Text Text)
 statement = FixityDeclStmt <$> fixityDecl
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
@@ -156,7 +156,7 @@ sigs :: (Monad m, TokenParsing m) => m ([Text], Ann)
 sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
            <*> annotation
 
-termStatement :: (Monad m, TokenParsing m) => m (Text, [PreBody Ann Text])
+termStatement :: (MonadState s m, HasFixities s, TokenParsing m) => m (Text, [PreBody Ann Text])
 termStatement = do
   (name, headBody) <- termDeclClause termIdentifier
   many (termDeclClause (semi *> (name <$ symbol (unpack name))))

@@ -12,7 +12,9 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.State
-  (
+  ( ParseState(ParseState)
+  , HasParseState(..)
+  , initialParserState
   ) where
 
 import Control.Lens
@@ -28,3 +30,7 @@ makeClassy ''ParseState
 
 instance HasFixities ParseState where
   fixityDecls = stateFixities
+
+-- | A parser at the beginning.
+initialParserState :: ParseState
+initialParserState = ParseState []
