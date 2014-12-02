@@ -20,6 +20,7 @@ module Ermine.Syntax.Global
   , Assoc(..)
   , Fixity(..)
   , _Fixity
+  , fixityLevel
   , unpackFixity
   , packFixity
   -- * Combinators
@@ -69,6 +70,12 @@ data Fixity
   | Postfix !Int
   | Idfix
   deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
+
+fixityLevel :: Fixity -> Maybe Int
+fixityLevel (Infix _ i) = Just i
+fixityLevel (Prefix i) = Just i
+fixityLevel (Postfix i) = Just i
+fixityLevel Idfix = Nothing
 
 -- | Pack 'Fixity' into a 'Word8'.
 --

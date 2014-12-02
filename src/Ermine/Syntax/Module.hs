@@ -61,6 +61,8 @@ data FixityDecl = FixityDecl
   , _fixityDeclNames  :: [Text]
   } deriving (Show, Eq, Data, Typeable)
 
+makeClassy ''FixityDecl
+
 {-
 data InstanceDecl = InstanceDecl
   { _instanceDeclClass    :: Class

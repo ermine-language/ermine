@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 --------------------------------------------------------------------
 -- |
@@ -27,7 +28,10 @@ import Control.Monad.State hiding (guard)
 import Data.Function
 import Data.Either (partitionEithers)
 import Data.List (groupBy, find)
-import Data.Set as Set hiding (map)
+import qualified Data.Map as M
+import Data.Maybe (catMaybes)
+import Data.Monoid (mappend)
+import qualified Data.Set as Set hiding (map)
 import Data.Foldable (foldrM)
 import Data.Text (Text, unpack)
 import Data.Traversable hiding (mapM)
@@ -38,12 +42,14 @@ import Ermine.Parser.Type as Type
 import Ermine.Parser.Literal
 import Ermine.Parser.Pattern
 import Ermine.Syntax
+import Ermine.Syntax.Global (Assoc(..), Fixity(..), fixityLevel)
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Pattern
 import Ermine.Syntax.Term
-import Ermine.Syntax.Module (HasFixities(..))
+import Ermine.Syntax.Module (HasFixities(..), FixityDecl(..), HasFixityDecl(..))
 import Text.Parser.Combinators
-import Text.Parser.Expression
+import Text.Parser.Expression (Operator, OperatorTable, buildExpressionParser)
+import qualified Text.Parser.Expression as ParserExpr
 import Text.Parser.Token
 
 type Tm = Term Ann Text
@@ -65,10 +71,26 @@ term1 = match
 
 -- | Take our list of fixity declarations in scope and make a
 -- 'parsers' table of operators for it.
-mkOperators :: (HasFixities a, TokenParsing m)
+mkOperators :: forall a m. (HasFixities a, TokenParsing m)
             => a                -- ^ The source of [FixityDecl].
             -> OperatorTable m Tm -- ^ Operator index for expression parser.
-mkOperators = undefined -- NB: use 'App' for making the Operator functions
+mkOperators = fmap snd . M.toDescList
+              . collectByFixity . view fixityDecls
+  where collectByFixity :: [FixityDecl] -> M.Map Int [Operator m Tm]
+        collectByFixity = foldr (M.unionWith mappend) M.empty
+                          . catMaybes
+                          . fmap (\fd -> (fixityLevel $ fd ^. fixityDeclFixity)
+                                         <&> flip M.singleton (parserOperators fd))
+        parserOperators :: FixityDecl -> [Operator m Tm]
+        parserOperators fd =
+          fd ^. fixityDeclNames <&>
+          case fd ^. fixityDeclFixity of
+            Infix a _ -> \n -> ParserExpr.Infix (undefined <$ symbol (unpack n)) (parserAssoc a)
+            Prefix _ -> \n -> ParserExpr.Prefix (undefined <$ undefined)
+            Postfix _ -> \n -> ParserExpr.Postfix (undefined <$ undefined)
+            Idfix -> error "impossible"
+        parserAssoc :: Assoc -> ParserExpr.Assoc
+        parserAssoc = undefined
 
 sig :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
