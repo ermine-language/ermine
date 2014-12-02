@@ -19,7 +19,8 @@ import Control.Lens
 import Control.Monad.State
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Monoid (mempty)
+import Data.Maybe (catMaybes)
+import Data.Monoid ((<>), mempty)
 import Data.Text (Text, unpack)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
@@ -118,6 +119,26 @@ assembleBindings types terms = do
         g (p', ann) | p == p'   = binding (Term.Explicit ann)
         g _         | otherwise = fail $ "found conflicting privacies for: " ++ show name
         binding bt = return (p, finalizeBinding [name] $ PreBinding mempty bt ts)
+
+-- | A shim to prove the decomposition of 'assembleBindings'.
+-- Supposing I have an initial value, a step of either type or term,
+-- and a finalization to emit remaining terms and check for errors, I
+-- can reproduce 'assembleBindings'.
+outOfOrderBindings :: Monad m =>
+                      x
+                      -> (Either (Privacy, [a], Ann) (Privacy, a, [PreBody Ann a])
+                          -> x
+                          -> m (Maybe (Privacy, Term.Binding Ann a), x))
+                      -> (x -> m [(Privacy, Term.Binding Ann a)])
+                      -> [(Privacy, [a], Ann)]
+                      -> [(Privacy, a, [PreBody Ann a])]
+                      -> m [(Privacy, Term.Binding Ann a)] -- ^ bindings
+outOfOrderBindings init step final types terms =
+  flip evalStateT init $ liftM2 (<>)
+         (liftM catMaybes
+          . mapM (StateT . step)
+          $ fmap Left types <> fmap Right terms)
+         (get >>= lift . final)
 
 statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
