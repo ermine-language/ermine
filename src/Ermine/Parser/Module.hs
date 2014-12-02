@@ -29,7 +29,7 @@ import Ermine.Parser.Type (Ann, annotation)
 -- import Ermine.Syntax.Class
 -- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
-import Ermine.Syntax.Module hiding (explicit)
+import Ermine.Syntax.Module hiding (explicit, fixityDecl)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Combinators
