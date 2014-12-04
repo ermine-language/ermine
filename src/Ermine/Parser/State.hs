@@ -22,7 +22,6 @@ module Ermine.Parser.State
   , ParserLoader(..)
   , HasParserLoader(..)
   , parserLoad
-  , parserReload
   ) where
 
 import Control.Lens
@@ -30,6 +29,7 @@ import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import Data.Data (Data)
 import qualified Data.Map as M
+import Data.Maybe (fromMaybe)
 import Data.Typeable
 import Ermine.Loader.Core
 import Ermine.Syntax.Module
@@ -40,8 +40,12 @@ data ParseState = ParseState
 
 makeClassy ''ParseState
 
+-- | A loader with an associated cache.  Various operations from
+-- 'Loader' are still possible, like lifting 'b -> m c', 'm ~> n', and
+-- various composition, but it is usually easier to do these before
+-- dropping the 'Loader' in 'ParserLoader'.
 data ParserLoader m a b =
-  forall e. ParserLoader (Loader e m a b) (M.Map a e)
+  forall e. ParserLoader (Loader e m a b) (M.Map a (e, b))
 
 instance HasFixities ParseState where
   fixityDecls = stateFixities
@@ -56,20 +60,26 @@ class HasParserLoader s m a b | s -> m a b where
 instance HasParserLoader (ParserLoader m a b) m a b where
   parserLoader = id
 
-parserLoad :: (Ord a, Monad m, HasParserLoader s m a b)
-            => a -> StateT s m b
-parserLoad a = do
+-- | Ignoring cached values, load the value and replace the cache.
+parserFreshLoad :: (Ord a, Monad m, HasParserLoader s m a b)
+                => a -> StateT s m b
+parserFreshLoad a = do
   ParserLoader l m <- use parserLoader
-  (e, b) <- lift (l ^. load $ a)
-  parserLoader .= ParserLoader l (M.insert a e m)
+  eb@(_, b) <- lift (l ^. load $ a)
+  parserLoader .= ParserLoader l (M.insert a eb m)
   return b
 
-parserReload :: (Ord a, Monad m, HasParserLoader s m a b)
-             => a -> StateT s m (Maybe b)
-parserReload a = runMaybeT $ do
+-- | Load from cache if possible, freshly otherwise.
+parserLoad :: (Ord a, Monad m, HasParserLoader s m a b)
+           => a -> StateT s m b
+parserLoad a = do
   ParserLoader l m <- use parserLoader
-  (e, b) <- maybe (lift . lift $ view load l a)
-                  (MaybeT . lift . view reload l a)
+  (_, b) <- maybe (do eb' <- lift $ view load l a
+                      parserLoader .= ParserLoader l (M.insert a eb' m)
+                      return eb')
+                  (\eb@(e, _) -> liftM (fromMaybe eb) . runMaybeT $ do
+                      eb' <- MaybeT . lift $ view reload l a e
+                      parserLoader .= ParserLoader l (M.insert a eb' m)
+                      return eb')
                   (M.lookup a m)
-  parserLoader .= ParserLoader l (M.insert a e m)
   return b
