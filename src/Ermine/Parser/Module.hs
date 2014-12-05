@@ -58,8 +58,8 @@ importExportStatement =
   <*> do
     src <- moduleIdentifier
     (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
-            <*> optional ((,) <$> (False <$ symbol "using"
-                                   <|> True <$ symbol "hiding")
+            <*> optional ((,) <$> (True <$ symbol "using"
+                                   <|> False <$ symbol "hiding")
                           <*> impList src)
   <?> "import/export statement"
   where imp pop (mi, as, usingpExps) =
