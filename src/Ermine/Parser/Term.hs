@@ -74,23 +74,22 @@ term1 = match
 mkOperators :: forall a m. (HasFixities a, TokenParsing m)
             => a                -- ^ The source of [FixityDecl].
             -> OperatorTable m Tm -- ^ Operator index for expression parser.
-mkOperators = fmap snd . M.toDescList
-              . collectByFixity . view fixityDecls
+mkOperators = fmap snd . M.toDescList . collectByFixity . view fixityDecls
   where collectByFixity :: [FixityDecl] -> M.Map Int [Operator m Tm]
         collectByFixity = foldr (M.unionWith mappend) M.empty
                           . catMaybes
                           . fmap (\fd -> (fixityLevel $ fd ^. fixityDeclFixity)
                                          <&> flip M.singleton (parserOperators fd))
         parserOperators :: FixityDecl -> [Operator m Tm]
-        parserOperators fd =
-          fd ^. fixityDeclNames <&>
-          case fd ^. fixityDeclFixity of
-            Infix a _ -> \n -> ParserExpr.Infix (undefined <$ symbol (unpack n)) (parserAssoc a)
-            Prefix _ -> \n -> ParserExpr.Prefix (undefined <$ undefined)
-            Postfix _ -> \n -> ParserExpr.Postfix (undefined <$ undefined)
-            Idfix -> error "impossible"
-        parserAssoc :: Assoc -> ParserExpr.Assoc
-        parserAssoc = undefined
+        parserOperators fd = parserOp (fd ^. fixityDeclFixity)
+                         <$> fd ^. fixityDeclNames
+        parserOp (Infix a _) n = ParserExpr.Infix (undefined <$ symbol (unpack n)) (parserAssoc a)
+        parserOp (Prefix _) n = ParserExpr.Prefix (undefined <$ undefined)
+        parserOp (Postfix _) n = ParserExpr.Postfix (undefined <$ undefined)
+        parserOp Idfix _ = error "impossible"
+
+parserAssoc :: Assoc -> ParserExpr.Assoc
+parserAssoc = undefined
 
 sig :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
