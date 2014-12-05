@@ -17,7 +17,7 @@
 --------------------------------------------------------------------
 
 module Ermine.Loader.MapCache
-  ( CacheLoader(..)
+  ( CacheLoader(CacheLoader)
   , HasCacheLoader(..)
   , cacheLoad
   ) where
