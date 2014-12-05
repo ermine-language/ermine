@@ -25,6 +25,8 @@ import Ermine.Syntax.Term
 import Ermine.Syntax.Type
 import GHC.Generics hiding (moduleName)
 
+-- | Whether a name is visible to importers of a module, or a module
+-- is reexported from its importer.
 data Privacy = Private | Public deriving (Eq,Ord,Show,Read,Enum,Bounded,Ix,Generic,Typeable,Data)
 
 instance Serial Privacy
@@ -37,28 +39,31 @@ instance Serialize Privacy where
   put = serialize
   get = deserialize
 
+-- | An explicitly-listed name in an import/export statement.
 data Explicit = Explicit
-  { _explicitGlobal :: Global
-  , _explicitIsType :: Bool
-  , _explicitLocal  :: Maybe String
+  { _explicitGlobal :: Global       -- ^ the full original name
+  , _explicitIsType :: Bool         -- ^ whether to import a type, not term
+  , _explicitLocal  :: Maybe String -- ^ the 'as' renaming, if any
   } deriving (Eq,Ord,Show,Read,Typeable)
 
 makeClassy ''Explicit
 
+-- | An import/export statement.
 data Import = Import -- TODO: add a location
-  { _importPrivacy   :: Privacy
-  , _importModule    :: ModuleName
-  , _importAs        :: Maybe String
-  , _importExplicits :: [Explicit]
-  , _importUsing     :: Bool
+  { _importPrivacy   :: Privacy      -- ^ whether to reexport the symbols
+  , _importModule    :: ModuleName   -- ^ what module to import
+  , _importAs        :: Maybe String -- ^ the 'as' qualifier suffix
+  , _importExplicits :: [Explicit]   -- ^ list of names requested to import/hide
+  , _importUsing     :: Bool         -- ^ whether 'Explicit's are 'using' or 'hiding'
   } deriving (Eq,Ord,Show,Read,Typeable)
 
 makeClassy ''Import
 
+-- | A fixity declaration statement.
 data FixityDecl = FixityDecl
-  { _fixityDeclType   :: Bool
-  , _fixityDeclFixity :: Global.Fixity
-  , _fixityDeclNames  :: [Text]
+  { _fixityDeclType   :: Bool          -- ^ whether these are type operators
+  , _fixityDeclFixity :: Global.Fixity -- ^ direction & precedence
+  , _fixityDeclNames  :: [Text]        -- ^ the names to assign fixities to
   } deriving (Show, Eq, Data, Typeable)
 
 makeClassy ''FixityDecl
