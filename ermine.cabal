@@ -121,6 +121,7 @@ library
     Ermine.Interpreter
     Ermine.Loader.Core
     Ermine.Loader.Filesystem
+    Ermine.Loader.MapCache
     Ermine.Monitor
     Ermine.Monitor.Combinators
     Ermine.Monitor.Exception
