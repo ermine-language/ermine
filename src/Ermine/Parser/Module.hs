@@ -37,12 +37,15 @@ import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parser for a module.
-wholeModule :: (MonadState s m, HasFixities s, TokenParsing m) => m Module
-wholeModule = do
-  m <- moduleDecl
-  i <- imports
-  s <- statements
-  assembleModule m i s
+wholeModule :: (MonadState s m, HasFixities s, TokenParsing m)
+            => (ModuleName -> m Module)
+            -> m Module
+wholeModule loadTxt = go where
+  go = do
+    m <- moduleDecl
+    i <- imports
+    s <- statements
+    assembleModule m i s
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
