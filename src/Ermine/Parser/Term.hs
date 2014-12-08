@@ -83,13 +83,17 @@ mkOperators = fmap snd . M.toDescList . collectByFixity . view fixityDecls
         parserOperators :: FixityDecl -> [Operator m Tm]
         parserOperators fd = parserOp (fd ^. fixityDeclFixity)
                          <$> fd ^. fixityDeclNames
-        parserOp (Infix a _) n = ParserExpr.Infix (undefined <$ symbol (unpack n)) (parserAssoc a)
-        parserOp (Prefix _) n = ParserExpr.Prefix (undefined <$ undefined)
-        parserOp (Postfix _) n = ParserExpr.Postfix (undefined <$ undefined)
-        parserOp Idfix _ = error "impossible"
 
 parserAssoc :: Assoc -> ParserExpr.Assoc
-parserAssoc = undefined
+parserAssoc L = ParserExpr.AssocLeft
+parserAssoc R = ParserExpr.AssocRight
+parserAssoc N = ParserExpr.AssocNone
+
+parserOp :: TokenParsing m => Fixity -> Text -> Operator m Tm
+parserOp (Infix a _) n = ParserExpr.Infix (App . App (Var n) <$ symbol (unpack n)) (parserAssoc a)
+parserOp (Prefix _) n = ParserExpr.Prefix (App (Var n) <$ symbol (unpack n))
+parserOp (Postfix _) n = ParserExpr.Postfix (App (Var n) <$ symbol (unpack n))
+parserOp Idfix _ = error "parserOp: impossible"
 
 sig :: (MonadState s m, HasFixities s, TokenParsing m) => m Tm
 sig = (maybe id (Sig ??) ??) <$> term1 <*> optional (colon *> annotation)
