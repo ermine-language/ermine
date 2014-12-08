@@ -47,6 +47,8 @@ module Ermine.Unification.Meta
   , zonk
   , zonk_
   , zonkWith
+  , ultraZonk
+  , ultraZonkWith
   , zonkScope
   , zonkScope_
   , hasSkolems
@@ -253,6 +255,31 @@ zonkWith fs0 tweak = go fs0 where
         r <- go fmf
         r <$ writeMeta m r
 {-# INLINE zonkWith #-}
+
+ultraZonk :: forall s m f v a
+           . (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f)
+          => ATraversal v (f v) (Meta s f a) (f (Meta s f a))
+          -> f v -> m (f v)
+ultraZonk trav0 fvs0 = ultraZonkWith trav0 fvs0 $ \_ -> return ()
+{-# INLINE ultraZonk #-}
+
+ultraZonkWith :: forall s m f v a
+               . (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f)
+              => ATraversal v (f v) (Meta s f a) (f (Meta s f a))
+              -> f v -> (Meta s f a -> m ()) -> m (f v)
+ultraZonkWith trav0 fvs0 tweak = go trav0 fvs0 where
+  go :: forall u
+      . ATraversal u (f u) (Meta s f a) (f (Meta s f a))
+     -> f u -> m (f u)
+  go trav fs = fmap join . for fs . cloneTraversal trav $ \m -> do
+    tweak m
+    readMeta m >>= \mv -> case mv of
+      Nothing -> return (return m)
+      Just fmf -> do
+        tell $ Any True
+        r <- go id fmf
+        r <$ writeMeta m r
+{-# INILINE ultraZonkWith #-}
 
 zonkScope :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f)
           => Scope b f (Meta s f a) -> m (Scope b f (Meta s f a))
