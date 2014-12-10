@@ -60,6 +60,9 @@ import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
+import Ermine.Loader.Core (thenM)
+import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
+import Ermine.Loader.MapCache (withEmptyCache)
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.State
@@ -162,6 +165,11 @@ parsingS p k args s = StateT $ \st ->
   in case parseString (p' <* eof) mempty s of
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
+
+parseModule :: () => ModuleName -> m Module
+
+todoInitialParserState :: MonadIO m => ParseState Freshness (ExceptT LoadRefusal m)
+todoInitialParserState = initialParserState (withEmptyCache (filesystemLoader "." "e") `thenM` 
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do
