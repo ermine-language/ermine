@@ -18,6 +18,7 @@
 
 module Ermine.Loader.MapCache
   ( CacheLoader(CacheLoader)
+  , withEmptyCache
   , HasCacheLoader(..)
   , cacheLoad
   ) where
@@ -43,6 +44,9 @@ data CacheLoader e m a b = CacheLoader
   deriving (Functor, Generic, Typeable)
 
 makeClassy ''CacheLoader
+
+withEmptyCache :: Loader e m a b -> CacheLoader e m a b
+withEmptyCache = flip CacheLoader HM.empty
 
 -- | Ignoring cached values, load the value and replace the cache.
 cacheFreshLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)

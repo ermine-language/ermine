@@ -1,4 +1,7 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
 -- |
@@ -18,19 +21,28 @@ module Ermine.Parser.State
   ) where
 
 import Control.Lens
-import Data.Data (Data)
 import Data.Typeable
+import Ermine.Loader.MapCache
 import Ermine.Syntax.Module
+import Ermine.Syntax.ModuleName
 
-data ParseState = ParseState
-  { _stateFixities :: [FixityDecl] }
-  deriving (Show, Eq, Data, Typeable)
+data ParseState e m = ParseState
+  { _stateFixities :: [FixityDecl]
+  , _stateLoader :: CacheLoader e m ModuleName Module
+  , _stateParsingModules :: [ModuleName] }
+  deriving (Typeable)
 
 makeClassy ''ParseState
 
-instance HasFixities ParseState where
+instance Show (ParseState e m) where
+  showsPrec i = showsPrec i . view stateFixities
+
+instance HasFixities (ParseState e m) where
   fixityDecls = stateFixities
 
+instance HasCacheLoader (ParseState e m) e m ModuleName Module where
+  cacheLoader = stateLoader
+
 -- | A parser at the beginning.
-initialParserState :: ParseState
-initialParserState = ParseState []
+initialParserState :: CacheLoader e m ModuleName Module -> ParseState e m
+initialParserState cl = ParseState [] cl []

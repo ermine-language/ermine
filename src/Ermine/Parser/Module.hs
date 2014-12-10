@@ -40,10 +40,12 @@ import Text.Parser.Token
 wholeModule :: (MonadState s m, HasFixities s, TokenParsing m)
             => (ModuleName -> m Module)
             -> m Module
-wholeModule loadTxt = go where
+wholeModule loadRec = go where
   go = do
     m <- moduleDecl
     i <- imports
+    -- TODO don't be quite so naive doing this recursion
+    mapM (loadRec . view importModule) i
     s <- statements
     assembleModule m i s
 
@@ -152,11 +154,12 @@ defaultPrivacyTODO = Public
 
 statement :: (MonadState s m, HasFixities s, TokenParsing m) =>
              m (Statement Text Text)
-statement = FixityDeclStmt <$> fixityDecl
+statement = FixityDeclStmt <$> (fixityDecl >>= installFixityDecl)
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
         <|> ClassStmt <$> undefined <*> undefined
         <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
         <|> uncurry (TermStmt defaultPrivacyTODO) <$> termStatement
+  where installFixityDecl fd = fd <$ (fixityDecls %= (fd:))
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
