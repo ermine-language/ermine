@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -21,6 +22,7 @@ module Ermine.Loader.MapCache
   , withEmptyCache
   , HasCacheLoader(..)
   , cacheLoad
+  , cacheLoad'
   ) where
 
 import Control.Lens
@@ -58,16 +60,30 @@ cacheFreshLoad a = do
   return b
 
 -- | Load from cache if possible, freshly otherwise.
-cacheLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)
-           => a -> StateT s m b
-cacheLoad a = do
-  CacheLoader l m <- use cacheLoader
+cacheLoad' :: (Eq a, Hashable a, Monad m)
+           => Loader e m a b
+           -> a
+           -> StateT (HashMap a (e, b)) m b
+cacheLoad' l a = do
+  m <- get
   (_, b) <- maybe (do eb' <- lift $ view load l a
-                      cacheLoader.cacheMap .= HM.insert a eb' m
+                      put (HM.insert a eb' m)
                       return eb')
                   (\eb@(e, _) -> liftM (fromMaybe eb) . runMaybeT $ do
                       eb' <- MaybeT . lift $ view reload l a e
-                      cacheLoader.cacheMap .= HM.insert a eb' m
+                      put (HM.insert a eb' m)
                       return eb')
                   (HM.lookup a m)
   return b
+
+-- TODO: s/Monad/Functor/ under AMP
+liftState :: Monad m => Lens' s a -> StateT a m b -> StateT s m b
+liftState l sa = StateT $ \s ->
+  liftM (fmap (flip (set l) s)) . runStateT sa . view l $ s
+
+-- | Load from cache if possible, freshly otherwise.
+cacheLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)
+           => a -> StateT s m b
+cacheLoad a = do
+  l <- use (cacheLoader.cacheSource)
+  liftState (cacheLoader.cacheMap) (cacheLoad' l a)
