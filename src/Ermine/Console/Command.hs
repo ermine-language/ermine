@@ -30,10 +30,13 @@ import Control.Lens
 import Control.Monad ((<=<))
 import Control.Monad.IO.Class
 import Control.Monad.State (StateT(..), evalStateT)
+import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Except
 import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
 import Data.Default
+import Data.Function (fix)
 import qualified Data.HashMap.Strict as HM
 import Data.Int (Int32, Int64)
 import Data.List as List
@@ -42,7 +45,7 @@ import Data.List.Split (splitOn)
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
-import Data.Traversable (for)
+import Data.Traversable (for, mapM)
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
@@ -60,7 +63,7 @@ import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
-import Ermine.Loader.Core (thenM)
+import Ermine.Loader.Core (contramapName, loaded, thenM)
 import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
 import Ermine.Loader.MapCache (withEmptyCache)
 import Ermine.Parser.Data
@@ -82,6 +85,7 @@ import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Literal (Literal(Long, Int))
+import Ermine.Syntax.Module (Module)
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -89,6 +93,7 @@ import Ermine.Syntax.Term as Term
 import Ermine.Unification.Kind
 import Ermine.Unification.Meta
 import Ermine.Version
+import Prelude hiding (mapM)
 import System.Console.Haskeline
 import System.Exit
 import Text.Groom
@@ -166,10 +171,23 @@ parsingS p k args s = StateT $ \st ->
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
 
-parseModule :: () => ModuleName -> m Module
+-- parseModule :: () => ModuleName -> m Module
 
-todoInitialParserState :: MonadIO m => ParseState Freshness (ExceptT LoadRefusal m)
-todoInitialParserState = initialParserState (withEmptyCache (filesystemLoader "." "e") `thenM` 
+todoInitialParserState'
+  :: MonadIO m
+  => (Text -> m Module) -- ^ TODO remove arg
+  -> ParseState Freshness (ErmineParserT Freshness (ExceptT LoadRefusal m))
+todoInitialParserState' parseModule = fix $ \rec ->
+  initialParserState
+  . withEmptyCache
+  . loaded lift
+  . flip thenM (mapM (lift . parseModule))
+  . contramapName (view name)
+  $ filesystemLoader "." "e"
+
+-- TODO replace with the prime version above
+todoInitialParserState :: ParseState Freshness m
+todoInitialParserState = undefined
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do
@@ -295,7 +313,7 @@ echoBody args =
           :| [("ugly", liftIO . putStrLn . groom . fst)]
      pt (tsch, hs) = let stsch = hoistScope (first ("?" <$)) tsch
                       in sayLn $ prettyTypeSchema stsch hs names
-    _ {- "term" -} -> flip evalStateT initialParserState -- TODO thread new state through
+    _ {- "term" -} -> flip evalStateT todoInitialParserState -- TODO thread new state through
                       . parsingS term (\_ tm -> disp tm) args
      where
      disp = procArgs args $
@@ -354,14 +372,14 @@ commands =
       & body .~ parsing typ kindBody
   , cmd "type" & desc .~ "infer the type of a term"
       & body .~ (\args s -> evalStateT (parsingS term typeBody args s)
-                                       initialParserState)
+                                       todoInitialParserState)
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ (\args s -> evalStateT (parsingS term coreBody args s)
-                                       initialParserState)
+                                       todoInitialParserState)
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ (\args s -> evalStateT (parsingS term gBody args s)
-                                       initialParserState)
+                                       todoInitialParserState)
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
@@ -371,7 +389,7 @@ commands =
   , cmd "eval"
       & desc .~ "type check and evaluate a term"
       & body .~ (\args s -> evalStateT (parsingS term evalBody args s)
-                                       initialParserState)
+                                       todoInitialParserState)
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)

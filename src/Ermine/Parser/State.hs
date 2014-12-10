@@ -62,7 +62,7 @@ initialParserState cl = ParseState [] cl []
 newtype ErmineParserT e m a =
   ErmineParserT { runErmineParserT ::
                      StateT (ParseState e (ErmineParserT e m)) m a }
-  deriving (Functor, Applicative, Monad, Alternative, MonadPlus,
+  deriving (Functor, Applicative, Monad, Alternative, MonadPlus, MonadIO,
             Parsing, CharParsing, LookAheadParsing, TokenParsing)
 
 instance Monad m => MonadState (ParseState e (ErmineParserT e m))
