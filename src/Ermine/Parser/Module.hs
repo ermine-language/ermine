@@ -41,24 +41,25 @@ import Text.Parser.Token
 
 -- | The part of the module we can parse without knowing what's in the
 -- imported/exported modules, and the remainder text.
-type ModuleHead = (,,) ModuleName [Import]
+type ModuleHead imp = (,,) ModuleName [imp]
 
 -- | Parse the whole file, but only the module head.
-moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Text)
+moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Import Text)
 moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
 -- | Parse the rest of the file, incorporating the argument.
 wholeModule :: (MonadPlus m, TokenParsing m) =>
-               ModuleHead a -> m Module
+               ModuleHead (Import, Module) a -> m Module
 wholeModule (mn, imps, _) =
-  assembleModule mn imps =<< evalStateT statements (importedFixities imps)
+  evalStateT statements (importedFixities imps)
+  >>= assembleModule mn (fst <$> imps)
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
              <?> "module header"
 
 -- | Declare initial fixities based on imports.
-importedFixities :: [Import] -> [FixityDecl]
+importedFixities :: [(Import, Module)] -> [FixityDecl]
 importedFixities imps = undefined
 
 imports :: (Monad m, TokenParsing m) => m [Import]
