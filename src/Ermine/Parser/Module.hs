@@ -11,7 +11,14 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Module
-  ( wholeModule
+  ( -- * Two-phase module parsing
+    wholeModule
+  , moduleHead
+  , moduleTail
+    -- * Assembling modules from parsed parts
+  , combineModulePhases
+  , ModuleHead
+  , ModuleTail
   ) where
 
 import Control.Applicative
@@ -21,20 +28,34 @@ import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>), mempty)
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack)
+import Data.Void (Void)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
--- import Ermine.Syntax.Class
--- import Ermine.Syntax.Data
+import Ermine.Syntax.Class (Class)
+import Ermine.Syntax.Data (DataType)
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
+import qualified Ermine.Syntax.Type as Type
+import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
+
+-- | The part of the module we can parse without knowing what's in the
+-- imported/exported modules, and the remainder as raw text.
+type ModuleHead = (ModuleName, [Import], Text)
+
+-- | The part of the module we can parse after we parsed the
+-- dependencies.
+type ModuleTail = ([FixityDecl],
+                   [(Privacy, DataType () Text)],
+                   [(Privacy, Term.Binding (Type.Annot Void Text) Text)],
+                   M.Map Text (Class () Text))
 
 -- | Parser for a module.
 wholeModule :: (MonadState s m, HasFixities s, TokenParsing m)
@@ -48,6 +69,20 @@ wholeModule loadRec = go where
     mapM (loadRec . view importModule) i
     s <- statements
     assembleModule m i s
+
+-- | Parse the whole file, but only the module head.
+moduleHead :: (Monad m, TokenParsing m) => m ModuleHead
+moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
+
+-- | Parse the whole file, but only the module tail.
+moduleTail :: (Monad m, TokenParsing m,
+               MonadState s m, HasFixities s) => m ModuleTail
+moduleTail = undefined
+
+-- | Take the bits parsed from the first phase and the bits from the
+-- second phase, forming a whole module.
+combineModulePhases :: ModuleHead -> ModuleTail -> Module
+combineModulePhases (mn, i, _) (fx, d, b, c) = Module mn i fx d b c
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
