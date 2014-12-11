@@ -48,6 +48,11 @@ moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Import Text)
 moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
 -- | Parse the rest of the file, incorporating the argument.
+--
+-- Between 'moduleHead' and here, you have to grab the 'Text' to feed
+-- to the resulting parser, and associate each 'Import' with its
+-- 'Module'.  Modules can't import in cycles, so you should detect
+-- this when parsing 'Module's in an import graph from 'moduleHead's.
 wholeModule :: (MonadPlus m, TokenParsing m) =>
                ModuleHead (Import, Module) a -> m Module
 wholeModule (mn, imps, _) =
