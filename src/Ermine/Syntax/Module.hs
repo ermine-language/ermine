@@ -1,5 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -7,9 +10,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ermine.Syntax.Module where
 
+import Control.Applicative ((<$>), (<*>))
 import Control.Lens
 import Data.Bytes.Serial
+import Data.Bifoldable
 import Data.Binary
+import Data.Bitraversable
+import Data.Foldable (Foldable)
 import Data.Map (Map)
 import Data.Serialize
 import Data.Data hiding (DataType)
@@ -105,3 +112,27 @@ instance (a ~ FixityDecl) => HasFixities [a] where
 
 instance HasFixities Module where
   fixityDecls = moduleFixities
+
+-- | The part of the module we can parse without knowing what's in the
+-- imported/exported modules, and the remainder text.
+data ModuleHead imp txt = ModuleHead
+  { _moduleHeadName :: ModuleName
+  , _moduleHeadImports :: [imp]
+  , _moduleHeadText :: txt }
+  deriving (Eq, Ord, Show, Read, Data, Functor, Foldable, Traversable,
+            Generic, Typeable)
+
+makeClassy ''ModuleHead
+
+instance HasModuleName (ModuleHead imp txt) where
+  module_ = moduleHeadName
+
+instance Bifunctor ModuleHead where
+  bimap = bimapDefault
+
+instance Bifoldable ModuleHead where
+  bifoldMap = bifoldMapDefault
+
+instance Bitraversable ModuleHead where
+  bitraverse f g (ModuleHead n im tx) =
+    ModuleHead n <$> traverse f im <*> g tx

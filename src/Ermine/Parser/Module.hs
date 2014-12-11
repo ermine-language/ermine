@@ -14,8 +14,6 @@ module Ermine.Parser.Module
   ( -- * Two-phase module parsing
     moduleHead
   , wholeModule
-    -- * Assembling modules from parsed parts
-  , ModuleHead
   ) where
 
 import Control.Applicative
@@ -32,20 +30,16 @@ import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
-import Ermine.Syntax.Module hiding (explicit, fixityDecl)
+import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
 
--- | The part of the module we can parse without knowing what's in the
--- imported/exported modules, and the remainder text.
-type ModuleHead imp = (,,) ModuleName [imp]
-
 -- | Parse the whole file, but only the module head.
 moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Import Text)
-moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
+moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
 -- | Parse the rest of the file, incorporating the argument.
 --
@@ -55,9 +49,9 @@ moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 -- this when parsing 'Module's in an import graph from 'moduleHead's.
 wholeModule :: (MonadPlus m, TokenParsing m) =>
                ModuleHead (Import, Module) a -> m Module
-wholeModule (mn, imps, _) =
-  evalStateT statements (importedFixities imps)
-  >>= assembleModule mn (fst <$> imps)
+wholeModule mh =
+  evalStateT statements (importedFixities $ mh^.moduleHeadImports)
+  >>= assembleModule (mh^.module_) (fst <$> mh^.moduleHeadImports)
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
