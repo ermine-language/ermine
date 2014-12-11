@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -15,15 +16,14 @@ module Ermine.Parser.Module
     moduleHead
   , wholeModule
     -- * Between phase 1 and 2
-  , fetchDagM
-  , fetchModuleDagM
+  , fetchGraphM
+  , fetchModuleGraphM
   , topSort
   ) where
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.State
-import Control.Monad.Trans.Except
+import Control.Monad.State hiding (forM)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import Data.List (intercalate)
@@ -31,6 +31,7 @@ import qualified Data.Map as M
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
+import Data.Traversable (forM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -208,28 +209,35 @@ termStatement = do
 
 -- | Given rules for identifying nodes and their dependencies, and
 -- computing unique identifiers for each node, build up a dependency
--- set from an initial set.
-fetchDagM :: (Eq k, Hashable k, Monad m)
-          => (a -> k)           -- ^ A unique identifier.
-          -> (a -> [k])         -- ^ Dependencies.
-          -> (k -> m a)         -- ^ Retrieve by identifier.
-          -> HM.HashMap k a     -- ^ Start the search.  Must be non-empty.
-          -> ExceptT [k] m (HM.HashMap k a)
-             -- ^ The final collection, or the first detected cycle.
-fetchDagM = undefined
+-- set from an initial set.  Circularities are allowed.
+fetchGraphM :: forall a k m. (Eq k, Hashable k, Monad m)
+            => (a -> [k])         -- ^ Dependencies.
+            -> (k -> a -> m a)    -- ^ Retrieve by identifier, requested by given node.
+            -> HM.HashMap k a     -- ^ Start the search.  Must be non-empty.
+            -> m (HM.HashMap k a) -- ^ The final collection.
+fetchGraphM deps fetch = join go where
+  go :: HM.HashMap k a -> HM.HashMap k a -> m (HM.HashMap k a)
+  go consider found = if HM.null consider then return found else do
+    consider' <- HM.foldl' (\a v -> do
+      c <- a
+      c' <- (HM.fromList (join (,) <$> deps v)
+                `HM.difference` c `HM.difference` found)
+             `forM` flip fetch v
+      return (c `HM.union` c')) (return HM.empty) consider
+    go consider' (found `HM.union` consider')
 
--- | A not particularly special specialization of 'fetchDagM',
+-- | A not particularly special specialization of 'fetchGraphM',
 -- demonstrating its usage to recursively fetch dependency
 -- 'ModuleHead's, given an action that parses them.
-fetchModuleDagM :: (HasModuleHead a imp txt, HasImport imp, Monad m)
-                => (ModuleName -> m a) -- ^ Fetch a 'ModuleHead'.
-                -> a                   -- ^ Initial 'ModuleHead'.
-                -> ExceptT [ModuleName] m (HM.HashMap ModuleName a)
-fetchModuleDagM retr mh =
-  fetchDagM (^.moduleHeadName)
-            (^.. moduleHeadImports.folded.importModule)
-            retr
-            (HM.singleton (mh^.moduleHeadName) mh)
+fetchModuleGraphM :: (HasModuleHead a imp txt, HasImport imp, Monad m)
+                => (ModuleName -> a -> m a)
+                   -- ^ A 'ModuleHead' requests a 'ModuleHead' by name.
+                -> a                        -- ^ Initial 'ModuleHead'.
+                -> m (HM.HashMap ModuleName a)
+fetchModuleGraphM retr mh =
+  fetchGraphM (^.. moduleHeadImports.folded.importModule)
+              retr
+              (HM.singleton (mh^.moduleHeadName) mh)
 
 -- | Group a dag into sets whose dependents are all to the right.
 --
