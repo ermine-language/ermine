@@ -12,13 +12,10 @@
 
 module Ermine.Parser.Module
   ( -- * Two-phase module parsing
-    wholeModule
-  , moduleHead
-  , moduleTail
+    moduleHead
+  , wholeModule
     -- * Assembling modules from parsed parts
-  , combineModulePhases
   , ModuleHead
-  , ModuleTail
   ) where
 
 import Control.Applicative
@@ -29,64 +26,40 @@ import qualified Data.Map as M
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
-import Data.Void (Void)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
-import Ermine.Syntax.Class (Class)
-import Ermine.Syntax.Data (DataType)
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
-import qualified Ermine.Syntax.Type as Type
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | The part of the module we can parse without knowing what's in the
--- imported/exported modules, and the remainder as raw text.
-type ModuleHead = (ModuleName, [Import], Text)
-
--- | The part of the module we can parse after we parsed the
--- dependencies.
-type ModuleTail = ([FixityDecl],
-                   [(Privacy, DataType () Text)],
-                   [(Privacy, Term.Binding (Type.Annot Void Text) Text)],
-                   M.Map Text (Class () Text))
-
--- | Parser for a module.
-wholeModule :: (MonadState s m, HasFixities s, TokenParsing m)
-            => (ModuleName -> m Module)
-            -> m Module
-wholeModule loadRec = go where
-  go = do
-    m <- moduleDecl
-    i <- imports
-    -- TODO don't be quite so naive doing this recursion
-    mapM (loadRec . view importModule) i
-    s <- statements
-    assembleModule m i s
+-- imported/exported modules, and the remainder text.
+type ModuleHead = (,,) ModuleName [Import]
 
 -- | Parse the whole file, but only the module head.
-moduleHead :: (Monad m, TokenParsing m) => m ModuleHead
+moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Text)
 moduleHead = (,,) <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
--- | Parse the whole file, but only the module tail.
-moduleTail :: (Monad m, TokenParsing m,
-               MonadState s m, HasFixities s) => m ModuleTail
-moduleTail = undefined
-
--- | Take the bits parsed from the first phase and the bits from the
--- second phase, forming a whole module.
-combineModulePhases :: ModuleHead -> ModuleTail -> Module
-combineModulePhases (mn, i, _) (fx, d, b, c) = Module mn i fx d b c
+-- | Parse the rest of the file, incorporating the argument.
+wholeModule :: (MonadPlus m, TokenParsing m) =>
+               ModuleHead a -> m Module
+wholeModule (mn, imps, _) =
+  assembleModule mn imps =<< evalStateT statements (importedFixities imps)
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
              <?> "module header"
+
+-- | Declare initial fixities based on imports.
+importedFixities :: [Import] -> [FixityDecl]
+importedFixities imps = undefined
 
 imports :: (Monad m, TokenParsing m) => m [Import]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
