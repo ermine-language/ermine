@@ -76,14 +76,9 @@ cacheLoad' l a = do
                   (HM.lookup a m)
   return b
 
--- TODO: s/Monad/Functor/ under AMP
-liftState :: Monad m => Lens' s a -> StateT a m b -> StateT s m b
-liftState l sa = StateT $ \s ->
-  liftM (fmap (flip (set l) s)) . runStateT sa . view l $ s
-
 -- | Load from cache if possible, freshly otherwise.
 cacheLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)
            => a -> StateT s m b
 cacheLoad a = do
   l <- use (cacheLoader.cacheSource)
-  liftState (cacheLoader.cacheMap) (cacheLoad' l a)
+  cacheLoader.cacheMap `zoom` cacheLoad' l a
