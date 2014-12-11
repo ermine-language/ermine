@@ -173,19 +173,6 @@ parsingS p k args s = StateT $ \st ->
 
 -- parseModule :: () => ModuleName -> m Module
 
-todoInitialParserState'
-  :: MonadIO m
-  => (Text -> m Module) -- ^ TODO remove arg
-  -> ParseState Freshness (ErmineParserT Freshness (ExceptT LoadRefusal m))
-todoInitialParserState' parseModule = fix $ \rec ->
-  initialParserState
-  . withEmptyCache
-  . loaded lift
-  . flip thenM (mapM (lift . parseModule))
-  . contramapName (view name)
-  $ filesystemLoader "." "e"
-
--- TODO replace with the prime version above
 todoInitialParserState :: ParseState Freshness m
 todoInitialParserState = undefined
 
