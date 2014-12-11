@@ -14,11 +14,18 @@ module Ermine.Parser.Module
   ( -- * Two-phase module parsing
     moduleHead
   , wholeModule
+    -- * Between phase 1 and 2
+  , fetchDagM
+  , fetchModuleDagM
+  , topSort
   ) where
 
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State
+import Control.Monad.Trans.Except
+import Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes)
@@ -196,3 +203,41 @@ termStatement = do
   (name, headBody) <- termDeclClause termIdentifier
   many (termDeclClause (semi *> (name <$ symbol (unpack name))))
     <&> \tailBodies -> (name, headBody : map snd tailBodies)
+
+-- Module graph operations
+
+-- | Given rules for identifying nodes and their dependencies, and
+-- computing unique identifiers for each node, build up a dependency
+-- set from an initial set.
+fetchDagM :: (Eq k, Hashable k, Monad m)
+          => (a -> k)           -- ^ A unique identifier.
+          -> (a -> [k])         -- ^ Dependencies.
+          -> (k -> m a)         -- ^ Retrieve by identifier.
+          -> HM.HashMap k a     -- ^ Start the search.  Must be non-empty.
+          -> ExceptT [k] m (HM.HashMap k a)
+             -- ^ The final collection, or the first detected cycle.
+fetchDagM = undefined
+
+-- | A not particularly special specialization of 'fetchDagM',
+-- demonstrating its usage to recursively fetch dependency
+-- 'ModuleHead's, given an action that parses them.
+fetchModuleDagM :: (HasModuleHead a imp txt, HasImport imp, Monad m)
+                => (ModuleName -> m a) -- ^ Fetch a 'ModuleHead'.
+                -> a                   -- ^ Initial 'ModuleHead'.
+                -> ExceptT [ModuleName] m (HM.HashMap ModuleName a)
+fetchModuleDagM retr mh =
+  fetchDagM (^.moduleHeadName)
+            (^.. moduleHeadImports.folded.importModule)
+            retr
+            (HM.singleton (mh^.moduleHeadName) mh)
+
+-- | Group a dag into sets whose dependents are all to the right.
+--
+-- Invariant: Every element of the result is non-empty.
+topSort :: (Eq k, Hashable k)
+        => HM.HashMap k a       -- ^ The graph.
+        -> (a -> [k])           -- ^ Dependencies.
+        -> Either [k] [[(k, a)]]
+           -- ^ The final grouping, those with no dependencies first,
+           -- or the first detected cycle.
+topSort = undefined
