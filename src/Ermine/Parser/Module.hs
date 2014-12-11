@@ -213,7 +213,7 @@ termStatement = do
 fetchGraphM :: forall a k m. (Eq k, Hashable k, Monad m)
             => (a -> [k])         -- ^ Dependencies.
             -> (k -> a -> m a)    -- ^ Retrieve by identifier, requested by given node.
-            -> HM.HashMap k a     -- ^ Start the search.  Must be non-empty.
+            -> HM.HashMap k a     -- ^ Start the search.
             -> m (HM.HashMap k a) -- ^ The final collection.
 fetchGraphM deps fetch = join go where
   go :: HM.HashMap k a -> HM.HashMap k a -> m (HM.HashMap k a)
