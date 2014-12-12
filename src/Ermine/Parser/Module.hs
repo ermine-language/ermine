@@ -248,4 +248,8 @@ topSort :: (Eq k, Hashable k)
         -> Either [k] [[(k, a)]]
            -- ^ The final grouping, those with no dependencies first,
            -- or the first detected cycle.
-topSort = undefined
+topSort g deps = fmap (fmap snd . M.toAscList)
+               . flip execStateT M.empty
+               . HM.foldrWithKey (\k v -> (go k v >>)) (return ())
+               $ g
+  where go k a = undefined
