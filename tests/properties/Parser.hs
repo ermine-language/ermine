@@ -14,4 +14,10 @@ prop_fetchGraphM_nodeps_is_identity =
   let fgm = runIdentity . fetchGraphM (const []) undefined in
   \g -> fgm g == (g :: HM.HashMap Int Int)
 
+prop_fetchGraphM_takes_one_step =
+  \i g g' -> runIdentity (fetchGraphM (const (HM.keys g'))
+                                      (const . return . (g' HM.!))
+                                      (HM.insert i i g))
+           == (HM.insert i i g `HM.union` g' :: HM.HashMap Int Int)
+
 tests = $testGroupGenerator
