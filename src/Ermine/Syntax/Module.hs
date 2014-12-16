@@ -66,13 +66,19 @@ data Explicit = Explicit
 
 makeClassy ''Explicit
 
+data ImportsInScope =
+    Using  [Explicit]  -- ^ list of names requested to import
+  | Hiding [Explicit]  -- ^ list of names requested to hide (hiding [] == import everything)
+  deriving (Eq,Ord,Show,Read,Typeable)
+
+makeClassy ''ImportsInScope
+
 -- | An import/export statement.
 data Import = Import -- TODO: add a location
-  { _importPrivacy   :: Privacy      -- ^ whether to reexport the symbols
-  , _importModule    :: ModuleName   -- ^ what module to import
-  , _importAs        :: Maybe String -- ^ the 'as' qualifier suffix
-  , _importExplicits :: [Explicit]   -- ^ list of names requested to import/hide
-  , _importUsing     :: Bool         -- ^ whether 'Explicit's are 'using' or 'hiding'
+  { _importPrivacy   :: Privacy         -- ^ whether to reexport the symbols
+  , _importModule    :: ModuleName      -- ^ what module to import
+  , _importAs        :: Maybe String    -- ^ the 'as' qualifier suffix
+  , _importScope     :: ImportsInScope  -- ^ what imports are brought into scope
   } deriving (Eq,Ord,Show,Read,Typeable)
 
 makeClassy ''Import

@@ -32,7 +32,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (forM)
@@ -72,25 +72,24 @@ moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
 
 -- | Declare initial fixities based on imports.
 importedFixities :: [(Import, Module)] -> [FixityDecl]
-importedFixities imps = undefined
+importedFixities imps = imps >>= uncurry f where
+  f :: Import -> Module -> [FixityDecl]
+  f (Import _ mn as scop) m = undefined
 
 imports :: (Monad m, TokenParsing m) => m [Import]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
 
 importExportStatement :: (Monad m, TokenParsing m) => m Import
 importExportStatement =
-  imp <$> (Private <$ symbol "import"
-           <|> Public <$ symbol "export")
+  imp <$> (Private <$ symbol "import" <|> Public <$ symbol "export")
   <*> do
     src <- moduleIdentifier
     (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
-            <*> optional ((,) <$> (True <$ symbol "using"
-                                   <|> False <$ symbol "hiding")
-                          <*> impList src)
+            <*> optional (((Using  <$ symbol "using") <|>
+                           (Hiding <$ symbol "hiding"))  <*> impList src)
   <?> "import/export statement"
   where imp pop (mi, as, usingpExps) =
-          Import pop mi as (usingpExps ^. _Just._2)
-                 (maybe False fst usingpExps)
+          Import pop mi as (fromMaybe (Hiding []) usingpExps)
         impList src = explicit src `sepEndBy` semi <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
