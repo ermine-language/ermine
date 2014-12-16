@@ -171,7 +171,13 @@ parsingS p k args s = StateT $ \st ->
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
 
--- parseModule :: () => ModuleName -> m Module
+{-
+parseModule :: Monad m
+            => Loader e m ModuleName Text
+            -> ModuleName
+            -> ExceptT Doc m Module
+parseModule l =
+-}
 
 todoInitialParserState :: ParseState Freshness m
 todoInitialParserState = undefined
