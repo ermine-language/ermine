@@ -8,6 +8,17 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
+--------------------------------------------------------------------
+-- |
+-- Copyright :  (c) McGraw Hill Financial 2013, 2014
+-- License   :  BSD2
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- Data structures representing parsed modules and their components,
+-- aside from those already in 'Ermine.Syntax.Term' et al.
+--------------------------------------------------------------------
 module Ermine.Syntax.Module where
 
 import Control.Applicative ((<$>), (<*>))
