@@ -71,7 +71,7 @@ data ImportsInScope =
   | Hiding [Explicit]  -- ^ list of names requested to hide (hiding [] == import everything)
   deriving (Eq,Ord,Show,Read,Typeable)
 
-makeClassy ''ImportsInScope
+makeClassyPrisms ''ImportsInScope
 
 -- | An import/export statement.
 data Import = Import -- TODO: add a location
