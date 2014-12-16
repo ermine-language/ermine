@@ -24,7 +24,11 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State hiding (forM)
+import Data.Array (Array)
+import qualified Data.Array as A
+import Data.Graph (dff, Forest, Graph, Vertex)
 import Data.Hashable (Hashable)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import Data.List (intercalate)
 import qualified Data.Map as M
@@ -32,6 +36,7 @@ import Data.Maybe (catMaybes)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (forM)
+import Data.Tuple (swap)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -213,10 +218,10 @@ termStatement = do
 fetchGraphM :: forall a k m. (Eq k, Hashable k, Monad m)
             => (a -> [k])         -- ^ Dependencies.
             -> (k -> a -> m a)    -- ^ Retrieve by identifier, requested by given node.
-            -> HM.HashMap k a     -- ^ Start the search.
-            -> m (HM.HashMap k a) -- ^ The final collection.
+            -> HashMap k a     -- ^ Start the search.
+            -> m (HashMap k a) -- ^ The final collection.
 fetchGraphM deps fetch = join go where
-  go :: HM.HashMap k a -> HM.HashMap k a -> m (HM.HashMap k a)
+  go :: HashMap k a -> HashMap k a -> m (HashMap k a)
   go consider found = if HM.null consider then return found else do
     consider' <- HM.foldl' (\a v -> do
       c <- a
@@ -229,11 +234,11 @@ fetchGraphM deps fetch = join go where
 -- | A not particularly special specialization of 'fetchGraphM',
 -- demonstrating its usage to recursively fetch dependency
 -- 'ModuleHead's, given an action that parses them.
-fetchModuleGraphM :: (HasModuleHead a imp txt, HasImport imp, Monad m)
-                => (ModuleName -> a -> m a)
-                   -- ^ A 'ModuleHead' requests a 'ModuleHead' by name.
-                -> a                        -- ^ Initial 'ModuleHead'.
-                -> m (HM.HashMap ModuleName a)
+fetchModuleGraphM :: (HasModuleHead mh imp txt, HasImport imp, Monad m)
+                  => (ModuleName -> mh -> m mh)
+                     -- ^ A 'ModuleHead' requests a 'ModuleHead' by name.
+                  -> mh         -- ^ Initial 'ModuleHead'.
+                  -> m (HashMap ModuleName mh)
 fetchModuleGraphM retr mh =
   fetchGraphM (^.. moduleHeadImports.folded.importModule)
               retr
@@ -243,7 +248,7 @@ fetchModuleGraphM retr mh =
 --
 -- Invariant: Every element of the result is non-empty.
 topSort :: (Eq k, Hashable k)
-        => HM.HashMap k a       -- ^ The graph.
+        => HashMap k a       -- ^ The graph.
         -> (a -> [k])           -- ^ Dependencies.
         -> Either [k] [[(k, a)]]
            -- ^ The final grouping, those with no dependencies first,
@@ -253,3 +258,16 @@ topSort g deps = fmap (fmap snd . M.toAscList)
                . HM.foldrWithKey (\k v -> (go k v >>)) (return ())
                $ g
   where go k a = undefined
+
+topSort' :: forall k a. (Eq k, Hashable k) => HashMap k a -> (a -> [k]) -> Forest Vertex
+topSort' g f =
+  let vertices :: Array Vertex k
+      vertices = A.array (0, HM.size g - 1) . fmap swap . HM.toList $ revVertices
+      revVertices :: HashMap k Vertex
+      revVertices = flip evalState 0 . traverse (const (id <<+= 1)) $ g
+      ggraph :: Graph
+      ggraph = fmap (revVertices HM.!) . f . (g HM.!) <$> vertices
+  in dff ggraph
+
+-- >>> topSort' (HM.fromList [(1, 1), (2, 2), (3, 3)] :: HashMap Int Int) (\k -> if (k == 3) then [] else [k + 1])
+-- [Node {rootLabel = 0, subForest = [Node {rootLabel = 1, subForest = [Node {rootLabel = 2, subForest = []}]}]}]
