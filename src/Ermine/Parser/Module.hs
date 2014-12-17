@@ -24,19 +24,17 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State hiding (forM)
-import Data.Array (Array)
-import qualified Data.Array as A
-import Data.Graph (dff, Forest, Graph, Vertex)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HS
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (forM)
-import Data.Tuple (swap)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -246,27 +244,34 @@ fetchModuleGraphM retr mh =
 -- | Group a dag into sets whose dependents are all to the right.
 --
 -- Invariant: Every element of the result is non-empty.
-topSort :: (Eq k, Hashable k)
+topSort :: forall a k. (Eq k, Hashable k)
         => HashMap k a       -- ^ The graph.
         -> (a -> [k])           -- ^ Dependencies.
         -> Either [k] [[(k, a)]]
            -- ^ The final grouping, those with no dependencies first,
            -- or the first detected cycle.
-topSort g deps = fmap (fmap snd . M.toAscList)
-               . flip execStateT M.empty
-               . HM.foldrWithKey (\k v -> (go k v >>)) (return ())
+topSort g deps = fmap extractTopo
+               . flip execStateT HM.empty
+               . HM.foldrWithKey (\k v -> (go k v mempty mempty >>))
+                                 (return ())
                $ g
-  where go k a = undefined
+  where go :: k -> a -> [k] -> HashSet k
+           -> StateT (HashMap k Int) (Either [k]) Int
+        go k a lk sk | HS.member k sk = lift (Left lk)
+                     | otherwise = gets (HM.lookup k) >>=
+          (flip maybe return $ do
+              let lk' = k:lk
+                  sk' = HS.insert k sk
+              subs <- deps a `forM` \k' ->
+                go k' (g HM.! k') lk' sk'
+              let here = maximum (0:map (1+) subs)
+              modify (HM.insert k here)
+              return here)
+        extractTopo :: HashMap k Int -> [[(k, a)]]
+        extractTopo = fmap (fmap (\k -> (k, g HM.! k)) . snd)
+                    . M.toAscList . invertHM
 
-topSort' :: forall k a. (Eq k, Hashable k) => HashMap k a -> (a -> [k]) -> Forest Vertex
-topSort' g f =
-  let vertices :: Array Vertex k
-      vertices = A.array (0, HM.size g - 1) . fmap swap . HM.toList $ revVertices
-      revVertices :: HashMap k Vertex
-      revVertices = flip evalState 0 . traverse (const (id <<+= 1)) $ g
-      ggraph :: Graph
-      ggraph = fmap (revVertices HM.!) . f . (g HM.!) <$> vertices
-  in dff ggraph
-
--- >>> topSort' (HM.fromList [(1, 1), (2, 2), (3, 3)] :: HashMap Int Int) (\k -> if (k == 3) then [] else [k + 1])
--- [Node {rootLabel = 0, subForest = [Node {rootLabel = 1, subForest = [Node {rootLabel = 2, subForest = []}]}]}]
+-- Invariant: every [k] is nonempty
+invertHM :: (Ord v) => HashMap k v -> M.Map v [k]
+invertHM = flip HM.foldrWithKey M.empty $ \k ->
+             M.alter (Just . maybe [k] (k:))
