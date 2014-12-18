@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
@@ -36,7 +37,7 @@ import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
 import Data.Default
-import Data.Function (fix)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import Data.Int (Int32, Int64)
 import Data.List as List
@@ -45,7 +46,7 @@ import Data.List.Split (splitOn)
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
-import Data.Traversable (for, mapM)
+import Data.Traversable (for)
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
@@ -63,11 +64,12 @@ import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
-import Ermine.Loader.Core (contramapName, loaded, thenM)
+import Ermine.Loader.Core (Loader, loaded, thenM)
 import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
-import Ermine.Loader.MapCache (withEmptyCache)
+import Ermine.Loader.MapCache (cacheLoad')
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
+import Ermine.Parser.Module
 import Ermine.Parser.State
 import Ermine.Parser.Type
 import Ermine.Parser.Term
@@ -85,7 +87,8 @@ import Ermine.Syntax.Global as Global
 import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Literal (Literal(Long, Int))
-import Ermine.Syntax.Module (Module)
+import Ermine.Syntax.Module (Import, Module, ModuleHead)
+import Ermine.Syntax.ModuleName (ModuleName)
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type as Type
@@ -171,13 +174,20 @@ parsingS p k args s = StateT $ \st ->
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
 
-{-
-parseModule :: Monad m
+parseModule :: forall e m. Monad m
             => Loader e m ModuleName Text
             -> ModuleName
-            -> ExceptT Doc m Module
-parseModule l =
--}
+            -> StateT (HashMap ModuleName (e, Module)) (ExceptT Doc m) Module
+parseModule l = undefined
+  where lemh :: Loader e (ExceptT Doc m) ModuleName (ModuleHead Import Text)
+        lemh = loaded lift l `thenM`
+               (mapExceptT (return . runIdentity) . parseHead)
+        parseHead :: Text -> Except Doc (ModuleHead Import Text)
+        parseHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
+
+asExcept :: Result a -> Except Doc a
+asExcept (Success a) = return a
+asExcept (Failure doc) = throwE doc
 
 todoInitialParserState :: ParseState Freshness m
 todoInitialParserState = undefined
