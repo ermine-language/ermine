@@ -34,7 +34,7 @@ import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
-import Data.Traversable (forM)
+import Data.Traversable (for, forM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -262,9 +262,9 @@ topSort g deps = fmap extractTopo
           (flip maybe return $ do
               let lk' = k:lk
                   sk' = HS.insert k sk
-              subs <- deps a `forM` \k' ->
+              subs <- deps a `for` \k' ->
                 go k' (g HM.! k') lk' sk'
-              let here = maximum (0:map (1+) subs)
+              let here = 1 + maximum (-1:subs)
               modify (HM.insert k here)
               return here)
         extractTopo :: HashMap k Int -> [[(k, a)]]
