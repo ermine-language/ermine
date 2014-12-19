@@ -28,7 +28,7 @@ import Bound
 import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
-import Control.Monad (liftM, (<=<))
+import Control.Monad (liftM, (<=<), (>=>))
 import Control.Monad.IO.Class
 import Control.Monad.State (StateT(..), evalStateT)
 import Control.Monad.Trans (lift)
@@ -88,7 +88,7 @@ import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Literal (Literal(Long, Int))
 import Ermine.Syntax.Module (Import, Module, ModuleHead, importModule,
-                             moduleHeadImports)
+                             moduleHeadImports, moduleHeadText)
 import Ermine.Syntax.ModuleName (ModuleName)
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
@@ -184,18 +184,28 @@ parseModule l = undefined
         lemh = loaded lift l `thenM` parseModuleHead
         dep :: ModuleName -> mh -> ExceptT Doc m (ModuleHead Import Text)
         dep = const . liftM snd . (lemh^.load)
-        deps :: (ModuleName -> Bool) -> ModuleHead Import a -> [ModuleName]
-        deps rm = filter (not . rm)
-                . (^.. moduleHeadImports.folded.importModule)
-        importGraph :: HashMap ModuleName a -- already loaded
+        importSets :: HashMap ModuleName a -- already loaded
                     -> ModuleName
                     -> ExceptT Doc m (HashMap ModuleName
                                               (ModuleHead Import Text))
-        importGraph hm n = dep n () >>=
-            fetchGraphM (deps (flip HM.member hm)) dep . HM.singleton n
+        importSets hm n = dep n () >>=
+          (fetchGraphM deps dep . HM.singleton n -- make graph
+           >=> return)
+          where deps :: ModuleHead Import a -> [ModuleName]
+                deps = filter (\n -> not (HM.member n hm))
+                     . (^.. moduleHeadImports.folded.importModule)
 
 parseModuleHead :: Monad m => Text -> ExceptT Doc m (ModuleHead Import Text)
 parseModuleHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
+
+parseModuleRemainder :: Monad m
+                     => ModuleHead (Import, Module) Text
+                     -> ExceptT Doc m Module
+parseModuleRemainder mh =
+  mh ^. moduleHeadText
+    & unpack
+    & parseString (wholeModule mh <* eof) mempty
+    & asExcept
 
 asExcept :: Monad m => Result a -> ExceptT Doc m a
 asExcept (Success a) = return a
