@@ -30,7 +30,7 @@ import Control.Applicative
 import Control.Lens
 import Control.Monad (liftM, (<=<))
 import Control.Monad.IO.Class
-import Control.Monad.State (StateT(..), evalStateT)
+import Control.Monad.State (StateT(..), evalStateT, get, put)
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Except
 import Data.Bifunctor
@@ -46,7 +46,7 @@ import Data.List.Split (splitOn)
 import Data.Set (notMember)
 import Data.Set.Lens
 import Data.Semigroup
-import Data.Traversable (for)
+import Data.Traversable (for, forM)
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
 import Data.Foldable (for_)
@@ -88,7 +88,7 @@ import Ermine.Syntax.Id
 import Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Literal (Literal(Long, Int))
 import Ermine.Syntax.Module (Import, Module, ModuleHead, importModule,
-                             moduleHeadImports, moduleHeadText)
+                             moduleName, moduleHeadImports, moduleHeadText)
 import Ermine.Syntax.ModuleName (ModuleName)
 import Ermine.Syntax.Name
 import Ermine.Syntax.Scope
@@ -182,8 +182,22 @@ parseModule :: forall e m. Monad m
 parseModule l = undefined
   where lemh :: Loader e (ExceptT Doc m) ModuleName (ModuleHead Import Text)
         lemh = loaded lift l `thenM` parseModuleHead
-        dep :: ModuleName -> ExceptT Doc m (ModuleHead Import Text)
-        dep = liftM snd . (lemh^.load)
+        dep :: ModuleName -> ExceptT Doc m (ModuleHead Import (e, Text))
+        dep = liftM (\(e, mh) -> (e,) <$> mh) . (lemh^.load)
+        importSet :: [ModuleHead Import (e, Text)]
+                  -> StateT (HashMap ModuleName (e, Module))
+                            (ExceptT Doc m) ()
+        importSet mhs = do
+          preceding <- get
+          -- Here we finally use the invariant of 'pickImportPlan':
+          -- the 'Module's referenced by 'Import's *must* already be
+          -- in the state.
+          let precImp i = (i, snd $ preceding HM.! (i^.importModule))
+          emods <- lift $ mhs `forM` \mh ->
+              (mh^.moduleHeadText._1,)
+              `liftM` parseModuleRemainder (bimap precImp snd mh)
+          put (foldl' (\hm em@(e, mod) -> HM.insert (mod^.moduleName) em hm)
+                      preceding emods)
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
@@ -193,11 +207,11 @@ parseModule l = undefined
 -- referenced by each 'ModuleHead' appears in a previous element of
 -- the result.
 pickImportPlan :: Monad m
-               => (ModuleName -> ExceptT Doc m (ModuleHead Import Text))
+               => (ModuleName -> ExceptT Doc m (ModuleHead Import txt))
                   -- ^ load a module head by name
                -> HashMap ModuleName a -- ^ already-loaded Modules
                -> ModuleName           -- ^ initial module
-               -> ExceptT Doc m [[(ModuleName, ModuleHead Import Text)]]
+               -> ExceptT Doc m [[(ModuleName, ModuleHead Import txt)]]
 pickImportPlan dep hm n = do
   fstMH <- dep n
   graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
