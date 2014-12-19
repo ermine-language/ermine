@@ -205,7 +205,8 @@ pickImportPlan dep hm n = do
   where deps :: ModuleHead Import a -> [ModuleName]
         deps = filter (\n -> not (HM.member n hm))
              . (^.. moduleHeadImports.folded.importModule)
-        reportCircle circ = undefined :: Doc
+        reportCircle circ = "Circular dependency detected: "
+                         <> pretty (circ <&> pretty . unpack . (^.name))
 
 parseModuleHead :: Monad m => Text -> ExceptT Doc m (ModuleHead Import Text)
 parseModuleHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
