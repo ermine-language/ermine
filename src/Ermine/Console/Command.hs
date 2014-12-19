@@ -185,10 +185,12 @@ parseModule l = undefined
         dep :: ModuleName -> mh -> ExceptT Doc m (ModuleHead Import Text)
         dep = const . liftM snd . (lemh^.load)
         deps :: (ModuleName -> Bool) -> ModuleHead Import a -> [ModuleName]
-        deps rm = filter (not . rm) . (^.. moduleHeadImports.folded.importModule)
+        deps rm = filter (not . rm)
+                . (^.. moduleHeadImports.folded.importModule)
         importGraph :: HashMap ModuleName a -- already loaded
                     -> ModuleName
-                    -> ExceptT Doc m (HashMap ModuleName (ModuleHead Import Text))
+                    -> ExceptT Doc m (HashMap ModuleName
+                                              (ModuleHead Import Text))
         importGraph hm n = dep n () >>=
             fetchGraphM (deps (flip HM.member hm)) dep . HM.singleton n
 
