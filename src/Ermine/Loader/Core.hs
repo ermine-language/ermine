@@ -27,6 +27,8 @@ module Ermine.Loader.Core
     -- * Manipulating loaders
   , loaded
   , thenM
+  , thenM'
+  , fanoutIdLoaderM
   , xmapCacheKey
   , contramapName
     -- * Combining multiple loaders
@@ -124,6 +126,12 @@ thenM' l f = setCovariant (>>= f) (>>= maybe (return Nothing) (liftM Just . f)) 
 -- return) /= id
 thenM :: Monad m => Loader e m a b -> (b -> m c) -> Loader e m a c
 thenM l = thenM' l . runKleisli . second . Kleisli
+
+-- | Pass through the argument.
+fanoutIdLoaderM :: Monad m => Loader e m a b -> Loader e m a (a, b)
+fanoutIdLoaderM (Loader l r) =
+  Loader (\a -> l a & lifted.mapped %~ (a,))
+         (\a e -> r a e & lifted.mapped.mapped %~ (a,))
 
 -- | Lift a cache key isomorphism.
 xmapCacheKey :: Functor m =>

@@ -1,11 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -18,67 +10,22 @@
 --------------------------------------------------------------------
 
 module Ermine.Loader.MapCache
-  ( CacheLoader(CacheLoader)
-  , withEmptyCache
-  , HasCacheLoader(..)
-  , cacheLoad
-  , cacheLoad'
+  ( cacheLoad
   ) where
 
 import Control.Lens
-import Control.Monad.State
-import Control.Monad.Trans.Maybe
+import Control.Monad
 import Data.Hashable (Hashable)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
 import Data.Maybe (fromMaybe)
-import Data.Typeable
 import Ermine.Loader.Core
-import GHC.Generics (Generic)
-
--- | A loader with an associated cache.  Various operations from
--- 'Loader' are still possible, like lifting 'b -> m c', 'm ~> n', and
--- various composition, but it is usually easier to do these before
--- dropping the 'Loader' in 'CacheLoader'.
-data CacheLoader e m a b = CacheLoader
-  { _cacheSource :: Loader e m a b
-  , _cacheMap :: HashMap a (e, b) }
-  deriving (Functor, Generic, Typeable)
-
-makeClassy ''CacheLoader
-
-withEmptyCache :: Loader e m a b -> CacheLoader e m a b
-withEmptyCache = flip CacheLoader HM.empty
-
--- | Ignoring cached values, load the value and replace the cache.
-cacheFreshLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)
-                => a -> StateT s m b
-cacheFreshLoad a = do
-  CacheLoader l m <- use cacheLoader
-  eb@(_, b) <- lift (l ^. load $ a)
-  cacheLoader.cacheMap .= HM.insert a eb m
-  return b
 
 -- | Load from cache if possible, freshly otherwise.
-cacheLoad' :: (Eq a, Hashable a, Monad m)
-           => Loader e m a b
-           -> a
-           -> StateT (HashMap a (e, b)) m b
-cacheLoad' l a = do
-  m <- get
-  (_, b) <- maybe (do eb' <- lift $ view load l a
-                      put (HM.insert a eb' m)
-                      return eb')
-                  (\eb@(e, _) -> liftM (fromMaybe eb) . runMaybeT $ do
-                      eb' <- MaybeT . lift $ view reload l a e
-                      put (HM.insert a eb' m)
-                      return eb')
-                  (HM.lookup a m)
-  return b
-
--- | Load from cache if possible, freshly otherwise.
-cacheLoad :: (Eq a, Hashable a, Monad m, HasCacheLoader s e m a b)
-           => a -> StateT s m b
-cacheLoad a = do
-  l <- use (cacheLoader.cacheSource)
-  cacheLoader.cacheMap `zoom` cacheLoad' l a
+cacheLoad :: (Eq a, Hashable a, Monad m)
+          => Loader e m a b -> HashMap a (e, b) -> a -> m b
+cacheLoad l m a = snd `liftM`
+  maybe (view load l a)
+        (\eb@(e, _) ->
+          fromMaybe eb `liftM` view reload l a e)
+        (HM.lookup a m)

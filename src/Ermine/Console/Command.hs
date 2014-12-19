@@ -49,7 +49,7 @@ import Data.Semigroup
 import Data.Traversable (for, forM)
 import Data.Text (Text, unpack, pack)
 import qualified Data.Text.IO as Text
-import Data.Foldable (for_)
+import Data.Foldable (for_, forM_)
 import Data.Word (Word64)
 import Data.Void
 import Ermine.Builtin.Core (cPutStrLn, cShowInt, cShowLong, cShowLongHash, cAddLong, cFromIntegerToInt, cFromIntegerToLong)
@@ -64,9 +64,10 @@ import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
-import Ermine.Loader.Core (Loader, load, loaded, thenM)
+import Ermine.Loader.Core (Loader, fanoutIdLoaderM, load, loaded,
+                           thenM, thenM')
 import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
-import Ermine.Loader.MapCache (cacheLoad')
+import Ermine.Loader.MapCache (cacheLoad)
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Module
@@ -179,11 +180,11 @@ parseModule :: forall e m. Monad m
             => Loader e m ModuleName Text
             -> ModuleName
             -> StateT (HashMap ModuleName (e, Module)) (ExceptT Doc m) Module
-parseModule l = undefined
+parseModule l = \a -> get >>= flip (cacheLoad lm) a
   where lemh :: Loader e (ExceptT Doc m) ModuleName (ModuleHead Import Text)
         lemh = loaded lift l `thenM` parseModuleHead
         dep :: ModuleName -> ExceptT Doc m (ModuleHead Import (e, Text))
-        dep = liftM (\(e, mh) -> (e,) <$> mh) . (lemh^.load)
+        dep = liftM strength . (lemh^.load)
         importSet :: [ModuleHead Import (e, Text)]
                   -> StateT (HashMap ModuleName (e, Module))
                             (ExceptT Doc m) ()
@@ -196,8 +197,18 @@ parseModule l = undefined
           emods <- lift $ mhs `forM` \mh ->
               (mh^.moduleHeadText._1,)
               `liftM` parseModuleRemainder (bimap precImp snd mh)
-          put (foldl' (\hm em@(e, mod) -> HM.insert (mod^.moduleName) em hm)
+          put (foldl' (\hm em@(_, md) -> HM.insert (md^.moduleName) em hm)
                       preceding emods)
+        lm :: Loader e (StateT (HashMap ModuleName (e, Module))
+                               (ExceptT Doc m)) ModuleName Module
+        lm = loaded lift (fanoutIdLoaderM lemh)
+               `thenM'` (\(e, (n, mh)) -> do
+                           already <- get
+                           impss <- lift . pickImportPlan dep already n
+                                  . strength $ (e, mh)
+                           impss `forM_` importSet
+                           nowThen <- get
+                           return $ nowThen HM.! n)
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
@@ -210,17 +221,22 @@ pickImportPlan :: Monad m
                => (ModuleName -> ExceptT Doc m (ModuleHead Import txt))
                   -- ^ load a module head by name
                -> HashMap ModuleName a -- ^ already-loaded Modules
-               -> ModuleName           -- ^ initial module
-               -> ExceptT Doc m [[(ModuleName, ModuleHead Import txt)]]
-pickImportPlan dep hm n = do
-  fstMH <- dep n
+               -> ModuleName           -- ^ initial module name
+               -> ModuleHead Import txt -- ^ initial module head
+               -> ExceptT Doc m [[ModuleHead Import txt]]
+pickImportPlan dep hm n fstMH = do
   graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
-  either (throwE . reportCircle) return $ topSort graph deps
+  either (throwE . reportCircle) (return . fmap (fmap snd))
+   $ topSort graph deps
   where deps :: ModuleHead Import a -> [ModuleName]
-        deps = filter (\n -> not (HM.member n hm))
+        deps = filter (\mn -> not (HM.member mn hm))
              . (^.. moduleHeadImports.folded.importModule)
         reportCircle circ = "Circular dependency detected: "
                          <> pretty (circ <&> pretty . unpack . (^.name))
+
+-- Why isn't this defined?
+strength :: Functor f => (a, f b) -> f (a, b)
+strength (a, fb) = (a,) <$> fb
 
 parseModuleHead :: Monad m => Text -> ExceptT Doc m (ModuleHead Import Text)
 parseModuleHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
@@ -237,9 +253,6 @@ parseModuleRemainder mh =
 asExcept :: Monad m => Result a -> ExceptT Doc m a
 asExcept (Success a) = return a
 asExcept (Failure doc) = throwE doc
-
-todoInitialParserState :: ParseState Freshness m
-todoInitialParserState = undefined
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do
@@ -365,7 +378,7 @@ echoBody args =
           :| [("ugly", liftIO . putStrLn . groom . fst)]
      pt (tsch, hs) = let stsch = hoistScope (first ("?" <$)) tsch
                       in sayLn $ prettyTypeSchema stsch hs names
-    _ {- "term" -} -> flip evalStateT todoInitialParserState -- TODO thread new state through
+    _ {- "term" -} -> flip evalStateT initialParserState -- TODO thread new state through
                       . parsingS term (\_ tm -> disp tm) args
      where
      disp = procArgs args $
@@ -424,14 +437,14 @@ commands =
       & body .~ parsing typ kindBody
   , cmd "type" & desc .~ "infer the type of a term"
       & body .~ (\args s -> evalStateT (parsingS term typeBody args s)
-                                       todoInitialParserState)
+                                       initialParserState)
   , cmd "core" & desc .~ "dump the core representation of a term after type checking."
       & body .~ (\args s -> evalStateT (parsingS term coreBody args s)
-                                       todoInitialParserState)
+                                       initialParserState)
   , cmd "g"
       & desc .~ "dump the sub-core representation of a term after type checking."
       & body .~ (\args s -> evalStateT (parsingS term gBody args s)
-                                       todoInitialParserState)
+                                       initialParserState)
   , cmd "dkinds"
       & desc .~ "determine the kinds of a series of data types"
       & body .~ parsing (semiSep1 dataType) dkindsBody
@@ -441,7 +454,7 @@ commands =
   , cmd "eval"
       & desc .~ "type check and evaluate a term"
       & body .~ (\args s -> evalStateT (parsingS term evalBody args s)
-                                       todoInitialParserState)
+                                       initialParserState)
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)
