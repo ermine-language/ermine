@@ -28,7 +28,7 @@ import Bound
 import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
-import Control.Monad (liftM, (<=<), (>=>))
+import Control.Monad (liftM, (<=<))
 import Control.Monad.IO.Class
 import Control.Monad.State (StateT(..), evalStateT)
 import Control.Monad.Trans (lift)
@@ -182,18 +182,30 @@ parseModule :: forall e m. Monad m
 parseModule l = undefined
   where lemh :: Loader e (ExceptT Doc m) ModuleName (ModuleHead Import Text)
         lemh = loaded lift l `thenM` parseModuleHead
-        dep :: ModuleName -> mh -> ExceptT Doc m (ModuleHead Import Text)
-        dep = const . liftM snd . (lemh^.load)
-        importSets :: HashMap ModuleName a -- already loaded
-                    -> ModuleName
-                    -> ExceptT Doc m (HashMap ModuleName
-                                              (ModuleHead Import Text))
-        importSets hm n = dep n () >>=
-          (fetchGraphM deps dep . HM.singleton n -- make graph
-           >=> return)
-          where deps :: ModuleHead Import a -> [ModuleName]
-                deps = filter (\n -> not (HM.member n hm))
-                     . (^.. moduleHeadImports.folded.importModule)
+        dep :: ModuleName -> ExceptT Doc m (ModuleHead Import Text)
+        dep = liftM snd . (lemh^.load)
+
+-- | Make a plan to import dependencies, based on importing a single
+-- dependency.  Include all the module heads and remaining bodies in
+-- the plan.
+--
+-- Invariant: For each element of the result, every 'Import'
+-- referenced by each 'ModuleHead' appears in a previous element of
+-- the result.
+pickImportPlan :: Monad m
+               => (ModuleName -> ExceptT Doc m (ModuleHead Import Text))
+                  -- ^ load a module head by name
+               -> HashMap ModuleName a -- ^ already-loaded Modules
+               -> ModuleName           -- ^ initial module
+               -> ExceptT Doc m [[(ModuleName, ModuleHead Import Text)]]
+pickImportPlan dep hm n = do
+  fstMH <- dep n
+  graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
+  either (throwE . reportCircle) return $ topSort graph deps
+  where deps :: ModuleHead Import a -> [ModuleName]
+        deps = filter (\n -> not (HM.member n hm))
+             . (^.. moduleHeadImports.folded.importModule)
+        reportCircle circ = undefined :: Doc
 
 parseModuleHead :: Monad m => Text -> ExceptT Doc m (ModuleHead Import Text)
 parseModuleHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
