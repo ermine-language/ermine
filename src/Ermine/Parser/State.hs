@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
 --------------------------------------------------------------------
@@ -12,19 +14,22 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.State
-  ( ParseState(ParseState)
+  ( -- * Stateful parsing
+    ParseState(ParseState)
   , HasParseState(..)
   , initialParserState
   ) where
 
 import Control.Lens
-import Data.Data (Data)
-import Data.Typeable
+import Data.Data
 import Ermine.Syntax.Module
+import Ermine.Syntax.ModuleName
+import GHC.Generics (Generic)
 
 data ParseState = ParseState
-  { _stateFixities :: [FixityDecl] }
-  deriving (Show, Eq, Data, Typeable)
+  { _stateFixities :: [FixityDecl]
+  , _stateParsingModules :: [ModuleName] }
+  deriving (Show, Eq, Data, Generic, Typeable)
 
 makeClassy ''ParseState
 
@@ -33,4 +38,4 @@ instance HasFixities ParseState where
 
 -- | A parser at the beginning.
 initialParserState :: ParseState
-initialParserState = ParseState []
+initialParserState = ParseState [] []

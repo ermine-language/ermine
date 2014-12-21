@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -11,63 +12,82 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Module
-  ( wholeModule
+  ( -- * Two-phase module parsing
+    moduleHead
+  , wholeModule
+    -- * Between phase 1 and 2
+  , fetchGraphM
+  , fetchModuleGraphM
+  , topSort
   ) where
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.State
+import Control.Monad.State hiding (forM)
+import Data.Hashable (Hashable)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HS
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>), mempty)
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack)
+import Data.Traversable (for, forM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
--- import Ermine.Syntax.Class
--- import Ermine.Syntax.Data
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
-import Ermine.Syntax.Module hiding (explicit, fixityDecl)
+import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
+import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
 
--- | Parser for a module.
-wholeModule :: (MonadState s m, HasFixities s, TokenParsing m)
-            => (ModuleName -> m Module)
-            -> m Module
-wholeModule loadTxt = go where
-  go = do
-    m <- moduleDecl
-    i <- imports
-    s <- statements
-    assembleModule m i s
+-- | Parse the whole file, but only the module head.
+moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Import Text)
+moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
+
+-- | Parse the rest of the file, incorporating the argument.
+--
+-- Between 'moduleHead' and here, you have to grab the 'Text' to feed
+-- to the resulting parser, and associate each 'Import' with its
+-- 'Module'.  Modules can't import in cycles, so you should detect
+-- this when parsing 'Module's in an import graph from 'moduleHead's.
+wholeModule :: (MonadPlus m, TokenParsing m) =>
+               ModuleHead (Import, Module) a -> m Module
+wholeModule mh =
+  evalStateT statements (importedFixities $ mh^.moduleHeadImports)
+  >>= assembleModule (mh^.module_) (fst <$> mh^.moduleHeadImports)
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
              <?> "module header"
+
+-- | Declare initial fixities based on imports.
+importedFixities :: [(Import, Module)] -> [FixityDecl]
+importedFixities imps = imps >>= uncurry f where
+  f :: Import -> Module -> [FixityDecl]
+  f (Import _ mn as scop) m = undefined
 
 imports :: (Monad m, TokenParsing m) => m [Import]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
 
 importExportStatement :: (Monad m, TokenParsing m) => m Import
 importExportStatement =
-  imp <$> (Private <$ symbol "import"
-           <|> Public <$ symbol "export")
+  imp <$> (Private <$ symbol "import" <|> Public <$ symbol "export")
   <*> do
     src <- moduleIdentifier
     (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
-            <*> optional ((,) <$> (True <$ symbol "using"
-                                   <|> False <$ symbol "hiding")
-                          <*> impList src)
+            <*> optional (((Using  <$ symbol "using") <|>
+                           (Hiding <$ symbol "hiding"))  <*> impList src)
   <?> "import/export statement"
   where imp pop (mi, as, usingpExps) =
-          Import pop mi as (usingpExps ^. _Just._2)
-                 (maybe False fst usingpExps)
+          Import pop mi as (fromMaybe (Hiding []) usingpExps)
         impList src = explicit src `sepEndBy` semi <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
@@ -152,11 +172,12 @@ defaultPrivacyTODO = Public
 
 statement :: (MonadState s m, HasFixities s, TokenParsing m) =>
              m (Statement Text Text)
-statement = FixityDeclStmt <$> fixityDecl
+statement = FixityDeclStmt <$> (fixityDecl >>= installFixityDecl)
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
         <|> ClassStmt <$> undefined <*> undefined
         <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
         <|> uncurry (TermStmt defaultPrivacyTODO) <$> termStatement
+  where installFixityDecl fd = fd <$ (fixityDecls %= (fd:))
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
@@ -185,3 +206,72 @@ termStatement = do
   (name, headBody) <- termDeclClause termIdentifier
   many (termDeclClause (semi *> (name <$ symbol (unpack name))))
     <&> \tailBodies -> (name, headBody : map snd tailBodies)
+
+-- Module graph operations
+
+-- | Given rules for identifying nodes and their dependencies, and
+-- computing unique identifiers for each node, build up a dependency
+-- set from an initial set.  Circularities are allowed.
+fetchGraphM :: forall a k m. (Eq k, Hashable k, Monad m)
+            => (a -> [k])         -- ^ Dependencies.
+            -> (k -> a -> m a)    -- ^ Retrieve by identifier, requested by given node.
+            -> HashMap k a     -- ^ Start the search.
+            -> m (HashMap k a) -- ^ The final collection.
+fetchGraphM deps fetch = join go where
+  go :: HashMap k a -> HashMap k a -> m (HashMap k a)
+  go consider found = if HM.null consider then return found else do
+    consider' <- HM.foldl' (\a v -> do
+      c <- a
+      c' <- (HM.fromList (join (,) <$> deps v)
+                `HM.difference` c `HM.difference` found)
+             `forM` flip fetch v
+      return (c `HM.union` c')) (return HM.empty) consider
+    go consider' (found `HM.union` consider')
+
+-- | A not particularly special specialization of 'fetchGraphM',
+-- demonstrating its usage to recursively fetch dependency
+-- 'ModuleHead's, given an action that parses them.
+fetchModuleGraphM :: (HasModuleHead mh imp txt, HasImport imp, Monad m)
+                  => (ModuleName -> mh -> m mh)
+                     -- ^ A 'ModuleHead' requests a 'ModuleHead' by name.
+                  -> mh         -- ^ Initial 'ModuleHead'.
+                  -> m (HashMap ModuleName mh)
+fetchModuleGraphM retr mh =
+  fetchGraphM (^.. moduleHeadImports.folded.importModule)
+              retr
+              (HM.singleton (mh^.moduleHeadName) mh)
+
+-- | Group a dag into sets whose dependents are all to the right.
+--
+-- Invariant: Every element of the result is non-empty.
+topSort :: forall a k. (Eq k, Hashable k)
+        => HashMap k a       -- ^ The graph.
+        -> (a -> [k])           -- ^ Dependencies.
+        -> Either [k] [[(k, a)]]
+           -- ^ The final grouping, those with no dependencies first,
+           -- or the first detected cycle.
+topSort g deps = fmap extractTopo
+               . flip execStateT HM.empty
+               . HM.foldrWithKey (\k v -> (go k v mempty mempty >>))
+                                 (return ())
+               $ g
+  where go :: k -> a -> [k] -> HashSet k
+           -> StateT (HashMap k Int) (Either [k]) Int
+        go k a lk sk | HS.member k sk = lift (Left lk)
+                     | otherwise = gets (HM.lookup k) >>=
+          (flip maybe return $ do
+              let lk' = k:lk
+                  sk' = HS.insert k sk
+              subs <- deps a `for` \k' ->
+                go k' (g HM.! k') lk' sk'
+              let here = 1 + maximum (-1:subs)
+              modify (HM.insert k here)
+              return here)
+        extractTopo :: HashMap k Int -> [[(k, a)]]
+        extractTopo = fmap (fmap (\k -> (k, g HM.! k)) . snd)
+                    . M.toAscList . invertHM
+
+-- Invariant: every [k] is nonempty
+invertHM :: (Ord v) => HashMap k v -> M.Map v [k]
+invertHM = flip HM.foldrWithKey M.empty $ \k ->
+             M.alter (Just . maybe [k] (k:))
