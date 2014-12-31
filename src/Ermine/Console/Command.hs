@@ -230,7 +230,7 @@ pickImportPlan dep hm n fstMH = do
    $ topSort graph deps
   where deps :: ModuleHead Import a -> [ModuleName]
         deps = filter (\mn -> not (HM.member mn hm))
-             . (^.. moduleHeadImports.folded.importModule)
+             . toListOf (moduleHeadImports.folded.importModule)
         reportCircle circ = "Circular dependency detected: "
                          <> pretty (circ <&> pretty . unpack . (^.name))
 
