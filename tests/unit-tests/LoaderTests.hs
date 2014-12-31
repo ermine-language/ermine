@@ -1,4 +1,10 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+#ifndef MIN_VERSION_mtl
+#define MIN_VERSION_mtl(a,b,c) 1
+#endif
 module LoaderTests (main) where
 
 import Control.Lens
@@ -15,6 +21,18 @@ import Test.Framework.Providers.HUnit
 import Test.HUnit
 
 import ParserTests (stdLibDir)
+
+-- This module (containing the needed instance) was introduced in mtl
+-- 2.2.1, which is incompatible with transformers < 0.4
+#if MIN_VERSION_mtl(2,2,1)
+import Control.Monad.Except()
+#else
+import Control.Monad.Error (MonadError(..))
+
+instance Monad m => MonadError e (ExceptT e m) where
+  throwError = throwE
+  catchError = catchE
+#endif
 
 stdLibLoader :: Loader Freshness (ExceptT LoadRefusal IO) String Text
 stdLibLoader = contramapName pack $ filesystemLoader stdLibDir "e"

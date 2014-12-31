@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 --------------------------------------------------------------------
@@ -22,6 +23,7 @@ module Ermine.Loader.Filesystem
 import Control.Applicative
 import Control.Exception (handleJust)
 import Control.Lens hiding ((<.>))
+import Control.Monad.Error.Class
 import Control.Monad.State
 import Control.Monad.Trans.Except
 import Data.Data
@@ -46,23 +48,23 @@ import System.IO.Error.Lens (errorType, _NoSuchThing)
 -- Non-IO errors are reported as 'LoadRefusal'.  Use
 -- 'Ermine.Loader.Core.loaded' and 'withExceptT' to translate this to
 -- a monoidal type (e.g. '[]') for combination with other loaders.
-filesystemLoader :: MonadIO m =>
+filesystemLoader :: (MonadIO m, MonadError LoadRefusal m) =>
                     P.FilePath     -- ^ Filesystem root to start the search.
                     -> String      -- ^ File extension.
-                    -> Loader Freshness (ExceptT LoadRefusal m) Text Text
+                    -> Loader Freshness m Text Text
 filesystemLoader root ext =
   testBasedCacheLoader pathName
       (\pn -> trapNoSuchThing pn . TIO.readFile $ pn)
       (\pn -> liftM Freshness . trapNoSuchThing pn
               . getModificationTime $ pn)
       ((/=) `on` modTime)
-  where pathName = mapExceptT (return . runIdentity)
+  where pathName = either throwError return . runExcept
                    . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
-        trapNoSuchThing pn = ExceptT . liftIO
-                             . handleJust (^? errorType._NoSuchThing)
-                                          (const . return . Left . FileNotFound $ pn)
-                             . fmap Right
+        trapNoSuchThing pn = either throwError return <=< liftIO
+                           . handleJust (^? errorType._NoSuchThing)
+                                        (const . return . Left . FileNotFound $ pn)
+                           . fmap Right
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
