@@ -21,7 +21,7 @@ module Ermine.Loader.Filesystem
   ) where
 
 import Control.Applicative
-import Control.Exception (handleJust)
+import Control.Exception (tryJust)
 import Control.Lens hiding ((<.>))
 import Control.Monad.Error.Class
 import Control.Monad.State
@@ -58,13 +58,15 @@ filesystemLoader root ext =
       (\pn -> liftM Freshness . trapNoSuchThing pn
               . getModificationTime $ pn)
       ((/=) `on` modTime)
-  where pathName = either throwError return . runExcept
+  where pathName = hoistEither . runExcept
                    . fmap (\n -> root </> n <.> ext)
                    . moduleFileName
-        trapNoSuchThing pn = either throwError return <=< liftIO
-                           . handleJust (^? errorType._NoSuchThing)
-                                        (const . return . Left . FileNotFound $ pn)
-                           . fmap Right
+        trapNoSuchThing pn = hoistEither <=< liftIO
+                           . (lifted._Left .~ FileNotFound pn)
+                           . tryJust (^? errorType._NoSuchThing)
+
+hoistEither :: MonadError e m => Either e a -> m a
+hoistEither = either throwError return
 
 -- | A recoverable load error that shouldn't prevent alternative
 -- loaders from being tried for a given module.
