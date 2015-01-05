@@ -202,8 +202,7 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
           impss <- pickImportPlan dep already n
                  . strength $ (e, mh)
           impss `forM_` importSet
-          nowThen <- get
-          return $ nowThen HM.! n
+          gets (HM.! n)
 
 parseModule :: (MonadError Doc m,
                 MonadState (HashMap ModuleName (e, Module)) m)
@@ -229,8 +228,8 @@ pickImportPlan :: MonadError Doc m
                -> m [[ModuleHead Import txt]]
 pickImportPlan dep hm n fstMH = do
   graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
-  either (throwError . reportCircle) (return . fmap (fmap snd))
-   $ topSort graph deps
+  topSort graph deps &
+    either (throwError . reportCircle) (return . fmap (fmap snd))
   where deps :: ModuleHead Import a -> [ModuleName]
         deps = filter (\mn -> not (HM.member mn hm))
              . toListOf (moduleHeadImports.folded.importModule)
