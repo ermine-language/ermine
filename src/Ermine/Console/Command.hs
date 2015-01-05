@@ -29,10 +29,10 @@ import Bound.Var (unvar)
 import Control.Applicative
 import Control.Lens
 import Control.Monad (liftM, (<=<))
+import Control.Monad.Error.Class
 import Control.Monad.IO.Class
-import Control.Monad.State (StateT(..), evalStateT, get, put)
-import Control.Monad.Trans (lift)
-import Control.Monad.Trans.Except
+import Control.Monad.State (StateT(..), evalStateT)
+import Control.Monad.State.Class
 import Data.Bifunctor
 import Data.Bitraversable
 import Data.Char
@@ -64,7 +64,7 @@ import Ermine.Inference.Kind as Kind
 import Ermine.Inference.Type as Type
 import Ermine.Interpreter as Interp
 import Ermine.Core.Compiler
-import Ermine.Loader.Core (Loader, fanoutIdLoaderM, load, loaded,
+import Ermine.Loader.Core (Loader, fanoutIdLoaderM, load,
                            thenM, thenM')
 import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
 import Ermine.Loader.MapCache (cacheLoad)
@@ -176,35 +176,33 @@ parsingS p k args s = StateT $ \st ->
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
 
-parseModule :: forall e m. Monad m
+parseModule :: forall e m. (MonadError Doc m,
+                            MonadState (HashMap ModuleName (e, Module)) m)
             => Loader e m ModuleName Text
             -> ModuleName
-            -> StateT (HashMap ModuleName (e, Module)) (ExceptT Doc m) Module
+            -> m Module
 parseModule l = \a -> get >>= flip (cacheLoad lm) a
-  where lemh :: Loader e (ExceptT Doc m) ModuleName (ModuleHead Import Text)
-        lemh = loaded lift l `thenM` parseModuleHead
-        dep :: ModuleName -> ExceptT Doc m (ModuleHead Import (e, Text))
+  where lemh :: Loader e m ModuleName (ModuleHead Import Text)
+        lemh = l `thenM` parseModuleHead
+        dep :: ModuleName -> m (ModuleHead Import (e, Text))
         dep = liftM strength . (lemh^.load)
-        importSet :: [ModuleHead Import (e, Text)]
-                  -> StateT (HashMap ModuleName (e, Module))
-                            (ExceptT Doc m) ()
+        importSet :: [ModuleHead Import (e, Text)] -> m ()
         importSet mhs = do
           preceding <- get
           -- Here we finally use the invariant of 'pickImportPlan':
           -- the 'Module's referenced by 'Import's *must* already be
           -- in the state.
           let precImp i = (i, snd $ preceding HM.! (i^.importModule))
-          emods <- lift $ mhs `forM` \mh ->
+          emods <- mhs `forM` \mh ->
               (mh^.moduleHeadText._1,)
               `liftM` parseModuleRemainder (bimap precImp snd mh)
           put (foldl' (\hm em@(_, md) -> HM.insert (md^.moduleName) em hm)
                       preceding emods)
-        lm :: Loader e (StateT (HashMap ModuleName (e, Module))
-                               (ExceptT Doc m)) ModuleName Module
-        lm = loaded lift (fanoutIdLoaderM lemh)
+        lm :: Loader e m ModuleName Module
+        lm = fanoutIdLoaderM lemh
                `thenM'` (\(e, (n, mh)) -> do
                            already <- get
-                           impss <- lift . pickImportPlan dep already n
+                           impss <- pickImportPlan dep already n
                                   . strength $ (e, mh)
                            impss `forM_` importSet
                            nowThen <- get
@@ -217,16 +215,16 @@ parseModule l = \a -> get >>= flip (cacheLoad lm) a
 -- Invariant: For each element of the result, every 'Import'
 -- referenced by each 'ModuleHead' appears in a previous element of
 -- the result.
-pickImportPlan :: Monad m
-               => (ModuleName -> ExceptT Doc m (ModuleHead Import txt))
+pickImportPlan :: MonadError Doc m
+               => (ModuleName -> m (ModuleHead Import txt))
                   -- ^ load a module head by name
                -> HashMap ModuleName a -- ^ already-loaded Modules
                -> ModuleName           -- ^ initial module name
                -> ModuleHead Import txt -- ^ initial module head
-               -> ExceptT Doc m [[ModuleHead Import txt]]
+               -> m [[ModuleHead Import txt]]
 pickImportPlan dep hm n fstMH = do
   graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
-  either (throwE . reportCircle) (return . fmap (fmap snd))
+  either (throwError . reportCircle) (return . fmap (fmap snd))
    $ topSort graph deps
   where deps :: ModuleHead Import a -> [ModuleName]
         deps = filter (\mn -> not (HM.member mn hm))
@@ -238,21 +236,21 @@ pickImportPlan dep hm n fstMH = do
 strength :: Functor f => (a, f b) -> f (a, b)
 strength (a, fb) = (a,) <$> fb
 
-parseModuleHead :: Monad m => Text -> ExceptT Doc m (ModuleHead Import Text)
-parseModuleHead = asExcept . parseString (moduleHead <* eof) mempty . unpack
+parseModuleHead :: MonadError Doc m => Text -> m (ModuleHead Import Text)
+parseModuleHead = asMError . parseString (moduleHead <* eof) mempty . unpack
 
-parseModuleRemainder :: Monad m
+parseModuleRemainder :: MonadError Doc m
                      => ModuleHead (Import, Module) Text
-                     -> ExceptT Doc m Module
+                     -> m Module
 parseModuleRemainder mh =
   mh ^. moduleHeadText
     & unpack
     & parseString (wholeModule mh <* eof) mempty
-    & asExcept
+    & asMError
 
-asExcept :: Monad m => Result a -> ExceptT Doc m a
-asExcept (Success a) = return a
-asExcept (Failure doc) = throwE doc
+asMError :: MonadError Doc m => Result a -> m a
+asMError (Success a) = return a
+asMError (Failure doc) = throwError doc
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do
