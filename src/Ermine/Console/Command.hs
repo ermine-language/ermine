@@ -176,12 +176,11 @@ parsingS p k args s = StateT $ \st ->
       Success (a, st') -> k args a <&> (,st')
       Failure doc      -> sayLn doc <&> (,st)
 
-parseModule :: forall e m. (MonadError Doc m,
-                            MonadState (HashMap ModuleName (e, Module)) m)
-            => Loader e m ModuleName Text
-            -> ModuleName
-            -> m Module
-parseModule l = \a -> get >>= flip (cacheLoad lm) a
+moduleLoader :: forall e m. (MonadError Doc m,
+                             MonadState (HashMap ModuleName (e, Module)) m)
+             => Loader e m ModuleName Text
+             -> Loader e m ModuleName Module
+moduleLoader l = lm
   where lemh :: Loader e m ModuleName (ModuleHead Import Text)
         lemh = l `thenM` parseModuleHead
         dep :: ModuleName -> m (ModuleHead Import (e, Text))
@@ -207,6 +206,14 @@ parseModule l = \a -> get >>= flip (cacheLoad lm) a
                           impss `forM_` importSet
                           nowThen <- get
                           return $ nowThen HM.! n
+
+parseModule :: (MonadError Doc m,
+                MonadState (HashMap ModuleName (e, Module)) m)
+            => Loader e m ModuleName Text
+            -> ModuleName
+            -> m Module
+parseModule l = let lm = moduleLoader l
+                in \a -> get >>= flip (cacheLoad lm) a
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
