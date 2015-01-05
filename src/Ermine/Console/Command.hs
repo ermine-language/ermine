@@ -200,13 +200,13 @@ parseModule l = \a -> get >>= flip (cacheLoad lm) a
                       preceding emods)
         lm :: Loader e m ModuleName Module
         lm = fanoutIdLoaderM lemh
-               `thenM'` (\(e, (n, mh)) -> do
-                           already <- get
-                           impss <- pickImportPlan dep already n
-                                  . strength $ (e, mh)
-                           impss `forM_` importSet
-                           nowThen <- get
-                           return $ nowThen HM.! n)
+               `thenM'` \(e, (n, mh)) -> do
+                          already <- get
+                          impss <- pickImportPlan dep already n
+                                 . strength $ (e, mh)
+                          impss `forM_` importSet
+                          nowThen <- get
+                          return $ nowThen HM.! n
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
