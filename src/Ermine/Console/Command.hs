@@ -180,7 +180,7 @@ moduleLoader :: forall e m. (MonadError Doc m,
                              MonadState (HashMap ModuleName (e, Module)) m)
              => Loader e m ModuleName Text
              -> Loader e m ModuleName Module
-moduleLoader l = lm
+moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
   where lemh :: Loader e m ModuleName (ModuleHead Import Text)
         lemh = l `thenM` parseModuleHead
         dep :: ModuleName -> m (ModuleHead Import (e, Text))
@@ -197,15 +197,13 @@ moduleLoader l = lm
               `liftM` parseModuleRemainder (bimap precImp snd mh)
           put (foldl' (\hm em@(_, md) -> HM.insert (md^.moduleName) em hm)
                       preceding emods)
-        lm :: Loader e m ModuleName Module
-        lm = fanoutIdLoaderM lemh
-               `thenM'` \(e, (n, mh)) -> do
-                          already <- get
-                          impss <- pickImportPlan dep already n
-                                 . strength $ (e, mh)
-                          impss `forM_` importSet
-                          nowThen <- get
-                          return $ nowThen HM.! n
+        afterModuleHead (e, (n, mh)) = do
+          already <- get
+          impss <- pickImportPlan dep already n
+                 . strength $ (e, mh)
+          impss `forM_` importSet
+          nowThen <- get
+          return $ nowThen HM.! n
 
 parseModule :: (MonadError Doc m,
                 MonadState (HashMap ModuleName (e, Module)) m)
