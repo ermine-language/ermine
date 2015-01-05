@@ -69,10 +69,21 @@ moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
              <?> "module header"
 
 -- | Declare initial fixities based on imports.
-importedFixities :: [(Import, Module)] -> [FixityDecl]
+importedFixities :: forall mod. HasFixities mod
+                 => [(Import, mod)] -> [FixityDecl]
 importedFixities imps = imps >>= uncurry f where
-  f :: Import -> Module -> [FixityDecl]
-  f (Import _ mn as scop) m = undefined
+  f :: Import -> mod -> [FixityDecl]
+  f imp mod = mod^.fixityDecls
+               & case imp^.importScope of
+                   Using [] -> const []
+                   Hiding [] -> id
+                   Using names -> chooseNames id names
+                   Hiding names -> chooseNames not names
+               & maybe id renameNames (imp^.importAs)
+  chooseNames p names =
+    mapped.fixityDeclNames %~ filter (p . undefined names)
+  renameNames suffix =
+    mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
 
 imports :: (Monad m, TokenParsing m) => m [Import]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
