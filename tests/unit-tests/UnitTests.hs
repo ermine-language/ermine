@@ -8,13 +8,14 @@ import Test.HUnit
 
 import TestDef
 import qualified LoaderTests
-import ParserTests
+import qualified ParserTests
 
 main :: IO ()
 main = do
   g <- fileBasedTestGroup
   defaultMain
     [ g
+    , ParserTests.main
     , LoaderTests.main
     ]
 
@@ -25,5 +26,5 @@ fileBasedTestGroup = do
 
 -- add more tesst here!
 fileBasedTests :: [TestDef]
-fileBasedTests = [ermineParserTests]
+fileBasedTests = [ParserTests.ermineParserTests]
 
