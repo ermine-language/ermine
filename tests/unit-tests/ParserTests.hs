@@ -6,6 +6,7 @@ module ParserTests
 
 import Control.Applicative
 import Control.Monad
+import Data.Functor.Identity
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import Data.Traversable
@@ -26,7 +27,7 @@ someGraph = HM.fromList
   ,("Control.Apply", ["Prelude"])
   ,("Control.Applicative", ["Prelude", "Data.Functor", "Control.Apply"])
   ,("Control.Bind", ["Control.Apply", "Prelude"])
-  ,("Control.Monad", ["Data.Functor", "Control.Bind", "Prelude"])
+  ,("Control.Monad", ["Control.Applicative", "Control.Bind", "Prelude"])
   ]
 
 -- How someGraph should load.
@@ -37,7 +38,12 @@ canonicalSGLoad = HS.fromList <$>
   ,["Control.Applicative", "Control.Bind"]
   ,["Control.Monad"]]
 
-fetchGraphHMIdentity = assertEqual "" () () -- TODO
+fetchGraphHMIdentity =
+  assertEqual "fetchGraph traverses a dependency map"
+              (HS.fromList . HM.keys $ someGraph)
+    . HS.fromList . HM.keys . runIdentity $
+    fetchGraphM (someGraph HM.!) (const . return)
+                (join HM.singleton "Control.Monad")
 
 topSortSomeGraph =
   assertEqual "found canonical sort" (Right canonicalSGLoad) $
