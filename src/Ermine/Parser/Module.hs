@@ -43,6 +43,7 @@ import Ermine.Parser.Type (Ann, annotation)
 import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
+import Ermine.Syntax.Name
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Char
 import Text.Parser.Combinators
@@ -77,11 +78,18 @@ importedFixities imps = imps >>= uncurry f where
                & case imp^.importScope of
                    Using [] -> const []
                    Hiding [] -> id
-                   Using names -> chooseNames id names
-                   Hiding names -> chooseNames not names
+                   Using names -> chooseNames names
+                   Hiding names -> dropNames names
                & maybe id renameNames (imp^.importAs)
-  chooseNames p names =
-    mapped.fixityDeclNames %~ filter (p . undefined names)
+  chooseNames, dropNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
+  chooseNames names =
+    let nameIndex = HM.fromList . fmap explicitName $ names
+    in mapped.fixityDeclNames %~ catMaybes . fmap (`HM.lookup` nameIndex)
+  explicitName ex = let gn = ex^.explicitGlobal.name
+                    in (gn, ex^.explicitLocal & maybe gn pack)
+  dropNames names =
+    let nameIndex = HS.fromList . fmap (^.explicitGlobal.name) $ names
+    in mapped.fixityDeclNames %~ filter (not . (`HS.member` nameIndex))
   renameNames suffix =
     mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
 
