@@ -74,7 +74,7 @@ importedFixities :: forall mod. HasFixities mod
                  => [(Import, mod)] -> [FixityDecl]
 importedFixities imps = imps >>= uncurry f where
   f :: Import -> mod -> [FixityDecl]
-  f imp mod = mod^.fixityDecls
+  f imp md = md^.fixityDecls
                & case imp^.importScope of
                    Using [] -> const []
                    Hiding [] -> id
@@ -120,13 +120,13 @@ moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 explicit :: (Monad m, TokenParsing m) => ModuleName -> m Explicit
 explicit fromModule = do
   isTy <- option False (True <$ symbol "type")
-  let name = operator <|> (if isTy then ident typeCon
-                           else (ident termCon <|> termIdentifier))
+  let nam = operator <|> (if isTy then ident typeCon
+                          else (ident termCon <|> termIdentifier))
   flip Explicit isTy
-    <$> (name >>= undefined fromModule)
+    <$> (nam >>= undefined fromModule)
     -- TODO ↑ look up Global conversion in fromModule parsestate
     -- TODO ↓ check 'as' name's fixity
-    <*> optional (symbol "as" *> (unpack <$> name))
+    <*> optional (symbol "as" *> (unpack <$> nam))
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
@@ -155,12 +155,12 @@ assembleBindings types terms = do
     insertGuarded k _ m | M.member k m = fail   $ "multiple bindings with names(s): " ++ show k
     insertGuarded k a m | otherwise    = return $ M.insert k a m
     assembleBindings' types terms = foldM f [] (M.toList terms) where
-      f acc (name, (p, ts)) = do
-        x <- maybe (binding Term.Implicit) g $ M.lookup name types
+      f acc (nam, (p, ts)) = do
+        x <- maybe (binding Term.Implicit) g $ M.lookup nam types
         return $ x : acc where
         g (p', ann) | p == p'   = binding (Term.Explicit ann)
-        g _         | otherwise = fail $ "found conflicting privacies for: " ++ show name
-        binding bt = return (p, finalizeBinding [name] $ PreBinding mempty bt ts)
+        g _         | otherwise = fail $ "found conflicting privacies for: " ++ show nam
+        binding bt = return (p, finalizeBinding [nam] $ PreBinding mempty bt ts)
 
 -- | A shim to prove the decomposition of 'assembleBindings'.
 -- Supposing I have an initial value, a step of either type or term,
@@ -222,9 +222,9 @@ sigs = (,) <$> try (termIdentifier `sepBy` comma <* colon)
 
 termStatement :: (MonadState s m, HasFixities s, TokenParsing m) => m (Text, [PreBody Ann Text])
 termStatement = do
-  (name, headBody) <- termDeclClause termIdentifier
-  many (termDeclClause (semi *> (name <$ symbol (unpack name))))
-    <&> \tailBodies -> (name, headBody : map snd tailBodies)
+  (nam, headBody) <- termDeclClause termIdentifier
+  many (termDeclClause (semi *> (nam <$ symbol (unpack nam))))
+    <&> \tailBodies -> (nam, headBody : map snd tailBodies)
 
 -- Module graph operations
 
