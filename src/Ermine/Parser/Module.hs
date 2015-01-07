@@ -78,20 +78,25 @@ importedFixities imps = imps >>= uncurry f where
                & case imp^.importScope of
                    Using [] -> const []
                    Hiding [] -> id
-                   Using names -> chooseNames names
+                   Using names -> useNames names
                    Hiding names -> dropNames names
                & maybe id renameNames (imp^.importAs)
-  chooseNames, dropNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
-  chooseNames names =
-    let nameIndex = HM.fromList . fmap explicitName $ names
-    in mapped.fixityDeclNames %~ catMaybes . fmap (`HM.lookup` nameIndex)
-  explicitName ex = let gn = ex^.explicitGlobal.name
-                    in (gn, ex^.explicitLocal & maybe gn pack)
-  dropNames names =
-    let nameIndex = HS.fromList . fmap (^.explicitGlobal.name) $ names
-    in mapped.fixityDeclNames %~ filter (not . (`HS.member` nameIndex))
-  renameNames suffix =
-    mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
+
+useNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
+useNames names =
+  mapped.fixityDeclNames %~ catMaybes . fmap (`HM.lookup` nameIndex)
+  where nameIndex = HM.fromList . fmap explicitName $ names
+        explicitName ex = let gn = ex^.explicitGlobal.name
+                          in (gn, ex^.explicitLocal & maybe gn pack)
+
+dropNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
+dropNames names =
+  mapped.fixityDeclNames %~ filter (not . (`HS.member` nameIndex))
+  where nameIndex = HS.fromList . fmap (^.explicitGlobal.name) $ names
+
+renameNames :: String -> [FixityDecl] -> [FixityDecl]
+renameNames suffix =
+  mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
 
 imports :: (Monad m, TokenParsing m) => m [Import]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
@@ -148,39 +153,23 @@ assembleBindings :: (Monad m, TokenParsing m, Ord a, Show a) =>
                     [(Privacy, [a], Ann)]             -- ^ types
                  -> [(Privacy, a, [PreBody Ann a])]   -- ^ terms
                  -> m [(Privacy, Term.Binding Ann a)] -- ^ bindings
-assembleBindings types terms = do
-  types' <- foldM (\m (p, ts, a) -> foldM (\acc t -> insertGuarded t (p, a) acc) m ts) M.empty types
+assembleBindings typs terms = do
+  typs' <- foldM (\m (p, ts, a) -> foldM (\acc t -> insertGuarded t (p, a) acc) m ts) M.empty typs
   terms' <- foldM (\m (privy, t, body) -> insertGuarded t (privy, body) m) M.empty terms
-  assembleBindings' types' terms' where
-    insertGuarded k _ m | M.member k m = fail   $ "multiple bindings with names(s): " ++ show k
-    insertGuarded k a m | otherwise    = return $ M.insert k a m
-    assembleBindings' types terms = foldM f [] (M.toList terms) where
-      f acc (nam, (p, ts)) = do
-        x <- maybe (binding Term.Implicit) g $ M.lookup nam types
-        return $ x : acc where
-        g (p', ann) | p == p'   = binding (Term.Explicit ann)
-        g _         | otherwise = fail $ "found conflicting privacies for: " ++ show nam
-        binding bt = return (p, finalizeBinding [nam] $ PreBinding mempty bt ts)
+  assembleBindings' typs' terms' where
+    insertGuarded k a m | M.member k m = fail   $ "multiple bindings with names(s): " ++ show k
+                        | otherwise    = return $ M.insert k a m
 
--- | A shim to prove the decomposition of 'assembleBindings'.
--- Supposing I have an initial value, a step of either type or term,
--- and a finalization to emit remaining terms and check for errors, I
--- can reproduce 'assembleBindings'.
-outOfOrderBindings :: Monad m =>
-                      x
-                      -> (Either (Privacy, [a], Ann) (Privacy, a, [PreBody Ann a])
-                          -> x
-                          -> m (Maybe (Privacy, Term.Binding Ann a), x))
-                      -> (x -> m [(Privacy, Term.Binding Ann a)])
-                      -> [(Privacy, [a], Ann)]
-                      -> [(Privacy, a, [PreBody Ann a])]
-                      -> m [(Privacy, Term.Binding Ann a)] -- ^ bindings
-outOfOrderBindings init step final types terms =
-  flip evalStateT init $ liftM2 (<>)
-         (liftM catMaybes
-          . mapM (StateT . step)
-          $ fmap Left types <> fmap Right terms)
-         (get >>= lift . final)
+assembleBindings' :: (Show k, Ord k, Monad m, Eq a) =>
+                     M.Map k (a, t)
+                  -> M.Map k (a, [PreBody t k])
+                  -> m [(a, Term.Binding t k)]
+assembleBindings' typs terms = foldM f [] (M.toList terms) where
+  f acc (nam, (p, ts)) =
+    (:acc) `liftM` maybe (binding Term.Implicit) g (M.lookup nam typs) where 
+    g (p', ann) | p == p'   = binding (Term.Explicit ann)
+                | otherwise = fail $ "found conflicting privacies for: " ++ show nam
+    binding bt = return (p, finalizeBinding [nam] $ PreBinding mempty bt ts)
 
 statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
