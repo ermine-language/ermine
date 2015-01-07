@@ -85,7 +85,7 @@ importedFixities imps = imps >>= uncurry f where
 useNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
 useNames names =
   mapped.fixityDeclNames %~ catMaybes . fmap (`HM.lookup` nameIndex)
-  where nameIndex = HM.fromList . fmap explicitName $ names
+  where nameIndex = HM.fromList (explicitName <$> names)
         explicitName ex = let gn = ex^.explicitGlobal.name
                           in (gn, ex^.explicitLocal & maybe gn pack)
 
