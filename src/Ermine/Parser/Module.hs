@@ -31,7 +31,7 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HS
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (for, forM)
@@ -84,7 +84,7 @@ importedFixities imps = imps >>= uncurry f where
 
 useNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
 useNames names =
-  mapped.fixityDeclNames %~ catMaybes . fmap (`HM.lookup` nameIndex)
+  mapped.fixityDeclNames %~ mapMaybe (`HM.lookup` nameIndex)
   where nameIndex = HM.fromList (explicitName <$> names)
         explicitName ex = let gn = ex^.explicitGlobal.name
                           in (gn, ex^.explicitLocal & maybe gn pack)
