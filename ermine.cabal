@@ -105,6 +105,7 @@ library
     Ermine.Builtin.Type
     Ermine.Console.Command
     Ermine.Console.Completion
+    Ermine.Console.Module
     Ermine.Console.Options
     Ermine.Console.State
     Ermine.Console.Unicode
