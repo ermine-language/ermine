@@ -67,7 +67,7 @@ import Ermine.Core.Compiler
 import Ermine.Loader.Core (Loader, fanoutIdLoaderM, load,
                            thenM, thenM')
 import Ermine.Loader.Filesystem (filesystemLoader, Freshness, LoadRefusal)
-import Ermine.Loader.MapCache (cacheLoad)
+import Ermine.Loader.MapCache (loadCached)
 import Ermine.Parser.Data
 import Ermine.Parser.Kind
 import Ermine.Parser.Module
@@ -203,14 +203,6 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
                  . strength $ (e, mh)
           impss `forM_` importSet
           gets (HM.! n)
-
-parseModule :: (MonadError Doc m,
-                MonadState (HashMap ModuleName (e, Module)) m)
-            => Loader e m ModuleName Text
-            -> ModuleName
-            -> m Module
-parseModule l = let lm = moduleLoader l
-                in \a -> get >>= flip (cacheLoad lm) a
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in

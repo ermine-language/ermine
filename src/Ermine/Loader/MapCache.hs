@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014
@@ -11,10 +12,11 @@
 
 module Ermine.Loader.MapCache
   ( cacheLoad
+  , loadCached
   ) where
 
 import Control.Lens
-import Control.Monad
+import Control.Monad.State
 import Data.Hashable (Hashable)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HM
@@ -29,3 +31,8 @@ cacheLoad l m a = snd `liftM`
         (\eb@(e, _) ->
           fromMaybe eb `liftM` view reload l a e)
         (HM.lookup a m)
+
+-- | Load using cache embedded in the loader's effect.
+loadCached :: (Eq a, Hashable a, MonadState (HashMap a (e, b)) m)
+           => Loader e m a b -> a -> m b
+loadCached l a = get >>= flip (cacheLoad l) a
