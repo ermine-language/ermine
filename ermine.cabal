@@ -207,7 +207,7 @@ library
     haskeline                 >= 0.7.0.3,
     hyphenation               >= 0.4,
     lens                      >= 4.4,
-    mtl                       >= 2.1,
+    mtl                       >= 2.2.1,
     monad-st                  >= 0.2.3,
     optparse-applicative      >= 0.11,
     parsers                   >= 0.8,
@@ -220,8 +220,7 @@ library
     tagged                    >= 0.7,
     text                      >= 1.1,
     time                      >= 1.4,
-    transformers              >= 0.3,
-    transformers-compat       >= 0.3,
+    transformers              >= 0.4,
     trifecta                  >= 1.4.1,
     unordered-containers      >= 0.2.3,
     utf8-string               >= 0.3.7,
@@ -326,7 +325,6 @@ test-suite unit-tests
       test-framework-hunit,
       text,
       transformers,
-      transformers-compat,
       unordered-containers
 
 -- Verify properties with QuickCheck
