@@ -119,6 +119,7 @@ library
     Ermine.Inference.Kind
     Ermine.Inference.Type
     Ermine.Inference.Witness
+    Ermine.Instances
     Ermine.Interpreter
     Ermine.Loader.Core
     Ermine.Loader.Filesystem
