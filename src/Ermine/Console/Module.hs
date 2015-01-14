@@ -53,6 +53,8 @@ import Text.Trifecta.Result
 import Control.Monad.State hiding (forM, forM_)
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
 import Ermine.Instances
 
 -- | From a loader that loads the raw 'Text' of a module, produce a
@@ -104,6 +106,15 @@ instance MonadCatch e m => MonadCatch e (StateT s m) where
   type Catch (StateT s m) = StateT s (Catch m)
   catchError' ma f = StateT $ \s ->
     catchError' (runStateT ma s) (flip runStateT s . f)
+
+instance MonadCatch e m => MonadCatch e (MaybeT m) where
+  type Catch (MaybeT m) = MaybeT (Catch m)
+  catchError' ma f = mapMaybeT (flip catchError' (runMaybeT . f)) ma
+
+instance MonadCatch e m => MonadCatch e (ReaderT r m) where
+  type Catch (ReaderT r m) = ReaderT r (Catch m)
+  catchError' ma f = ReaderT $ \r ->
+    catchError' (runReaderT ma r) (flip runReaderT r . f)
 
 -- end s11 remove
 
