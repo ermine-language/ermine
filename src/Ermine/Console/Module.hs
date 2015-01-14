@@ -1,7 +1,12 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wall -fdefer-type-errors #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2014-2015
@@ -44,6 +49,12 @@ import Text.Parser.Combinators (eof)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
 
+-- TODO s11 remove
+import Control.Monad.State hiding (forM, forM_)
+import Control.Monad.Trans
+import Control.Monad.Trans.Except
+import Ermine.Instances
+
 -- | From a loader that loads the raw 'Text' of a module, produce a
 -- 'Module' loader using the cache in state.
 moduleLoader :: forall e m. (MonadError Doc m,
@@ -73,6 +84,29 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
                  . strength $ (e, mh)
           impss `forM_` importSet
           gets (HM.! n)
+
+-- TODO s11: remove
+elevateExcept :: (MonadTrans t, Monad m) =>
+                 (a -> b)
+              -> ExceptT b (t (ExceptT a m)) x
+              -> ExceptT b (t m) x
+elevateExcept f = mapExceptT _
+
+class (MonadError e m, Monad (Catch m)) => MonadCatch e m where
+  type Catch m :: * -> *
+  catchError' :: m a -> (e -> Catch m a) -> Catch m a
+
+instance Monad m => MonadCatch e (ExceptT e m) where
+  type Catch (ExceptT e m) = m
+  catchError' ma f = runExceptT ma >>= either f return
+
+instance MonadCatch e m => MonadCatch e (StateT s m) where
+  type Catch (StateT s m) = StateT s (Catch m)
+  catchError' ma f = StateT $ \s -> catchError' (runStateT ma) _
+
+-- end s11 remove
+
+-- testLoader :: ExceptT Doc m 
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
