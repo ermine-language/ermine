@@ -86,11 +86,11 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
           gets (HM.! n)
 
 -- TODO s11: remove
-elevateExcept :: (MonadTrans t, Monad m) =>
-                 (a -> b)
-              -> ExceptT b (t (ExceptT a m)) x
-              -> ExceptT b (t m) x
-elevateExcept f = mapExceptT _
+liftCatchEx :: (Monad m, MonadCatch a m) =>
+               (a -> b)
+            -> ExceptT b m x
+            -> ExceptT b (Catch m) x
+liftCatchEx f = mapExceptT (flip catchError' (return . Left . f))
 
 class (MonadError e m, Monad (Catch m)) => MonadCatch e m where
   type Catch m :: * -> *
@@ -102,7 +102,8 @@ instance Monad m => MonadCatch e (ExceptT e m) where
 
 instance MonadCatch e m => MonadCatch e (StateT s m) where
   type Catch (StateT s m) = StateT s (Catch m)
-  catchError' ma f = StateT $ \s -> catchError' (runStateT ma) _
+  catchError' ma f = StateT $ \s ->
+    catchError' (runStateT ma s) (flip runStateT s . f)
 
 -- end s11 remove
 
