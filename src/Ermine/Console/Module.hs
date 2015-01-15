@@ -56,6 +56,9 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
 import Ermine.Instances
+import Ermine.Loader.Filesystem
+import Ermine.Loader.MapCache
+import Ermine.Syntax.ModuleName
 
 -- | From a loader that loads the raw 'Text' of a module, produce a
 -- 'Module' loader using the cache in state.
@@ -118,7 +121,12 @@ instance MonadCatch e m => MonadCatch e (ReaderT r m) where
 
 -- end s11 remove
 
--- testLoader :: ExceptT Doc m 
+{-
+testLoader :: String -> ExceptT Doc IO Module
+testLoader =
+  let l = loadCached . moduleLoader $ filesystemLoader "stdlib" ".e"
+  in l . pack
+-}
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
