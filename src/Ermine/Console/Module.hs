@@ -120,8 +120,6 @@ instance MonadCatch e m => MonadCatch e (ReaderT r m) where
   catchError' ma f = ReaderT $ \r ->
     catchError' (runReaderT ma r) (flip runReaderT r . f)
 
--- end s11 remove
-
 testLoader :: String -> IO (Either Doc Module)
 testLoader =
   let l :: ModuleName
@@ -131,6 +129,8 @@ testLoader =
         . contramapName (view name)
         $ filesystemLoader "stdlib" ".e"
   in flip evalStateT mempty . runExceptT . l . mkModuleName_
+
+-- end s11 remove
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
