@@ -160,6 +160,10 @@ pickImportPlan dep hm n fstMH = do
 strength :: Functor f => (a, f b) -> f (a, b)
 strength (a, fb) = (a,) <$> fb
 
+-- TODO: Replace 'mempty' in parseModuleHead and parseModuleRemainder
+-- with an appropriate Delta reflecting the input file and (to-be)
+-- saved value in the ModuleHead, respectively.
+
 parseModuleHead :: MonadError Doc m => Text -> m (ModuleHead Import Text)
 parseModuleHead = asMError . parseString (moduleHead <* eof) mempty . unpack
 
