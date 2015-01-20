@@ -56,6 +56,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Reader
 import Ermine.Instances
+import Ermine.Loader.Core
 import Ermine.Loader.Filesystem
 import Ermine.Loader.MapCache
 import Ermine.Syntax.ModuleName
@@ -121,12 +122,15 @@ instance MonadCatch e m => MonadCatch e (ReaderT r m) where
 
 -- end s11 remove
 
-{-
-testLoader :: String -> ExceptT Doc IO Module
+testLoader :: String -> IO (Either Doc Module)
 testLoader =
-  let l = loadCached . moduleLoader $ filesystemLoader "stdlib" ".e"
-  in l . pack
--}
+  let l :: ModuleName
+        -> ExceptT Doc (StateT (HashMap ModuleName (Freshness, Module)) IO) Module
+      l = loadCached . moduleLoader
+        . loaded (withExceptT (pretty . unpack . explainLoadRefusal))
+        . contramapName (view name)
+        $ filesystemLoader "stdlib" ".e"
+  in flip evalStateT mempty . runExceptT . l . mkModuleName_
 
 -- | Make a plan to import dependencies, based on importing a single
 -- dependency.  Include all the module heads and remaining bodies in
