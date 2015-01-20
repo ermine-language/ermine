@@ -321,7 +321,6 @@ test-suite unit-tests
       filemanip             >= 0.3.6.2,
       filepath,
       lens,
-      mtl,
       HUnit,
       test-framework        >= 0.6,
       test-framework-hunit,
