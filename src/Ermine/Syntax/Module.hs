@@ -117,7 +117,7 @@ data Module = Module
   , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
   , _moduleClasses   :: Map Text (Class () Text)
   -- , _moduleInstances :: Map Head () 
-  } deriving (Typeable)
+  } deriving (Show, Typeable)
 
 makeClassy ''Module
 

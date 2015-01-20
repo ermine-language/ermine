@@ -188,6 +188,8 @@ library
     base                      >= 4,
     bifunctors                >= 4.1.1,
     binary                    >= 0.7.1,
+    -- TODO remove blaze-builder when trifecta >=1.5.2
+    blaze-markup              < 0.6.3,
     bound                     >= 1.0.3,
     bytes                     >= 0.11,
     bytestring                >= 0.10,
