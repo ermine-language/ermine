@@ -40,7 +40,7 @@ import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
-import Ermine.Syntax.Global (Fixity(..), Assoc(..))
+import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
@@ -82,14 +82,14 @@ importedFixities imps = imps >>= uncurry f where
                    Hiding names -> dropNames names
                & maybe id renameNames (imp^.importAs)
 
-useNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
+useNames :: [Explicit Global] -> [FixityDecl] -> [FixityDecl]
 useNames names =
   mapped.fixityDeclNames %~ mapMaybe (`HM.lookup` nameIndex)
   where nameIndex = HM.fromList (explicitName <$> names)
         explicitName ex = let gn = ex^.explicitGlobal.name
                           in (gn, ex^.explicitLocal & maybe gn pack)
 
-dropNames :: [Explicit] -> [FixityDecl] -> [FixityDecl]
+dropNames :: [Explicit Global] -> [FixityDecl] -> [FixityDecl]
 dropNames names =
   mapped.fixityDeclNames %~ filter (not . (`HS.member` nameIndex))
   where nameIndex = HS.fromList . fmap (^.explicitGlobal.name) $ names
@@ -122,7 +122,7 @@ moduleIdentifier = mkModuleName_ . intercalate "."
 moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
 moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 
-explicit :: (Monad m, TokenParsing m) => ModuleName -> m Explicit
+explicit :: (Monad m, TokenParsing m) => ModuleName -> m (Explicit Global)
 explicit fromModule = do
   isTy <- option False (True <$ symbol "type")
   let nam = operator <|> (if isTy then ident typeCon

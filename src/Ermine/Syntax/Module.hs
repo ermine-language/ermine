@@ -58,18 +58,18 @@ instance Serialize Privacy where
   get = deserialize
 
 -- | An explicitly-listed name in an import/export statement.
-data Explicit = Explicit
-  { _explicitGlobal :: Global       -- ^ the full original name
+data Explicit g = Explicit
+  { _explicitGlobal :: g            -- ^ the full original name
   , _explicitIsType :: Bool         -- ^ whether to import a type, not term
   , _explicitLocal  :: Maybe String -- ^ the 'as' renaming, if any
-  } deriving (Eq,Ord,Show,Read,Typeable)
+  } deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable)
 
 makeClassy ''Explicit
 
-data ImportsInScope =
-    Using  [Explicit]  -- ^ list of names requested to import
-  | Hiding [Explicit]  -- ^ list of names requested to hide (hiding [] == import everything)
-  deriving (Eq,Ord,Show,Read,Typeable)
+data ImportsInScope g =
+    Using  [Explicit g]  -- ^ list of names requested to import
+  | Hiding [Explicit g]  -- ^ list of names requested to hide (hiding [] == import everything)
+  deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable)
 
 makeClassyPrisms ''ImportsInScope
 
@@ -78,7 +78,7 @@ data Import = Import -- TODO: add a location
   { _importPrivacy   :: Privacy         -- ^ whether to reexport the symbols
   , _importModule    :: ModuleName      -- ^ what module to import
   , _importAs        :: Maybe String    -- ^ the 'as' qualifier suffix
-  , _importScope     :: ImportsInScope  -- ^ what imports are brought into scope
+  , _importScope     :: ImportsInScope Global  -- ^ what imports are brought into scope
   } deriving (Eq,Ord,Show,Read,Typeable)
 
 makeClassy ''Import
