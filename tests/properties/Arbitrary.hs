@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Arbitrary
-  ( Arbitrary1(..)
+  ( Arbitrary1(..), smaller
   ) where
 
 import Bound
