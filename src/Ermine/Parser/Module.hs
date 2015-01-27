@@ -43,14 +43,13 @@ import Ermine.Parser.Type (Ann, annotation)
 import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
-import Ermine.Syntax.Name
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
 
 -- | Parse the whole file, but only the module head.
-moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead Import Text)
+moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead (Import Text) Text)
 moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
 -- | Parse the rest of the file, incorporating the argument.
@@ -60,10 +59,12 @@ moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 -- 'Module'.  Modules can't import in cycles, so you should detect
 -- this when parsing 'Module's in an import graph from 'moduleHead's.
 wholeModule :: (MonadPlus m, TokenParsing m) =>
-               ModuleHead (Import, Module) a -> m Module
-wholeModule mh =
-  evalStateT statements (importedFixities $ mh^.moduleHeadImports)
-  >>= assembleModule (mh^.module_) (fst <$> mh^.moduleHeadImports)
+               ModuleHead (Import Text, Module) a -> m Module
+wholeModule mh = do
+  resImps <- mh^.moduleHeadImports & mapM (uncurry findGlobals)
+  stmts <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
+  -- TODO ↑ look up Global conversion in fromModule parsestate
+  assembleModule (mh^.module_) resImps stmts
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
@@ -71,9 +72,9 @@ moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
 
 -- | Declare initial fixities based on imports.
 importedFixities :: forall mod. HasFixities mod
-                 => [(Import, mod)] -> [FixityDecl]
+                 => [(Import Text, mod)] -> [FixityDecl]
 importedFixities imps = imps >>= uncurry f where
-  f :: Import -> mod -> [FixityDecl]
+  f :: Import Text -> mod -> [FixityDecl]
   f imp md = md^.fixityDecls
                & case imp^.importScope of
                    Using [] -> const []
@@ -82,26 +83,27 @@ importedFixities imps = imps >>= uncurry f where
                    Hiding names -> dropNames names
                & maybe id renameNames (imp^.importAs)
 
-useNames :: [Explicit Global] -> [FixityDecl] -> [FixityDecl]
+useNames :: [Explicit Text] -> [FixityDecl] -> [FixityDecl]
 useNames names =
   mapped.fixityDeclNames %~ mapMaybe (`HM.lookup` nameIndex)
   where nameIndex = HM.fromList (explicitName <$> names)
-        explicitName ex = let gn = ex^.explicitGlobal.name
+        -- TODO should this use the Global instead of Text?
+        explicitName ex = let gn = ex^.explicitGlobal
                           in (gn, ex^.explicitLocal & maybe gn pack)
 
-dropNames :: [Explicit Global] -> [FixityDecl] -> [FixityDecl]
+dropNames :: [Explicit Text] -> [FixityDecl] -> [FixityDecl]
 dropNames names =
   mapped.fixityDeclNames %~ filter (not . (`HS.member` nameIndex))
-  where nameIndex = HS.fromList . fmap (^.explicitGlobal.name) $ names
+  where nameIndex = HS.fromList . fmap (^.explicitGlobal) $ names
 
 renameNames :: String -> [FixityDecl] -> [FixityDecl]
 renameNames suffix =
   mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
 
-imports :: (Monad m, TokenParsing m) => m [Import]
+imports :: (Monad m, TokenParsing m) => m [Import Text]
 imports = importExportStatement `sepEndBy` semi <?> "import statements"
 
-importExportStatement :: (Monad m, TokenParsing m) => m Import
+importExportStatement :: (Monad m, TokenParsing m) => m (Import Text)
 importExportStatement =
   imp <$> (Private <$ symbol "import" <|> Public <$ symbol "export")
   <*> do
@@ -122,20 +124,25 @@ moduleIdentifier = mkModuleName_ . intercalate "."
 moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
 moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 
-explicit :: (Monad m, TokenParsing m) => ModuleName -> m (Explicit Global)
+explicit :: (Monad m, TokenParsing m) => ModuleName -> m (Explicit Text)
 explicit fromModule = do
   isTy <- option False (True <$ symbol "type")
   let nam = operator <|> (if isTy then ident typeCon
                           else (ident termCon <|> termIdentifier))
   flip Explicit isTy
     <$> (nam >>= undefined fromModule)
-    -- TODO ↑ look up Global conversion in fromModule parsestate
     -- TODO ↓ check 'as' name's fixity
     <*> optional (symbol "as" *> (unpack <$> nam))
 
+-- | Resolve the explicit imports/hidings in an 'Import', in
+-- accordance with the associated 'Module'.  Replace all 'Text' with
+-- 'Global', or fail if a name isn't found in the 'Module'.
+findGlobals :: Monad m => Import Text -> Module -> m (Import Global)
+findGlobals = undefined
+
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
-               -> [Import]
+               -> [Import Global]
                -> [Statement Text Text]
                -> m Module
 assembleModule nm im stmts =
@@ -239,7 +246,7 @@ fetchGraphM deps fetch = join go where
 -- | A not particularly special specialization of 'fetchGraphM',
 -- demonstrating its usage to recursively fetch dependency
 -- 'ModuleHead's, given an action that parses them.
-fetchModuleGraphM :: (HasModuleHead mh imp txt, HasImport imp, Monad m)
+fetchModuleGraphM :: (HasModuleHead mh imp txt, HasImport imp g, Monad m)
                   => (ModuleName -> mh -> m mh)
                      -- ^ A 'ModuleHead' requests a 'ModuleHead' by name.
                   -> mh         -- ^ Initial 'ModuleHead'.

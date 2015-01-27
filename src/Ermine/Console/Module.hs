@@ -51,11 +51,11 @@ moduleLoader :: forall e m. (MonadError Doc m,
              => Loader e m ModuleName Text
              -> Loader e m ModuleName Module
 moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
-  where lemh :: Loader e m ModuleName (ModuleHead Import Text)
+  where lemh :: Loader e m ModuleName (ModuleHead (Import Text) Text)
         lemh = l `thenM` parseModuleHead
-        dep :: ModuleName -> m (ModuleHead Import (e, Text))
+        dep :: ModuleName -> m (ModuleHead (Import Text) (e, Text))
         dep = liftM strength . (lemh^.load)
-        importSet :: [ModuleHead Import (e, Text)] -> m ()
+        importSet :: [ModuleHead (Import Text) (e, Text)] -> m ()
         importSet mhs = do
           preceding <- get
           -- Here we finally use the invariant of 'pickImportPlan':
@@ -82,17 +82,17 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
 -- referenced by each 'ModuleHead' appears in a previous element of
 -- the result.
 pickImportPlan :: MonadError Doc m
-               => (ModuleName -> m (ModuleHead Import txt))
+               => (ModuleName -> m (ModuleHead (Import g) txt))
                   -- ^ load a module head by name
                -> HashMap ModuleName a -- ^ already-loaded Modules
                -> ModuleName           -- ^ initial module name
-               -> ModuleHead Import txt -- ^ initial module head
-               -> m [[ModuleHead Import txt]]
+               -> ModuleHead (Import g) txt -- ^ initial module head
+               -> m [[ModuleHead (Import g) txt]]
 pickImportPlan dep hm n fstMH = do
   graph <- fetchGraphM deps (const . dep) (HM.singleton n fstMH)
   topSort graph deps &
     either (throwError . reportCircle) (return . fmap (fmap snd))
-  where deps :: ModuleHead Import a -> [ModuleName]
+  where deps :: ModuleHead (Import g) a -> [ModuleName]
         deps = filter (\mn -> not (HM.member mn hm))
              . toListOf (moduleHeadImports.folded.importModule)
         reportCircle circ = "Circular dependency detected: "
@@ -102,11 +102,11 @@ pickImportPlan dep hm n fstMH = do
 strength :: Functor f => (a, f b) -> f (a, b)
 strength (a, fb) = (a,) <$> fb
 
-parseModuleHead :: MonadError Doc m => Text -> m (ModuleHead Import Text)
+parseModuleHead :: MonadError Doc m => Text -> m (ModuleHead (Import Text) Text)
 parseModuleHead = asMError . parseString (moduleHead <* eof) mempty . unpack
 
 parseModuleRemainder :: MonadError Doc m
-                     => ModuleHead (Import, Module) Text
+                     => ModuleHead (Import Text, Module) Text
                      -> m Module
 parseModuleRemainder mh =
   mh ^. moduleHeadText

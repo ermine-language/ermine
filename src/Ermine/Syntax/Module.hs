@@ -74,12 +74,12 @@ data ImportsInScope g =
 makeClassyPrisms ''ImportsInScope
 
 -- | An import/export statement.
-data Import = Import -- TODO: add a location
+data Import g = Import -- TODO: add a location
   { _importPrivacy   :: Privacy         -- ^ whether to reexport the symbols
   , _importModule    :: ModuleName      -- ^ what module to import
   , _importAs        :: Maybe String    -- ^ the 'as' qualifier suffix
-  , _importScope     :: ImportsInScope Global  -- ^ what imports are brought into scope
-  } deriving (Eq,Ord,Show,Read,Typeable)
+  , _importScope     :: ImportsInScope g -- ^ what imports are brought into scope
+  } deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable)
 
 makeClassy ''Import
 
@@ -111,7 +111,7 @@ makeClassyPrisms ''Statement
 
 data Module = Module
   { _moduleName      :: ModuleName
-  , _moduleImports   :: [Import]
+  , _moduleImports   :: [Import Global]
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
   , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
