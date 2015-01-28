@@ -105,16 +105,14 @@ imports = importExportStatement `sepEndBy` semi <?> "import statements"
 
 importExportStatement :: (Monad m, TokenParsing m) => m (Import Text)
 importExportStatement =
-  imp <$> (Private <$ symbol "import" <|> Public <$ symbol "export")
-  <*> do
-    src <- moduleIdentifier
-    (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
-            <*> optional (((Using  <$ symbol "using") <|>
-                           (Hiding <$ symbol "hiding"))  <*> impList)
+  Import <$> (Private <$ symbol "import" <|> Public <$ symbol "export")
+         <*> moduleIdentifier
+         <*> optional (symbol "as" *> moduleIdentifierPart)
+         <*> (fromMaybe (Hiding [])
+              <$> optional (((Using  <$ symbol "using") <|>
+                             (Hiding <$ symbol "hiding")) <*> impList))
   <?> "import/export statement"
-  where imp pop (mi, as, usingpExps) =
-          Import pop mi as (fromMaybe (Hiding []) usingpExps)
-        impList = explicit `sepEndBy` semi <?> "explicit imports"
+  where impList = explicit `sepEndBy` semi <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
 moduleIdentifier = mkModuleName_ . intercalate "."
