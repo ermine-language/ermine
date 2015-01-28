@@ -348,6 +348,7 @@ test-suite properties
     Inference
     Loader
     Parser
+    Parser2
     Pattern
     Syntax
     Var
