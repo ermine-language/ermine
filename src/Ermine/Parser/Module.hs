@@ -110,11 +110,11 @@ importExportStatement =
     src <- moduleIdentifier
     (src,,) <$> optional (symbol "as" *> moduleIdentifierPart)
             <*> optional (((Using  <$ symbol "using") <|>
-                           (Hiding <$ symbol "hiding"))  <*> impList src)
+                           (Hiding <$ symbol "hiding"))  <*> impList)
   <?> "import/export statement"
   where imp pop (mi, as, usingpExps) =
           Import pop mi as (fromMaybe (Hiding []) usingpExps)
-        impList src = explicit src `sepEndBy` semi <?> "explicit imports"
+        impList = explicit `sepEndBy` semi <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
 moduleIdentifier = mkModuleName_ . intercalate "."
@@ -124,13 +124,13 @@ moduleIdentifier = mkModuleName_ . intercalate "."
 moduleIdentifierPart :: (Monad m, TokenParsing m) => m String
 moduleIdentifierPart = ident (termCon & styleName .~ "module name")
 
-explicit :: (Monad m, TokenParsing m) => ModuleName -> m (Explicit Text)
-explicit fromModule = do
+explicit :: (Monad m, TokenParsing m) => m (Explicit Text)
+explicit = do
   isTy <- option False (True <$ symbol "type")
   let nam = operator <|> (if isTy then ident typeCon
                           else (ident termCon <|> termIdentifier))
   flip Explicit isTy
-    <$> (nam >>= undefined fromModule)
+    <$> nam
     -- TODO ↓ check 'as' name's fixity
     <*> optional (symbol "as" *> (unpack <$> nam))
 
