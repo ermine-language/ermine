@@ -88,10 +88,9 @@ data Import g = Import -- TODO: add a location
 makeClassy ''Import
 
 -- | A type-changing alternative to the classy lenses.
-importExplicits :: Traversal (Import g) (Import h) (Explicit g) (Explicit h)
-importExplicits f (imp@Import {_importScope = sc}) =
-  importScopeExplicits (traverse f) sc
-  <&> \sc' -> imp {_importScope = sc'}
+importScope' :: Lens (Import g) (Import h) (ImportsInScope g) (ImportsInScope h)
+importScope' f (imp@Import {_importScope = sc}) =
+  f sc <&> \sc' -> imp {_importScope = sc'}
 
 -- | A fixity declaration statement.
 data FixityDecl = FixityDecl
