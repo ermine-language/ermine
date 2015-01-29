@@ -65,7 +65,6 @@ wholeModule mh = do
   resImps <- (mh^.moduleHeadImports) `forM` \(imp, md) ->
     (importScope'.importScopeExplicits.traverse.findGlobals) md imp
   stmts <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
-  -- TODO ↑ look up Global conversion in fromModule parsestate
   assembleModule (mh^.module_) resImps stmts
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
