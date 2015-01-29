@@ -64,14 +64,17 @@ injectCycle g = do
   return $ foldl (flip addDep) g cycl
 
 isGraphHMIdentity :: (Int, ModuleGraph) -> Bool
-isGraphHMIdentity (root, g) = trace (show g) (a == b) where
+isGraphHMIdentity (root, g) = a == b where
 	g' = fmap HS.toList g
 	a  = HS.fromList $ HM.keys g
 	b  = HS.fromList . HM.keys . runIdentity $
 	  	 fetchGraphM (g' HM.!) (const . return) (join HM.singleton root)
 
 topSortFindsCycle :: ModuleGraph -> Bool
-topSortFindsCycle g = isLeft $ fmap (HS.fromList . fmap fst) <$>
+topSortFindsCycle g = isLeft $ runTopSort g
+
+--runTopSort :: ModuleGraph -> Either [Int] [[(Int, HS.HashSet Int)]]
+runTopSort g = fmap (HS.fromList . fmap fst) <$>
   topSort (HM.fromList . fmap (join (,)) . HM.keys $ g) (g' HM.!) 
   where g' = fmap HS.toList g
 
@@ -88,11 +91,17 @@ prop_isGraphHMIdentity_definitely_cyclic = forAll cyclic  isGraphHMIdentity
 -- but then topSort detects and fails on a circle for the same data
 prop_topSort_detects_cycles :: Property
 prop_topSort_detects_cycles = 
-  forAll cyclic (\(i, g) -> isGraphHMIdentity (i,g) && topSortFindsCycle g)
+  forAll cyclic  (\(i, g) -> isGraphHMIdentity (i,g) && topSortFindsCycle g)
 
 prop_topSort_detects_no_cycles :: Property
 prop_topSort_detects_no_cycles = 
   forAll acyclic (\(i, g) -> isGraphHMIdentity (i,g) && not (topSortFindsCycle g))
+
+-- Invariant: Every element of the result is non-empty.
+prop_topSort_elements_nonEmpty :: Property
+prop_topSort_elements_nonEmpty = forAll 
+  (suchThat possiblyCyclic (\(_,g) -> not $ topSortFindsCycle g)) 
+  (\(i, g) -> either (const False) (all (not . HS.null)) (runTopSort g))
 
 prop_fetchGraphM_nodeps_is_identity =
   let fgm = runIdentity . fetchGraphM (const []) undefined in
