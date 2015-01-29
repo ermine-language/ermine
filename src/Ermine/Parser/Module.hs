@@ -23,7 +23,7 @@ module Ermine.Parser.Module
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.State hiding (forM, mapM)
+import Control.Monad.State hiding (forM)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -34,7 +34,7 @@ import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
-import Data.Traversable (for, forM, mapM)
+import Data.Traversable (for, forM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -44,7 +44,6 @@ import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
-import Prelude hiding (mapM)
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -138,9 +137,13 @@ explicit = do
 -- 'Global', or fail if a name isn't found in the 'Module'.
 findGlobals :: Monad m => Module -> Explicit Text -> m (Explicit Global)
 findGlobals md =
-  let termNames = undefined
-      typeNames = undefined
-  in mapM $ \txt -> fail "TODO can't find globals yet"
+  -- TODO: derive these maps from md
+  let termNms = undefined md :: HashMap Text Global
+      typeNms = undefined md :: HashMap Text Global
+  in \expl -> expl `forM` \txt ->
+    HM.lookup txt (if (expl^.explicitIsType) then typeNms else termNms)
+    -- TODO better error message
+    & maybe (fail $ "Missing name " <> unpack txt) return
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
