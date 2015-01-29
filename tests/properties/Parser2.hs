@@ -70,6 +70,11 @@ isGraphHMIdentity (root, g) = trace (show g) (a == b) where
 	b  = HS.fromList . HM.keys . runIdentity $
 	  	 fetchGraphM (g' HM.!) (const . return) (join HM.singleton root)
 
+topSortFindsCycle :: ModuleGraph -> Bool
+topSortFindsCycle g = isLeft $ fmap (HS.fromList . fmap fst) <$>
+  topSort (HM.fromList . fmap (join (,)) . HM.keys $ g) (g' HM.!) 
+  where g' = fmap HS.toList g
+
 prop_isGraphHMIdentity_possibly_cyclic   :: Property
 prop_isGraphHMIdentity_possibly_cyclic   = forAll possiblyCyclic isGraphHMIdentity
 
@@ -79,20 +84,15 @@ prop_isGraphHMIdentity_impossibly_cyclic = forAll acyclic isGraphHMIdentity
 prop_isGraphHMIdentity_definitely_cyclic :: Property
 prop_isGraphHMIdentity_definitely_cyclic = forAll cyclic  isGraphHMIdentity
 
-hasCycle :: ModuleGraph -> Bool
-hasCycle g = isLeft $ fmap (HS.fromList . fmap fst) <$>
-  topSort (HM.fromList . fmap (join (,)) . HM.keys $ g) (g' HM.!) 
-  where g' = fmap HS.toList g
-
 -- Test that fetchGraphM is fine with circular deps, 
 -- but then topSort detects and fails on a circle for the same data
 prop_topSort_detects_cycles :: Property
 prop_topSort_detects_cycles = 
-  forAll cyclic (\(i, g) -> isGraphHMIdentity (i,g) && hasCycle g)
+  forAll cyclic (\(i, g) -> isGraphHMIdentity (i,g) && topSortFindsCycle g)
 
 prop_topSort_detects_no_cycles :: Property
 prop_topSort_detects_no_cycles = 
-  forAll acyclic (\(i, g) -> isGraphHMIdentity (i,g) && not (hasCycle g))
+  forAll acyclic (\(i, g) -> isGraphHMIdentity (i,g) && not (topSortFindsCycle g))
 
 prop_fetchGraphM_nodeps_is_identity =
   let fgm = runIdentity . fetchGraphM (const []) undefined in
