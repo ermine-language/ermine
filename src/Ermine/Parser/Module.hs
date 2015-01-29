@@ -23,7 +23,7 @@ module Ermine.Parser.Module
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad.State hiding (forM)
+import Control.Monad.State hiding (forM, mapM)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -34,7 +34,7 @@ import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mempty)
 import Data.Text (Text, pack, unpack)
-import Data.Traversable (for, forM)
+import Data.Traversable (for, forM, mapM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
@@ -44,6 +44,7 @@ import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
+import Prelude hiding (mapM)
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Parser.Token
@@ -61,7 +62,8 @@ moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 wholeModule :: (MonadPlus m, TokenParsing m) =>
                ModuleHead (Import Text, Module) a -> m Module
 wholeModule mh = do
-  resImps <- mh^.moduleHeadImports & mapM (uncurry findGlobals)
+  resImps <- (mh^.moduleHeadImports) `forM` \(imp, md) ->
+    importExplicits (findGlobals md) imp
   stmts <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
   -- TODO ↑ look up Global conversion in fromModule parsestate
   assembleModule (mh^.module_) resImps stmts
@@ -135,8 +137,11 @@ explicit = do
 -- | Resolve the explicit imports/hidings in an 'Import', in
 -- accordance with the associated 'Module'.  Replace all 'Text' with
 -- 'Global', or fail if a name isn't found in the 'Module'.
-findGlobals :: Monad m => Import Text -> Module -> m (Import Global)
-findGlobals = undefined
+findGlobals :: Monad m => Module -> Explicit Text -> m (Explicit Global)
+findGlobals md =
+  let termNames = undefined
+      typeNames = undefined
+  in mapM $ \txt -> fail "TODO can't find globals yet"
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName

@@ -73,6 +73,10 @@ data ImportsInScope g =
 
 makeClassyPrisms ''ImportsInScope
 
+importScopeExplicits :: Lens (ImportsInScope g) (ImportsInScope h) [Explicit g] [Explicit h]
+importScopeExplicits f (Using ex) = Using <$> f ex
+importScopeExplicits f (Hiding ex) = Hiding <$> f ex
+
 -- | An import/export statement.
 data Import g = Import -- TODO: add a location
   { _importPrivacy   :: Privacy         -- ^ whether to reexport the symbols
@@ -82,6 +86,12 @@ data Import g = Import -- TODO: add a location
   } deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable)
 
 makeClassy ''Import
+
+-- | A type-changing alternative to the classy lenses.
+importExplicits :: Traversal (Import g) (Import h) (Explicit g) (Explicit h)
+importExplicits f (imp@Import {_importScope = sc}) =
+  importScopeExplicits (traverse f) sc
+  <&> \sc' -> imp {_importScope = sc'}
 
 -- | A fixity declaration statement.
 data FixityDecl = FixityDecl
