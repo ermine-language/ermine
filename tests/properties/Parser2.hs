@@ -103,6 +103,14 @@ prop_topSort_elements_nonEmpty = forAll
   (suchThat possiblyCyclic (\(_,g) -> not $ topSortFindsCycle g)) 
   (\(i, g) -> either (const False) (all (not . HS.null)) (runTopSort g))
 
+-- topSort never places values before or beside their dependencies
+prop_topSort_correctly_orders_result :: Property
+prop_topSort_correctly_orders_result = forAll 
+  (suchThat possiblyCyclic (\(_,g) -> not $ topSortFindsCycle g)) 
+  (\(i, g) -> either (const False) (f . reverse) (runTopSort g)) where
+    f = fst . foldl h (True, HS.empty) where
+      h (b, acc) next = (b && HS.null (HS.intersection next acc), HS.union acc next)
+
 prop_fetchGraphM_nodeps_is_identity =
   let fgm = runIdentity . fetchGraphM (const []) undefined in
   \g -> fgm g == (g :: HM.HashMap Int Int)
