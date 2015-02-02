@@ -4,6 +4,7 @@ module Parser2 (tests) where
 import Arbitrary
 import Control.Applicative
 import Control.Lens hiding (elements)
+--import Control.Monad.Trans.Either
 import Control.Monad
 import Data.Bifunctor
 import Data.Char
@@ -73,7 +74,7 @@ isGraphHMIdentity (root, g) = a == b where
 topSortFindsCycle :: ModuleGraph -> Bool
 topSortFindsCycle g = isLeft $ runTopSort g
 
---runTopSort :: ModuleGraph -> Either [Int] [[(Int, HS.HashSet Int)]]
+runTopSort :: ModuleGraph -> Either [Int] [HS.HashSet Int]
 runTopSort g = fmap (HS.fromList . fmap fst) <$>
   topSort (HM.fromList . fmap (join (,)) . HM.keys $ g) (g' HM.!) 
   where g' = fmap HS.toList g
@@ -100,16 +101,23 @@ prop_topSort_detects_no_cycles =
 -- Invariant: Every element of the result is non-empty.
 prop_topSort_elements_nonEmpty :: Property
 prop_topSort_elements_nonEmpty = forAll 
-  (suchThat possiblyCyclic (\(_,g) -> not $ topSortFindsCycle g)) 
+  (possiblyCyclic `suchThat` (\(_,g) -> not $ topSortFindsCycle g)) 
   (\(i, g) -> either (const False) (all (not . HS.null)) (runTopSort g))
 
 -- topSort never places values before or beside their dependencies
 prop_topSort_correctly_orders_result :: Property
 prop_topSort_correctly_orders_result = forAll 
-  (suchThat possiblyCyclic (\(_,g) -> not $ topSortFindsCycle g)) 
+  (possiblyCyclic `suchThat` (\(_,g) -> not $ topSortFindsCycle g)) 
   (\(i, g) -> either (const False) (f . reverse) (runTopSort g)) where
     f = fst . foldl h (True, HS.empty) where
       h (b, acc) next = (b && HS.null (HS.intersection next acc), HS.union acc next)
+
+-- fetchGraphM always fails for non-empty search starts where the retrieval function always fails
+prop_fetchGraphM_Fails_Properly :: Property
+prop_fetchGraphM_Fails_Properly = forAll 
+  (possiblyCyclic `suchThat` (\(_,g) -> HM.size g > 1))
+  (\(root, g) -> Left "no" ==
+    fetchGraphM ((fmap HS.toList g) HM.!) (\_ _ -> Left "no") (join HM.singleton root))
 
 prop_fetchGraphM_nodeps_is_identity =
   let fgm = runIdentity . fetchGraphM (const []) undefined in
