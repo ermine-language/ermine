@@ -8,9 +8,9 @@ import Control.Monad
 import Data.Bifunctor
 import Data.Char
 import Data.Hashable
+import qualified Data.List.NonEmpty as Nel
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import qualified Data.List.NonEmpty as Nel
 import Data.Either (isLeft)
 import Debug.Trace
 import Ermine.Parser.Module (fetchGraphM, topSort)
@@ -20,8 +20,15 @@ import Test.QuickCheck.Instances
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-genNel :: Gen a -> Gen (Nel.NonEmpty a)
-genNel g = (Nel.:|) <$> g <*> listOf g
+type ModuleName = String
+
+arbModuleName :: Gen ModuleName
+arbModuleName = nelToMName <$> genNel modPart where
+  nelToMName  = concat . Nel.toList . Nel.intersperse "."
+  modPart     = fmap (take 10) $ (:) <$> upperAlpha <*> listOf lowerAlpha
+  letters     = "abcdefghijklmnopqrstuvwxyz"
+  lowerAlpha  = oneof (map return letters)
+  upperAlpha  = oneof (map (return . toUpper) letters)
 
 type ModuleGraph = HM.HashMap Int (HS.HashSet Int) 
 

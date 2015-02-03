@@ -19,25 +19,6 @@ import Test.QuickCheck.Instances
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-{-
-Notes from s11001001:
->
-you could start with a random Int, 
-then generate a list of random Ints for that Int's deps, 
-then recur with each Int 
-  (with smaller quickcheck size parameter so you terminate, of course), 
-  unioning the results and adding the int -> ints you just made
->
-you'd use the size for the [int] part, 
-then the leaves of the graph would occur at size 0
-
-> this only needs a small adjustment for circular graphs vs noncircular graphs
-could probably even share code, use a bool :o (no you don't have to do that :))
--}
-
-genNel :: Gen a -> Gen (Nel.NonEmpty a)
-genNel g = (Nel.:|) <$> g <*> listOf g
-
 type ModuleName = String
 newtype ModuleGraph = 
 	ModuleGraph (HM.HashMap ModuleName (HS.HashSet ModuleName))
