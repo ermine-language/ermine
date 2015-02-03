@@ -4,7 +4,6 @@ module Parser2 (tests) where
 import Arbitrary
 import Control.Applicative
 import Control.Lens hiding (elements)
---import Control.Monad.Trans.Either
 import Control.Monad
 import Data.Bifunctor
 import Data.Char
@@ -110,7 +109,7 @@ prop_topSort_correctly_orders_result = forAll
   (possiblyCyclic `suchThat` (\(_,g) -> not $ topSortFindsCycle g)) 
   (\(i, g) -> either (const False) (f . reverse) (runTopSort g)) where
     f = fst . foldl h (True, HS.empty) where
-      h (b, acc) next = (b && HS.null (HS.intersection next acc), HS.union acc next)
+      h (b, acc) next = (b && HS.null (next `HS.intersection` acc), acc `HS.union` next)
 
 -- fetchGraphM always fails for non-empty search starts where the retrieval function always fails
 prop_fetchGraphM_Fails_Properly :: Property
