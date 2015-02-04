@@ -87,7 +87,7 @@ idAndTopSortFindsCycle :: (Eq a, Hashable a) => a -> ModuleGraph a -> Bool
 idAndTopSortFindsCycle a g = isGraphHMIdentity (a,g) && topSortFindsCycle g
 
 idAndNotTopSortFindsCycle :: (Eq a, Hashable a) => a -> ModuleGraph a -> Bool
-idAndNotTopSortFindsCycle a g = isGraphHMIdentity (a,g) && topSortFindsCycle g
+idAndNotTopSortFindsCycle a g = isGraphHMIdentity (a,g) && not (topSortFindsCycle g)
 
 runTopSort :: (Eq a, Hashable a) => ModuleGraph a -> Either [a] [HS.HashSet a]
 runTopSort g = fmap (HS.fromList . fmap fst) <$>
@@ -116,10 +116,8 @@ prop_topSort_detects_cycles_int = forAll (cyclic smallInt) (uncurry idAndTopSort
 prop_topSort_detects_cycles_str :: Property
 prop_topSort_detects_cycles_str = forAll (cyclic arbModuleName) (uncurry idAndTopSortFindsCycle)
 
-prop_topSort_detects_no_cycles_int :: Property
-prop_topSort_detects_no_cycles_int = forAll acyclic (uncurry idAndNotTopSortFindsCycle)
-prop_topSort_detects_no_cycles_str :: Property
-prop_topSort_detects_no_cycles_str = forAll acyclic (uncurry idAndNotTopSortFindsCycle)
+prop_topSort_detects_no_cycles :: Property
+prop_topSort_detects_no_cycles = forAll acyclic (uncurry idAndNotTopSortFindsCycle)
 
 -- Invariant: Every element of the result is non-empty.
 prop_topSort_elements_nonEmpty :: Property
