@@ -17,7 +17,6 @@ import Test.Framework.Providers.QuickCheck2
 import Binary
 import Inference
 import Parser
-import Parser2
 import Loader
 import Syntax
 import Var
@@ -30,7 +29,7 @@ main = defaultMain
   [ Binary.tests
   , Inference.tests
   , Loader.tests
-  , Parser2.tests
+  , Parser.tests
   , Syntax.tests
   , Var.tests
   ]

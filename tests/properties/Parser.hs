@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Parser2 (tests) where
+module Parser (tests) where
 
 import Arbitrary
 import Control.Applicative
