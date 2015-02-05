@@ -2,11 +2,12 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Arbitrary
-  ( Arbitrary1(..)
+  ( Arbitrary1(..), genNel, smaller
   ) where
 
 import Bound
 import Control.Applicative
+import Data.List.NonEmpty hiding (fromList)
 import Data.Map
 import Data.Monoid
 import Data.Void
@@ -83,6 +84,12 @@ instance Arbitrary Type.HardType where
 
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
   arbitrary = genType (Just arbitrary) (Just arbitrary)
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = genNel arbitrary
+
+genNel :: Gen a -> Gen (NonEmpty a)
+genNel g = (:|) <$> g <*> listOf g
 
 -- | Combinator for decreasing the size of a generator. Should be used when
 -- generating tree structures, as relying on probability to terminate them
