@@ -24,6 +24,7 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State hiding (forM)
+import Data.Bits (xor)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -40,9 +41,10 @@ import Ermine.Parser.Data (dataType)
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
-import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
+import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..), glob, global)
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
+import Ermine.Syntax.Name
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Char
 import Text.Parser.Combinators
@@ -137,13 +139,52 @@ explicit = do
 -- 'Global', or fail if a name isn't found in the 'Module'.
 findGlobals :: Monad m => Module -> Explicit Text -> m (Explicit Global)
 findGlobals md =
-  -- TODO: derive these maps from md
-  let termNms = undefined md :: HashMap Text Global
-      typeNms = undefined md :: HashMap Text Global
+  {-
+  To get Globals for Terms:
+   * Create Globals from moduleFixities (with given fixity, just for terms)
+   * Create Globals from moduleBindings (with Idfix)
+   * Union those two maps (biased on first map)
+
+  To get Globals for Types:
+    * Create  Globals from moduleFixities (with given fixity, types for types)
+    * Extract Globals from moduleData.
+    * Union those two maps (biased on first map)
+  -}
+  let termNms :: HashMap Text Global
+      termNms = fixityTermGlobals md `HM.union` bindingGlobals md
+      typeNms :: HashMap Text Global
+      typeNms = fixityTypeGlobals md `HM.union` dataTypeGlobals md
   in \expl -> expl `forM` \txt ->
     HM.lookup txt (if (expl^.explicitIsType) then typeNms else termNms)
     -- TODO better error message
     & maybe (fail $ "Missing name " <> unpack txt) return
+
+-- The following 5 functions extracted to the top level because
+-- maybe they should live in Ermine.Syntax.Module.
+fixityTermGlobals :: Module -> HashMap Text Global
+fixityTermGlobals = fixityGlobals False
+
+fixityTypeGlobals :: Module -> HashMap Text Global
+fixityTypeGlobals = fixityGlobals True
+
+fixityGlobals :: Bool -> Module -> HashMap Text Global
+fixityGlobals typeLevel md = HM.fromList globs where
+  globs :: [(Text, Global)]
+  globs = fmap fixityDeclGlobals $ filter levelFilter (md^.moduleFixities) >>= fixityDeclFixities
+  levelFilter :: FixityDecl -> Bool
+  levelFilter fd = not $ xor typeLevel (fd^.fixityDeclType)
+  fixityDeclFixities :: FixityDecl -> [(Text, Fixity)]
+  fixityDeclFixities fd = fmap (\t -> (t, fd^.fixityDeclFixity)) (fd^.fixityDeclNames)
+  fixityDeclGlobals :: (Text, Fixity) -> (Text, Global)
+  fixityDeclGlobals (t, f) = (t, glob f (md^.moduleName) t)
+
+bindingGlobals :: Module -> HashMap Text Global
+bindingGlobals md = HM.fromList $ fmap f (md^.moduleBindings) where
+  f (_, t, _) = (t, glob Idfix (md^.moduleName) t)
+
+dataTypeGlobals :: Module -> HashMap Text Global
+dataTypeGlobals md = HM.fromList $ fmap f (md^.moduleData) where
+  f (_, dt) = (dt^.name, dt^.global)
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
@@ -164,7 +205,7 @@ assembleModule nm im stmts =
 assembleBindings :: (Monad m, TokenParsing m, Ord a, Show a) =>
                     [(Privacy, [a], Ann)]             -- ^ types
                  -> [(Privacy, a, [PreBody Ann a])]   -- ^ terms
-                 -> m [(Privacy, Term.Binding Ann a)] -- ^ bindings
+                 -> m [(Privacy, a, Term.Binding Ann a)] -- ^ bindings
 assembleBindings typs terms = do
   typs' <- foldM (\m (p, ts, a) -> foldM (\acc t -> insertGuarded t (p, a) acc) m ts) M.empty typs
   terms' <- foldM (\m (privy, t, body) -> insertGuarded t (privy, body) m) M.empty terms
@@ -175,13 +216,13 @@ assembleBindings typs terms = do
 assembleBindings' :: (Show k, Ord k, Monad m, Eq a) =>
                      M.Map k (a, t)
                   -> M.Map k (a, [PreBody t k])
-                  -> m [(a, Term.Binding t k)]
+                  -> m [(a, k, Term.Binding t k)]
 assembleBindings' typs terms = foldM f [] (M.toList terms) where
   f acc (nam, (p, ts)) =
     (:acc) `liftM` maybe (binding Term.Implicit) g (M.lookup nam typs) where 
     g (p', ann) | p == p'   = binding (Term.Explicit ann)
                 | otherwise = fail $ "found conflicting privacies for: " ++ show nam
-    binding bt = return (p, finalizeBinding [nam] $ PreBinding mempty bt ts)
+    binding bt = return (p, nam, finalizeBinding [nam] $ PreBinding mempty bt ts)
 
 statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
@@ -207,7 +248,7 @@ fixityDecl = FixityDecl
   where fixity = Infix L <$ symbol "infixl"
              <|> Infix R <$ symbol "infixr"
              <|> Infix N <$ symbol "infix"
-             <|> Prefix <$ symbol "prefix"
+             <|> Prefix  <$ symbol "prefix"
              <|> Postfix <$ symbol "postfix"
 
 prec :: (Monad m, TokenParsing m) => m Int

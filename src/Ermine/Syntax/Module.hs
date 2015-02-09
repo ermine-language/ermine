@@ -123,7 +123,7 @@ data Module = Module
   , _moduleImports   :: [Import Global]
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
-  , _moduleBindings  :: [(Privacy, Binding (Annot Void Text) Text)]
+  , _moduleBindings  :: [(Privacy, Text, Binding (Annot Void Text) Text)]
   , _moduleClasses   :: Map Text (Class () Text)
   -- , _moduleInstances :: Map Head () 
   } deriving (Show, Typeable)
