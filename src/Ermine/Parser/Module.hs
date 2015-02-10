@@ -235,7 +235,7 @@ statement :: (MonadState s m, HasFixities s, TokenParsing m) =>
              m (Statement Text Text)
 statement = FixityDeclStmt <$> (fixityDecl >>= installFixityDecl)
         <|> DataTypeStmt defaultPrivacyTODO <$> dataType
-        <|> ClassStmt <$> undefined <*> undefined
+        -- TODO when syntax found <|> ClassStmt <$> undefined <*> undefined
         <|> uncurry (SigStmt defaultPrivacyTODO) <$> sigs
         <|> uncurry (TermStmt defaultPrivacyTODO) <$> termStatement
   where installFixityDecl fd = fd <$ (fixityDecls %= (fd:))
