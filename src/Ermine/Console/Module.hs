@@ -19,7 +19,7 @@
 --------------------------------------------------------------------
 
 module Ermine.Console.Module
-  ( moduleLoader
+  ( moduleLoader, testLoader
   ) where
 
 import Control.Applicative
