@@ -172,7 +172,7 @@ fixityGlobals typeLevel md = HM.fromList globs where
   globs :: [(Text, Global)]
   globs = fmap fixityDeclGlobals $ filter levelFilter (md^.moduleFixities) >>= fixityDeclFixities
   levelFilter :: FixityDecl -> Bool
-  levelFilter fd = not $ xor typeLevel (fd^.fixityDeclType)
+  levelFilter fd = typeLevel == (fd^.fixityDeclType)
   fixityDeclFixities :: FixityDecl -> [(Text, Fixity)]
   fixityDeclFixities fd = fmap (\t -> (t, fd^.fixityDeclFixity)) (fd^.fixityDeclNames)
   fixityDeclGlobals :: (Text, Fixity) -> (Text, Global)
@@ -183,8 +183,8 @@ bindingGlobals md = HM.fromList $ fmap f (md^.moduleBindings) where
   f (_, t, _) = (t, glob Idfix (md^.moduleName) t)
 
 dataTypeGlobals :: Module -> HashMap Text Global
-dataTypeGlobals md = HM.fromList $ fmap f (md^.moduleData) where
-  f (_, dt) = (dt^.name, dt^.global)
+dataTypeGlobals md = HM.fromList $ fmap (f.snd) (md^.moduleData) where
+  f dt = (dt^.name, dt^.global)
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
