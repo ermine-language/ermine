@@ -162,17 +162,17 @@ findGlobals md =
 -- The following 5 functions extracted to the top level because
 -- maybe they should live in Ermine.Syntax.Module.
 fixityTermGlobals :: Module -> HashMap Text Global
-fixityTermGlobals = fixityGlobals False
+fixityTermGlobals = fixityGlobals TermLevel
 
 fixityTypeGlobals :: Module -> HashMap Text Global
-fixityTypeGlobals = fixityGlobals True
+fixityTypeGlobals = fixityGlobals TypeLevel
 
-fixityGlobals :: Bool -> Module -> HashMap Text Global
-fixityGlobals typeLevel md = HM.fromList globs where
+fixityGlobals :: FixityDeclLevel -> Module -> HashMap Text Global
+fixityGlobals level md = HM.fromList globs where
   globs :: [(Text, Global)]
   globs = fmap fixityDeclGlobals $ filter levelFilter (md^.moduleFixities) >>= fixityDeclFixities
   levelFilter :: FixityDecl -> Bool
-  levelFilter fd = typeLevel == (fd^.fixityDeclType)
+  levelFilter fd = level == (fd^.fixityDeclType)
   fixityDeclFixities :: FixityDecl -> [(Text, Fixity)]
   fixityDeclFixities fd = fmap (\t -> (t, fd^.fixityDeclFixity)) (fd^.fixityDeclNames)
   fixityDeclGlobals :: (Text, Fixity) -> (Text, Global)
@@ -242,7 +242,7 @@ statement = FixityDeclStmt <$> (fixityDecl >>= installFixityDecl)
 
 fixityDecl :: (Monad m, TokenParsing m) => m FixityDecl
 fixityDecl = FixityDecl
-         <$> option False (True <$ symbol "type")
+         <$> option TypeLevel (TermLevel <$ symbol "type")
          <*> (fixity <*> prec)
          <*> many operator
   where fixity = Infix L <$ symbol "infixl"
