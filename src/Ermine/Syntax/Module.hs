@@ -111,11 +111,14 @@ importScope' :: Lens (Import g) (Import h) (ImportsInScope g) (ImportsInScope h)
 importScope' f (imp@Import {_importScope = sc}) =
   f sc <&> \sc' -> imp {_importScope = sc'}
 
+-- | Whether the fixity declaration is a type or term level operator.
+data FixityDeclLevel = TypeLevel | TermLevel deriving (Show, Eq, Data, Typeable)
+
 -- | A fixity declaration statement.
 data FixityDecl = FixityDecl
-  { _fixityDeclType   :: Bool          -- ^ whether these are type operators
-  , _fixityDeclFixity :: Global.Fixity -- ^ direction & precedence
-  , _fixityDeclNames  :: [Text]        -- ^ the names to assign fixities to
+  { _fixityDeclType   :: FixityDeclLevel -- ^ whether these are type or term operators
+  , _fixityDeclFixity :: Global.Fixity   -- ^ direction & precedence
+  , _fixityDeclNames  :: [Text]          -- ^ the names to assign fixities to
   } deriving (Show, Eq, Data, Typeable)
 
 makeClassy ''FixityDecl

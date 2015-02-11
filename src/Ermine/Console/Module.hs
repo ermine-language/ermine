@@ -19,7 +19,7 @@
 --------------------------------------------------------------------
 
 module Ermine.Console.Module
-  ( moduleLoader
+  ( moduleLoader, testLoader
   ) where
 
 import Control.Applicative
@@ -40,11 +40,12 @@ import Ermine.Loader.Core (Loader, fanoutIdLoaderM, load,
 -- import Ermine.Loader.MapCache (loadCached)
 import Ermine.Parser.Module
 -- import Ermine.Parser.State
-import Ermine.Pretty hiding (string, int, integer)
+import Ermine.Pretty hiding (string, int, integer, (</>))
 import Ermine.Syntax.Module (Import, Module, ModuleHead, importModule,
                              moduleHeadImports, moduleHeadText)
 import Ermine.Syntax.ModuleName (ModuleName, moduleName)
 import Ermine.Syntax.Name
+import System.FilePath ((</>))
 import Text.Parser.Combinators (eof)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
@@ -127,7 +128,7 @@ testLoader =
       l = loadCached . moduleLoader
         . loaded (withExceptT (pretty . unpack . explainLoadRefusal))
         . contramapName (view name)
-        $ filesystemLoader "stdlib" ".e"
+        $ filesystemLoader ("stdlib" </> "Prelude") ".e"
   in flip evalStateT mempty . runExceptT . l . mkModuleName_
 
 -- end s11 remove

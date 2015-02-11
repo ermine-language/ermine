@@ -6,10 +6,12 @@ module ParserTests
 
 import Control.Applicative
 import Control.Monad
+import Data.Either (isRight)
 import Data.Functor.Identity
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import Data.Traversable
+import Ermine.Console.Module
 import Ermine.Parser.Module
 import System.FilePath ((</>))
 import Test.Framework.Providers.API
@@ -56,10 +58,14 @@ ermineParserTests  = TestDef {
  , dir             = stdLibDir
  , inputFileFormat = "*.e"
  , run             = \ermineFile -> do 
-     ermineCode <- readFile ermineFile
-     putStrLn ermineFile
-     --TODO: put a real assertion here
-     --parse ermineCode @?= someExpectedValueHere
+     -- clean up the filename for the loader (remove the extension, and stdlib/Prelude/)
+     let ermineFile' = init . init $ drop (1 + length stdLibDir) ermineFile
+     parseRes <- testLoader ermineFile'
+     case parseRes of
+       -- TODO: figure out how to show Docs nicely
+       Left  err -> fail $ ermineFile' ++ ": " ++ show err
+       -- TODO: probably want to have a stronger assertion that nice isRight...
+       Right _   -> return ()
 }
 
 main = TestGroup "ParserTests"
