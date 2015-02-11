@@ -19,7 +19,26 @@
 -- Data structures representing parsed modules and their components,
 -- aside from those already in 'Ermine.Syntax.Term' et al.
 --------------------------------------------------------------------
-module Ermine.Syntax.Module where
+module Ermine.Syntax.Module
+  ( Privacy(..)
+  , Explicit(Explicit)
+  , HasExplicit(..)
+  , ImportsInScope(..)
+  , AsImportsInScope(..)
+  , importScopeExplicits
+  , Import(Import)
+  , HasImport(..)
+  , importScope'
+  , FixityDecl(FixityDecl)
+  , HasFixityDecl(..)
+  , Statement(..)
+  , AsStatement(..)
+  , Module(Module)
+  , HasModule(..)
+  , HasFixities(..)
+  , ModuleHead(ModuleHead)
+  , HasModuleHead(..)
+  ) where
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Lens
