@@ -29,6 +29,7 @@ module Ermine.Syntax.Module
   , Import(Import)
   , HasImport(..)
   , importScope'
+  , FixityDeclLevel(..)
   , FixityDecl(FixityDecl)
   , HasFixityDecl(..)
   , Statement(..)
