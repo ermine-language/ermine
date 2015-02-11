@@ -117,6 +117,7 @@ library
     Ermine.Core.Compiler
     Ermine.Diagnostic
     Ermine.Inference.Kind
+    Ermine.Inference.Module
     Ermine.Inference.Type
     Ermine.Inference.Witness
     Ermine.Instances
