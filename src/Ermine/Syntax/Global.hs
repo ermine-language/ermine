@@ -171,7 +171,7 @@ instance Binary Global where
   get = deserialize
 
 instance HasModuleName Global where
-  module_ g (Global _ f m n) = g m <&> \m' -> glob f m' n
+  moduleName g (Global _ f m n) = g m <&> \m' -> glob f m' n
 
 instance HasName Global where
   name g (Global _ f m n) = g n <&> \n' -> glob f m n'

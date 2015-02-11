@@ -34,10 +34,10 @@ data Module a = Module
   } deriving (Eq,Show,Foldable,Functor,Traversable)
 
 instance HasName (Module a) where
-  name = module_.name
+  name = moduleName.name
 
 instance HasModuleName (Module a) where
-  module_ f m@Module{_name = nm} = f nm <&> \nm' -> m { _name = nm' }
+  moduleName f m@Module{_name = nm} = f nm <&> \nm' -> m { _name = nm' }
 
 dependencies :: Lens' (Module a) [ModuleName]
 dependencies f (Module n deps defs ts is tys d) = f deps <&> \deps' -> Module n deps' defs ts is tys d
@@ -59,7 +59,7 @@ dataDecls f (Module n deps defs ts is tys d) = f d <&> \d' -> Module n deps defs
 
 instance Serial1 Module where
   serializeWith f m =
-    serialize (m^.module_)      >>
+    serialize (m^.moduleName)      >>
     serialize (m^.dependencies) >>
     serializeWith f (m^.definitions)  >>
     serialize (m^.termExports)  >>

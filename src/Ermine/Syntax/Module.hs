@@ -119,7 +119,7 @@ data Statement t a = FixityDeclStmt FixityDecl
 makeClassyPrisms ''Statement
 
 data Module = Module
-  { _moduleName      :: ModuleName
+  { mn               :: ModuleName
   , _moduleImports   :: [Import Global]
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
@@ -128,7 +128,24 @@ data Module = Module
   -- , _moduleInstances :: Map Head () 
   } deriving (Show, Typeable)
 
-makeClassy ''Module
+instance HasModuleName Module where
+  moduleName f m = f (mn m) <&> \mn' -> m { mn = mn' }
+
+class HasModule t where
+  module_ :: Lens' t Module
+  moduleImports :: Lens' t [Import Global]
+  moduleFixities :: Lens' t [FixityDecl]
+  moduleData :: Lens' t [(Privacy, DataType () Text)]
+  moduleBindings :: Lens' t [(Privacy, Text, Binding (Annot Void Text) Text)]
+  moduleClasses :: Lens' t (Map Text (Class () Text))
+
+  moduleImports = module_.moduleImports
+  moduleFixities = module_.moduleFixities
+  moduleData = module_.moduleData
+  moduleBindings = module_.moduleBindings
+  moduleClasses = module_.moduleClasses
+
+makeLensesWith ?? ''Module $ classyRules & createClass .~ False & lensClass .~ \_ -> Just (''HasModule, 'module_)
 
 class HasFixities a where
   fixityDecls :: Lens' a [FixityDecl]
@@ -151,7 +168,7 @@ data ModuleHead imp txt = ModuleHead
 makeClassy ''ModuleHead
 
 instance HasModuleName (ModuleHead imp txt) where
-  module_ = moduleHeadName
+  moduleName = moduleHeadName
 
 instance Bifunctor ModuleHead where
   bimap = bimapDefault

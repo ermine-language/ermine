@@ -42,8 +42,8 @@ import Ermine.Parser.Module
 -- import Ermine.Parser.State
 import Ermine.Pretty hiding (string, int, integer)
 import Ermine.Syntax.Module (Import, Module, ModuleHead, importModule,
-                             moduleName, moduleHeadImports, moduleHeadText)
-import Ermine.Syntax.ModuleName (ModuleName)
+                             moduleHeadImports, moduleHeadText)
+import Ermine.Syntax.ModuleName (ModuleName, moduleName)
 import Ermine.Syntax.Name
 import Text.Parser.Combinators (eof)
 import Text.Trifecta.Parser

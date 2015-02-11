@@ -21,7 +21,7 @@ import Data.Serialize
 import Data.Text
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Name
-import GHC.Generics
+import GHC.Generics hiding (moduleName)
 
 data ModuleName = ModuleName
   { _digest   :: !ByteString
@@ -61,12 +61,12 @@ instance HasName ModuleName
   where name f (ModuleName _ pkg nm) = mkModuleName pkg <$> f nm
 
 class HasModuleName t where
-  module_         :: Lens' t ModuleName
+  moduleName      :: Lens' t ModuleName
 
   package     :: Lens' t Text
-  package f = module_ $ \(ModuleName _ pkg nm) -> f pkg <&> \pkg' -> mkModuleName pkg' nm
+  package f = moduleName $ \(ModuleName _ pkg nm) -> f pkg <&> \pkg' -> mkModuleName pkg' nm
 
-instance HasModuleName ModuleName where module_ = id
+instance HasModuleName ModuleName where moduleName = id
 
 instance Digestable ModuleName where
   digest c ModuleName{_digest = d} = update c d
