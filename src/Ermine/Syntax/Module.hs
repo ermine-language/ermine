@@ -21,6 +21,8 @@
 --------------------------------------------------------------------
 module Ermine.Syntax.Module
   ( Privacy(..)
+  , _Private
+  , _Public
   , Explicit(Explicit)
   , HasExplicit(..)
   , ImportsInScope(..)
@@ -66,6 +68,8 @@ import GHC.Generics hiding (moduleName)
 -- | Whether a name is visible to importers of a module, or a module
 -- is reexported from its importer.
 data Privacy = Private | Public deriving (Eq,Ord,Show,Read,Enum,Bounded,Ix,Generic,Typeable,Data)
+
+makePrisms ''Privacy
 
 instance Serial Privacy
 
