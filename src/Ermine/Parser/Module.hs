@@ -24,7 +24,6 @@ module Ermine.Parser.Module
 import Control.Applicative
 import Control.Lens
 import Control.Monad.State hiding (forM)
-import Data.Bits (xor)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -217,12 +216,14 @@ assembleBindings' :: (Show k, Ord k, Monad m, Eq a) =>
                      M.Map k (a, t)
                   -> M.Map k (a, [PreBody t k])
                   -> m [(a, k, Term.Binding t k)]
-assembleBindings' typs terms = foldM f [] (M.toList terms) where
+assembleBindings' typs terms = foldM f [] termList where
   f acc (nam, (p, ts)) =
     (:acc) `liftM` maybe (binding Term.Implicit) g (M.lookup nam typs) where 
     g (p', ann) | p == p'   = binding (Term.Explicit ann)
                 | otherwise = fail $ "found conflicting privacies for: " ++ show nam
-    binding bt = return (p, nam, finalizeBinding [nam] $ PreBinding mempty bt ts)
+    binding bt = return (p, nam, finalizeBinding termNms $ PreBinding mempty bt ts)
+  termNms = fst <$> termList
+  termList = M.toList terms
 
 statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
