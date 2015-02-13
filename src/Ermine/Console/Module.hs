@@ -47,6 +47,7 @@ import Ermine.Syntax.ModuleName (ModuleName, moduleName)
 import Ermine.Syntax.Name
 import System.FilePath ((</>))
 import Text.Parser.Combinators (eof)
+import Text.Parser.Token (TokenParsing, someSpace)
 import Text.Trifecta.Parser
 import Text.Trifecta.Result
 
@@ -166,7 +167,7 @@ strength (a, fb) = (a,) <$> fb
 -- saved value in the ModuleHead, respectively.
 
 parseModuleHead :: MonadError Doc m => Text -> m (ModuleHead (Import Text) Text)
-parseModuleHead = asMError . parseString (moduleHead <* eof) mempty . unpack
+parseModuleHead = asMError . parseString (phrase moduleHead) mempty . unpack
 
 parseModuleRemainder :: MonadError Doc m
                      => ModuleHead (Import Text, Module) Text
@@ -174,8 +175,11 @@ parseModuleRemainder :: MonadError Doc m
 parseModuleRemainder mh =
   mh ^. moduleHeadText
     & unpack
-    & parseString (wholeModule mh <* eof) mempty
+    & parseString (phrase (wholeModule mh)) mempty
     & asMError
+
+phrase :: TokenParsing m => m a -> m a
+phrase ma = optional someSpace *> ma <* eof
 
 asMError :: MonadError Doc m => Result a -> m a
 asMError (Success a) = return a
