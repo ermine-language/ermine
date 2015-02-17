@@ -102,7 +102,7 @@ renameNames suffix =
   mapped.fixityDeclNames.mapped %~ (<> pack ("_" <> suffix))
 
 imports :: (Monad m, TokenParsing m) => m [Import Text]
-imports = importExportStatement `sepEndBy` semi <?> "import statements"
+imports = bracedSemiSep importExportStatement <?> "import statements"
 
 importExportStatement :: (Monad m, TokenParsing m) => m (Import Text)
 importExportStatement =
@@ -113,7 +113,7 @@ importExportStatement =
               <$> optional (((Using  <$ symbol "using") <|>
                              (Hiding <$ symbol "hiding")) <*> impList))
   <?> "import/export statement"
-  where impList = explicit `sepEndBy` semi <?> "explicit imports"
+  where impList = bracedSemiSep explicit <?> "explicit imports"
 
 moduleIdentifier :: (Monad m, TokenParsing m) => m ModuleName
 moduleIdentifier = mkModuleName_ . intercalate "."
@@ -227,7 +227,7 @@ assembleBindings' typs terms = foldM f [] termList where
 
 statements :: (MonadState s m, HasFixities s, TokenParsing m) =>
               m [Statement Text Text]
-statements = ([] <$ eof) <|> ((:) <$> statement <*> (semi *> statements))
+statements = bracedSemiSep statement
 
 defaultPrivacyTODO :: Privacy
 defaultPrivacyTODO = Public
@@ -268,6 +268,10 @@ termStatement = do
   (nam, headBody) <- termDeclClause termIdentifier
   many (termDeclClause (semi *> (nam <$ symbol (unpack nam))))
     <&> \tailBodies -> (nam, headBody : map snd tailBodies)
+
+-- | Parse { ma; ... ma }
+bracedSemiSep :: TokenParsing m => m a -> m [a]
+bracedSemiSep = braces . semiSep
 
 -- Module graph operations
 
