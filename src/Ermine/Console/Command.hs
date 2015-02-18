@@ -53,6 +53,7 @@ import Ermine.Builtin.Global (putStrLng, showIntg, showLongg, addLongg, literalg
 import Ermine.Builtin.Head
 import Ermine.Builtin.Term as Term (dataCon)
 import Ermine.Builtin.Type as Type (lame, maybe_, ee, io, string, long, longh, int, integer, fromInteg)
+import Ermine.Console.Module
 import Ermine.Console.State
 import Ermine.Constraint.Env
 import Ermine.Core.Optimizer
@@ -364,6 +365,11 @@ commands =
       & desc .~ "type check and evaluate a term"
       & body .~ (\args s -> evalStateT (parsingS term evalBody args s)
                                        initialParserState)
+  -- TODO: this doesn't actually import anything, but at least it tries to parse it.
+  -- TODO: and currently, it only looks in stdlib/Prelude for files. that needs to be fixed.
+  , cmd "import"
+      & desc .~ "import module"
+      & body .~ (\_ s -> liftIO $ preludeTestLoader s >>= putStrLn . show)
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)
@@ -371,5 +377,4 @@ commands =
   , cmd "version"
       & desc .~ "show the compiler version number"
       & body .~ \_ _ -> liftIO $ putStrLn version
-
   ]
