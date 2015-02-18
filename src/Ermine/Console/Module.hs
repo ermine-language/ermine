@@ -14,7 +14,7 @@
 --------------------------------------------------------------------
 
 module Ermine.Console.Module
-  ( moduleLoader, testLoader
+  ( moduleLoader, testLoader, preludeTestLoader
   ) where
 
 import Control.Applicative
@@ -85,15 +85,18 @@ moduleLoader l = fanoutIdLoaderM lemh `thenM'` afterModuleHead
 
 -- TODO s11: remove or pull out to tests
 
-testLoader :: String -> IO (Either Doc Module)
-testLoader =
+testLoader :: String -> String -> IO (Either Doc Module)
+testLoader loadDir =
   let l :: ModuleName
         -> ExceptT Doc (StateT (HashMap ModuleName (Freshness, Module)) IO) Module
       l = loadCached . moduleLoader
         . loaded (withExceptT (pretty . unpack . explainLoadRefusal))
         . contramapName (view name)
-        $ filesystemLoader ("stdlib" </> "Prelude") ".e"
+        $ filesystemLoader loadDir ".e"
   in flip evalStateT mempty . runExceptT . l . mkModuleName_
+
+preludeTestLoader :: String -> IO (Either Doc Module)
+preludeTestLoader = testLoader ("stdlib" </> "Prelude")
 
 -- end s11 remove
 

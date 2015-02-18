@@ -1,5 +1,6 @@
 module ParserTests
   ( ermineParserTests
+  , erminePreludeParsingTests
   , stdLibDir
   , main
   ) where
@@ -53,19 +54,29 @@ topSortSomeGraph =
       topSort (HM.fromList . fmap (join (,)) . HM.keys $ someGraph)
               (someGraph HM.!)
 
-ermineParserTests  = TestDef {
-   name            = "Ermine Parser Tests"
+parseFile :: FilePath -> IO ()
+parseFile ermineFile = do
+  -- clean up the filename for the loader (remove the extension, and stdlib/Prelude/)
+  let ermineFile' = init . init $ drop (1 + length stdLibDir) ermineFile
+  parseRes <- preludeTestLoader ermineFile'
+  case parseRes of
+    -- TODO: figure out how to show Docs nicely
+    Left  err -> fail $ ermineFile' ++ ": " ++ show err
+    -- TODO: probably want to have a stronger assertion that nice isRight...
+    Right _   -> return ()
+
+erminePreludeParsingTests = TestDef {
+   name            = "Test that all files in Prelude parse"
  , dir             = stdLibDir
  , inputFileFormat = "*.e"
- , run             = \ermineFile -> do 
-     -- clean up the filename for the loader (remove the extension, and stdlib/Prelude/)
-     let ermineFile' = init . init $ drop (1 + length stdLibDir) ermineFile
-     parseRes <- testLoader ermineFile'
-     case parseRes of
-       -- TODO: figure out how to show Docs nicely
-       Left  err -> fail $ ermineFile' ++ ": " ++ show err
-       -- TODO: probably want to have a stronger assertion that nice isRight...
-       Right _   -> return ()
+ , run             = parseFile 
+}
+
+ermineParserTests = TestDef {
+   name            = "Parser testing"
+ , dir             = "test" </> "test-files" </> "parsing"
+ , inputFileFormat = "*.e"
+ , run             = parseFile  
 }
 
 main = TestGroup "ParserTests"
