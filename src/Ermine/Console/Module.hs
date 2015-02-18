@@ -50,7 +50,6 @@ import Text.Trifecta.Result
 -- TODO s11 remove
 import Control.Monad.State hiding (forM, forM_, liftM)
 import Control.Monad.Trans.Except
-import Ermine.Instances ()
 import Ermine.Loader.MapCache
 
 -- | From a loader that loads the raw 'Text' of a module, produce a

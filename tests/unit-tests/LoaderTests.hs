@@ -7,7 +7,6 @@ import Control.Monad.Trans.Except
 import Data.Functor (void)
 import Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import Ermine.Instances ()
 import Ermine.Loader.Core
 import Ermine.Loader.Filesystem
 import System.FilePath ((</>))

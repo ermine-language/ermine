@@ -120,7 +120,6 @@ library
     Ermine.Inference.Module
     Ermine.Inference.Type
     Ermine.Inference.Witness
-    Ermine.Instances
     Ermine.Interpreter
     Ermine.Loader.Core
     Ermine.Loader.Filesystem
@@ -225,7 +224,7 @@ library
     text                      >= 1.1,
     time                      >= 1.4,
     transformers              >= 0.3,
-    transformers-compat       >= 0.3,
+    transformers-compat       >= 0.4,
     trifecta                  >= 1.4.1,
     unordered-containers      >= 0.2.3,
     utf8-string               >= 0.3.7,
