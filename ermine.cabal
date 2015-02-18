@@ -367,7 +367,7 @@ test-suite properties
       lens,
       monad-st,
       prelude-extras,
-      QuickCheck                 >= 2.4,
+      QuickCheck                 >= 2.7,
       quickcheck-instances       >= 0.3.1,
       semigroups                 >= 0.16.0.1,
       test-framework             >= 0.6,
