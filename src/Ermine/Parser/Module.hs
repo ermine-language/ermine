@@ -63,7 +63,10 @@ wholeModule :: (MonadPlus m, TokenParsing m) =>
                ModuleHead (Import Text, Module) a -> m Module
 wholeModule mh = do
   resImps <- (mh^.moduleHeadImports) `forM` \(imp, md) ->
-    (importScope'.importScopeExplicits.traverse.findGlobals) md imp
+    let termNms  = moduleTermNames md
+        typeNms  = moduleTypeNames md
+        resolver = resolveGlobal termNms typeNms 
+    in (importScope'.importScopeExplicits.traverse) resolver imp
   stmts <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
   assembleModule (mh^.moduleName) resImps stmts
 
@@ -136,30 +139,30 @@ explicit = do
 -- | Resolve the explicit imports/hidings in an 'Import', in
 -- accordance with the associated 'Module'.  Replace all 'Text' with
 -- 'Global', or fail if a name isn't found in the 'Module'.
-findGlobals :: Monad m => Module -> Explicit Text -> m (Explicit Global)
-findGlobals md =
-  {-
-  To get Globals for Terms:
-   * Create Globals from moduleFixities (with given fixity, just for terms)
-   * Create Globals from moduleBindings (with Idfix)
-   * Union those two maps (biased on first map)
-
-  To get Globals for Types:
-    * Create  Globals from moduleFixities (with given fixity, types for types)
-    * Extract Globals from moduleData.
-    * Union those two maps (biased on first map)
-  -}
-  let termNms :: HashMap Text Global
-      termNms = fixityTermGlobals md `HM.union` bindingGlobals md
-      typeNms :: HashMap Text Global
-      typeNms = fixityTypeGlobals md `HM.union` dataTypeGlobals md
-  in \expl -> expl `forM` \txt ->
+resolveGlobal :: Monad m => 
+  HashMap Text Global -> HashMap Text Global -> Explicit Text -> m (Explicit Global)
+resolveGlobal termNms typeNms expl = expl `forM` \txt ->
     HM.lookup txt (if (expl^.explicitIsType) then typeNms else termNms)
     -- TODO better error message
     & maybe (fail $ "Missing name " <> unpack txt) return
 
--- The following 5 functions extracted to the top level because
+-- The following few functions extracted to the top level because
 -- maybe they should live in Ermine.Syntax.Module.
+
+-- | To get Globals for for all Terms in a Module:
+--  * Create Globals from moduleFixities (with given fixity, just for terms)
+--  * Create Globals from moduleBindings (with Idfix)
+--  * Union those two maps (biased on first map)
+moduleTermNames :: Module -> HashMap Text Global
+moduleTermNames md =  fixityTermGlobals md `HM.union` bindingGlobals md
+
+-- | To get Globals for all Types in a Module:
+--  * Create  Globals from moduleFixities (with given fixity, types for types)
+--  * Extract Globals from moduleData.
+--  * Union those two maps (biased on first map)
+moduleTypeNames :: Module -> HashMap Text Global
+moduleTypeNames md = fixityTypeGlobals md `HM.union` dataTypeGlobals md
+
 fixityTermGlobals :: Module -> HashMap Text Global
 fixityTermGlobals = fixityGlobals TermLevel
 
