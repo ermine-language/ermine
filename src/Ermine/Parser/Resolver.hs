@@ -11,7 +11,11 @@
 -- This module resolution for globals and imports.
 --------------------------------------------------------------------
 
-module Ermine.Parser.Resolver where
+module Ermine.Parser.Resolver
+  ( resolveGlobal
+  , moduleTermNames
+  , moduleTypeNames
+  ) where
 
 import Control.Lens
 import Data.HashMap.Strict (HashMap)
