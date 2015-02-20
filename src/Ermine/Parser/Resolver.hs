@@ -13,11 +13,13 @@
 
 module Ermine.Parser.Resolver
   ( resolveGlobal
+  , resolveImport
   , moduleTermNames
   , moduleTypeNames
   ) where
 
 import Control.Lens
+import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import Data.HashSet (HashSet)
@@ -45,11 +47,11 @@ resolveGlobal termNms typeNms expl = expl `forM` \txt ->
 -- The results values are Sets, because of the following corner case:
 -- import X using (x as y), where X already exports y.
 -- The result is appropriately filtered based on the Imports using/hiding clause.
-resolveImports :: Monad m => 
+resolveImport :: Monad m => 
   Import Global       ->  -- the import, obvs
   HashMap Text Global ->  -- map of all the term or type globals in the module
   m (HashMap Text (HashSet Global))
-resolveImports imp modTerms = r (imp^.importScope) where
+resolveImport imp modTerms = r (imp^.importScope) where
   -- create a Map of Globals from some Explicits
   impGlobMap :: [Explicit Global] -> HashMap Text Global
   impGlobMap exps  = HM.fromList $ fmap p exps where
@@ -100,13 +102,13 @@ renameExplicitAsClauses gs exps = foldl f (HM.map HS.singleton gs) exps where
 -- | And Import might have an 'as' clause: import A as B.
 -- In this case, each of the keys must be renamed to key_A. 
 -- (Note: This is a different convention than Haskell's A.key)
-renameImportAsClause ::
-  HashMap Text (HashSet Global) -> 
-  Maybe String                  -> 
-  HashMap Text (HashSet Global)
-renameImportAsClause m mas = maybe m f mas where
-  f as = HM.foldrWithKey appendAs m m where
-    appendAs k v m' = HM.delete k $ HM.insert (pack $ unpack k ++ "_" ++ as) v m'
+renameImportAsClause :: HashMap Text a -> Maybe String -> HashMap Text a
+renameImportAsClause m = maybe m (flip (mapKeys.appendAs) m) where
+  appendAs as k = pack $ unpack k ++ "_" ++ as
+
+mapKeys :: (Eq k, Hashable k) => (k -> k) -> HashMap k a -> HashMap k a
+mapKeys f m = HM.foldrWithKey g m m where
+  g k v m' = let k' = f k in if k == k' then m' else HM.delete k $ HM.insert k' v m'
 
 {-
 and we need to save those maps for all of the import clauses in a module
