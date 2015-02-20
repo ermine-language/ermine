@@ -48,11 +48,11 @@ source-repository head
   type: git
   location: git://github.com/ekmett/ermine.git
 
--- TODO we can't use if to disable this by default on windows due to
--- https://github.com/haskell/cabal/issues/2429
+-- TODO we can't use if to enable this by default on not-windows due
+-- to https://github.com/haskell/cabal/issues/2429
 flag ekg
   manual: True
-  default: True
+  default: False
 
 -- `cabal install --enable-tests -f-doctests` to disable doctest suite
 flag doctests
