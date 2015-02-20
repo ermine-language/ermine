@@ -135,6 +135,7 @@ library
     Ermine.Parser.Literal
     Ermine.Parser.Module
     Ermine.Parser.Pattern
+    Ermine.Parser.Resolver
     Ermine.Parser.State
     Ermine.Parser.Style
     Ermine.Parser.Type

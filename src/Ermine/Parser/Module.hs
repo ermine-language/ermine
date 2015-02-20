@@ -37,13 +37,13 @@ import Data.Text (Text, pack, unpack)
 import Data.Traversable (for, forM)
 import Ermine.Builtin.Term hiding (explicit)
 import Ermine.Parser.Data (dataType)
+import Ermine.Parser.Resolver
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
-import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..), glob, global)
+import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
-import Ermine.Syntax.Name
 import qualified Ermine.Syntax.Term as Term
 import Text.Parser.Char
 import Text.Parser.Combinators
@@ -135,58 +135,6 @@ explicit = do
     <$> nam
     -- TODO ↓ check 'as' name's fixity
     <*> optional (symbol "as" *> (unpack <$> nam))
-
--- | Resolve the explicit imports/hidings in an 'Import', in
--- accordance with the associated 'Module'.  Replace all 'Text' with
--- 'Global', or fail if a name isn't found in the 'Module'.
-resolveGlobal :: Monad m => 
-  HashMap Text Global -> HashMap Text Global -> Explicit Text -> m (Explicit Global)
-resolveGlobal termNms typeNms expl = expl `forM` \txt ->
-    HM.lookup txt (if (expl^.explicitIsType) then typeNms else termNms)
-    -- TODO better error message
-    & maybe (fail $ "Missing name " <> unpack txt) return
-
--- The following few functions extracted to the top level because
--- maybe they should live in Ermine.Syntax.Module.
-
--- | To get Globals for for all Terms in a Module:
---  * Create Globals from moduleFixities (with given fixity, just for terms)
---  * Create Globals from moduleBindings (with Idfix)
---  * Union those two maps (biased on first map)
-moduleTermNames :: Module -> HashMap Text Global
-moduleTermNames md =  fixityTermGlobals md `HM.union` bindingGlobals md
-
--- | To get Globals for all Types in a Module:
---  * Create  Globals from moduleFixities (with given fixity, types for types)
---  * Extract Globals from moduleData.
---  * Union those two maps (biased on first map)
-moduleTypeNames :: Module -> HashMap Text Global
-moduleTypeNames md = fixityTypeGlobals md `HM.union` dataTypeGlobals md
-
-fixityTermGlobals :: Module -> HashMap Text Global
-fixityTermGlobals = fixityGlobals TermLevel
-
-fixityTypeGlobals :: Module -> HashMap Text Global
-fixityTypeGlobals = fixityGlobals TypeLevel
-
-fixityGlobals :: FixityDeclLevel -> Module -> HashMap Text Global
-fixityGlobals level md = HM.fromList globs where
-  globs :: [(Text, Global)]
-  globs = fmap fixityDeclGlobals $ filter levelFilter (md^.moduleFixities) >>= fixityDeclFixities
-  levelFilter :: FixityDecl -> Bool
-  levelFilter fd = level == (fd^.fixityDeclType)
-  fixityDeclFixities :: FixityDecl -> [(Text, Fixity)]
-  fixityDeclFixities fd = fmap (\t -> (t, fd^.fixityDeclFixity)) (fd^.fixityDeclNames)
-  fixityDeclGlobals :: (Text, Fixity) -> (Text, Global)
-  fixityDeclGlobals (t, f) = (t, glob f (md^.moduleName) t)
-
-bindingGlobals :: Module -> HashMap Text Global
-bindingGlobals md = HM.fromList $ fmap f (md^.moduleBindings) where
-  f (_, t, _) = (t, glob Idfix (md^.moduleName) t)
-
-dataTypeGlobals :: Module -> HashMap Text Global
-dataTypeGlobals md = HM.fromList $ fmap (f.snd) (md^.moduleData) where
-  f dt = (dt^.name, dt^.global)
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
