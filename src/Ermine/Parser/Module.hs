@@ -53,6 +53,13 @@ import Text.Parser.Token
 moduleHead :: (Monad m, TokenParsing m) => m (ModuleHead (Import Text) Text)
 moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 
+{-
+resolveImport :: Monad m =>
+  Import Global       ->  -- the import, obvs
+  HashMap Text Global ->  -- map of all the term or type globals in the module
+  m (HashMap Text (HashSet Global))
+-}
+
 -- | Parse the rest of the file, incorporating the argument.
 --
 -- Between 'moduleHead' and here, you have to grab the 'Text' to feed
@@ -62,13 +69,19 @@ moduleHead = ModuleHead <$> moduleDecl <*> imports <*> (pack <$> many anyChar)
 wholeModule :: (MonadPlus m, TokenParsing m) =>
                ModuleHead (Import Text, Module) a -> m Module
 wholeModule mh = do
-  resImps <- (mh^.moduleHeadImports) `forM` \(imp, md) ->
+  resImps <- (mh^.moduleHeadImports) `forM` \(imp, md) -> do
+    -- TODO: this can all be cleaned up (JC 2/20/15)
     let termNms  = moduleTermNames md
         typeNms  = moduleTypeNames md
         resolver = resolveGlobal termNms typeNms 
-    in (importScope'.importScopeExplicits.traverse) resolver imp
+    i    <- (importScope'.importScopeExplicits.traverse) resolver imp
+    trms <- resolveImport i termNms
+    typs <- resolveImport i typeNms
+    return (i, (trms, typs))
   stmts <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
-  assembleModule (mh^.moduleName) resImps stmts
+  -- TODO: does module even need [Import] anymore? 
+  -- TODO: would it be better if it just got the term and type global maps?
+  assembleModule (mh^.moduleName) (fmap fst resImps) stmts
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"
