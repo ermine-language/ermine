@@ -2,13 +2,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) McGraw Hill Financial 2014
+-- Copyright :  (c) McGraw Hill Financial 2015
 -- License   :  BSD2
--- Maintainer:  Stephen Compall <scompall@nocandysw.com>
+-- Maintainer:  Josh Cough <joshcough@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This module provides the parser for modules
+-- This module resolution for globals and imports.
 --------------------------------------------------------------------
 
 module Ermine.Parser.Resolver where
@@ -63,13 +63,15 @@ resolveImports imp modTerms = r (imp^.importScope) where
     unfoundTerms   = HM.difference importMap modTerms
     mkErrorMessage = fail "todo"
   {-
-    create a set of globals, and remove all members of that set from modTerms
-    if we try to hide something that isn't exported, we do not complain.
+    Simply remove all members of impGlobMap from modTerms.
+    If we try to hide something that isn't exported, we do not complain.
     (this decision was made via conversation with dolio and edwardk).
   -}
   r (Hiding exps) = return $
     applyRenamings imp (HM.difference modTerms $ impGlobMap exps) exps
 
+-- | Apply renamings from any 'as' clauses, 
+-- both at the module level and bindings in using clauses.
 applyRenamings ::
   Import Global       ->
   HashMap Text Global -> 
