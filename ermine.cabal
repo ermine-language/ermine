@@ -137,6 +137,7 @@ library
     Ermine.Parser.Literal
     Ermine.Parser.Module
     Ermine.Parser.Pattern
+    Ermine.Parser.Resolver
     Ermine.Parser.State
     Ermine.Parser.Style
     Ermine.Parser.Type
@@ -172,7 +173,6 @@ library
     Ermine.Syntax.ModuleName
     Ermine.Syntax.Name
     Ermine.Syntax.Pattern
-    Ermine.Syntax.Resolver
     Ermine.Syntax.Scope
     Ermine.Syntax.Sort
     Ermine.Syntax.Term

@@ -17,8 +17,7 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Resolver
-  ( ImportResolution(..)
-  , resolveImport
+  ( resolveImport
   ) where
 
 import Control.Applicative
@@ -30,41 +29,13 @@ import qualified Data.HashMap.Strict as HM
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
-import Data.Monoid (Monoid(..), (<>))
+import Data.Monoid ((<>))
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (forM)
 import Ermine.Syntax.Global (Global, Fixity(..), glob, global)
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
-
-type GlobalMap = HashMap Text (HashSet Global)
-newtype ResolvedTerms = ResolvedTerms GlobalMap
-newtype ResolvedTypes = ResolvedTypes GlobalMap
-
-data ImportResolution = ImportResolution {
-   _resolvedImportList :: [Import Global]
-  ,_resolvedTermsMap   :: ResolvedTerms
-  ,_resolvedTypesMap   :: ResolvedTypes
-} 
-
-makeClassy ''ImportResolution
-
-union :: GlobalMap -> GlobalMap -> GlobalMap
-union = HM.unionWith HS.union
-
-instance Monoid ResolvedTerms where
-  mempty = ResolvedTerms HM.empty
-  (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `union` m2
-
-instance Monoid ResolvedTypes where
-  mempty = ResolvedTypes HM.empty
-  (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `union` m2
-
-instance Monoid ImportResolution where
-  mempty  = ImportResolution mempty mempty mempty
-  (ImportResolution is tms typs) `mappend` (ImportResolution is' tms' typs') =
-    ImportResolution (is++is') (tms `mappend` tms') (typs `mappend` typs') 
 
 resolveImport :: (MonadPlus m, Functor m, Applicative m) =>
   Import Text -> 

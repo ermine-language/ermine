@@ -41,7 +41,7 @@ import Ermine.Parser.Resolver
 import Ermine.Parser.Style
 import Ermine.Parser.Term
 import Ermine.Parser.Type (Ann, annotation)
-import Ermine.Syntax.Global (Global, Fixity(..), Assoc(..))
+import Ermine.Syntax.Global (Fixity(..), Assoc(..))
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import qualified Ermine.Syntax.Term as Term
@@ -136,7 +136,7 @@ explicit = do
 
 assembleModule :: (Monad m, TokenParsing m) =>
                   ModuleName
-               -> [Import Global]
+               -> ImportResolution
                -> [Statement Text Text]
                -> m Module
 assembleModule nm im stmts =

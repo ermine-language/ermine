@@ -29,6 +29,10 @@ module Ermine.Syntax.Module
   , AsImportsInScope(..)
   , importScopeExplicits
   , Import(Import)
+  , ImportResolution(..)
+  , HasImportResolution(..)
+  , ResolvedTerms(..)
+  , ResolvedTypes(..)
   , HasImport(..)
   , importScope'
   , FixityDeclLevel(..)
@@ -53,7 +57,12 @@ import Data.Foldable (Foldable)
 import Data.Map (Map)
 import Data.Serialize
 import Data.Data hiding (DataType)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HS
 import Data.Ix
+import Data.Monoid (Monoid(..))
 import Data.Text
 import Data.Void
 import Ermine.Builtin.Term (PreBody())
@@ -116,6 +125,34 @@ importScope' :: Lens (Import g) (Import h) (ImportsInScope g) (ImportsInScope h)
 importScope' f (imp@Import {_importScope = sc}) =
   f sc <&> \sc' -> imp {_importScope = sc'}
 
+type GlobalMap = HashMap Text (HashSet Global)
+newtype ResolvedTerms = ResolvedTerms GlobalMap deriving (Eq, Show)
+newtype ResolvedTypes = ResolvedTypes GlobalMap deriving (Eq, Show)
+
+data ImportResolution = ImportResolution {
+   _resolvedImportList :: [Import Global]
+  ,_resolvedTermsMap   :: ResolvedTerms
+  ,_resolvedTypesMap   :: ResolvedTypes
+} deriving (Eq, Show)
+
+makeClassy ''ImportResolution
+
+union :: GlobalMap -> GlobalMap -> GlobalMap
+union = HM.unionWith HS.union
+
+instance Monoid ResolvedTerms where
+  mempty = ResolvedTerms HM.empty
+  (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `union` m2
+
+instance Monoid ResolvedTypes where
+  mempty = ResolvedTypes HM.empty
+  (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `union` m2
+
+instance Monoid ImportResolution where
+  mempty  = ImportResolution mempty mempty mempty
+  (ImportResolution is tms typs) `mappend` (ImportResolution is' tms' typs') =
+    ImportResolution (is++is') (tms `mappend` tms') (typs `mappend` typs')
+
 -- | Whether the fixity declaration is a type or term level operator.
 data FixityDeclLevel = TypeLevel | TermLevel deriving (Show, Eq, Data, Typeable)
 
@@ -147,7 +184,7 @@ makeClassyPrisms ''Statement
 
 data Module = Module
   { mn               :: ModuleName
-  , _moduleImports   :: [Import Global]
+  , _moduleImports   :: ImportResolution
   , _moduleFixities  :: [FixityDecl]
   , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
   , _moduleBindings  :: [(Privacy, Text, Binding (Annot Void Text) Text)]
@@ -160,7 +197,7 @@ instance HasModuleName Module where
 
 class HasModule t where
   module_ :: Lens' t Module
-  moduleImports :: Lens' t [Import Global]
+  moduleImports :: Lens' t ImportResolution
   moduleFixities :: Lens' t [FixityDecl]
   moduleData :: Lens' t [(Privacy, DataType () Text)]
   moduleBindings :: Lens' t [(Privacy, Text, Binding (Annot Void Text) Text)]
