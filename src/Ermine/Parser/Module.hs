@@ -32,7 +32,7 @@ import qualified Data.HashSet as HS
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Monoid ((<>), mempty)
+import Data.Monoid ((<>), mempty, mconcat)
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (for, forM)
 import Ermine.Builtin.Term hiding (explicit)
@@ -66,7 +66,7 @@ wholeModule mh = do
   stmts   <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
   -- TODO: does module even need [Import] anymore? 
   -- TODO: would it be better if it just got the term and type global maps?
-  assembleModule (mh^.moduleName) (fmap (^.resolution) resImps) stmts
+  assembleModule (mh^.moduleName) (mconcat resImps) stmts
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
 moduleDecl = symbol "module" *> moduleIdentifier <* symbol "where"

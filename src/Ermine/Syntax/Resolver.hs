@@ -1,6 +1,9 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 --------------------------------------------------------------------
 -- |
@@ -14,9 +17,8 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Resolver
-  ( ResolvedImport(..)
+  ( ImportResolution(..)
   , resolveImport
-  , resolution
   ) where
 
 import Control.Applicative
@@ -28,7 +30,7 @@ import qualified Data.HashMap.Strict as HM
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HS
 import Data.Maybe (fromJust)
-import Data.Monoid ((<>))
+import Data.Monoid (Monoid(..), (<>))
 import Data.Text (Text, pack, unpack)
 import Data.Traversable (forM)
 import Ermine.Syntax.Global (Global, Fixity(..), glob, global)
@@ -37,27 +39,46 @@ import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 
 type GlobalMap = HashMap Text (HashSet Global)
+newtype ResolvedTerms = ResolvedTerms GlobalMap
+newtype ResolvedTypes = ResolvedTypes GlobalMap
 
-data ResolvedImport = ResolvedImport {
-    _resolution    :: Import Global
-  , _resolvedTerms :: GlobalMap
-  , _resolvedTypes :: GlobalMap
-} deriving (Eq, Show)
+data ImportResolution = ImportResolution {
+   _resolvedImportList :: [Import Global]
+  ,_resolvedTermsMap   :: ResolvedTerms
+  ,_resolvedTypesMap   :: ResolvedTypes
+} 
 
-makeClassy ''ResolvedImport
+makeClassy ''ImportResolution
+
+union :: GlobalMap -> GlobalMap -> GlobalMap
+union = HM.unionWith HS.union
+
+instance Monoid ResolvedTerms where
+  mempty = ResolvedTerms HM.empty
+  (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `union` m2
+
+instance Monoid ResolvedTypes where
+  mempty = ResolvedTypes HM.empty
+  (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `union` m2
+
+instance Monoid ImportResolution where
+  mempty  = ImportResolution mempty mempty mempty
+  (ImportResolution is tms typs) `mappend` (ImportResolution is' tms' typs') =
+    ImportResolution (is++is') (tms `mappend` tms') (typs `mappend` typs') 
 
 resolveImport :: (MonadPlus m, Functor m, Applicative m) =>
   Import Text -> 
   Module      -> 
-  m ResolvedImport
+  m ImportResolution
 resolveImport imp md = do
   let termNms  = moduleTermNames md
       typeNms  = moduleTypeNames md
       resolver = resolveGlobal termNms typeNms
   i    <- (importScope'.importScopeExplicits.traverse) resolver imp
-  trms <- resolveImportMap i termNms
-  typs <- resolveImportMap i typeNms
-  return $ ResolvedImport  i trms typs
+  let mapResolver = resolveImportMap i
+  trms <- mapResolver termNms
+  typs <- mapResolver typeNms
+  return $ ImportResolution [i] (ResolvedTerms trms) (ResolvedTypes typs)
 
 -- | Resolve the explicit imports/hidings in an 'Import', in
 -- accordance with the associated 'Module'.  Replace all 'Text' with
@@ -135,14 +156,6 @@ renameImportAsClause m = maybe m (flip (mapKeys.appendAs) m) where
 mapKeys :: (Eq k, Hashable k) => (k -> k) -> HashMap k a -> HashMap k a
 mapKeys f m = HM.foldrWithKey g m m where
   g k v m' = let k' = f k in if k == k' then m' else HM.delete k $ HM.insert k' v m'
-
-{-
-and we need to save those maps for all of the import clauses in a module
-and then union together the term maps with something like:
-  HM.unionWith HS.union . fmap HS.Singleton
-
-we do the same thing for the type maps, and we have the right argments for statements
--}
 
 -- The following few functions extracted to the top level because
 -- maybe they should live in Ermine.Syntax.Module.
