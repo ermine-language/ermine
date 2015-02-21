@@ -1,5 +1,7 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) McGraw Hill Financial 2015
@@ -12,13 +14,14 @@
 --------------------------------------------------------------------
 
 module Ermine.Parser.Resolver
-  ( resolveGlobal
+  ( ResolvedImport(..)
   , resolveImport
-  , moduleTermNames
-  , moduleTypeNames
+  , resolution
   ) where
 
+import Control.Applicative
 import Control.Lens
+import Control.Monad hiding (forM)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -32,6 +35,29 @@ import Ermine.Syntax.Global (Global, Fixity(..), glob, global)
 import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
+
+type GlobalMap = HashMap Text (HashSet Global)
+
+data ResolvedImport = ResolvedImport {
+    _resolution    :: Import Global
+  , _resolvedTerms :: GlobalMap
+  , _resolvedTypes :: GlobalMap
+} deriving (Eq, Show)
+
+makeClassy ''ResolvedImport
+
+resolveImport :: (MonadPlus m, Functor m, Applicative m) =>
+  Import Text -> 
+  Module      -> 
+  m ResolvedImport
+resolveImport imp md = do
+  let termNms  = moduleTermNames md
+      typeNms  = moduleTypeNames md
+      resolver = resolveGlobal termNms typeNms
+  i    <- (importScope'.importScopeExplicits.traverse) resolver imp
+  trms <- resolveImportMap i termNms
+  typs <- resolveImportMap i typeNms
+  return $ ResolvedImport  i trms typs
 
 -- | Resolve the explicit imports/hidings in an 'Import', in
 -- accordance with the associated 'Module'.  Replace all 'Text' with
@@ -47,11 +73,11 @@ resolveGlobal termNms typeNms expl = expl `forM` \txt ->
 -- The results values are Sets, because of the following corner case:
 -- import X using (x as y), where X already exports y.
 -- The result is appropriately filtered based on the Imports using/hiding clause.
-resolveImport :: Monad m => 
+resolveImportMap :: Monad m => 
   Import Global       ->  -- the import, obvs
   HashMap Text Global ->  -- map of all the term or type globals in the module
   m (HashMap Text (HashSet Global))
-resolveImport imp modTerms = r (imp^.importScope) where
+resolveImportMap imp modTerms = r (imp^.importScope) where
   -- create a Map of Globals from some Explicits
   impGlobMap :: [Explicit Global] -> HashMap Text Global
   impGlobMap exps  = HM.fromList $ fmap p exps where
