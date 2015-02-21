@@ -130,23 +130,23 @@ newtype ResolvedTerms = ResolvedTerms GlobalMap deriving (Eq, Show)
 newtype ResolvedTypes = ResolvedTypes GlobalMap deriving (Eq, Show)
 
 data ImportResolution = ImportResolution {
-   _resolvedImportList :: [Import Global]
-  ,_resolvedTermsMap   :: ResolvedTerms
-  ,_resolvedTypesMap   :: ResolvedTypes
+   _resolvedImports :: [Import Global]
+  ,_resolvedTerms   :: ResolvedTerms
+  ,_resolvedTypes   :: ResolvedTypes
 } deriving (Eq, Show)
 
 makeClassy ''ImportResolution
 
-union :: GlobalMap -> GlobalMap -> GlobalMap
-union = HM.unionWith HS.union
+gmUnion :: GlobalMap -> GlobalMap -> GlobalMap
+gmUnion = HM.unionWith HS.union
 
 instance Monoid ResolvedTerms where
   mempty = ResolvedTerms HM.empty
-  (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `union` m2
+  (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `gmUnion` m2
 
 instance Monoid ResolvedTypes where
   mempty = ResolvedTypes HM.empty
-  (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `union` m2
+  (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `gmUnion` m2
 
 instance Monoid ImportResolution where
   mempty  = ImportResolution mempty mempty mempty

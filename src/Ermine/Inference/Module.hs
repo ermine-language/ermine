@@ -47,7 +47,7 @@ checkModule tm = do
   pdts <- zip ps <$> checkDataTypeKinds dts
   return $ Core.Module
     (tm^.moduleName)
-    (tm^..moduleImports.resolvedImportList.traverse.importModule)
+    (tm^..moduleImports.resolvedImports.traverse.importModule)
     undefined
     undefined
     undefined

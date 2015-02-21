@@ -64,8 +64,6 @@ wholeModule :: (MonadPlus m, TokenParsing m) =>
 wholeModule mh = do
   resImps <- (mh^.moduleHeadImports) `forM` uncurry resolveImport
   stmts   <- evalStateT statements (importedFixities $ mh^.moduleHeadImports)
-  -- TODO: does module even need [Import] anymore? 
-  -- TODO: would it be better if it just got the term and type global maps?
   assembleModule (mh^.moduleName) (mconcat resImps) stmts
 
 moduleDecl :: (Monad m, TokenParsing m) => m ModuleName
