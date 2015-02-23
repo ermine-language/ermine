@@ -1,17 +1,15 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Arbitrary
-  ( Arbitrary1(..), genNel, smaller
-  ) where
+module Arbitrary.SyntaxArbitrary where
 
+import Arbitrary.Arbitrary
 import Bound
 import Control.Applicative
 import Data.List.NonEmpty hiding (fromList)
 import Data.Map
 import Data.Monoid
 import Data.Void
-import Ermine.Core.Module        as Module
 import Ermine.Syntax.Constructor as Constructor
 import Ermine.Syntax.Convention  as Convention
 import Ermine.Syntax.Core        as Core
@@ -20,6 +18,7 @@ import Ermine.Syntax.Global      as Global
 import Ermine.Syntax.Hint        as Hint
 import Ermine.Syntax.Kind        as Kind
 import Ermine.Syntax.Literal     as Lit
+import Ermine.Syntax.Module      as Module
 import Ermine.Syntax.ModuleName  as ModuleName
 import Ermine.Syntax.Pattern     as Pat
 import Ermine.Syntax.Type        as Type
@@ -30,6 +29,11 @@ import Test.QuickCheck.Function
 import Test.QuickCheck.Instances
 
 -- Orphans
+instance Arbitrary1 Kind
+instance Arbitrary cc => Arbitrary1 (Core cc)
+instance Arbitrary k => Arbitrary1 (Type k)
+instance Arbitrary t => Arbitrary1 (Term t)
+
 instance Arbitrary HardKind where
   arbitrary = oneof $ return <$> [ Star, Constraint, Rho, Phi, Unboxed ]
 
@@ -64,14 +68,30 @@ instance Arbitrary ModuleName where
 instance Arbitrary Global where
   arbitrary = glob <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
-  arbitrary = oneof [ B <$> arbitrary, F <$> arbitrary ]
-
-instance (Arbitrary b,Arbitrary v,Arbitrary1 f,Functor f) => Arbitrary (Scope b f v) where
-  arbitrary = Scope . fmap (fmap lower1) <$> arbitrary1
-
 instance Arbitrary a => Arbitrary (Schema a) where
   arbitrary = Schema <$> arbitrary <*> arbitrary
+
+{-
+data Module = Module
+  { mn               :: ModuleName
+  , _moduleImports   :: ImportResolution
+  , _moduleFixities  :: [FixityDecl]
+  , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
+  , _moduleBindings  :: [(Privacy, Text, Binding (Annot Void Text) Text)]
+  , _moduleClasses   :: Map Text (Class () Text)
+  -- , _moduleInstances :: Map Head () 
+  } deriving (Show, Typeable)
+-}
+
+{-
+instance Arbitrary Module where
+  arbitrary = Module
+    arbitrary
+    (error "todo")
+    (error "todo")
+    (error "todo")
+    (error "todo")
+-}
 
 instance Arbitrary Type.HardType where
   arbitrary = oneof
@@ -85,22 +105,6 @@ instance Arbitrary Type.HardType where
 instance (Arbitrary k, Arbitrary a) => Arbitrary (Type k a) where
   arbitrary = genType (Just arbitrary) (Just arbitrary)
 
-instance Arbitrary a => Arbitrary (NonEmpty a) where
-  arbitrary = genNel arbitrary
-
-genNel :: Gen a -> Gen (NonEmpty a)
-genNel g = (:|) <$> g <*> listOf g
-
--- | Combinator for decreasing the size of a generator. Should be used when
--- generating tree structures, as relying on probability to terminate them
--- can lead to excessive memory consumption.
-smaller :: Gen a -> Gen a
-smaller g = sized $ \n -> resize (n`div`3) g
-
-maybeGen :: Applicative f => Maybe (Gen a) -> [Gen (f a)]
-maybeGen Nothing  = []
-maybeGen (Just g) = [ pure <$> g ]
-
 -- | Generates kinds with optional delegation to a variable generator. If the
 -- argument is Nothing, the generated Kinds will (necessarily) be closed.
 genKind :: Maybe (Gen k) -> Gen (Kind k)
@@ -109,20 +113,6 @@ genKind mgk = sized $ \n ->
     $  maybeGen mgk
     ++ (HardKind <$> arbitrary)
     : if n < 1 then [smaller $ (:->) <$> genKind mgk <*> genKind mgk] else []
-
--- | Given a definite generator for bound varibles, and an optional one for
--- free variables, definitely generates Vars.
-genVar :: Gen b -> Maybe (Gen a) -> Gen (Var b a)
-genVar gb Nothing   = B <$> gb
-genVar gb (Just ga) = oneof [ B <$> gb , F <$> ga ]
-
--- | As genVar, but allows for the possibility that bound variables cannot
--- be generated, either. Potentially useful for generating well-scoped
--- terms.
-genVar' :: Maybe (Gen b) -> Maybe (Gen a) -> Maybe (Gen (Var b a))
-genVar' (Just gb) mga       = Just $ genVar gb mga
-genVar' Nothing   (Just ga) = Just (F <$> ga)
-genVar' Nothing   Nothing   = Nothing
 
 -- | Given possible generators for kind and type variables, generates
 -- a type. This allows for the possibility of closed type generation.
@@ -146,17 +136,6 @@ genType mgk mgt = sized go
 -- | A simple combinator to generate TKs, as Types.
 genTK :: Maybe (Gen k) -> Maybe (Gen t) -> Gen (TK k t)
 genTK mgk = genType (Just $ genVar arbitrary mgk)
-
--- | Generates scopes with a definite supply of bound variables. The
--- higher-order generator must be able to handle a lack of free variables.
-genScope :: Gen b -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
-         -> Gen (Scope b f a)
-genScope gb gf mga = Scope <$> gf (Just . genVar gb . Just $ gf mga)
-
--- | As genScope, but with the possibility of no bound variables.
-genScope' :: Maybe (Gen b) -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
-          -> Gen (Scope b f a)
-genScope' mgb gf mga = Scope <$> gf (genVar' mgb . Just $ gf mga)
 
 instance Arbitrary Literal where
   arbitrary = oneof
@@ -192,7 +171,7 @@ instance (Arbitrary t,Arbitrary1 f,Arbitrary a,Functor f) => Arbitrary (Alt t f 
   arbitrary = Alt <$> arbitrary <*> arbitrary
 
 instance Arbitrary t => Arbitrary (BindingType t) where
-  arbitrary = oneof [ Explicit <$> arbitrary, return Implicit ]
+  arbitrary = oneof [ Term.Explicit <$> arbitrary, return Implicit ]
 
 instance Arbitrary BodyBound where
   arbitrary = oneof [ BodyDecl <$> arbitrary, BodyPat <$> arbitrary, BodyWhere <$> arbitrary ]
@@ -297,25 +276,3 @@ genDataType mgk mgt =
     (listOf ((,) <$> arbitrary <*> genScope arbitrary genKind mgk)) <*>
     (listOf (genConstructor (Just $ genVar arbitrary mgk) (Just $ genVar arbitrary mgt)))
 
-instance Arbitrary a => Arbitrary (Module a) where
-  arbitrary = Module <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> smaller arbTypes <*> smaller dataTypes where
-    arbTypes =  fmap fromList $ listOf ((,) <$> arbitrary <*> (genType Nothing Nothing))
-    dataTypes = listOf (genDataType Nothing Nothing)
-
--- Higher-order arbitrary
-class Arbitrary1 f where
-  arbitrary1 :: Arbitrary a => Gen (f a)
-  default arbitrary1 :: Arbitrary (f a) => Gen (f a)
-  arbitrary1 = arbitrary
-
-instance Arbitrary a => Arbitrary1 ((,) a)
-instance Arbitrary1 Maybe
-instance Arbitrary1 []
-instance Arbitrary a => Arbitrary1 (Either a)
-instance Arbitrary1 Kind
-instance Arbitrary cc => Arbitrary1 (Core cc)
-instance Arbitrary k => Arbitrary1 (Type k)
-instance Arbitrary t => Arbitrary1 (Term t)
-
-instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
-  arbitrary = Lift1 <$> arbitrary1

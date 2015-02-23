@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Parser (tests) where
 
-import Arbitrary
+import Arbitrary.Arbitrary
 import Control.Applicative
 import Control.Lens hiding (elements)
 import Control.Monad

@@ -344,7 +344,9 @@ test-suite properties
     ghc-options: -j3
 
   other-modules:
-    Arbitrary
+    Arbitrary.Arbitrary
+    Arbitrary.CoreArbitrary
+    Arbitrary.SyntaxArbitrary
     Binary
     Inference
     Loader

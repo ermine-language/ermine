@@ -12,7 +12,8 @@ import Test.QuickCheck.Instances
 import Test.Framework.TH
 import Test.Framework.Providers.QuickCheck2
 
-import Arbitrary
+import Arbitrary.Arbitrary
+import Arbitrary.SyntaxArbitrary
 
 eq_reflexive :: Eq a => a -> Bool
 eq_reflexive x = x == x
