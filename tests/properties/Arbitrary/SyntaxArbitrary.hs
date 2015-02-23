@@ -10,6 +10,7 @@ import Data.List.NonEmpty hiding (fromList)
 import Data.Map
 import Data.Monoid
 import Data.Void
+import Ermine.Syntax.Class       as Class
 import Ermine.Syntax.Constructor as Constructor
 import Ermine.Syntax.Convention  as Convention
 import Ermine.Syntax.Core        as Core
@@ -71,27 +72,52 @@ instance Arbitrary Global where
 instance Arbitrary a => Arbitrary (Schema a) where
   arbitrary = Schema <$> arbitrary <*> arbitrary
 
-{-
-data Module = Module
-  { mn               :: ModuleName
-  , _moduleImports   :: ImportResolution
-  , _moduleFixities  :: [FixityDecl]
-  , _moduleData      :: [(Privacy, DataType () Text)] -- TODO: support type not just data
-  , _moduleBindings  :: [(Privacy, Text, Binding (Annot Void Text) Text)]
-  , _moduleClasses   :: Map Text (Class () Text)
-  -- , _moduleInstances :: Map Head () 
-  } deriving (Show, Typeable)
--}
+instance Arbitrary FixityDeclLevel where
+  arbitrary = oneof [ return TypeLevel, return TermLevel ]
 
-{-
+instance Arbitrary FixityDecl where
+  arbitrary = FixityDecl <$> arbitrary <*> arbitrary <*> listOf arbitrary
+
+instance Arbitrary Privacy where 
+  arbitrary = oneof [ return Public, return Private ]
+
+instance Arbitrary g => Arbitrary (Module.Explicit g) where
+  arbitrary = Module.Explicit <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary g => Arbitrary (ImportsInScope g) where
+  arbitrary = oneof [ Using <$> listOf arbitrary, Hiding <$> listOf arbitrary ]
+
+instance Arbitrary g => Arbitrary (Import g) where
+  arbitrary = Import <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary ResolvedTerms where
+  arbitrary = ResolvedTerms <$> arbitrary
+
+instance Arbitrary ResolvedTypes where
+  arbitrary = ResolvedTypes <$> arbitrary
+
+instance Arbitrary ImportResolution where
+  arbitrary = ImportResolution <$> listOf arbitrary <*> arbitrary <*> arbitrary
+
+instance (Arbitrary k, Arbitrary a) => Arbitrary (Annot k a) where
+  arbitrary = Annot <$> listOf arbitrary <*> listOf arbitrary <*> arbitrary
+
+instance (Arbitrary k, Arbitrary t) => Arbitrary (Class k t) where
+  arbitrary = Class  <$>
+    listOf arbitrary <*>
+    listOf arbitrary <*>
+    listOf arbitrary <*>
+    arbitrary        <*>
+    error "todo" -- defaults :: Map Global (Bodies (Annot Void t) Void)
+
 instance Arbitrary Module where
-  arbitrary = Module
-    arbitrary
-    (error "todo")
-    (error "todo")
-    (error "todo")
-    (error "todo")
--}
+  arbitrary = Module <$> 
+    arbitrary        <*>  --name
+    arbitrary        <*>  --imports
+    arbitrary        <*>  --fixity
+    listOf arbitrary <*>  --data
+    listOf (error "todo") <*> -- moduleBindings :: [(Privacy, Text, Binding (Annot Void Text) Text)]
+    arbitrary where
 
 instance Arbitrary Type.HardType where
   arbitrary = oneof
