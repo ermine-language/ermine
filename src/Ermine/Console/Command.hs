@@ -369,7 +369,7 @@ commands =
   -- TODO: and currently, it only looks in stdlib/Prelude for files. that needs to be fixed.
   , cmd "import"
       & desc .~ "import module"
-      & body .~ (\_ s -> liftIO $ preludeTestLoader s >>= putStrLn . show)
+      & body .~ (\_ s -> liftIO $ preludeTestLoader s >>= print)
   -- , cmd "udata"
   --     & desc .~ "show the internal representation of a data declaration"
   --     & body .~ parsing dataType (liftIO . putStrLn . groom)

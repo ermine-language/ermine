@@ -37,9 +37,10 @@ import Ermine.Syntax.Module hiding (explicit, fixityDecl, moduleHead)
 import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 
+-- | Completely resolve an Import.
 resolveImport :: (MonadPlus m, Functor m, Applicative m) =>
-  Import Text -> 
-  Module      -> 
+  Import Text -> -- The import to be resolved.
+  Module      -> -- The module the import references.
   m ImportResolution
 resolveImport imp md = do
   let termNms  = moduleTermNames md

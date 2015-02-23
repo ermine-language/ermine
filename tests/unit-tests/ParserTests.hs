@@ -1,6 +1,5 @@
 module ParserTests
-  ( ermineParserTests
-  , erminePreludeParsingTests
+  ( parsingFileBasedTests
   , stdLibDir
   , main
   ) where
@@ -83,3 +82,9 @@ main = TestGroup "ParserTests"
   [ testCase "fetchGraph is a hashmap identity" fetchGraphHMIdentity
   , testCase "topSort sorts someGraph canonically" topSortSomeGraph
   ]
+
+parsingFileBasedTests :: [TestDef]
+parsingFileBasedTests = [
+  ParserTests.ermineParserTests
+ --,ParserTests.erminePreludeParsingTests
+ ]

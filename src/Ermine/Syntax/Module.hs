@@ -126,19 +126,19 @@ importScope' f (imp@Import {_importScope = sc}) =
   f sc <&> \sc' -> imp {_importScope = sc'}
 
 type GlobalMap = HashMap Text (HashSet Global)
+gmUnion :: GlobalMap -> GlobalMap -> GlobalMap
+gmUnion = HM.unionWith HS.union
+
 newtype ResolvedTerms = ResolvedTerms GlobalMap deriving (Eq, Show)
 newtype ResolvedTypes = ResolvedTypes GlobalMap deriving (Eq, Show)
 
-data ImportResolution = ImportResolution {
-   _resolvedImports :: [Import Global]
+data ImportResolution = ImportResolution 
+  {_resolvedImports :: [Import Global]
   ,_resolvedTerms   :: ResolvedTerms
   ,_resolvedTypes   :: ResolvedTypes
-} deriving (Eq, Show)
+  } deriving (Eq, Show)
 
 makeClassy ''ImportResolution
-
-gmUnion :: GlobalMap -> GlobalMap -> GlobalMap
-gmUnion = HM.unionWith HS.union
 
 instance Monoid ResolvedTerms where
   mempty = ResolvedTerms HM.empty

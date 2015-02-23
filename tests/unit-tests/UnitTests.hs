@@ -26,7 +26,4 @@ fileBasedTestGroup = do
 
 -- add more tesst here!
 fileBasedTests :: [TestDef]
-fileBasedTests = [
-  ParserTests.ermineParserTests
- ,ParserTests.erminePreludeParsingTests]
-
+fileBasedTests = concat [ParserTests.parsingFileBasedTests]
