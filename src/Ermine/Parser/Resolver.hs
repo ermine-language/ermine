@@ -22,7 +22,6 @@ module Ermine.Parser.Resolver
 
 import Control.Applicative
 import Control.Lens
-import Control.Monad hiding (forM)
 import Data.Hashable (Hashable)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
@@ -38,7 +37,7 @@ import Ermine.Syntax.ModuleName
 import Ermine.Syntax.Name
 
 -- | Completely resolve an Import.
-resolveImport :: (MonadPlus m, Functor m, Applicative m) =>
+resolveImport :: (Monad m, Applicative m) =>
   Import Text -> -- The import to be resolved.
   Module      -> -- The module the import references.
   m ImportResolution
@@ -125,6 +124,8 @@ renameImportAsClause :: HashMap Text a -> Maybe String -> HashMap Text a
 renameImportAsClause m = maybe m (flip (mapKeys.appendAs) m) where
   appendAs as k = pack $ unpack k ++ "_" ++ as
 
+-- | Specialization of the usual 'mapKeys' that optimizes the "same
+-- key" case by requiring the key type doesn't change.
 mapKeys :: (Eq k, Hashable k) => (k -> k) -> HashMap k a -> HashMap k a
 mapKeys f m = HM.foldrWithKey g m m where
   g k v m' = let k' = f k in if k == k' then m' else HM.delete k $ HM.insert k' v m'
