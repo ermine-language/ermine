@@ -130,6 +130,7 @@ library
     Ermine.Monitor.Combinators
     Ermine.Monitor.Exception
     Ermine.Monitor.Options
+    Ermine.Parser
     Ermine.Parser.Data
     Ermine.Parser.Global
     Ermine.Parser.Keywords
