@@ -767,6 +767,9 @@ instance Typical (Annot k a) where
     _                    -> Left t
   {-# INLINE hardType #-}
 
+instance BoundBy (Annot k) (Type k) where
+  boundBy f (Annot ks ts b) = Annot ks ts (b >>>= over kindVars F . f)
+
 instance Serial2 Annot where
   serializeWith2 pk pt (Annot ks ts s) = serialize ks *> serialize ts *> serializeScope3 serialize (serializeTK pk) pt s
   deserializeWith2 gk gt = Annot <$> deserialize <*> deserialize <*> deserializeScope3 deserialize (deserializeTK gk) gt

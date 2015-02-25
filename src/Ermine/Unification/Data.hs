@@ -50,7 +50,8 @@ instance HasGlobal (DataCheck s) where
 instance HasName (DataCheck s) where
   name = global.name
 
-instantiateDataType :: DataType () Text -> M s (Schema (MetaK s), DataCheck s)
+instantiateDataType
+  :: MonadMeta s m => DataType () Text -> m (Schema (MetaK s), DataCheck s)
 instantiateDataType dt = do
   dt'@(DataType g ks ts cs) <- kindVars (\_ -> newShallowMeta 0 False Nothing) dt
   mks <- for ks $ newMeta False
@@ -62,7 +63,7 @@ instantiateDataType dt = do
 dataCheckKind :: DataCheck s -> KindM s
 dataCheckKind (DataCheck _ ts _) = foldr ((~>) . snd) star ts
 
-generalizeDataCheck :: DataCheck s -> M s (DataType k Text)
+generalizeDataCheck :: MonadMeta s m => DataCheck s -> m (DataType k Text)
 generalizeDataCheck dc = abstr <$> zonkDataCheck dc
  where
  abstr (DataCheck nm ts cs) = DataType nm khs ts' cs'
@@ -74,13 +75,12 @@ generalizeDataCheck dc = abstr <$> zonkDataCheck dc
   ts' = (fmap.fmap) (toScope . bindAll) ts
   cs' = fmap bindAll cs
 
-zonkDataCheck :: DataCheck s -> M s (DataCheck s)
+zonkDataCheck :: MonadMeta s m => DataCheck s -> m (DataCheck s)
 zonkDataCheck (DataCheck nm ts cs) = do
   ts' <- (traverse.traverse) zonk_ ts
   cs' <- traverse zc cs
   return $ DataCheck nm ts' cs'
  where
- zc :: Constructor (MetaK s) (Var Int a) -> M s (Constructor (MetaK s) (Var Int a))
  zc (Constructor tg ks cts fs) = do
    cts' <- (traverse.traverse) (\s -> (>>>= id) <$> traverseScope pure (zonk_.pure) s) cts
    fs' <- traverse (transverseScope (\tk -> bindTK id <$> kindVars (traverse (zonk_.pure)) tk)) fs

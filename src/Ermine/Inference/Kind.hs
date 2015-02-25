@@ -162,7 +162,7 @@ data TypeDecl k t = DataDecl (DataType k t)
 -- explicit/implicit divide as checking lets, but partial annotations are
 -- possible. One solution may be to infer first and then check against
 -- annotations. Kind checking is Hindley-Milner, so this is viable.
-checkDataTypeKinds :: [DataType () Text] -> M s [DataType Void Void]
+checkDataTypeKinds :: MonadMeta s m => [DataType () Text] -> m [DataType Void Void]
 checkDataTypeKinds dts = evalStateT ?? fullM $ do
   pdts <- fmap concat . traverse (ck.flattenSCC) $ stronglyConnComp graph
   fdts <- traverse (fmap head.ck.pure) full
@@ -177,7 +177,7 @@ checkDataTypeKinds dts = evalStateT ?? fullM $ do
    cscc <- checkDataTypeGroup scc'
    return (cscc, m `Map.union` conMap cscc)
 
-checkDataTypeGroup :: [DataType () Text] -> M s [DataType Void Void]
+checkDataTypeGroup :: MonadMeta s m => [DataType () Text] -> m [DataType Void Void]
 checkDataTypeGroup dts = do
   insts <- traverse instantiateDataType dts
   let m = Map.fromList $ map (\(sch, dc) -> (dc^.name, sch)) insts
@@ -195,7 +195,8 @@ checkDataTypeGroup dts = do
   pure $ map (boundBy $ \t -> uncurry con $ cm Map.! t) checked
 
 -- | Checks that the types in a data declaration have sensible kinds.
-inferDataTypeKind :: Map Text (Schema (MetaK s))-> DataCheck s -> M s (KindM s)
+inferDataTypeKind
+  :: MonadMeta s m => Map Text (Schema (MetaK s))-> DataCheck s -> m (KindM s)
 inferDataTypeKind m (DataCheck _ hks cs) = do
    cs' <- for cs $ \c -> for c $ \case
             B i -> pure $ ks !! i
@@ -206,7 +207,7 @@ inferDataTypeKind m (DataCheck _ hks cs) = do
    foldr (~>) star ks <$ traverse_ checkConstructorKind cs'
  where ks = map snd hks
 
-checkConstructorKind :: Constructor (MetaK s) (KindM s) -> M s ()
+checkConstructorKind :: MonadMeta s m => Constructor (MetaK s) (KindM s) -> m ()
 checkConstructorKind (Constructor _ ks ts fs) = do
   sks <- for ks $ newShallowMeta 1 False
   let btys = instantiateVars sks . extract <$> ts

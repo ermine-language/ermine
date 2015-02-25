@@ -23,6 +23,7 @@ module Ermine.Syntax.Data
   , typeParameters
   , constrs
   , constructors
+  , dataTypeCon
   ) where
 
 import Bound
@@ -38,6 +39,7 @@ import Data.Bytes.Serial
 import Data.Foldable (Foldable)
 import Data.Serialize as Serialize
 import Data.Typeable
+import Data.Void
 import Ermine.Syntax
 import Ermine.Syntax.Constructor
 import Ermine.Syntax.Hint
@@ -83,6 +85,9 @@ constructors :: Traversal (DataType k t)
                           (Constructor (Var Int k) (Var Int t))
                           (Constructor (Var Int k) (Var Int u))
 constructors = constrs.traverse
+
+dataTypeCon :: DataType Void t -> HardType
+dataTypeCon dt = Con (dt^.global) (schema dt)
 
 instance Schematic (DataType k t) k where
   schema dt =

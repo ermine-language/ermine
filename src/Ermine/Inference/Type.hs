@@ -20,6 +20,7 @@
 --------------------------------------------------------------------
 module Ermine.Inference.Type
   ( matchFunType
+  , inferBindings
   , inferType
   , inferPatternType
   , generalizeType
