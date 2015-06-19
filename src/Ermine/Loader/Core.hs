@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -46,6 +48,7 @@ import Data.Data (Typeable)
 import Data.Profunctor (Strong(..))
 import Data.Profunctor.Rep (Representable(..))
 import GHC.Generics (Generic)
+import Data.Profunctor.Sieve(Sieve(..))
 
 -- | A pure loader or reloader.  Whether you are loading or reloading
 -- depends on whether an 'e' is passed.
@@ -81,13 +84,14 @@ instance Functor m => Strong (Loader e m) where
     Loader (\ ~(c, a) -> l a & mapped.mapped %~ (c,))
            (\ ~(c, a) -> r a >>> mapped.mapped.mapped %~ (c,))
 
-instance Functor m => Representable (Loader e m) where
+instance (Functor m) => Representable (Loader e m) where
   type Rep (Loader e m) = LoadResult e m
-
-  rep = view loadOrReload >>> mapped %~ uncurry LoadResult
 
   tabulate = mapped %~ (\(LoadResult l r) -> (l, r))
              >>> view (from loadOrReload)
+
+instance Functor m => Sieve (Loader e m) (LoadResult e m) where
+  sieve l x = LoadResult (_load l x) (_reload l x)
 
 -- | A more convenient representation of 'Loader' for writing
 -- combinators.
