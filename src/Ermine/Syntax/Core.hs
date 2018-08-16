@@ -8,6 +8,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -62,9 +63,10 @@ import Data.Bytes.Put
 import Data.Bytes.Serial
 import Data.Data
 import Data.List as List
+import Data.Functor.Classes
 import Data.Foldable
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
 import qualified Data.Serialize as Serialize
 import Data.Map
 import Data.Serialize (Serialize)
@@ -78,7 +80,6 @@ import Ermine.Syntax.Id (Id, AsId(..))
 import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import GHC.Generics
-import Prelude.Extras
 import Prelude
 
 ----------------------------------------------------------------------------
@@ -271,7 +272,7 @@ data Match t c a = Match
   { _matchArgs   :: [t]
   , _matchGlobal :: !Global
   , _matchBody   :: Scope Word64 c a
-  } deriving (Eq,Show,Functor,Foldable,Traversable)
+  } deriving (Eq,Show,Functor,Foldable,Traversable,Generic,Generic1)
 
 triverseMatch
   :: Applicative f
@@ -337,7 +338,7 @@ data Core t a
   | Let [Scope Word64 (Core t) a] !(Scope Word64 (Core t) a)
   | Case !(Core t a) (Map Word64 (Match t (Core t) a)) (Maybe (Scope () (Core t) a))
   | Dict { supers :: [Core t a], slots :: [Scope Word64 (Core t) a] }
-  deriving (Eq,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Show,Functor,Foldable,Traversable,Generic,Generic1)
 
 instance AsGlobal (Core t a) where
   _Global = _HardCore._Id._Global
@@ -443,7 +444,6 @@ instance Applicative (Core b) where
   (<*>) = ap
 
 instance Monad (Core b) where
-  return = Var
   Var a            >>= f = f a
   HardCore h       >>= _ = HardCore h
   Data cc tg g xs  >>= f = Data cc tg g ((>>= f) <$> xs)
@@ -526,4 +526,5 @@ prim cc r g = core $ Lam cc $ Scope $ Prim cc r g $ pure.B <$> [0..fromIntegral 
 
 instance (Hashable a, Hashable b) => Hashable (Map a b) where
   hashWithSalt n m = hashWithSalt n (Data.Map.toAscList m)
-
+instance (Hashable a) => Hashable1 (Map a) where
+  liftHashWithSalt h n m = liftHashWithSalt (liftHashWithSalt h) n (Data.Map.toAscList m)

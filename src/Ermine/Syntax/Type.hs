@@ -78,10 +78,11 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bitraversable
 import Data.Data
+import Data.Functor.Classes
 import Data.Foldable hiding (all)
 import Data.Function (on)
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
 import Data.Monoid
 import Data.IntMap hiding (map, filter, null, foldl')
 import Data.List (sortBy, elemIndex, nub, nubBy)
@@ -105,7 +106,6 @@ import Ermine.Syntax.Kind hiding (Var, general)
 import qualified Ermine.Syntax.Kind as Kind
 import Ermine.Syntax.Scope
 import GHC.Generics hiding (to)
-import Prelude.Extras
 
 #ifdef HLINT
 {-# ANN module "hlint: ignore Eta reduce" #-}
@@ -234,7 +234,7 @@ data Type k a
   | Loc !Rendering !(Type k a)
   | Exists [Hint] [(Hint, Scope Int Kind k)] (Scope Int (TK k) a)
   | And [Type k a]
-  deriving (Show, Read, Functor, Foldable, Traversable, Typeable, Generic)
+  deriving (Show, Read, Functor, Foldable, Traversable, Typeable, Generic, Generic1)
 
 infixl 9 `App`
 
@@ -276,7 +276,6 @@ instance (Data k, Data a) => Data (Type k a) where
   dataCast2 f = gcast2 f
 
 instance Hashable2 Type
-instance Hashable k => Hashable1 (Type k)
 instance Digestable k => Digestable1 (Type k)
 
 -- | Distinct primes used for salting the hashes of types
@@ -295,6 +294,21 @@ instance (Hashable k, Hashable a) => Hashable (Type k a) where
   hashWithSalt n (Loc _ ty)          = hashWithSalt n ty
   hashWithSalt n (Exists k tvs cs)   = hashWithSalt n k `hashWithSalt` tvs `hashWithSalt` cs `hashWithSalt` distExists
   hashWithSalt n (And xs)            = hashWithSalt n xs `hashWithSalt` distAnd
+
+instance (Hashable k) => Hashable1 (Type k) where
+  liftHashWithSalt h n ty = case ty of
+    Var a             -> h n a
+    App l r           -> htws n l `htws` r `hashWithSalt` distApp
+    HardType t        -> hashWithSalt n t `hashWithSalt` distHardType
+    Forall k tvs cs b -> hashWithSalt n k `hashWithSalt` tvs `hsws` cs `hsws` b `hashWithSalt` distForall
+    Loc _ ty          -> htws n ty
+    Exists k tvs cs   -> hashWithSalt n k `hashWithSalt` tvs `hsws` cs `hashWithSalt` distExists
+    And xs            -> liftHashWithSalt htws n xs `hashWithSalt` distAnd
+   where
+   infixl 0 `htws`
+   infixl 0 `hsws`
+   htws n v = liftHashWithSalt h n v
+   hsws n v = liftHashWithSalt h n v
 
 instance (Digestable k, Digestable t) => Digestable (Type k t) where
   digest c (Var a)             = digest c (1 :: Word8) `digest` a
@@ -375,8 +389,6 @@ instance Applicative (Type k) where
   {-# INLINE (<*>) #-}
 
 instance Monad (Type k) where
-  return = Var
-  {-# INLINE return #-}
   m >>= g = bindType Kind.Var g m
   {-# INLINE (>>=) #-}
 

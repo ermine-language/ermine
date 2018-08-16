@@ -93,11 +93,12 @@ instance Alternative (Lint a) where
   (<|>) = mplus
 
 instance Monad (Lint a) where
-  return a = Lint $ \_ -> Right a
-  fail s = Lint $ \_ -> Left s
   Lint m >>= f = Lint $ \c -> case m c of
     Left e -> Left e
     Right a -> runLint (f a) c
+
+-- instance MonadFail (Lint a) where
+  fail s = Lint $ \_ -> Left s
 
 instance MonadPlus (Lint a) where
   mzero = Lint $ \_ -> Left "lint: failed"

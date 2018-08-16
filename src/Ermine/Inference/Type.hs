@@ -34,7 +34,7 @@ import Control.Comonad
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.ST.Class
-import Control.Monad.Writer.Strict
+import Control.Monad.Writer.Strict hiding (Alt)
 import Data.Bitraversable
 import Data.Foldable as Foldable
 import Data.Graph
@@ -458,7 +458,7 @@ inferHardType Hole = do
   bx <- pure <$> newMeta True Nothing
   tv <- newMeta (Type bx) Nothing
   r <- viewMeta metaRendering
-  return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty)
+  return $ Witness [] (Type.Var tv) $ _HardCore # (Core.Error $ SText.pack $ show $ plain $ explain r $ Err (Just (text "open hole")) [] mempty [])
 inferHardType (DataCon g t)
   | g^.name == "Nothing" = unfurl (bimap absurd absurd t) $ dataCon [] 0 g
   | g^.name == "Just"    = unfurl (bimap absurd absurd t) $ dataCon [_Convention # C] 1 g

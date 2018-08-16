@@ -61,11 +61,12 @@ import Data.Bitraversable
 import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Bytes.Serial
+import Data.Functor.Classes
 import Data.Foldable
 import Data.Function (on)
 import Data.IntMap hiding (map)
 import Data.Map hiding (map)
-import Data.Monoid
+import Data.Monoid hiding (Alt)
 import Data.String
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
@@ -81,7 +82,6 @@ import Ermine.Syntax.Literal
 import Ermine.Syntax.Scope
 import Ermine.Syntax.Type hiding (App, Loc, Var, Tuple)
 import GHC.Generics
-import Prelude.Extras
 -- import Text.Trifecta.Diagnostic.Rendering.Prim
 
 -- | Simple terms that can be compared with structural equality.
@@ -323,7 +323,6 @@ instance Applicative (Term t) where
   (<*>) = ap
 
 instance Monad (Term t) where
-  return = Var
   m >>= g = bindTerm id g m
 
 ------------------------------------------------------------------------------

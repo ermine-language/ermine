@@ -118,7 +118,15 @@ data Import g = Import -- TODO: add a location
   , _importScope     :: ImportsInScope g -- ^ what imports are brought into scope
   } deriving (Eq,Ord,Show,Read,Functor,Foldable,Traversable,Typeable)
 
-makeClassy ''Import
+makeClassyFor
+  "HasImport"
+  "improt"
+  [ ("_importPrivacy","importPrivacy")
+  , ("_importModule", "importModule")
+  , ("_importAs", "importAs")
+  , ("_importScope", "importScope")
+  ]
+  ''Import
 
 -- | A type-changing alternative to the classy lenses.
 importScope' :: Lens (Import g) (Import h) (ImportsInScope g) (ImportsInScope h)
@@ -140,14 +148,17 @@ data ImportResolution = ImportResolution
 
 makeClassy ''ImportResolution
 
+instance Semigroup ResolvedTerms where (<>) = mappend
 instance Monoid ResolvedTerms where
   mempty = ResolvedTerms HM.empty
   (ResolvedTerms m1) `mappend` (ResolvedTerms m2) = ResolvedTerms $ m1 `gmUnion` m2
 
+instance Semigroup ResolvedTypes where (<>) = mappend
 instance Monoid ResolvedTypes where
   mempty = ResolvedTypes HM.empty
   (ResolvedTypes m1) `mappend` (ResolvedTypes m2) = ResolvedTypes $ m1 `gmUnion` m2
 
+instance Semigroup ImportResolution where (<>) = mappend
 instance Monoid ImportResolution where
   mempty  = ImportResolution mempty mempty mempty
   (ImportResolution is tms typs) `mappend` (ImportResolution is' tms' typs') =

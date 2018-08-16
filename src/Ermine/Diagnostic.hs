@@ -72,7 +72,7 @@ instance Show Diagnostic where
   show d = show $ plain $ explain (d^.rendering) (d^.err)
 
 instance HasErr Diagnostic where
-  err f (Diagnostic r p a x) = f (Err p a x) <&> \(Err q b y) -> Diagnostic r q b y
+  err f (Diagnostic r p a x) = f (Err p a x []) <&> \(Err q b y _) -> Diagnostic r q b y
 
 instance HasRendering Diagnostic where
   rendering = diagnosticRendering

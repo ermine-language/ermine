@@ -26,7 +26,7 @@ import Control.Monad.ST
 import Control.Monad.ST.Class
 import Control.Monad.Writer.Strict
 import Data.Bitraversable
-import Data.Set as Set
+import Data.Set as Set hiding (drop)
 import Data.IntMap as IntMap
 import Data.Set.Lens
 import Data.STRef

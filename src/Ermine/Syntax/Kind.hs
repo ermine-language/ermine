@@ -50,21 +50,21 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Data
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
+import Data.Functor.Classes
 import Data.Foldable
 import Data.IntMap
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.String
 import Data.Traversable
-import Data.Map as Map
+import Data.Map as Map hiding (splitAt)
 import GHC.Generics
 import Ermine.Syntax
 import Ermine.Syntax.Convention
 import Ermine.Syntax.Digest
 import Ermine.Syntax.Hint
 import Ermine.Syntax.Scope
-import Prelude.Extras
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -134,7 +134,7 @@ data Kind a
   | Kind a :-> Kind a
   | Type (Kind a)
   | HardKind HardKind
-  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic)
+  deriving (Eq, Ord, Show, Read, Data, Typeable, Generic, Generic1)
 
 instance Hashable a => Hashable (Kind a)
 instance Hashable1 Kind
@@ -176,7 +176,6 @@ instance Applicative Kind where
   (<*>) = ap
 
 instance Monad Kind where
-  return = Var
   Var a >>= f      = f a
   (x :-> y) >>= f  = (x >>= f) :-> (y >>= f)
   Type k >>= f = Type (k >>= f)
@@ -274,11 +273,15 @@ instance HasKindVars s t a b => HasKindVars (Map k s) (Map k t) a b where
 
 -- | Kind schemas
 data Schema a = Schema [Hint] !(Scope Int Kind a)
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data, Generic)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data, Generic, Generic1)
 
 instance Hashable a => Hashable (Schema a)
 instance Hashable1 Schema
 instance Digestable a => Digestable (Schema a)
+instance Eq1 Schema
+instance Ord1 Schema
+instance Read1 Schema
+instance Show1 Schema
 
 instance Fun Schema where
   _Fun = prism hither yon

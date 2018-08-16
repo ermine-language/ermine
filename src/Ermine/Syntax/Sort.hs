@@ -35,7 +35,7 @@ import Data.Distributive
 import Data.Foldable
 import Data.Functor.Rep
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
 import Data.Semigroup
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
@@ -65,7 +65,7 @@ instance Serialize Sort where
   get = deserialize
 
 data Sorted a = Sorted a a a
-  deriving (Eq,Ord,Show,Read,Foldable,Traversable,Typeable,Data,Generic)
+  deriving (Eq,Ord,Show,Read,Foldable,Traversable,Typeable,Data,Generic,Generic1)
 
 instance Num a => Num (Sorted a) where
   (+) = liftA2 (+)
@@ -135,7 +135,6 @@ instance Applicative Sorted where
   x <* _ = x
 
 instance Monad Sorted where
-  return a = Sorted a a a
   _ >> x = x
   Sorted a b c >>= f = Sorted a' b' c' where
     Sorted a' _  _  = f a

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett and Dan Doel 2013-2014

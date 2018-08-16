@@ -37,7 +37,7 @@ import Data.Distributive
 import Data.Foldable
 import Data.Functor.Rep
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
 import Data.Monoid
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
@@ -80,7 +80,7 @@ instance AsConvention Convention where
   _Convention = id
 
 data Conventional a = Conventional a a a a
-  deriving (Eq,Ord,Show,Read,Foldable,Traversable,Typeable,Data,Generic)
+  deriving (Eq,Ord,Show,Read,Foldable,Traversable,Typeable,Data,Generic,Generic1)
 
 instance Num a => Num (Conventional a) where
   (+) = liftA2 (+)
@@ -145,7 +145,6 @@ instance Applicative Conventional where
   x <* _ = x
 
 instance Monad Conventional where
-  return a = Conventional a a a a
   _ >> x = x
   Conventional a b c d >>= f = Conventional a' b' c' d' where
     Conventional a' _  _  _  = f a

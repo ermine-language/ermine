@@ -56,6 +56,7 @@ data Failure = Failure
   , _expected :: Set String
   } deriving Show
 
+instance Semigroup Failure where (<>) = mappend
 instance Monoid Failure where
   mempty = Failure [] mempty
   Failure as xs  `mappend` Failure bs ys = Failure (as <|> bs) (mappend xs ys)
@@ -99,7 +100,6 @@ instance Applicative Parser where
   (<*>) = ap
 
 instance Monad Parser where
-  return a = Parser $ \_ -> Pure a mempty
   Parser m >>= f = Parser $ \s -> case m s of
     Fail e        -> Fail e
     Err x y       -> Err x y

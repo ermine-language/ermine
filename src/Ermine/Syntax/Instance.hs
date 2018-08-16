@@ -25,7 +25,7 @@ import Data.Bifunctor
 import Data.Bitraversable
 import Data.Foldable
 import Data.Hashable
-import Data.Hashable.Extras
+import Data.Hashable.Lifted
 import Data.Monoid
 import Data.Typeable
 import Data.Void
@@ -68,6 +68,11 @@ instance HasHead (Instance a) where
 
 instance Hashable a => Hashable (Instance a) where
 instance Hashable1 Instance where
+  liftHashWithSalt h n (Instance ctx hd bd) =
+    hashWithSalt n ctx `hashWithSalt` hd `hcws` bd
+   where
+   infixl 0 `hcws`
+   hcws n c = liftHashWithSalt2 h hashWithSalt n c
 
 instance Functor Instance where
   fmap f (Instance c h b) = Instance c h $ first f b

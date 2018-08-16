@@ -153,7 +153,7 @@ parsing :: Parser a -> ([String] -> a -> Console ())
         -> [String] -> String -> Console ()
 parsing p k args s = case parseString (p <* eof) mempty s of
   Success a   -> k args a
-  Failure doc -> sayLn doc
+  Failure doc -> sayLn $ _errDoc doc
 
 -- TODO generalize with parsing
 parsingS :: StateT s Parser a -> ([String] -> a -> Console ())
@@ -162,7 +162,7 @@ parsingS p k args s = StateT $ \st ->
   let p' = runStateT p st
   in case parseString (p' <* eof) mempty s of
       Success (a, st') -> k args a <&> (,st')
-      Failure doc      -> sayLn doc <&> (,st)
+      Failure doc      -> sayLn (_errDoc doc) <&> (,st)
 
 kindBody :: [String] -> Type (Maybe Text) (Var Text Text) -> Console ()
 kindBody args ty = do

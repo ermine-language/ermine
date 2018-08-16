@@ -38,7 +38,7 @@ import Control.Lens
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Foldable
-import Data.Monoid
+import Data.Monoid hiding (Alt)
 import Data.String
 import Data.Tagged
 import Data.Traversable
@@ -79,7 +79,7 @@ instance Comonad (Binder v) where
   extract = item
   extend f b = b { item = f b }
 
-instance (p ~ Tagged, f ~ Identity, Tup Tagged Identity t) => Tup p f (Binder v t) where
+instance (p ~ Tagged, f ~ Identity, Tup p f t) => Tup p f (Binder v t) where
   _Tup = unto (fmap tup . sequenceA)
 
 -- | Smart pattern

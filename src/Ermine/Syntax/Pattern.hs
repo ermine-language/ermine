@@ -64,7 +64,7 @@ import Data.Bytes.Get
 import Data.Bytes.Put
 import Data.Foldable
 import Data.Hashable
-import Data.Monoid
+import Data.Monoid hiding (Alt)
 import qualified Data.Serialize as Serialize
 import Data.Serialize (Serialize)
 import Data.Word

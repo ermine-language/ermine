@@ -148,4 +148,4 @@ phrase ma = optional someSpace *> ma <* eof
 
 asMError :: MonadError Doc m => Result a -> m a
 asMError (Success a) = return a
-asMError (Failure doc) = throwError doc
+asMError (Failure einfo) = throwError $ _errDoc einfo

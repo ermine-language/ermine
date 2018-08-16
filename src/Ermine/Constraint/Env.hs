@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -108,7 +109,6 @@ instance Applicative (CM cc s) where
   CM f <*> CM x = CM $ liftM2 (<*>) f x
 
 instance Monad (CM cc s) where
-  return = pure
   CM m >>= f = CM $ \e -> m e >>= \x -> runCM (f x) e
 
 instance MonadST (CM cc s) where

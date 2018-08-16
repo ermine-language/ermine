@@ -96,6 +96,8 @@ moduleFileName modName = do
   return relPath
 
 newtype ApMonoid f a = ApMonoid {runApMonoid :: f a}
+instance (Applicative f, Semigroup a) => Semigroup (ApMonoid f a) where
+  ApMonoid l <> ApMonoid r = ApMonoid $ liftA2 (<>) l r
 instance (Applicative f, Monoid a) => Monoid (ApMonoid f a) where
   mempty = ApMonoid $ pure mempty
   ApMonoid l `mappend` ApMonoid r = ApMonoid $ liftA2 mappend l r

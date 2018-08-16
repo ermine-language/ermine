@@ -10,7 +10,7 @@ import Data.Foldable as Foldable
 import Data.Functor
 import Data.Functor.Rep
 import Data.Maybe
-import Data.Map as Map
+import Data.Map as Map hiding (splitAt)
 import Data.Monoid
 import Data.Vector (Vector)
 import qualified Data.Vector as V

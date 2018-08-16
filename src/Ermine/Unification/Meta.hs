@@ -376,14 +376,12 @@ instance Functor (M s) where
   {-# INLINE fmap #-}
 
 instance Applicative (M s) where
-  pure = return
+  pure = M . const . return
   {-# INLINE pure #-}
   (<*>) = ap
   {-# INLINE (<*>) #-}
 
 instance Monad (M s) where
-  return = M . const . return
-  {-# INLINE return #-}
   M m >>= k = M $ \ e -> do
     a <- m e
     unM (k a) e
@@ -404,6 +402,9 @@ instance MonadMeta s (M s) where
 instance MonadMeta s m => MonadMeta s (MaybeT m) where
   askMeta = MaybeT $ Just <$> askMeta
   localMeta f = MaybeT . localMeta f . runMaybeT
+
+instance Semigroup m => Semigroup (M s m) where
+  (<>) = liftA2 (<>)
 
 instance Monoid m => Monoid (M s m) where
   mempty  = pure mempty

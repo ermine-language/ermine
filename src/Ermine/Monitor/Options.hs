@@ -9,6 +9,7 @@ module Ermine.Monitor.Options
 
 import Control.Lens hiding (Setting)
 import Data.Data
+import Data.Semigroup ((<>))
 import Options.Applicative
 
 -- | Enable/disable EKG

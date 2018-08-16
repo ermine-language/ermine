@@ -43,7 +43,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Ermine.Syntax.Sort
 import Ermine.Syntax.Id
-import GHC.Prim (Any)
+import GHC.Types (Any)
 import Unsafe.Coerce
 
 type Native = Any

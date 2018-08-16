@@ -68,8 +68,6 @@ instance Monad m => Applicative (SharingT m) where
   {-# INLINE (<*>) #-}
 
 instance Monad m => Monad (SharingT m) where
-  return a = SharingT (return (Shared False a))
-  {-# INLINE return #-}
   SharingT m >>= f = SharingT $ do
     Shared p a <- m
     Shared q b <- unsharingT (f a)

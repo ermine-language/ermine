@@ -46,7 +46,16 @@ data Class k t = Class
                }
   deriving (Eq, Show, Generic)
 
-makeClassy ''Class
+makeClassyFor
+  "HasClass"
+  "clazz"
+  [ ("_kindArgs", "kindArgs")
+  , ("_typeArgs", "typeArgs")
+  , ("_context", "context")
+  , ("_signatures", "signatures")
+  , ("_defaults", "defaults")
+  ]
+  ''Class
 
 instance Functor (Class k) where
   fmap f (Class kh th cxt sigs defs) =

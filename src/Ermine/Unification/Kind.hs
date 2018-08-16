@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2011-2014
