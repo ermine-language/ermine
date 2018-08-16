@@ -9,6 +9,7 @@ import Distribution.Simple.Utils (copyFiles)
 import Distribution.Verbosity (normal)
 import Distribution.Text ( display )
 import System.FilePath ( (</>) )
+import System.Process
 
 import Distribution.Extra.Doctest ( doctestsUserHooks )
 
@@ -22,8 +23,9 @@ haddockOutputDir flags pkg = destDir where
 main :: IO ()
 main = defaultMainWithHooks duh
   { postHaddock = \args flags pkg lbi -> do
-     copyFiles normal (haddockOutputDir flags pkg) [("images","Hierarchy.png")]
-     postHaddock duh args flags pkg lbi
+     _ <- readProcessWithExitCode "sh" ["bin/overview.sh"] ""
+     copyFiles normal (haddockOutputDir flags pkg) [("etc","overview.png")]
+     postHaddock simpleUserHooks args flags pkg lbi
   }
   where
     duh = doctestsUserHooks "doctests"
