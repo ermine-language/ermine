@@ -279,7 +279,7 @@ ultraZonkWith trav0 fvs0 tweak = go trav0 fvs0 where
         tell $ Any True
         r <- go id fmf
         r <$ writeMeta m r
-{-# INILINE ultraZonkWith #-}
+{-# INLINE ultraZonkWith #-}
 
 zonkScope :: (MonadMeta s m, MonadWriter Any m, Traversable f, Monad f)
           => Scope b f (Meta s f a) -> m (Scope b f (Meta s f a))
