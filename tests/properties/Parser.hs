@@ -23,7 +23,7 @@ import Test.Framework.Providers.QuickCheck2
 type ModuleName = String
 
 arbModuleName :: Gen ModuleName
-arbModuleName = nelToMName <$> genNel modPart where
+arbModuleName = nelToMName <$> liftArbitrary modPart where
   nelToMName  = concat . Nel.toList . Nel.intersperse "."
   modPart     = fmap (take 10) $ (:) <$> upperAlpha <*> listOf lowerAlpha
   letters     = "abcdefghijklmnopqrstuvwxyz"

@@ -6,17 +6,6 @@
 -- Maintainer:  Dan Doel <dan.doel@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
---
--- $setup
--- >>> :m + Text.Groom Ermine.Builtin.Core Data.Int
---
--- >>> putStrLn $ groom (lit (1 :: Int32) `cons` nil :: Core Convention a)
--- Data [C, C] 1
---   (glob (Infix R 5) (mkModuleName "ermine" "Prelude") "(::)")
---   [Data [U] 0
---      (glob Idfix (mkModuleName "ermine" "Prelude") "Literal")
---      [HardCore (Lit (Int 1))],
---    Data [] 0 (glob Idfix (mkModuleName "ermine" "Prelude") "[]") []]
 --------------------------------------------------------------------
 module Ermine.Builtin.Core
   (
@@ -54,6 +43,18 @@ import Ermine.Syntax.Core
 import Ermine.Syntax.Global hiding (N)
 import Ermine.Syntax.Id
 import Ermine.Syntax.Literal
+
+--
+-- $setup
+-- >>> :m + Text.Groom Ermine.Builtin.Core Data.Int
+--
+-- >>> putStrLn $ groom (lit (1 :: Int32) `cons` nil :: Core Convention a)
+-- Data [C, C] 1
+--   (glob (Infix R 5) (mkModuleName "ermine" "Prelude") "(::)")
+--   [Data [U] 0
+--      (glob Idfix (mkModuleName "ermine" "Prelude") "Literal")
+--      [HardCore (Lit (Int 1))],
+--    Data [] 0 (glob Idfix (mkModuleName "ermine" "Prelude") "[]") []]
 
 -- | The built-in '[]' constructor for a list.
 nil :: Core cc a

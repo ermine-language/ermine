@@ -55,7 +55,6 @@ instance MonadST (DD s) where
   liftST = DD . liftST . fmap Just
 
 instance Monad (DD s) where
-  return = DD . return . return
   DD m >>= f = DD $ do
     ma <- m
     case ma of
@@ -66,7 +65,7 @@ instance Functor (DD s) where
   fmap = liftM
 
 instance Applicative (DD s) where
-  pure = return
+  pure = DD . return . return
   (<*>) = ap
 
 instance MonadMeta s (DD s) where

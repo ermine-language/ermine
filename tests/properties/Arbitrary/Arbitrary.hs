@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Arbitrary.Arbitrary
-  ( Arbitrary1(..), genNel, smaller, maybeGen, genScope, genVar
+  ( Arbitrary1(..), smaller, maybeGen, genScope, genVar
   ) where
 
 import Bound
@@ -19,12 +19,17 @@ import Test.QuickCheck.Instances
 -- Orphans
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Var a b) where
   arbitrary = oneof [ B <$> arbitrary, F <$> arbitrary ]
+instance (Arbitrary a) => Arbitrary1 (Var a) where
+  liftArbitrary gb = oneof [ B <$> arbitrary, F <$> gb ]
 
 instance (Arbitrary b,Arbitrary v,Arbitrary1 f,Functor f) => Arbitrary (Scope b f v) where
-  arbitrary = Scope . fmap (fmap lower1) <$> arbitrary1
+  arbitrary = liftArbitrary arbitrary
 
-instance Arbitrary a => Arbitrary (NonEmpty a) where
-  arbitrary = genNel arbitrary
+instance (Arbitrary b,Arbitrary1 f, Functor f) => Arbitrary1 (Scope b f) where
+  liftArbitrary = fmap Scope . liftArbitrary . liftArbitrary . liftArbitrary
+
+instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
+  arbitrary = Lift1 <$> arbitrary1
 
 genNel :: Gen a -> Gen (NonEmpty a)
 genNel g = (:|) <$> g <*> listOf g
@@ -63,17 +68,3 @@ genScope gb gf mga = Scope <$> gf (Just . genVar gb . Just $ gf mga)
 genScope' :: Maybe (Gen b) -> (forall z. Maybe (Gen z) -> Gen (f z)) -> Maybe (Gen a)
           -> Gen (Scope b f a)
 genScope' mgb gf mga = Scope <$> gf (genVar' mgb . Just $ gf mga)
-
--- Higher-order arbitrary
-class Arbitrary1 f where
-  arbitrary1 :: Arbitrary a => Gen (f a)
-  default arbitrary1 :: Arbitrary (f a) => Gen (f a)
-  arbitrary1 = arbitrary
-
-instance Arbitrary a => Arbitrary1 ((,) a)
-instance Arbitrary1 Maybe
-instance Arbitrary1 []
-instance Arbitrary a => Arbitrary1 (Either a)
-
-instance (Arbitrary1 f, Arbitrary u) => Arbitrary (Lift1 f u) where
-  arbitrary = Lift1 <$> arbitrary1

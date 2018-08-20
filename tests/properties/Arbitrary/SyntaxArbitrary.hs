@@ -8,7 +8,7 @@ import Bound
 import Control.Applicative
 import Data.List.NonEmpty hiding (fromList)
 import Data.Map
-import Data.Monoid
+import Data.Monoid hiding (Alt)
 import Data.Void
 import Ermine.Syntax.Class       as Class
 import Ermine.Syntax.Constructor as Constructor
@@ -50,7 +50,7 @@ instance Arbitrary Convention where
   arbitrary = oneof $ return <$> [ Convention.C, Convention.U, Convention.D, Convention.N ]
 
 instance (Arbitrary t, Functor c, Arbitrary1 c) => Arbitrary1 (Match t c) where
-  arbitrary1 = Match <$> arbitrary <*> arbitrary <*> arbitrary
+  liftArbitrary g = Match <$> arbitrary <*> arbitrary <*> liftArbitrary g
 
 instance (Arbitrary t, Functor c, Arbitrary1 c, Arbitrary a) => Arbitrary (Match t c a) where
   arbitrary = arbitrary1
